@@ -1354,8 +1354,9 @@ No realizar directamente tareas de: Frontend; Backend; DevOps; QA.
 
 ## 47. FORMATO DEL BLUEPRINT FUNCIONAL
 
-El resultado debe utilizar esta estructura:
+El resultado debe utilizar esta estructura (la numeración de la plantilla es la del documento generado y es independiente de los § de este skill):
 
+```markdown
 # BLUEPRINT FUNCIONAL DEL PRODUCTO
 
 ## 1. Resumen del Producto
@@ -1392,7 +1393,7 @@ El resultado debe utilizar esta estructura:
 
 ## 17. Navegación y Transiciones
 
-## 18. Entidades Funcionales
+## 18. Entidades Funcionales y Modelo Lógico de Datos (§53.1)
 
 ## 19. Dependencias
 
@@ -1433,6 +1434,11 @@ El resultado debe utilizar esta estructura:
 ## 37. Handoff para Frontend
 
 ## 38. Handoff para Backend
+
+## 39. Handoff para Base de Datos (§55)
+
+## 40. Superficie de Amenazas Funcional (§56)
+```
 
 ## 48. FORMATO DE IDENTIFICADORES
 

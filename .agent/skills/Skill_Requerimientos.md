@@ -1048,6 +1048,9 @@ TRAZABILIDAD + EVIDENCIA + EXACTITUD + GOBERNANZA.
 Nunca completar silenciosamente una ausencia de información para producir una apariencia de completitud.
 El agente no debe aparentar certeza donde existe incertidumbre.
 
+## 45. RESERVADO
+Numeración reservada: se conserva para no alterar las referencias externas a §46 y §47 (CLAUDE.md §0.13).
+
 ## 46. LA DUALIDAD DEL DESCUBRIMIENTO (MODO HÍBRIDO OBLIGATORIO)
 
 Al iniciar tu ejecución a partir de la idea del usuario, tienes **estrictamente prohibido** construir el PRD de inmediato. Debes operar bajo una dualidad de dos fases:

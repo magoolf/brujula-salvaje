@@ -37,6 +37,8 @@ security-audit-skill NO tiene `ignore = dirty`: cualquier modificación local de
 | Node.js | v24.21.0 | preinstalado | security-audit validators, Frontend |
 | Python | 3.11.9 | preinstalado | pipx / herramientas |
 
+Las rutas de winget, pipx (`~/.local/bin`) y npm global se añaden al PATH de usuario: una terminal o sesión de Claude Code abierta ANTES de la instalación no las ve hasta reiniciarse. Un "command not found" en ese caso es PATH desactualizado, no ausencia de la herramienta; aun así el check se registra como NOT_RUN (Skill_QA §4.3) hasta ejecutarlo realmente.
+
 Por proyecto (no globales): `@playwright/test`, `@axe-core/playwright` y navegadores Playwright (`npx playwright install`).
 
 ## Incidencias
