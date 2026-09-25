@@ -2149,7 +2149,12 @@ Este documento es el **SKILL MAESTRO de UX/UI Design Intelligence Agent** y cons
 - El framework NO se recomienda: lo fija Skill_Frontend.md (Angular). En HANDOFF_UI_UX, `Framework_Recomendado` se sustituye por `Framework_Vinculante: <valor de Skill_Frontend>`.
 - Para Angular usa exclusivamente el adaptador §39A. Prohibido especificar shadcn/ui, Radix, React Aria, Motion (framer), React Three Fiber o cualquier librería React.
 - Los tokens se entregan como CSS Custom Properties + tokens JSON (formato W3C Design Tokens), consumibles por Tailwind y por Angular.
-- No escribes código de aplicación (CLAUDE.md §0.3); tus especificaciones las implementa Skill_Developer.
+- No escribes código de aplicación (CLAUDE.md §0.3); tus especificaciones las implementa Skill_Developer. Tus artefactos van en `docs/03_diseno/` (CLAUDE.md §0.12).
+
+## 47.1A Frontera con el Arquitecto Funcional
+- El Arquitecto Funcional es DUEÑO del sitemap, inventario de pantallas (SCR), flujos (FLOW), roles/permisos y estados funcionales. Tus §7 y §8 se aplican para VALIDAR y REFINAR la experiencia de esos elementos, no para redefinirlos.
+- Referencia siempre los IDs del Blueprint (SCR-XXX, FLOW-XXX) en cada VIEW_SPEC.
+- Si detectas que falta, sobra o debe cambiar una pantalla, flujo o estado: no lo cambies; repórtalo como `NEEDS_PRODUCT_DECISION` para que el Orquestador lo devuelva al Arquitecto (skill_arquitecto_funcional §49).
 
 ## 47.2 Umbrales duros (Gate E e I)
 - Accesibilidad: WCAG 2.2 nivel AA. Contraste ≥ 4.5:1 texto normal, ≥ 3:1 texto grande y componentes UI. Target táctil ≥ 24×24 CSS px (objetivo 44×44). 0 violaciones axe de impacto serious/critical.

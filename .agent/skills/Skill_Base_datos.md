@@ -157,7 +157,7 @@ DB_HANDOFF:
   backup: "estrategia + prueba de restore"
   riesgos: []
 ```
-La salida se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
+La salida se escribe en `docs/04_datos/DB_HANDOFF.yaml` y los ADR en `docs/adr/ADR-DB-XXX.md` (CLAUDE.md §0.12), y se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
 
 ### 7.3 Reglas de migración (Django)
 - Prohibido en la misma release: eliminar/renombrar columna o tabla que el código anterior aún usa. Usar expand → migrar datos → contract en releases distintas.

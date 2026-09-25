@@ -1587,3 +1587,7 @@ Por cada flujo crítico (auth, pagos, datos personales, administración, subida 
 `THREAT-XXX | Flujo | Activo | Actor malicioso | Categoría STRIDE | Impacto | Control funcional requerido`
 
 Esta tabla es input obligatorio de Skill_Backend y Skill_QA.
+
+## 57. UBICACIÓN DEL OUTPUT
+
+Todo el Blueprint (formato §47, incluidas §55 y §56) se escribe en `docs/02_blueprint/BLUEPRINT.md` (CLAUDE.md §0.12). Tu input está en `docs/01_requerimientos/`. Eres dueño exclusivo de sitemap, SCR, FLOW, roles y estados funcionales; UI/UX los refina pero no los redefine (Skill_UI_UX §47.1A).

@@ -102,7 +102,7 @@ Services → Selectors → Models/DB
 
 ## 6. NORMALIZACIÓN DE ERRORES AL FRONTEND
 
-El backend nunca debe devolver errores genéricos o stacktraces a la API. Toda excepción de negocio debe heredarse de una excepción base controlada en `core/exceptions.py` y traducirse a un JSON estructurado con `code`, `message` y `details`.
+El backend nunca debe devolver errores genéricos o stacktraces a la API. Toda excepción de negocio debe heredarse de una excepción base controlada en `core/exceptions.py` y traducirse a un JSON estructurado RFC 9457 con `trace_id` — **el formato exacto y vinculante está en §12.1**, que sustituye al antiguo `{code, message, details}`.
 
 ---
 
@@ -292,6 +292,9 @@ GATES:
   OPENAPI: PASS
   N_PLUS_1: PASS
   ERROR_CONTRACT: PASS
+  APPSEC: PASS
+  OBSERVABILITY: PASS
+  CONTRACT_TESTS: PASS
 
 OBJECTIVE: "Resumen de la tarea asignada."
 
@@ -328,6 +331,9 @@ EVIDENCE:
   SECURITY: "check --deploy + security controls -> PASS"
   OPENAPI: "Contract validated -> PASS"
   ERROR_CONTRACT: "Error response tests -> PASS"
+  APPSEC: "bandit + pip-audit + semgrep + gitleaks -> PASS"
+  OBSERVABILITY: "structured logs + /health/live + /health/ready -> PASS"
+  CONTRACT_TESTS: "openapi diff + schemathesis -> PASS"
 
 NEXT_AGENT: NONE
 ```
@@ -337,7 +343,7 @@ NEXT_AGENT: NONE
 ## 12. EXTENSIONES ENTERPRISE (OBLIGATORIAS, SE AÑADEN AL BACKEND_GATE)
 
 ### 12.0 Naturaleza de este documento
-Este archivo es un ESTÁNDAR (CLAUDE.md §0.3). Lo implementa Skill_Developer. En F4 se usa además para producir el contrato OpenAPI v1 (API-first).
+Este archivo es un ESTÁNDAR (CLAUDE.md §0.3). Lo implementa Skill_Developer. En F4 se usa además para producir el contrato OpenAPI v1 (API-first) en `contracts/openapi.yaml` (CLAUDE.md §0.12): es el contrato de DISEÑO. El Developer implementa contra él y el pipeline (§12.5) verifica que el esquema generado por drf-spectacular coincide; cualquier diferencia se resuelve actualizando el contrato mediante CHG, nunca en silencio.
 
 ### 12.1 Contrato de errores (sustituye §6)
 Todas las respuestas de error usan RFC 9457 (Problem Details), `Content-Type: application/problem+json`:

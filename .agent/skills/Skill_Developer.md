@@ -500,6 +500,8 @@ QA / SECURITY / VERIFIER
 16.1 Validación del Micro-Ticket
 Rechaza (STATUS: BLOCKED) todo ticket que no traiga: id de kanban, trazabilidad REQ/FEAT/AC, archivos_permitidos, extracto de reglas del stack inyectado por el Orquestador y criterios de aceptación verificables.
 No modifiques archivos fuera de `archivos_permitidos`; si es necesario, activa el Botón de Pánico (máximo 2 por ticket, CLAUDE.md §0.7).
+Un Micro-Ticket completo equivale al estado [PLAN_APROBADO] (CLAUDE.md §0.13): pasas de [ANÁLISIS] a [EJECUCIÓN] sin pedir otra aprobación, salvo que tu análisis detecte una desviación respecto al ticket; en ese caso devuelves el plan corregido con STATUS: BLOCKED.
+Artefactos de entrada que debes leer: `docs/02_blueprint/BLUEPRINT.md`, `docs/03_diseno/`, `docs/04_datos/DB_HANDOFF.yaml` y `contracts/openapi.yaml` (CLAUDE.md §0.12).
 
 16.2 CLI First (corrección del ejemplo de §4)
 Usa el CLI del stack fijado: Angular → `ng new` / `ng generate`; Django → `django-admin startproject` / `python manage.py startapp`. `create-react-app` está obsoleto y fuera del stack.

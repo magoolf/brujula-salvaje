@@ -259,4 +259,7 @@ checkout → install (lockfile) → lint/format → typecheck → unit tests + c
 Registra por release: lead time, frecuencia de despliegue, tasa de fallo de cambios y MTTR (DORA).
 
 ### 23.7 Formato de salida
-El DEVOPS HANDOFF de §20 se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
+El DEVOPS HANDOFF de §20 se escribe en `docs/05_operacion/DEVOPS_HANDOFF.md` (CLAUDE.md §0.12) y se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
+
+### 23.8 Toolchain local
+Las herramientas de seguridad y supply chain (gitleaks, trivy, syft, cosign, semgrep, bandit, pip-audit, schemathesis, lhci) están instaladas localmente con las versiones registradas en `.agent/skills/VERSIONS.md`. En CI se instalan con las mismas versiones fijadas (REGLA 1 y 3: cero latest, cero versiones ambiguas).

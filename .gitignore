@@ -1,0 +1,44 @@
+# --- Secretos (CLAUDE.md §0.5, Skill_devops §6) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Node / Angular ---
+node_modules/
+dist/
+.angular/
+coverage/
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+staticfiles/
+media/
+
+# --- QA / Auditoría ---
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
+security-audit-output/
+
+# --- Supply chain (se publican como artefactos de CI, no se versionan) ---
+sbom*.json
+*.sarif
+
+# --- Claude Code: configuración personal ---
+.claude/settings.local.json
+
+# --- Sistema ---
+*.log
+.DS_Store
+Thumbs.db
