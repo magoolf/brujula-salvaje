@@ -1,0 +1,7 @@
+[submodule ".agent/skills/playwright-cli"]
+	path = .agent/skills/playwright-cli
+	url = https://github.com/microsoft/playwright-cli.git
+	ignore = dirty
+[submodule ".agent/skills/security-audit-skill"]
+	path = .agent/skills/security-audit-skill
+	url = https://github.com/cloudflare/security-audit-skill.git
