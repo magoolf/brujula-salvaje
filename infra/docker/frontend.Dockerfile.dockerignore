@@ -1,0 +1,16 @@
+# .dockerignore específico de infra/docker/frontend.Dockerfile (BuildKit: <Dockerfile>.dockerignore)
+# Contexto: ./frontend
+**/.git
+**/node_modules
+**/dist
+**/.angular
+**/coverage
+**/playwright-report
+**/test-results
+**/blob-report
+**/.lighthouseci
+**/*.log
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

@@ -1,0 +1,21 @@
+# .dockerignore específico de infra/docker/backend.Dockerfile (BuildKit: <Dockerfile>.dockerignore)
+# Contexto: ./backend
+**/.git
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/htmlcov
+**/.coverage
+**/coverage.xml
+**/*.log
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/media
+**/staticfiles
+**/node_modules

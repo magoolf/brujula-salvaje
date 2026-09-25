@@ -1,0 +1,14 @@
+# =============================================================================
+# Override LOCAL de depuración (TKT-F6-001): publica PostgreSQL SOLO en 127.0.0.1.
+#   docker compose -f compose.yaml -f compose.debug.yaml up -d db
+# Conectar con el rol "readonly" o "app_migrator" (nunca publicar en 0.0.0.0).
+# =============================================================================
+services:
+  db:
+    # "datos" es internal (sin publicación de puertos): se añade una red puente solo para el puerto de loopback.
+    networks: [datos, debug_host]
+    ports:
+      - "127.0.0.1:${DB_DEBUG_HOST_PORT:-55432}:5432"
+
+networks:
+  debug_host: {}

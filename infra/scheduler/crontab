@@ -1,0 +1,27 @@
+# =============================================================================
+# Planificador de comandos de gestión — Brújula Salvaje (supercronic, zona UTC)
+# Fuente: ADR-DB-004 §2 (retención), ADR-DB-005 §1 (sin broker, DEC-AUTO-090/122),
+#         DB_HANDOFF.retencion y ops_ejecucion_tarea.tarea. Frecuencias: DEC-AUTO-144.
+# Cada comando lo implementa el Developer (F7): idempotente, pg_try_advisory_lock(hashtext('<tarea>'))
+# (sin lock -> sale con código 0), registro en ops_ejecucion_tarea, sin PII en los logs.
+# Se ejecuta con el rol app_rw (nunca app_migrator). Las copias de seguridad NO van aquí:
+# las ejecuta el servicio "backup" (pg_dump 18.6 con app_backup), perfil "ops".
+# =============================================================================
+
+# Cada hora: sesiones del panel expiradas (tarea PURGA_SESIONES)
+5 * * * *   python manage.py purgar_sesiones
+
+# Diario 02:10 UTC: auditoría > 365 días (PURGA_AUDITORIA, fn_auditoria_purgar)
+10 2 * * *  python manage.py purgar_auditoria
+
+# Diario 02:20 UTC: anonimización de cuentas desactivadas hace > 30 días (ANONIMIZACION_CUENTAS)
+20 2 * * *  python manage.py anonimizar_cuentas
+
+# Diario 02:30 UTC: ops_ejecucion_tarea > 30 días + idempotencia_peticion vencida (PURGA_OPS, DEC-AUTO-127)
+30 2 * * *  python manage.py purgar_ops
+
+# Diario 03:00 UTC: invariante del índice de búsqueda (VERIFICACION_BUSQUEDA)
+0 3 * * *   python manage.py verificar_busqueda
+
+# Semanal (domingo 03:30 UTC): reindexación completa e idempotente (REINDEX_BUSQUEDA)
+30 3 * * 0  python manage.py reindexar_busqueda

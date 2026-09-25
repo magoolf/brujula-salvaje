@@ -1,0 +1,25 @@
+# =============================================================================
+# Override de CI / pruebas efímeras (TKT-F6-001). NUNCA para datos persistentes.
+#   docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
+# - DB_BOOTSTRAP_TEST_TEMPLATE=true: app_migrator con CREATEDB y template1 con esquemas app/ext
+#   para que pytest-django cree test_<db> (DB_HANDOFF roles_notas).
+# - BD publicada en 127.0.0.1:5432 del runner para pytest fuera de contenedores.
+# - Volumen de datos en tmpfs (efímero).
+# =============================================================================
+services:
+  db:
+    environment:
+      DB_BOOTSTRAP_TEST_TEMPLATE: "true"
+    # "datos" es internal (sin publicación de puertos): se añade una red puente solo para el puerto de loopback.
+    networks: [datos, ci_host]
+    ports:
+      - "127.0.0.1:${DB_CI_HOST_PORT:-5432}:5432"
+    volumes: !override
+      - type: tmpfs
+        target: /var/lib/postgresql
+        tmpfs:
+          size: 1073741824
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+
+networks:
+  ci_host: {}

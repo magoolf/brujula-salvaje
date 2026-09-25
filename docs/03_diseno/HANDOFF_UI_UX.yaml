@@ -1,0 +1,1808 @@
+# HANDOFF_UI_UX — "Brújula Salvaje" (marca provisional DEC-AUTO-001)
+# Productor: Skill_UI_UX (subagente ui-ux) · Ticket: TKT-F4-001 · Fase: F4 (paralelo con base-datos y backend-contrato)
+# Input: docs/02_blueprint/BLUEPRINT.md v1.0 (44 SCR, 17 FLOW, GI-01..08, RULE-001..030) + docs/01_requerimientos/PRD.md
+# Tokens: docs/03_diseno/tokens.json (W3C Design Tokens -> CSS Custom Properties --bs-*)
+# Convención de origen (CLAUDE.md §0.2): [BP] = definido por el Blueprint; [UX] = refinamiento de diseño de este documento.
+#   Toda decisión [UX] que implica elegir entre alternativas lleva DEC-AUTO-057..079 (ORIGEN: EXPANSIÓN_AUTÓNOMA, PROPOSED, reversible).
+# Frontera (Skill_UI_UX §47.1A): este documento NO crea, elimina ni modifica SCR, FLOW, estados funcionales ni reglas.
+#   Lo que requeriría cambiarlos está en NEEDS_PRODUCT_DECISION.
+# Este documento no contiene código de aplicación (CLAUDE.md §0.3): los fragmentos CSS son valores de token, no implementación.
+
+HANDOFF_UI_UX:
+  ESTADO: "COMPLETADO"
+  PROYECTO: "Brújula Salvaje (nombre provisional, DEC-AUTO-001)"
+  VERSION: "1.0"
+  FECHA: "2026-09-25"
+  TICKET: "TKT-F4-001"
+
+  CONTEXTO:
+    PRB: "Portal editorial público, anónimo y de solo lectura sobre viajes de aventura, más un panel editorial interno para el staff (BLUEPRINT §1)."
+    OBJ: ["OBJ-001 Inspirar a explorar", "OBJ-002 Contenido experto y creíble", "OBJ-003 Servir a todo tipo de visitantes (WCAG 2.2 AA)"]
+    REQ: ["REQ-001", "REQ-010..033", "REQ-042", "REQ-043", "REQ-052", "REQ-055", "REQ-056", "REQ-058", "REQ-059", "REQ-060", "REQ-061", "REQ-070", "REQ-071"]
+    STACK: "Angular"
+    PLATAFORMAS: ["Mobile", "Tablet", "Desktop"]
+    IDIOMA: "Solo español, lang=es, locale es-CO, sistema métrico (CON-004)"
+    RESTRICCIONES_DE_DISENO:
+      - "CON-003 / REQ-059: 0 recursos de terceros en ejecución. Fuentes, iconos, cartografía e imágenes se sirven desde el propio origen."
+      - "CON-002: sin analítica, sin cookies en rutas públicas, sin formularios públicos que envíen datos."
+      - "CON-007: el contenido principal de las rutas públicas llega en el HTML inicial; el diseño no depende de JS para mostrar contenido."
+      - "CON-008 / REQ-056: WCAG 2.2 AA; 0 violaciones axe serious/critical."
+      - "REQ-052: LCP ≤ 2,5 s, INP ≤ 200 ms, CLS ≤ 0,1 (p75 móvil). REQ-061: ≤ 1,5 MB de transferencia en la carga inicial de Inicio y Ficha."
+      - "REQ-060 / CON-009: 320–1920 px sin scroll horizontal; 2 últimas versiones de Chrome, Firefox, Safari, Edge, Safari iOS y Chrome Android."
+      - "ASM-001: sitio público mobile-first. ASM-009: panel orientado a escritorio, usable desde 768 px y operable a 320 px."
+
+  UX_ANALYSIS:
+    mode: "DESIGN_SYSTEM + UX_DESIGN + UI_DESIGN + RESPONSIVE + ACCESSIBILITY + MOTION + DESIGN_TO_CODE"
+    status: "COMPLETED"
+    objective: "Sistema de diseño y VIEW_SPEC de las 44 SCR para que Skill_Developer implemente en Angular sin decisiones visuales pendientes."
+    user_goal: "Visitante: inspirarse, descubrir y planear sin cuenta, desde el móvil. Staff: mantener un catálogo de calidad sin tocar código y sin publicar contenido incompleto."
+    product_goal: "Recorridos de ≥3 niveles de profundidad sin callejones sin salida (OBJ-001); credibilidad visible (OBJ-002); accesibilidad total (OBJ-003)."
+    assumptions: ["ASM-UX-001", "ASM-UX-002", "ASM-UX-003"]
+    needs_product_decision: ["NPD-UX-001", "NPD-UX-002"]
+    needs_content: ["Fotografías semilla con licencia verificable (GAP-007)", "Textos de la escala de dificultad y presupuesto (DATA-020)", "Datos del Responsable del tratamiento (DEC-001)"]
+    needs_data: ["Derivados responsivos de imagen con ancho y alto conocidos (DEC-AUTO-044)", "Coordenadas de cada destino (RULE-023)"]
+    technical_dependencies:
+      - "Renderizado del HTML inicial en servidor + hidratación (CON-007; forma técnica en F5, Skill_Frontend)."
+      - "Angular CDK (a11y, overlay, dialog, drag-drop, listbox) y Tailwind CSS consumiendo --bs-* (DEC-AUTO-057)."
+      - "Contrato OpenAPI (backend-contrato, F4) para los campos exactos de tarjetas y formularios."
+    key_decisions: ["DEC-AUTO-057..079 (ver DECISIONES)"]
+    rejected_options:
+      - "Angular Material / PrimeNG como librería base: peso de bundle y estética genérica frente a una marca expresiva (DEC-AUTO-057)."
+      - "Mapas con teselas (Leaflet/OpenStreetMap): violan CON-003 (DEC-AUTO-061)."
+      - "Carruseles automáticos y filas con scroll horizontal (DEC-AUTO-077)."
+      - "Toasts que desaparecen solos para resultados importantes (DEC-AUTO-068)."
+      - "Slider doble para el rango de dificultad (DEC-AUTO-067)."
+      - "Editor de contenido por pestañas (DEC-AUTO-076)."
+    rationale:
+      - "Fotografía protagonista + tipografía editorial expresiva materializan DEC-AUTO-004 sin coste de rendimiento (fuentes variables subconjuntadas, 0 librerías de animación)."
+      - "Primitivas headless del CDK dan patrones ARIA probados sin imponer estética."
+
+  UX_DIRECTION:
+    Objetivo: "Que cada pantalla invite a dar el siguiente paso: toda vista pública termina con rutas de salida visibles (Sigue explorando, migas, estados vacíos con ≥2 salidas)."
+    Usuario: "Visitante hispanohablante, mayoritariamente móvil (ASM-001), sin cuenta; staff de 1-5 personas en escritorio (ASM-009)."
+    User_Journey: "Inspiración (Inicio, fotografía) → Descubrimiento (Explorar, mapa, meses, tipos, búsqueda) → Profundización (ficha, galería, datos clave, seguridad) → Planificación (itinerario día a día, checklist, guías, imprimir) → Continuación (Sigue explorando, guardar, compartir)."
+    User_Flow: "FLOW-001 es el eje troncal; FLOW-002..009 y FLOW-017 lo alimentan; FLOW-010..016 cubren el panel. Validación en FLUJOS_VALIDADOS."
+    Arquitectura_Informacion:
+      - "Sitemap del BLUEPRINT §10 sin cambios. Navegación primaria GI-01: Destinos · Tipos de aventura · Itinerarios · Guías · Colecciones* · Cuándo ir* (* solo si está implementada, RULE-030)."
+      - "Navegación secundaria GI-02 (pie): Acerca de / Metodología · Tratamiento de datos · Cookies · Aviso legal · Créditos · Mapa del sitio · Glosario*."
+      - "Navegación contextual: migas (GI-03) en todo detalle, enlaces cruzados entre entidades, Sigue explorando (≥3, RULE-006), índice En esta página en fichas largas."
+      - "Panel: barra lateral por tareas (Tablero · Contenido [7 tipos] · Medios · Destacados de inicio · Taxonomías · [Admin] Cuentas · Auditoría · Configuración) + menú de usuario (Mi cuenta · Cerrar sesión)."
+    Riesgos_UX:
+      - "Fichas de destino muy largas (≥600 palabras + 12 secciones): mitigado con índice En esta página, jerarquía h2 estricta y datos clave arriba."
+      - "Superposición de marcadores en el mapa (varios destinos en Colombia): mitigado con agrupación y presets de región (DEC-AUTO-061)."
+      - "Formularios editoriales extensos: mitigado con navegación por secciones, indicador de completitud y resumen de errores enlazado."
+      - "Contenido semilla sin fotografía real (GAP-007): el sistema mantiene proporciones y placeholders de marca para que no se degrade la maquetación."
+
+  DESIGN_SYSTEM:
+    Framework_Vinculante: "Angular 22 — zoneless, Signals, httpResource, arquitectura por features (Skill_Frontend.md §2 y §4)"
+    Component_Library: "Design System propio en shared/ui construido sobre Angular CDK (primitivas headless accesibles) + Tailwind CSS con tema generado desde tokens.json. Sin Angular Material ni PrimeNG (DEC-AUTO-057)."
+    Visual_Language: "Aventura inspiradora (DEC-AUTO-004): fotografía de paisaje a sangre como protagonista, titulares grotescos expresivos, fondos arena cálidos, verde bosque como color de acción y naranja atardecer reservado para el único gran CTA inspiracional de cada vista. El panel usa el mismo sistema en densidad compacta y sin fotografía decorativa."
+    Principios_Visuales:
+      - "La foto inspira, el dato decide: cada imagen protagonista va acompañada de datos clave legibles (dificultad, época, duración)."
+      - "Un solo acento por vista: el naranja atardecer solo aparece en un CTA, en marcadores del mapa y en resaltados."
+      - "Credibilidad visible: autoría, fecha de revisión, fuentes y descargo tienen tratamiento tipográfico propio, no letra pequeña escondida."
+      - "Nunca solo color: estados, dificultad, presupuesto, errores y selección llevan siempre texto o forma."
+      - "Calma operativa en el panel: densidad compacta, estados editoriales como insignias con texto, acciones destructivas separadas y confirmadas."
+    Anti_Copy_Note: "Los patrones de referencia (revistas de viaje, guías outdoor) inspiran estructura, no se copian marcas, ilustraciones ni maquetas."
+    Tokens_Fuente: "docs/03_diseno/tokens.json"
+    Convencion_CSS: "Cada token se expone como CSS Custom Property --bs-<ruta-con-guiones> en :root (p. ej. --bs-color-text-muted, --bs-space-4, --bs-motion-duration-base). Tailwind consume las variables en su tema; ningún componente usa HEX literales ni espaciados fuera de escala."
+    Tokens:
+      Primary: "#1F5C45"
+      Primary_Hover: "#174A37"
+      Secondary: "#1D5E7A"
+      Accent: "#C2410C"
+      Accent_Text: "#A93A0A"
+      Background: "#FBF8F3"
+      Background_Panel: "#F2EDE4"
+      Surface: "#FFFFFF"
+      Surface_Sunken: "#F2EDE4"
+      Surface_Inverse: "#1B2421"
+      Text: "#1B2421"
+      Muted_Text: "#55615B"
+      Border: "#E6DED1"
+      Border_Control: "#7A857F"
+      Success: "#276A2B"
+      Warning: "#8A5A00"
+      Error: "#B3261E"
+      Info: "#1D5E7A"
+      Focus: "#1D5E7A"
+      Focus_On_Dark: "#F2A57C"
+    Contraste_Calculado:
+      metodo: "Luminancia relativa WCAG 2.x, calculada a mano sobre los HEX de tokens.json. Pendiente de verificación con axe sobre la interfaz renderizada (QA, NOT_RUN en F4)."
+      pares:
+        - {par: "text.default #1B2421 / sand.50 #FBF8F3", ratio: "14.87:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "text.default / surface #FFFFFF", ratio: "15.9:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "text.muted #55615B / sand.50", ratio: "6.05:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "text.muted / sand.100 #F2EDE4", ratio: "5.55:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "blanco / primary #1F5C45", ratio: "7.85:1", uso: "botón primario", umbral: "4.5", resultado: "OK"}
+        - {par: "primary / sand.50 (enlaces)", ratio: "7.34:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "primary / forest.100 #E3EFE8 (seleccionado)", ratio: "6.65:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "blanco / accent #C2410C", ratio: "5.18:1", uso: "CTA de acento", umbral: "4.5", resultado: "OK"}
+        - {par: "accent_text #A93A0A / sand.100", ratio: "5.46:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "accent #C2410C / sand.100 como texto", ratio: "4.44:1", uso: "texto", umbral: "4.5", resultado: "PROHIBIDO: usar accent_text"}
+        - {par: "blanco / lagoon #1D5E7A", ratio: "7.16:1", uso: "info", umbral: "4.5", resultado: "OK"}
+        - {par: "success #276A2B / green.100", ratio: "5.78:1", uso: "insignia", umbral: "4.5", resultado: "OK"}
+        - {par: "warning #8A5A00 / amber.100", ratio: "5.41:1", uso: "insignia", umbral: "4.5", resultado: "OK"}
+        - {par: "error #B3261E / red.100", ratio: "5.55:1", uso: "insignia", umbral: "4.5", resultado: "OK"}
+        - {par: "info #1D5E7A / lagoon.100", ratio: "6.05:1", uso: "insignia", umbral: "4.5", resultado: "OK"}
+        - {par: "border.control #7A857F / sand.100", ratio: "3.28:1", uso: "borde de control", umbral: "3", resultado: "OK"}
+        - {par: "focus #1D5E7A / sand.50", ratio: "6.69:1", uso: "indicador de foco", umbral: "3", resultado: "OK"}
+        - {par: "focus_on_dark #F2A57C / ink.900", ratio: "7.9:1", uso: "indicador de foco", umbral: "3", resultado: "OK"}
+        - {par: "sand.50 / ink.900 (pie, franja vista previa)", ratio: "14.87:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "ink.300 #B8C2BC / ink.900", ratio: "8.69:1", uso: "texto", umbral: "4.5", resultado: "OK"}
+        - {par: "marcador #C2410C / tierra #E6DED1", ratio: "3.88:1", uso: "objeto gráfico", umbral: "3", resultado: "OK"}
+        - {par: "marcador / océano #E1EEF4", ratio: "4.37:1", uso: "objeto gráfico", umbral: "3", resultado: "OK"}
+        - {par: "blanco sobre scrim ≥0.78 de #0E1412 con foto blanca debajo (peor caso)", ratio: "≈6.5:1", uso: "texto sobre imagen", umbral: "4.5", resultado: "OK"}
+    Temas: "Solo tema claro en el MVP. Soporte obligatorio de forced-colors (modo de alto contraste de Windows): bordes transparentes visibles, foco con outline del sistema, iconos con currentColor (DEC-AUTO-059)."
+    Tipografia:
+      Display: "Bricolage Grotesque 800, clamp(2.25rem → 4.5rem), interlineado 1.05, tracking -0.02em — solo titular del bloque principal de Inicio"
+      Heading: "H1 Bricolage 700 clamp(2rem → 3rem) · H2 Bricolage 700 clamp(1.5rem → 2.125rem) · H3 Bricolage 600 clamp(1.25rem → 1.5rem) · H4 Source Sans 3 700 1.125rem"
+      Body: "Source Sans 3 400 1rem/1.6 (UI) · body-lg 1.1875rem/1.65 para lectura larga, medida máxima 68ch"
+      Label: "Source Sans 3 600 0.9375rem/1.4"
+      Caption: "Source Sans 3 400 0.8125rem/1.45 (pies de foto, créditos); nunca en color deshabilitado"
+      Button: "Source Sans 3 600 1rem"
+      Overline: "Source Sans 3 700 0.8125rem, tracking 0.08em, mayúsculas por CSS"
+      Mono: "Fuentes monoespaciadas del sistema (solo panel: slug, clave TOTP, códigos)"
+      Reglas:
+        - "Un solo h1 por vista. Sin saltos de nivel de encabezado."
+        - "Texto escalable al 200 % sin pérdida (unidades rem; nunca px en font-size)."
+        - "Truncado permitido solo en títulos de tarjeta (máx. 3 líneas con line-clamp) y siempre con el título completo en el enlace accesible."
+        - "Números tabulares (font-variant-numeric: tabular-nums) en tablas del panel, contadores y datos de itinerario."
+        - "Guiones y cortes: hyphens: auto con lang=es en texto corrido; nunca en titulares."
+    Fuentes_Autoalojadas:
+      decision: "DEC-AUTO-058"
+      familias:
+        - {familia: "Bricolage Grotesque", licencia: "SIL Open Font License 1.1", formato: "WOFF2 variable (eje wght limitado a 600-800 por instanciado)", subconjunto: "latin (cubre á é í ó ú ü ñ ¿ ¡ « » € y puntuación)", presupuesto: "≤ 45 KB", precarga: "No (font-display: swap con fallback métrico)"}
+        - {familia: "Source Sans 3", licencia: "SIL Open Font License 1.1", formato: "WOFF2 variable roman (400-700) + italic (400-700)", subconjunto: "latin", presupuesto: "roman ≤ 55 KB, italic ≤ 50 KB", precarga: "Solo roman (rel=preload, crossorigin, mismo origen)"}
+      reglas:
+        - "Los archivos se vendorizan en el repositorio del frontend (assets de fuentes) desde el repositorio oficial del proyecto tipográfico, con su OFL.txt; se registra versión y hash. Prohibido Google Fonts u otro CDN en ejecución (CON-003)."
+        - "@font-face con font-display: swap y familias de fallback métrico (size-adjust, ascent-override, descent-override calculados en build) para CLS por fuentes = 0."
+        - "Máximo 2 archivos de fuente en la ruta crítica; la itálica se descarga solo si hay texto en cursiva visible."
+    Spacing_System: "Base 4 px (tokens space.0..24) + space.section fluido clamp(3rem → 6rem). Márgenes de página 16/32/48 px (xs/md/lg); gutters 16/24/24 px; rejilla 4/8/12 columnas."
+    Radius_System: "sm 4 (insignias, casillas) · md 8 (controles, tarjetas del panel) · lg 16 (tarjetas e imágenes públicas) · xl 24 (hoja inferior, bloque principal) · pill (fichas de filtro, CTA de acento)."
+    Elevation_System: "shadow.1 tarjeta · shadow.2 hover y cabecera con scroll · shadow.3 popovers, menús, mini-tarjeta del mapa · shadow.4 diálogos y cajones. En forced-colors la elevación se sustituye por borde de 1 px."
+    Border_System: "hairline 1 px decorativo (border.subtle) · control 1 px (border.control, 3:1) · strong 2 px (botón secundario, seleccionado) · foco 3 px + separación 2 px."
+    Z_Index: "base 0 · raised 10 · sticky 100 · dropdown 200 · drawer 300 · modal 400 · banner-offline 450 · status 500 · tooltip 600 · skip-link 700."
+    Icon_System: "Lucide (licencia ISC), vendorizado como SVG en línea importado por icono (tree-shaking), trazo 1.75, tamaños 16/20/24/32, color currentColor. Iconos decorativos con aria-hidden=true; iconos solitarios en botón siempre con nombre accesible. Sin fuentes de iconos (DEC-AUTO-066)."
+    Imagen:
+      decision: "DEC-AUTO-072"
+      proporciones: "Bloque principal 16:9 (≥ md) / 4:5 (< md, Inicio) · portada de ficha 16:9 (≥ md) / 4:3 (< md) · tarjeta 4:3 · galería 3:2 · miniatura 1:1."
+      recorte: "object-fit: cover con object-position: center (hasta que se resuelva NPD-UX-002, punto focal)."
+      responsive: "srcset con los derivados de DEC-AUTO-044 (anchos objetivo 320, 480, 640, 960, 1280, 1600, 1920) en formato moderno (AVIF/WebP según los derivados que genere Backend) y sizes por plantilla (ver PERFORMANCE_SPEC)."
+      carga: "La imagen LCP (bloque principal de Inicio, portada de fichas) sin loading=lazy, con fetchpriority=high y preload responsivo. Todo lo demás: loading=lazy + decoding=async."
+      placeholder: "Fondo bg.sunken + width/height o aspect-ratio reservados. Sin blur-up generado por JS."
+      fallo: "Si una imagen no carga (ALT-009): el contenedor conserva su tamaño, muestra el texto alternativo en caption sobre bg.sunken y el crédito sigue visible."
+      credito: "Todo medio visible en el sitio público muestra el crédito (autor + licencia) en su pie o, en tarjetas, está disponible en la ficha y en SCR-021."
+
+  PLANTILLAS:
+    - id: "TPL-PUB-HOME"
+      uso: ["SCR-001"]
+      estructura: "GI-01 cabecera → main (bloque principal a sangre + secciones apiladas con space.section) → GI-02 pie."
+    - id: "TPL-PUB-LIST"
+      uso: ["SCR-002", "SCR-006", "SCR-008", "SCR-010", "SCR-011", "SCR-013", "SCR-015", "SCR-016", "SCR-017", "SCR-018", "SCR-019", "SCR-021", "SCR-022"]
+      estructura: "Cabecera de página (migas si procede, h1, entradilla opcional, recuento role=status) → barra de herramientas (orden, vistas) → rejilla o lista → paginación → bloque de salida."
+      rejilla: "Tarjetas: 1 col < 480 · 2 col 480-1023 · 3 col ≥ 1024 · 4 col ≥ 1536 (sin barra lateral). Con barra lateral de filtros: 2 col 1024-1279 · 3 col ≥ 1280."
+    - id: "TPL-PUB-DETAIL"
+      uso: ["SCR-004", "SCR-007", "SCR-009", "SCR-014"]
+      estructura: "Migas → encabezado (h1, metadatos, acciones Guardar*/Compartir*/Imprimir*) → portada → datos clave → cuerpo en 8/12 col + columna lateral 4/12 fija (índice En esta página) desde lg → bloques de credibilidad (fuentes, autoría, descargo) → Sigue explorando."
+    - id: "TPL-PUB-ARTICLE"
+      uso: ["SCR-012", "SCR-020"]
+      estructura: "Migas → h1 + metadatos → cuerpo de lectura (body-lg, medida 68ch, centrado) con índice lateral desde xl → fuentes/autoría/descargo → Sigue explorando (solo SCR-012)."
+    - id: "TPL-PUB-ERROR"
+      uso: ["SCR-023", "SCR-024", "SCR-025"]
+      estructura: "Cabecera y pie completos (SCR-025: cabecera y pie estáticos, sin datos) → ilustración de brújula SVG decorativa en línea → h1 → explicación → acciones → rutas de salida."
+    - id: "TPL-PANEL-AUTH"
+      uso: ["SCR-030", "SCR-031", "SCR-033", "SCR-032 (modo cambio obligatorio)"]
+      estructura: "Fondo bg.canvas-panel, tarjeta centrada size.auth-card (SCR-033: dialog-md), logotipo + etiqueta Panel editorial, sin navegación lateral. Solo acción Cerrar sesión cuando hay sesión."
+    - id: "TPL-PANEL-SHELL"
+      uso: ["SCR-034", "SCR-035", "SCR-036", "SCR-039", "SCR-040", "SCR-042", "SCR-043", "SCR-044", "SCR-045", "SCR-046", "SCR-047", "SCR-048", "SCR-032 (modo normal)"]
+      estructura: "Barra superior (56 px: marca, título de sección, menú de usuario) + barra lateral (248 px, colapsable a iconos con etiqueta en tooltip desde lg; cajón modal < lg) + área principal (máx. 1280 px) con cabecera de página (h1, acciones primarias a la derecha) y contenido."
+    - id: "TPL-PANEL-FULL"
+      uso: ["SCR-037"]
+      estructura: "Franja fija VISTA PREVIA – NO PUBLICADO + plantilla pública correspondiente a pantalla completa."
+
+  COMPONENTES:
+    # Nivel Primitive -> Component -> Pattern -> Feature (Skill_UI_UX §13). Estados según matriz §14.
+    - Nombre: "Button"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["primary (verde bosque)", "accent (atardecer, pill; 1 por vista)", "secondary (contorno 2 px)", "ghost / tertiary", "danger", "ghost-inverse (sobre foto o fondo oscuro)"]
+      Tamanos: ["sm 36 px (solo panel con pointer: fine)", "md 44 px (defecto)", "lg 52 px (CTA del bloque principal)"]
+      Estados: ["default", "hover", "focus-visible (anillo 3 px + separación 2 px)", "pressed (translateY 1 px, sin animación con reduced-motion)", "disabled (bg/fg/border disabled; aria-disabled cuando debe seguir siendo enfocable para explicar el motivo)", "loading (spinner + etiqueta cambia a gerundio: Publicando…; aria-busy; no clicable)"]
+      Interacciones: ["Nunca solo icono sin nombre accesible", "Etiqueta con verbo en infinitivo", "Doble clic protegido: se deshabilita durante la operación (ALT-017)"]
+      Dependencias_Visuales: ["color.action.*", "typography.button", "radius.md / radius.pill", "size.control-*"]
+    - Nombre: "IconButton"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["ghost", "secondary", "inverse"]
+      Estados: ["default", "hover", "focus-visible", "pressed", "disabled", "toggled (aria-pressed)"]
+      Interacciones: ["Área mínima 44×44 (24×24 absoluto en tablas del panel con pointer: fine)", "aria-label obligatorio", "Tooltip visual con el mismo texto al hover y al foco"]
+      Dependencias_Visuales: ["size.icon-md", "size.target"]
+    - Nombre: "Link"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["inline (subrayado siempre)", "standalone (con flecha)", "nav (sin subrayado, estado activo con aria-current=page + barra inferior de 2 px)", "external (icono external-link + texto oculto «(sitio externo)»; rel=noopener noreferrer; misma pestaña en el sitio público, DEC-AUTO-078)"]
+      Estados: ["default", "hover (subrayado grueso)", "focus-visible", "visited (sin cambio de color)", "current"]
+      Interacciones: ["Enlace de glosario: subrayado punteado, lleva a /glosario#slug"]
+      Dependencias_Visuales: ["color.text.link", "color.text.link-hover"]
+    - Nombre: "FormField"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["text", "textarea (con contador)", "select nativo", "number", "date", "password (con botón Mostrar/Ocultar)", "search"]
+      Estados: ["default", "hover", "focus-visible", "filled", "disabled", "readonly (fondo bg.sunken, sin borde de control)", "invalid (borde error + icono + mensaje)", "valid (sin decoración; no se felicita cada campo)"]
+      Interacciones: ["Etiqueta visible siempre arriba (nunca solo placeholder)", "Ayuda bajo la etiqueta; error bajo el campo; ambos vinculados con aria-describedby", "aria-invalid=true al fallar", "Validación al salir del campo (blur) y al enviar; no en cada pulsación", "Contador de caracteres visible «120/300»; se anuncia por aria-live polite solo al quedar 20 y al superar el límite", "autocomplete correcto en credenciales (username, current-password, new-password, one-time-code)", "Obligatorio marcado con «(obligatorio)» en texto, no solo asterisco"]
+      Dependencias_Visuales: ["typography.label", "border.control", "status.error-fg", "size.control-md / control-panel"]
+    - Nombre: "CheckboxGroup / RadioGroup"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["lista vertical", "rejilla de fichas conmutables (meses 3×4)", "con Ver todos (muestra 6 y despliega el resto)"]
+      Estados: ["unchecked", "checked", "indeterminate (solo panel)", "focus-visible", "disabled", "invalid"]
+      Interacciones: ["fieldset + legend siempre", "Área clicable = toda la fila (≥44 px de alto)", "Casilla visible 20 px con borde border.control"]
+      Dependencias_Visuales: ["border.control", "action.primary-bg"]
+    - Nombre: "Badge"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["editorial: BORRADOR · PUBLICADO · RETIRADO", "medio: PENDIENTE_METADATOS (texto «Pendiente de datos») · DISPONIBLE · RETIRADO · RECHAZADO", "cuenta: ACTIVA · PENDIENTE_ACTIVACION («Pendiente de activación») · BLOQUEADA_TEMPORAL («Bloqueada temporalmente») · DESACTIVADA · ANONIMIZADA", "neutral (conteos)", "Esencial (checklist)"]
+      Estados: ["estático"]
+      Interacciones: ["Texto legible en español (no el código del enum)", "Icono de forma distinta por estado además del color"]
+      Dependencias_Visuales: ["color.badge.*", "radius.sm", "typography.body-sm 600"]
+    - Nombre: "Chip (ficha de filtro quitable)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["filtro activo (texto «Tipo: Senderismo» + icono x)", "enlace de tipo (en fichas)"]
+      Estados: ["default", "hover", "focus-visible", "pressed"]
+      Interacciones: ["El chip completo es un botón con aria-label «Quitar filtro Tipo: Senderismo»", "Al quitar, el foco pasa al chip siguiente o, si no quedan, al encabezado de resultados"]
+      Dependencias_Visuales: ["radius.pill", "action.selected-bg"]
+    - Nombre: "Skeleton"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["tarjeta", "línea de texto", "fila de tabla", "bloque de imagen"]
+      Estados: ["loading"]
+      Interacciones: ["Mismas dimensiones que el contenido final (CLS 0)", "Contenedor con aria-busy=true; el esqueleto es aria-hidden", "Pulso de opacidad 1.6 s; estático con reduced-motion", "Aparece solo si la carga supera 300 ms (evita parpadeo)"]
+      Dependencias_Visuales: ["bg.sunken", "radius.*"]
+    - Nombre: "InlineAlert / Banner"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["info", "success", "warning", "error"]
+      Estados: ["visible", "descartable (solo success/info)"]
+      Interacciones: ["role=status para success/info; role=alert para error", "Icono + título + texto + acción opcional (Reintentar, Ver en el sitio, Recargar)", "Persistente hasta que el usuario lo cierre o cambie de vista (DEC-AUTO-068)"]
+      Dependencias_Visuales: ["color.status.*", "radius.md"]
+    - Nombre: "Dialog"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["dialog (formulario/información)", "alertdialog (confirmación destructiva)", "fullscreen (< md y visor de galería)", "bottom-sheet (filtros < lg)", "drawer lateral (menú móvil, barra del panel < lg)"]
+      Estados: ["opening", "open", "closing", "busy (acción en curso)"]
+      Interacciones: ["CDK Dialog: foco inicial en el primer elemento lógico (en alertdialog: en Cancelar)", "Trampa de foco; Esc cierra salvo en operación en curso", "Clic en el fondo cierra solo diálogos no destructivos", "Al cerrar, el foco vuelve al disparador", "aria-labelledby al título, aria-describedby al texto principal", "Bloqueo de scroll del documento sin salto de maquetación (scrollbar-gutter: stable)"]
+      Dependencias_Visuales: ["overlay.backdrop", "shadow.4", "radius.lg (xl en hoja inferior)", "motion.duration.moderate"]
+    - Nombre: "Tabs"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["subrayado (panel SCR-043)"]
+      Estados: ["default", "hover", "focus-visible", "selected", "disabled"]
+      Interacciones: ["Patrón ARIA tabs con activación manual (flechas mueven el foco, Enter/Espacio activan)", "Pestaña activa con barra inferior de 3 px y texto semibold, no solo color"]
+      Dependencias_Visuales: ["border.brand", "typography.label"]
+    - Nombre: "DataTable"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["estándar (SCR-035, 043, 044)", "con filas desplegables (SCR-046)"]
+      Estados: ["loading (filas esqueleto)", "empty (EmptyState dentro de la tabla)", "error", "default"]
+      Interacciones: ["table semántica con caption (oculto visualmente) y th scope", "Primera columna = enlace principal de la fila (no toda la fila clicable)", "Cabecera fija dentro del contenedor con scroll vertical de la página", "< md: se transforma en lista de tarjetas con las mismas columnas como pares etiqueta/valor (DEC-AUTO-070)", "Números tabulares; fechas absolutas es-CO con relativa en title"]
+      Dependencias_Visuales: ["border.subtle", "bg.surface", "typography.body-sm"]
+    - Nombre: "Pagination"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["numerada con elipsis (público y panel)"]
+      Estados: ["default", "current (aria-current=page)", "disabled (primera/última)"]
+      Interacciones: ["nav aria-label=«Paginación»", "Anterior / 1 … 4 5 6 … 12 / Siguiente; en < sm solo Anterior · «Página 5 de 12» · Siguiente", "Son enlaces reales con ?pagina= (funcionan sin JS)", "Al cambiar de página: scroll al h2/recuento de resultados y foco en él (tabindex=-1)"]
+      Dependencias_Visuales: ["size.target"]
+    - Nombre: "Breadcrumbs (GI-03)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["completa (≥ md)", "compacta (< md: solo el nivel padre con flecha «‹ Destinos»)"]
+      Estados: ["default"]
+      Interacciones: ["nav aria-label=«Migas de pan» con ol", "Último elemento con aria-current=page sin enlace", "Datos estructurados BreadcrumbList (SEO, FEAT-027)"]
+      Dependencias_Visuales: ["typography.body-sm", "color.text.muted"]
+    - Nombre: "DifficultyMeter"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["completo (5 segmentos + «3/5» + etiqueta de la escala + enlace «¿Qué significa?»)", "compacto (tarjetas: segmentos + «3/5»)"]
+      Estados: ["estático"]
+      Interacciones: ["Texto accesible: «Dificultad 3 de 5: {etiqueta de DATA-020}»; los segmentos son aria-hidden", "Segmentos llenos action.primary-bg; vacíos con borde border.control (≥3:1)", "Enlace a /acerca-de#escala-de-dificultad (RULE-012)"]
+      Dependencias_Visuales: ["color.action.primary-bg", "border.control"]
+      Decision: "DEC-AUTO-063"
+    - Nombre: "BudgetMeter"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["completo", "compacto"]
+      Estados: ["estático"]
+      Interacciones: ["4 segmentos + «2/4» + etiqueta de DATA-020; enlace a /acerca-de#escala-de-presupuesto", "Sin símbolos de moneda ni cifras (RULE-020, CON-006)"]
+      Dependencias_Visuales: ["color.action.primary-bg", "border.control"]
+      Decision: "DEC-AUTO-063"
+    - Nombre: "CardDestino"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["grid (imagen 4:3 arriba)", "horizontal (imagen 1:1 a la izquierda; listas de colección y resultados de búsqueda ≥ md)", "mini (mini-tarjeta del mapa, sin imagen)"]
+      Contenido: "Imagen, nombre (h3 o nivel correspondiente), país, tipos (máx. 2 + «+N»), DifficultyMeter compacto, acción Guardar* (GI-07) en la esquina de la imagen"
+      Estados: ["default", "hover (sombra 2, imagen escala 1.03 solo con pointer: fine y sin reduced-motion)", "focus-visible (anillo alrededor de la tarjeta)", "loading (Skeleton)", "imagen fallida (ALT-009)"]
+      Interacciones: ["Patrón de tarjeta con un único enlace principal en el título extendido a toda la tarjeta con pseudo-elemento; Guardar es un botón independiente por encima (z raised) y no está anidado en el enlace", "Orden de lectura: título → país → datos; la imagen es decorativa en la tarjeta (alt vacío) porque el título ya nombra el destino"]
+      Dependencias_Visuales: ["radius.lg", "shadow.1/2", "aspect.card", "container query: < 280 px oculta tipos"]
+    - Nombre: "CardItinerario / CardGuia / CardTipo / CardColeccion / CardMes"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["Itinerario: imagen, título, destino, duración «7 días», DifficultyMeter compacto, Guardar*", "Guía: imagen, categoría (overline), título, resumen (3 líneas), fecha de revisión, tiempo de lectura*", "Tipo: imagen, nombre, nivel de exigencia (medidor 1-5), «{n} destinos»", "Colección: portada, título, «{n} aventuras»", "Mes: nombre del mes, «{n} destinos», miniatura del destacado"]
+      Estados: ["default", "hover", "focus-visible", "loading", "imagen fallida"]
+      Interacciones: ["Mismo patrón de enlace único que CardDestino"]
+      Dependencias_Visuales: ["mismos que CardDestino"]
+    - Nombre: "KeyFacts (datos clave)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["destino (dificultad, mejor época, duración recomendada, presupuesto, clima, altitud si aplica)", "itinerario (duración, dificultad, tipos, distancia total, desnivel total)"]
+      Estados: ["default", "campo opcional ausente (se omite la fila, no se muestra «N/D»)"]
+      Interacciones: ["dl con dt/dd; rejilla 2 col < md, 3 col ≥ md", "Mejor época como 12 marcas de mes con los meses activos rellenos + texto «Mejor época: junio a septiembre» (no solo gráfico)", "Unidades métricas es-CO: «3.200 m s. n. m.», «12,5 km», «+850 m / −420 m»"]
+      Dependencias_Visuales: ["bg.surface", "radius.lg", "border.subtle"]
+    - Nombre: "AuthorshipMeta (FEAT-014)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["cabecera (línea: «Por Equipo editorial {marca} · Revisado el 25 de septiembre de 2026»)", "bloque final (con enlace «Cómo trabajamos» a /acerca-de)"]
+      Estados: ["default"]
+      Interacciones: ["Fecha en elemento time con datetime ISO", "Sin nombres personales del staff (DEC-AUTO-039)"]
+      Dependencias_Visuales: ["typography.body-sm", "color.text.muted"]
+    - Nombre: "SourcesList"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["lista numerada de fuentes", "remite a Metodología (texto + enlace)"]
+      Estados: ["default"]
+      Interacciones: ["Enlaces externos con variante Link external (RULE-021)"]
+      Dependencias_Visuales: ["typography.body-sm"]
+    - Nombre: "DisclaimerBlock (GI-05)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["completo (fichas)", "ampliado (SCR-020)"]
+      Estados: ["default"]
+      Interacciones: ["aside con h2 «Antes de salir a la aventura»; texto de DATA-023 (configurable, SCR-047)", "Icono de advertencia + borde izquierdo 4 px status.warning-fg sobre status.warning-bg"]
+      Dependencias_Visuales: ["color.status.warning-*", "radius.md"]
+    - Nombre: "SafetyCallout"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["riesgos y seguridad (fichas e itinerarios)", "consejo (días de itinerario, tratamiento info)"]
+      Estados: ["default"]
+      Interacciones: ["section con h2 propio (aparece en el índice En esta página)", "No es un aria-live; es contenido estático"]
+      Dependencias_Visuales: ["status.warning-* / status.info-*"]
+    - Nombre: "RelatedBlock «Sigue explorando»"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["rejilla de 3-6 tarjetas mixtas (destino, itinerario, guía, tipo)"]
+      Estados: ["default", "loading (carga diferida al entrar en el viewport; esqueleto con altura reservada)"]
+      Interacciones: ["section con h2 «Sigue explorando»", "Cada tarjeta muestra una etiqueta de tipo (overline: DESTINO, ITINERARIO, GUÍA, TIPO DE AVENTURA)", "Siempre ≥3 elementos (RULE-006); si la API devolviera menos, se muestran los que haya sin hueco visual"]
+      Dependencias_Visuales: ["TPL-PUB-LIST rejilla"]
+    - Nombre: "PageToc «En esta página»"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["columna lateral fija (≥ lg en detalle, ≥ xl en artículo)", "desplegable details/summary (< lg) bajo el encabezado"]
+      Estados: ["default", "sección actual resaltada (aria-current=true en el enlace de la sección visible)"]
+      Interacciones: ["nav aria-label=«En esta página»", "Enlaces a anclas de h2; scroll-margin-top compensa la cabecera fija", "Resaltado de sección actual con IntersectionObserver; sin scroll suave si reduced-motion"]
+      Dependencias_Visuales: ["typography.body-sm", "border.brand"]
+      Decision: "DEC-AUTO-076 (se aplica también a fichas públicas largas)"
+    - Nombre: "GalleryGrid + Lightbox (SCR-005)"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["mosaico (1 grande + 2 pequeñas + botón «Ver las {N} fotos») ≥ md", "rejilla 2 col con las 4 primeras + botón < md"]
+      Estados: ["default", "abierto", "imagen cargando (spinner centrado, alt visible)", "imagen fallida (alt + crédito + Reintentar)"]
+      Interacciones: ["Cada miniatura es un botón: «Ampliar foto 2 de 8: {alt}»", "Ver especificación completa en VISTA SCR-005"]
+      Dependencias_Visuales: ["overlay.lightbox", "aspect.gallery"]
+    - Nombre: "FilterPanel + ActiveFilters + ResultCount"
+      Tipo: "Feature"
+      Reutilizable: false
+      Variantes: ["barra lateral persistente (≥ lg)", "hoja inferior modal (< lg) con botón fijo «Ver {n} destinos»"]
+      Estados: ["default", "aplicando (recuento con «Actualizando…», resultados con aria-busy)", "sin resultados", "error (Reintentar)", "offline (controles deshabilitados con explicación)"]
+      Interacciones: ["Aplicación inmediata al cambiar (sin botón Aplicar) y URL actualizada con replaceUrl; la paginación usa entradas de historial nuevas (DEC-AUTO-062)", "Cada faceta: fieldset con legend; facetas plegables con details en la hoja inferior", "Recuento en role=status aria-live=polite, anunciado 500 ms después del último cambio", "Limpiar filtros: botón que devuelve el foco al primer control"]
+      Dependencias_Visuales: ["size.filter-sidebar", "radius.xl (hoja)", "shadow.4"]
+      Decision: "DEC-AUTO-062, DEC-AUTO-067"
+    - Nombre: "EmptyState"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["público (ilustración SVG en línea de brújula/mochila, ≤ 4 KB)", "panel (icono + texto + acción)"]
+      Estados: ["default"]
+      Interacciones: ["Título (h2), explicación y ≥2 rutas de salida (ST-EMPTY)", "Nunca pantalla en blanco"]
+      Dependencias_Visuales: ["color.text.muted", "space.8"]
+    - Nombre: "ErrorState"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["sección (bloque que falló)", "página (SCR-025)"]
+      Estados: ["default", "reintentando (botón loading)"]
+      Interacciones: ["Mensaje comprensible, Reintentar y enlace a Inicio (panel: Tablero). Sin trazas ni códigos técnicos (ST-ERROR)", "role=alert solo cuando aparece como resultado de una acción del usuario"]
+      Dependencias_Visuales: ["color.status.error-*"]
+    - Nombre: "OfflineBanner (GI-04)"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["público", "panel"]
+      Estados: ["oculto", "sin conexión", "conexión restablecida (3 s, luego se oculta)"]
+      Interacciones: ["Barra fija inferior (z banner-offline) que no empuja contenido (CLS 0); scroll-padding-bottom igual a su altura para no tapar el foco (2.4.11)", "role=status; texto: «Sin conexión. Lo que ya cargaste sigue disponible.» + Reintentar", "Las acciones de red (filtros, búsqueda, paginación, guardar del panel) se deshabilitan con aria-disabled y texto de motivo; el contenido visible no se toca (AC-114)"]
+      Dependencias_Visuales: ["bg.inverse", "text.inverse", "focus.ring-inverse"]
+    - Nombre: "SiteHeader (GI-01)"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["completa (≥ xl: logo · 4-6 enlaces de navegación · búsqueda en línea · Guardados*)", "compacta (< xl: logo · botón Buscar · Guardados* · botón Menú)", "sobre bloque principal (solo SCR-001 en la parte superior: transparente con texto claro sobre scrim; al hacer scroll pasa a fondo bg.canvas)"]
+      Estados: ["default", "con scroll (shadow.2)", "menú abierto", "búsqueda abierta", "enlace actual (aria-current=page por sección)"]
+      Interacciones: ["Fija arriba, 64 px (72 px ≥ xl); html con scroll-padding-top 80 px (2.4.11, DEC-AUTO-073)", "Primer elemento enfocable: SkipLink «Saltar al contenido principal»", "Menú < xl: cajón lateral modal (CDK Dialog) con la navegación completa, Guardados* y búsqueda", "Buscar < xl: fila desplegable bajo la cabecera con el SearchField enfocado; Esc la cierra", "Contador de Guardados*: insignia con el número; aria-label «Guardados: 3 aventuras»; se renderiza tras hidratar con espacio reservado (sin CLS)", "Enlaces SHOULD/COULD solo si están implementados (RULE-030)"]
+      Dependencias_Visuales: ["size.header", "z.sticky", "shadow.2"]
+    - Nombre: "SearchField"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["cabecera", "bloque principal de Inicio (grande)", "página de resultados (con la consulta precargada)", "404"]
+      Estados: ["default", "focus-visible", "inválido (<2 o >100 caracteres)", "offline"]
+      Interacciones: ["form role=search con method GET a /buscar (funciona sin JS)", "Etiqueta accesible «Buscar destinos, itinerarios y guías»; placeholder de ejemplo «Ej.: Patagonia, buceo, altitud»", "Validación al enviar: mensaje en línea bajo el campo, sin navegar (AC-020, ALT-006); maxlength=100 no se usa como único control (se valida y se explica)", "type=search + enterkeyhint=search; sin autocompletado (DEC-AUTO-048)"]
+      Dependencias_Visuales: ["radius.pill", "size.control-md / control-lg"]
+    - Nombre: "SiteFooter (GI-02)"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["único"]
+      Estados: ["default"]
+      Interacciones: ["footer sobre bg.inverse; 3 columnas ≥ md (Explorar · Institucional · Marca), apiladas < md", "Incluye marca + lema (DATA-023) y la frase «Sin cookies ni rastreadores en el sitio público» enlazada a la Política de cookies (coherente con RULE-029)", "Enlaces con subrayado; foco con ring-inverse"]
+      Dependencias_Visuales: ["bg.inverse", "text.inverse", "text.inverse-muted"]
+    - Nombre: "SaveButton (GI-07)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["icono sobre tarjeta (IconButton inverse con fondo translúcido y borde)", "botón con texto en fichas («Guardar» / «Guardado»)"]
+      Estados: ["no guardado (aria-pressed=false)", "guardado (aria-pressed=true, icono relleno + texto)", "no disponible (aria-disabled + explicación en popover al activar)", "límite alcanzado (100)"]
+      Interacciones: ["Nombre accesible «Guardar {título}»", "Confirmación en role=status: «Guardaste {título}.» / «Quitaste {título}.»", "Almacenamiento no disponible: «Tu navegador no permite guardar aventuras en este dispositivo (por ejemplo, en modo privado).» (ALT-011)", "Límite: «Llegaste al máximo de 100 aventuras guardadas. Quita alguna para guardar otra.»"]
+      Dependencias_Visuales: ["action.secondary-*", "status"]
+    - Nombre: "ShareButton (GI-06)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["nativo (Web Share API si existe)", "copiar enlace (fallback)"]
+      Estados: ["default", "copiado (icono check + «Enlace copiado» en role=status, 3 s)", "fallo al copiar (popover con la URL canónica en un input de solo lectura seleccionada)"]
+      Interacciones: ["Sin SDK de redes sociales (REQ-031)", "Comparte la URL canónica (sin parámetros de filtro en fichas)"]
+      Dependencias_Visuales: ["Button secondary"]
+    - Nombre: "SurpriseButton (GI-08)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["secondary / ghost-inverse (en el bloque principal)"]
+      Estados: ["default", "loading («Buscando destino…»)", "error (InlineAlert con Reintentar)"]
+      Interacciones: ["Etiqueta «Sorpréndeme» con icono de brújula; navega a una ficha (AC-122)"]
+      Dependencias_Visuales: ["Button"]
+    - Nombre: "PrintButton + estilos de impresión (FEAT-022)"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["itinerario", "checklist"]
+      Estados: ["default"]
+      Interacciones: ["Llama a la impresión del navegador sobre la misma página (no crea ruta nueva); ver PRINT_SPEC"]
+      Dependencias_Visuales: ["PRINT_SPEC"]
+    - Nombre: "WorldMap + MapMarker + MapCluster + MapMiniCard + MapList"
+      Tipo: "Feature"
+      Reutilizable: false
+      Variantes: ["página SCR-003", "vista previa de marcador en el editor (SCR-036, solo lectura)"]
+      Estados: ["cargando", "listo", "marcador activo", "cartografía no disponible (solo lista + aviso)", "offline"]
+      Interacciones: ["Ver VISTA SCR-003 y DEC-AUTO-061"]
+      Dependencias_Visuales: ["color.map.*", "shadow.3", "motion.duration.slow"]
+    - Nombre: "DayTimeline"
+      Tipo: "Component"
+      Reutilizable: false
+      Variantes: ["pantalla", "impresión"]
+      Estados: ["default"]
+      Interacciones: ["ol de días; cada día es article con h3 «Día 3 · {título}»", "Línea vertical decorativa con marcador numérico (aria-hidden; el número está en el h3)", "Fila de datos del día: distancia, desnivel +/−, alojamiento orientativo", "Consejos del día en SafetyCallout variante consejo"]
+      Dependencias_Visuales: ["border.brand", "typography.h3"]
+    - Nombre: "ChecklistGroup"
+      Tipo: "Component"
+      Reutilizable: false
+      Variantes: ["pantalla", "impresión (casillas vacías dibujadas para marcar a mano)"]
+      Estados: ["default"]
+      Interacciones: ["Lista estática por grupos (h3 por grupo, ul); no es interactiva en pantalla (no hay estado que guardar)", "Esencial: insignia «Esencial» con texto, no solo color"]
+      Dependencias_Visuales: ["Badge Esencial"]
+    - Nombre: "AlphabetIndex"
+      Tipo: "Component"
+      Reutilizable: false
+      Variantes: ["glosario"]
+      Estados: ["letra con términos (enlace)", "letra sin términos (texto atenuado no enlazado, aria-hidden no; se lee como texto)"]
+      Interacciones: ["nav aria-label=«Índice alfabético»; en < md rejilla de 7 columnas con objetivos de 44 px"]
+      Dependencias_Visuales: ["size.target"]
+    - Nombre: "SkipLink"
+      Tipo: "Primitive"
+      Reutilizable: true
+      Variantes: ["público «Saltar al contenido principal»", "panel «Saltar al contenido» + «Saltar a la navegación»"]
+      Estados: ["oculto hasta recibir foco", "visible con foco (z skip-link)"]
+      Interacciones: ["Destino: main con tabindex=-1"]
+      Dependencias_Visuales: ["bg.inverse", "focus.ring-inverse"]
+    - Nombre: "PanelShell"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["completa (barra lateral expandida ≥ xl)", "barra lateral colapsada a iconos (lg-xl, conmutable y persistida en el navegador)", "cajón (< lg)", "restringida (cambio obligatorio / autorización: sin navegación)"]
+      Estados: ["default", "sección actual (aria-current=page + bg action.selected-bg + barra izquierda 3 px)"]
+      Interacciones: ["Elementos por rol: se ocultan los no permitidos (§12, BLUEPRINT §37); el servidor es la autoridad", "Menú de usuario (botón con nombre visible): Mi cuenta · Cerrar sesión", "Etiqueta de rol visible junto al nombre: Editor / Administrador"]
+      Dependencias_Visuales: ["size.panel-sidebar", "size.panel-topbar", "bg.canvas-panel"]
+      Decision: "DEC-AUTO-070"
+    - Nombre: "ErrorSummary"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["formulario (guardar borrador)", "validación de publicación (dentro de SCR-038)"]
+      Estados: ["visible"]
+      Interacciones: ["Aparece arriba del formulario, recibe el foco (tabindex=-1, role=alert en la primera aparición)", "Título «No se puede {acción} todavía. Corrige {n} problemas:»", "Lista de enlaces; cada enlace lleva el foco al campo (y abre su sección si estaba plegada)", "Los mismos mensajes aparecen junto a cada campo"]
+      Dependencias_Visuales: ["status.error-*", "border-width.strong"]
+    - Nombre: "CompletenessPanel"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["panel lateral (≥ xl)", "desplegable en la barra de acciones (< xl)"]
+      Estados: ["completo («Listo para publicar»)", "pendiente («Faltan {n} requisitos para publicar»)"]
+      Interacciones: ["Lista de requisitos de publicación (RULE-002..006, 009, 023..027) con icono + texto (Cumplido / Pendiente); cada pendiente enlaza a su campo", "Informativo: nunca bloquea Guardar borrador (SCR-036)", "Se recalcula al salir de cada campo; cambios anunciados solo al abrirlo (sin live region ruidosa)"]
+      Dependencias_Visuales: ["status.success-fg", "status.warning-fg"]
+    - Nombre: "RichTextEditor"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["cuerpo largo", "campo corto con formato (descripción de tipo, nota de colección)"]
+      Estados: ["default", "focus", "invalid", "readonly", "offline (edición permitida; guardar deshabilitado)"]
+      Interacciones: ["Barra de herramientas role=toolbar con tabindex itinerante: Párrafo/Título 2/3/4 (select) · Negrita · Cursiva · Lista · Lista numerada · Cita · Enlace · Término de glosario. Solo lo permitido por RULE-022", "Atajos: Ctrl/Cmd+B, Ctrl/Cmd+I, Ctrl/Cmd+K (enlace)", "Diálogo de enlace: URL (solo http, https o ruta interna, RULE-021) + texto; aviso si es externo", "Término de glosario: combobox de búsqueda de términos", "Pegar: se limpia al formato permitido (el servidor sanea igualmente)", "Área editable con etiqueta (aria-labelledby) y aria-multiline=true; contador de palabras visible donde hay mínimo (descripción de destino ≥600: «412 de 600 palabras mínimas»)", "La librería la elige Developer según Skill_Frontend; requisito: accesible por teclado y esquema restringido"]
+      Dependencias_Visuales: ["FormField", "border.control"]
+    - Nombre: "SortableList"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["filas (días, checklist, relacionados, destacados, elementos de colección)", "rejilla (galería)"]
+      Estados: ["default", "arrastrando (placeholder punteado, sombra 3)", "foco en asa", "movido (anuncio)"]
+      Interacciones: ["CDK drag-drop con asa visible «Reordenar»", "Alternativa sin arrastre obligatoria (2.5.7): botones «Subir» y «Bajar» por elemento + menú «Mover a la posición…»", "Anuncio role=status: «{elemento} movido a la posición 3 de 7»", "Número de orden visible"]
+      Dependencias_Visuales: ["shadow.3", "border.subtle"]
+      Decision: "DEC-AUTO-069"
+    - Nombre: "Combobox (búsqueda de contenido publicado)"
+      Tipo: "Pattern"
+      Reutilizable: true
+      Variantes: ["uno", "varios (añade a SortableList)"]
+      Estados: ["vacío", "escribiendo", "cargando", "sin coincidencias", "error"]
+      Interacciones: ["Patrón ARIA combobox (listbox emergente, aria-activedescendant); mínimo 2 caracteres; resultados con tipo y estado", "Solo ofrece elementos elegibles (p. ej., PUBLICADO para destacados); los no elegibles no aparecen", "Autorrelación o duplicado: opción deshabilitada con motivo («Ya está en la lista»)"]
+      Dependencias_Visuales: ["shadow.3", "z.dropdown"]
+    - Nombre: "MediaUploader"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["zona en la biblioteca (SCR-039)", "pestaña dentro del selector (SCR-041)"]
+      Estados: ["reposo", "arrastrando encima", "subiendo (barra de progreso por archivo)", "resultado por archivo: Aceptada · Rechazada: {motivo} · Duplicada → «Usar la existente»", "offline"]
+      Interacciones: ["input type=file (accept=image/jpeg,image/png,image/webp, multiple) con botón visible «Seleccionar imágenes»; el arrastre es opcional (2.5.7)", "Reglas visibles antes de subir: «JPEG, PNG o WebP · hasta 10 MB · mínimo 1.200 px en el lado mayor · hasta 10 a la vez»", "Más de 10 archivos: se rechaza la selección con mensaje, sin subir ninguno", "progress con aria-valuenow; resumen final en role=status «8 aceptadas, 1 rechazada, 1 duplicada»", "Tras subir: enlace «Completar datos» a cada medio aceptado (PENDIENTE_METADATOS → SCR-040)"]
+      Dependencias_Visuales: ["border-width.strong dashed", "status.*"]
+    - Nombre: "MediaTile"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["biblioteca (enlace)", "seleccionable (casilla o radio)", "no seleccionable (estado no DISPONIBLE)"]
+      Estados: ["default", "hover", "focus-visible", "selected (borde 3 px brand + check)", "disabled (insignia de estado + motivo)"]
+      Interacciones: ["Miniatura 1:1, título interno, Badge de estado, licencia, «Usado en {n}»"]
+      Dependencias_Visuales: ["aspect.thumb", "radius.md"]
+    - Nombre: "StatusBar del editor (barra de acciones)"
+      Tipo: "Feature"
+      Reutilizable: false
+      Variantes: ["panel lateral (≥ xl)", "barra fija superior (lg-xl)", "barra fija inferior (< lg: acción principal + «Más acciones»)"]
+      Estados: ["según STATE-001: BORRADOR nunca publicado · BORRADOR (reactivado) · PUBLICADO · RETIRADO", "guardando", "guardado («Guardado a las 10:42»)", "cambios sin guardar («Cambios sin guardar» + punto)", "offline (Guardar deshabilitado con motivo)"]
+      Interacciones: ["Acción principal según estado: BORRADOR → Publicar; PUBLICADO → Actualizar publicación; RETIRADO → Reactivar como borrador", "Secundarias: Guardar borrador (no en RETIRADO), Vista previa", "Destructivas en menú «Más acciones» separadas por divisor: Retirar (PUBLICADO) · Eliminar borrador (solo BORRADOR nunca publicado)", "Insignia de estado siempre visible"]
+      Dependencias_Visuales: ["z.sticky", "shadow.2"]
+    - Nombre: "SessionExpiryDialog"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["aviso 2 min antes (DEC-AUTO-049)"]
+      Estados: ["abierto con cuenta atrás", "extendiendo", "expirada"]
+      Interacciones: ["alertdialog «Tu sesión está por expirar» · «Por inactividad, se cerrará en 1:45.» · botones «Seguir conectado» (foco inicial) y «Cerrar sesión»", "La cuenta atrás visible se actualiza cada segundo, pero solo se anuncia al abrir y al quedar 30 s (evita ruido de lector de pantalla); cumple 2.2.1 (permite extender)", "Al expirar: el editor abierto conserva los datos en la página y la siguiente acción lleva a SCR-030 con siguiente (ALT-014)"]
+      Dependencias_Visuales: ["Dialog alertdialog"]
+    - Nombre: "UnsavedChangesDialog"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["navegación interna (alertdialog)", "cierre de pestaña (diálogo nativo del navegador)"]
+      Estados: ["abierto"]
+      Interacciones: ["«Tienes cambios sin guardar» · «Si sales ahora, se perderán.» · «Seguir editando» (foco inicial) · «Salir sin guardar» (danger)", "Aplica en SCR-036, 042, 045, 047 (ALT-026)"]
+      Dependencias_Visuales: ["Dialog alertdialog"]
+    - Nombre: "ConflictBanner"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["edición concurrente (AC-110)"]
+      Estados: ["visible"]
+      Interacciones: ["Banner error persistente arriba del formulario: «Otra persona guardó cambios en este contenido mientras lo editabas. Para no sobrescribirlos, recarga la versión actual.» + «Recargar»", "«Recargar» pide confirmación: «Se descartarán tus cambios no guardados en este formulario.»", "Los campos siguen visibles y seleccionables (el editor puede copiar su texto antes de recargar)"]
+      Dependencias_Visuales: ["InlineAlert error"]
+    - Nombre: "OneTimeSecret"
+      Tipo: "Feature"
+      Reutilizable: true
+      Variantes: ["contraseña temporal (SCR-045)", "códigos de recuperación MFA (SCR-032)"]
+      Estados: ["visible una vez", "copiado", "confirmado (se oculta y no se puede volver a mostrar)"]
+      Interacciones: ["Panel destacado con el secreto en fuente mono, botón «Copiar» y aviso «Se muestra solo esta vez. Cópiala y entrégala por un canal seguro fuera del sistema.»", "Cierre solo con «Ya la guardé» (confirmación explícita); Esc no la descarta sin confirmar", "Códigos de recuperación: además «Descargar .txt» generado en el navegador", "El secreto no se registra en ningún anuncio aria-live"]
+      Dependencias_Visuales: ["typography.mono", "status.warning-*"]
+      Decision: "DEC-AUTO-075"
+    - Nombre: "OtpInput"
+      Tipo: "Component"
+      Reutilizable: true
+      Variantes: ["código TOTP de 6 dígitos", "código de recuperación"]
+      Estados: ["default", "invalid", "verificando"]
+      Interacciones: ["Un único input (no 6 casillas), inputmode=numeric, autocomplete=one-time-code, admite pegar y gestores de contraseñas (3.3.8)", "Alternar a código de recuperación con enlace-botón «Usar un código de recuperación» (cambia etiqueta e inputmode)"]
+      Dependencias_Visuales: ["FormField", "typography.mono"]
+      Decision: "DEC-AUTO-074"
+    - Nombre: "PreviewBanner"
+      Tipo: "Feature"
+      Reutilizable: false
+      Variantes: ["único"]
+      Estados: ["fijo"]
+      Interacciones: ["Franja superior fija bg.inverse con franja diagonal de 4 px en sunset.600 en el borde inferior; texto «VISTA PREVIA – NO PUBLICADO» + «Volver al editor» (botón ghost-inverse)", "role=region aria-label=«Vista previa»; no tapa el foco: el contenido lleva padding-top igual a su altura"]
+      Dependencias_Visuales: ["bg.inverse", "action.accent-bg", "z.sticky"]
+    - Nombre: "ImpactSummary"
+      Tipo: "Feature"
+      Reutilizable: false
+      Variantes: ["retiro de contenido", "retiro bloqueado (taxonomía, licencia, medio en uso)"]
+      Estados: ["cargando análisis", "sin impacto", "con impacto", "bloqueado"]
+      Interacciones: ["Listas con encabezados: «Se retirarán también {n} itinerarios» (enlaces a cada uno) · «Aparece en {n} colecciones y {n} destacados de inicio» · «{n} páginas enlazan a este contenido»", "Bloqueado: «No se puede retirar porque está en uso en {n} contenidos publicados:» + lista enlazada (RULE-007, AC-117)"]
+      Dependencias_Visuales: ["status.warning-*"]
+    - Nombre: "StatCard / HealthWidget"
+      Tipo: "Component"
+      Reutilizable: false
+      Variantes: ["conteo por tipo y estado (tabla compacta)", "salud editorial* (lista de alertas enlazadas)"]
+      Estados: ["loading", "default", "todo en orden («No hay pendientes de salud editorial»)", "error"]
+      Interacciones: ["Cada número enlaza al listado filtrado correspondiente (SCR-035 con ?estado=)"]
+      Dependencias_Visuales: ["bg.surface", "radius.md"]
+
+  GLOBALES:
+    GI-01: "SiteHeader (ver COMPONENTES)"
+    GI-02: "SiteFooter"
+    GI-03: "Breadcrumbs"
+    GI-04: "OfflineBanner"
+    GI-05: "DisclaimerBlock"
+    GI-06: "ShareButton*"
+    GI-07: "SaveButton*"
+    GI-08: "SurpriseButton*"
+    Regla_RULE_030: "Todo componente GI marcado * y todo enlace a SCR SHOULD/COULD se renderiza solo si su funcionalidad está implementada. El diseño de cada vista no deja huecos cuando se omiten (las rejillas se reajustan)."
+
+  VISTAS_DISEÑADAS:
+    # Estados abreviados: ST-LOADING / ST-EMPTY / ST-ERROR / ST-OFFLINE / ST-NOTFOUND / ST-GONE / ST-UNAUTHORIZED / ST-FORBIDDEN = estándar del BLUEPRINT §11
+    # materializados con Skeleton / EmptyState / ErrorState / OfflineBanner / SCR-023 / SCR-024 / redirección a SCR-030 / SCR-048.
+    # ------------------------------------------------------------------ SITIO PÚBLICO
+    - NombreVista: "Inicio"
+      SCR: "SCR-001"
+      Ruta: "/"
+      Plantilla: "TPL-PUB-HOME"
+      FLOW: ["FLOW-001", "FLOW-006", "FLOW-007", "FLOW-008", "FLOW-003"]
+      Purpose: "Inspirar y distribuir hacia todas las vías de exploración."
+      Layout: "Bloque principal a sangre (alto: 4:5 < md, 16:9 limitado a 80vh ≥ md) con cabecera transparente encima; debajo, secciones apiladas en contenedor de 1280 px."
+      Hierarquia_Visual:
+        - "1. Bloque principal: imagen (LCP) + scrim inferior; overline con la marca; titular display (DATA-021, ≤80); subtítulo body-lg (≤160); CTA accent lg «Explorar destinos» → SCR-002; secundario ghost-inverse «Sorpréndeme»*; SearchField grande debajo de los CTA (≥ md) o como sección propia justo después del bloque (< md)."
+        - "2. «Explora por tipo de aventura»: todos los tipos publicados como CardTipo compacta en rejilla 2 col < md, 3 col md, 6 col ≥ xl."
+        - "3. «Destinos destacados» (6-12, RULE-016): rejilla CardDestino + enlace «Ver todos los destinos»."
+        - "4. «Itinerarios para planear» (≥3): CardItinerario + «Ver todos los itinerarios»."
+        - "5. «Guías expertas» (≥3): CardGuia + «Ver todas las guías»."
+        - "6. «Otras formas de explorar»: mosaico de accesos Mapa* · Cuándo ir* · Colecciones* · Sorpréndeme* (tarjetas con icono, título y una línea)."
+      Componentes: ["SiteHeader (variante sobre bloque principal)", "Button accent", "SurpriseButton*", "SearchField", "CardTipo", "CardDestino", "CardItinerario", "CardGuia", "SiteFooter", "OfflineBanner"]
+      Estados_UI:
+        default: "Secciones completas con mínimos garantizados por RULE-016 (el relleno automático es invisible al visitante)."
+        loading: "No aplica en la carga inicial (CON-007). Sorpréndeme muestra loading en el botón."
+        empty: "Entorno sin contenido publicado: bloque principal con texto «Contenido en preparación» + enlaces a Acerca de y Mapa del sitio; secciones vacías no se renderizan."
+        error: "ST-ERROR por sección (una sección que falla muestra ErrorState local; el resto sigue)."
+        offline: "ST-OFFLINE."
+        success: "No aplica."
+        disabled: "No aplica."
+        permission_denied: "No aplica (público)."
+      Responsive:
+        mobile: "Bloque 4:5 con titular en la mitad inferior; CTA a ancho completo apilados; búsqueda como sección propia; rejillas de 1-2 columnas."
+        tablet: "Bloque 16:9; CTA en línea; rejillas de 2-3 columnas."
+        desktop: "Titular alineado a la izquierda en 7/12 columnas; búsqueda bajo los CTA; rejillas de 3-4 columnas."
+        large_desktop: "Imagen hasta 1920 px de ancho, contenido centrado a 1440 px; titular hasta 4.5rem."
+      Accessibility:
+        semantics: ["h1 = titular del bloque principal", "Cada sección es section con h2", "La imagen del bloque principal lleva alt de DATA-021/medio (es informativa)"]
+        focus_order: ["SkipLink → cabecera → CTA → búsqueda → secciones en orden visual"]
+        contrast: ["Texto sobre imagen solo sobre scrim ≥0.78 (≈6.5:1 en el peor caso)"]
+      Motion: {enter: "Sin animación de entrada del bloque principal (protege LCP).", transition: "View Transition por defecto (fundido 160 ms).", feedback: "Hover de tarjetas.", reduced_motion: "Sin escalado de imágenes; transiciones instantáneas."}
+      UX_Copy: {cta: "Explorar destinos", secundario: "Sorpréndeme", busqueda_etiqueta: "Buscar destinos, itinerarios y guías", vacio: "Contenido en preparación. Mientras tanto, conoce cómo trabajamos."}
+
+    - NombreVista: "Explorar destinos"
+      SCR: "SCR-002"
+      Ruta: "/destinos?tipo=&region=&pais=&dificultad_min=&dificultad_max=&mes=&duracion=&presupuesto=&orden=&pagina="
+      Plantilla: "TPL-PUB-LIST (con barra lateral de filtros)"
+      FLOW: ["FLOW-001", "FLOW-002", "FLOW-006", "FLOW-007", "FLOW-008", "FLOW-009"]
+      Purpose: "Descubrir destinos combinando facetas; la URL es compartible."
+      Layout: "Cabecera de página (h1 «Explorar destinos», recuento, orden, enlace «Ver en el mapa»*) · fila de filtros activos · barra lateral de filtros (≥ lg) + rejilla · paginación."
+      Hierarquia_Visual:
+        - "h1 + recuento «{n} destinos» (role=status)."
+        - "Controles: Ordenar (select: A-Z · Dificultad: de menor a mayor · Dificultad: de mayor a menor) y «Ver en el mapa»*."
+        - "Fichas de filtros activos + «Limpiar filtros»."
+        - "Rejilla de CardDestino (24 por página) con Guardar*."
+        - "Paginación."
+      Filtros:
+        - "Tipo de aventura: CheckboxGroup (6 visibles + «Ver los {n} tipos»)."
+        - "Región: CheckboxGroup (7)."
+        - "País: CheckboxGroup dependiente de las regiones marcadas (sin región: todos, agrupados por región con subtítulos); si una región se desmarca, se quitan sus países y se anuncia."
+        - "Dificultad: fieldset «Dificultad» con dos select nativos «Desde» (1-5) y «Hasta» (1-5); si desde > hasta se intercambian al aplicar (DEC-AUTO-067)."
+        - "Mes: rejilla de 12 fichas conmutables (checkbox) con abreviatura visible y nombre completo accesible."
+        - "Duración: CheckboxGroup 1-3 días · 4-7 días · 8-14 días · 15 días o más."
+        - "Presupuesto: CheckboxGroup 1-4 con BudgetMeter compacto + etiqueta de la escala."
+      Componentes: ["Breadcrumbs (no aplica: es listado raíz; se omite)", "FilterPanel", "ActiveFilters (Chip)", "ResultCount", "select Ordenar", "CardDestino", "SaveButton*", "Pagination", "EmptyState", "Dialog bottom-sheet"]
+      Estados_UI:
+        default: "Resultados con recuento."
+        loading: "Al cambiar filtros: se mantienen los resultados anteriores atenuados con aria-busy y el recuento muestra «Actualizando…»; si tarda >300 ms, esqueletos en la rejilla (misma altura)."
+        empty: "«Ningún destino cumple estos filtros» + botón «Quitar el último filtro ({nombre})» + «Limpiar filtros» + lista de tipos de aventura como enlaces (AC-018)."
+        error: "ErrorState en la zona de resultados con Reintentar; filtros siguen operativos."
+        offline: "Controles de filtro, orden y paginación con aria-disabled y texto «Sin conexión: los filtros se aplicarán al reconectar»; resultados visibles se conservan."
+        invalid_params: "Parámetros inválidos se ignoran sin mensaje de error (AC-113); la URL canónica del listado base se mantiene."
+        success: "No aplica."
+        disabled: "Ver offline."
+        permission_denied: "No aplica."
+      Responsive:
+        mobile: "Botón fijo bajo la cabecera «Filtros ({n activos})» que abre la hoja inferior modal a pantalla casi completa; dentro, facetas plegables y botón fijo «Ver {n} destinos» que cierra la hoja y lleva el foco al recuento. Orden como select a ancho completo. Rejilla 1 col (< 480) / 2 col."
+        tablet: "Igual que mobile con rejilla de 2 columnas; hoja inferior con ancho máximo 640 px centrada."
+        desktop: "Barra lateral de 280 px fija con scroll propio (position: sticky, top = cabecera); rejilla de 2 col (lg) / 3 col (xl)."
+        large_desktop: "Contenedor 1440 px; rejilla de 3 columnas (se prioriza tamaño de imagen sobre densidad)."
+      Accessibility:
+        semantics: ["La barra lateral es un form con aria-label «Filtros de destinos» (no role=search)", "Cada faceta fieldset + legend", "Resultados en ul/li"]
+        keyboard: ["Tab recorre facetas; Espacio marca; los cambios no mueven el foco", "Quitar ficha → foco al chip siguiente o al recuento"]
+        aria: ["Recuento role=status aria-live=polite con retraso de 500 ms", "Hoja inferior: Dialog con aria-labelledby «Filtros»"]
+      Motion: {enter: "Hoja inferior sube 240 ms (enter).", transition: "Resultados: fundido de opacidad 160 ms.", feedback: "Casillas 100 ms.", reduced_motion: "Hoja aparece sin desplazamiento (solo opacidad ≤100 ms)."}
+      UX_Copy: {h1: "Explorar destinos", recuento: "{n, plural, =0 {Ningún destino} =1 {1 destino} other {# destinos}}", limpiar: "Limpiar filtros", boton_movil: "Ver {n} destinos", vacio_titulo: "Ningún destino cumple estos filtros", vacio_accion: "Quitar el último filtro ({nombre})"}
+
+    - NombreVista: "Mapa de destinos"
+      SCR: "SCR-003"
+      Ruta: "/destinos/mapa"
+      Plantilla: "TPL-PUB-LIST (variante mapa)"
+      FLOW: ["FLOW-007"]
+      Purpose: "Descubrir destinos por ubicación, con lista alternativa equivalente siempre disponible."
+      Layout: "h1 «Mapa de destinos» + barra de presets de región (Mundo · África · América del Norte y Central · América del Sur · Asia · Europa · Oceanía · … según las 7 regiones de DATA) + enlace «Ver como listado con filtros» → SCR-002. Debajo: mapa + lista."
+      Cartografia: "Natural Earth 1:110m (dominio público), proyección Equal Earth, pre-simplificada y servida como SVG estático del propio origen (≤120 KB gzip), cargada solo en esta ruta. El SVG es decorativo (aria-hidden); los marcadores son botones HTML posicionados en porcentaje sobre él con coordenadas proyectadas (DEC-AUTO-061)."
+      Hierarquia_Visual:
+        - "Presets de región (grupo de botones con aria-pressed)."
+        - "Mapa con marcadores (círculo 16 px sunset.600 con borde blanco 2 px; área activa 44 px)."
+        - "Mini-tarjeta (popover no modal) al activar: nombre, país, DifficultyMeter compacto, «Ver destino»."
+        - "Lista alternativa agrupada por región (h2 por región, ul de enlaces con país)."
+      Interaccion_Mapa:
+        - "Agrupación: marcadores a <32 px entre sí en el nivel de zoom actual se funden en un MapCluster (círculo con número, «5 destinos en América del Sur»); activarlo aplica el preset de su región."
+        - "Zoom por presets (transformación del contenedor, 360 ms) y botones + / − / «Ver todo el mundo»; sin zoom con rueda salvo con Ctrl (evita secuestrar el scroll); pellizco en táctil."
+        - "Orden de tabulación de marcadores: región → nombre (igual que la lista)."
+        - "Mini-tarjeta: se abre con clic/Enter/Espacio; Esc o clic fuera la cierra y el foco vuelve al marcador; solo una abierta."
+        - "Marcador activo: forest.600, 20 px, anillo exterior."
+      Componentes: ["WorldMap", "MapMarker", "MapCluster", "MapMiniCard (CardDestino mini)", "MapList", "InlineAlert info", "OfflineBanner"]
+      Estados_UI:
+        default: "Mapa en vista Mundo + lista."
+        loading: "Contenedor del mapa con proporción reservada (2:1 ≥ lg; 16:10 < lg) y fondo map.ocean; la lista está en el HTML inicial."
+        empty: "Sin destinos publicados: EmptyState con enlaces a Inicio y Guías."
+        error: "Cartografía no carga (ALT-010): se oculta el contenedor del mapa y aparece InlineAlert info «El mapa no está disponible en este momento. Aquí tienes todos los destinos por región.»; la lista sigue."
+        offline: "ST-OFFLINE; lo ya cargado sigue operativo."
+        success: "No aplica."
+        disabled: "No aplica."
+        permission_denied: "No aplica."
+      Responsive:
+        mobile: "Mapa a ancho completo 16:10 con presets en fila que se ajusta en varias líneas (sin scroll horizontal); lista debajo. La mini-tarjeta aparece como panel fijo inferior sobre el mapa en lugar de popover."
+        tablet: "Igual que mobile con mapa más alto (16:10)."
+        desktop: "Mapa 8/12 a la izquierda (2:1) + lista 4/12 a la derecha con scroll propio de altura igual al mapa."
+        large_desktop: "Mapa hasta 1440 px; lista 360 px."
+      Accessibility:
+        semantics: ["El mapa es section aria-label «Mapa interactivo»; la lista es section con h2 «Todos los destinos por región»", "La lista es la alternativa equivalente (1.1.1, 2.1.1)"]
+        keyboard: ["Todos los marcadores y clusters son botones alcanzables por Tab", "Enlace de salto «Ir a la lista de destinos» antes del mapa"]
+        aria: ["Marcador aria-label «{destino}, {país}»; aria-expanded según mini-tarjeta", "Cluster aria-label «{n} destinos en {región}. Acercar»"]
+        contrast: ["Marcador ≥3.88:1 contra tierra y ≥4.37:1 contra océano"]
+      Motion: {enter: "Sin animación inicial.", transition: "Zoom 360 ms (standard).", feedback: "Marcador activo escala 1.25 en 100 ms.", reduced_motion: "Zoom instantáneo; sin escala."}
+      UX_Copy: {h1: "Mapa de destinos", salto: "Ir a la lista de destinos", mini_cta: "Ver destino", fallo: "El mapa no está disponible en este momento. Aquí tienes todos los destinos por región."}
+
+    - NombreVista: "Ficha de destino"
+      SCR: "SCR-004"
+      Ruta: "/destinos/{slug}"
+      Plantilla: "TPL-PUB-DETAIL"
+      FLOW: ["FLOW-001", "FLOW-004", "FLOW-009"]
+      Purpose: "Presentar un destino con inspiración (fotografía) y decisión (datos clave, seguridad), y abrir el siguiente paso."
+      Layout: "Orden funcional del BLUEPRINT sin cambios. Migas · encabezado (h1 nombre, «{país} · {región}» con enlaces a SCR-002 filtrado, Guardar*, Compartir*) · portada · entradilla (resumen, body-lg) · KeyFacts · cuerpo 8/12 + PageToc 4/12 (≥ lg) · bloques finales a ancho de contenido."
+      Hierarquia_Visual:
+        - "1. Migas «Inicio › Destinos › {Destino}»."
+        - "2. h1 + país/región + acciones."
+        - "3. Portada (LCP, 16:9 ≥ md, 4:3 < md) con crédito en pie."
+        - "4. Resumen (entradilla body-lg)."
+        - "5. KeyFacts: dificultad (completo, enlace a escala) · mejor época (12 marcas + texto) · duración recomendada «5 a 10 días» · presupuesto (completo, enlace a escala) · clima · altitud si aplica."
+        - "6. h2 Galería (GalleryGrid → SCR-005)."
+        - "7. h2 Descripción (body-lg, glosario enlazado)."
+        - "8. h2 Cómo llegar."
+        - "9. h2 Seguridad y riesgos (SafetyCallout)."
+        - "10. h2 Sostenibilidad."
+        - "11. h2 Ubicación: coordenadas en formato es-CO («4,5709° N, 74,2973° O») + «Ver en el mapa»* (SCR-003 centrado)."
+        - "12. h2 Tipos de aventura (Chips enlace a SCR-009)."
+        - "13. h2 Itinerarios en {destino} (CardItinerario) o estado sin itinerarios."
+        - "14. h2 Guías relacionadas (CardGuia)."
+        - "15. h2 Fuentes (SourcesList) · AuthorshipMeta bloque · DisclaimerBlock."
+        - "16. RelatedBlock «Sigue explorando»."
+      Componentes: ["Breadcrumbs", "SaveButton*", "ShareButton*", "KeyFacts", "DifficultyMeter", "BudgetMeter", "GalleryGrid", "SafetyCallout", "Chip", "CardItinerario", "CardGuia", "SourcesList", "AuthorshipMeta", "DisclaimerBlock", "RelatedBlock", "PageToc"]
+      Estados_UI:
+        default: "Todas las secciones con contenido publicado."
+        loading: "Navegación interna: esqueleto de encabezado + portada + KeyFacts con alturas reservadas. Galería, relacionados y guías con carga diferida y altura reservada."
+        empty: "Sin itinerarios: tarjeta informativa «Aún no hay itinerario para este destino» + «Itinerarios en destinos parecidos» (3 CardItinerario) + «Ver todos los itinerarios» (SCR-006)."
+        error: "Error de una sección diferida: ErrorState local; el resto sigue legible."
+        not_found: "ST-NOTFOUND → SCR-023."
+        gone: "ST-GONE → SCR-024."
+        offline: "ST-OFFLINE."
+        success: "Guardar/Compartir: confirmación en role=status."
+        disabled: "Guardar* con almacenamiento no disponible (ALT-011)."
+        permission_denied: "No aplica."
+      Responsive:
+        mobile: "Una columna; PageToc como desplegable «En esta página» bajo la entradilla; KeyFacts 2 col; acciones Guardar/Compartir como botones con texto bajo el h1."
+        tablet: "KeyFacts 3 col; galería en mosaico."
+        desktop: "Cuerpo 8/12 con medida 68ch; PageToc fijo en 4/12 junto con un resumen compacto de dificultad y época."
+        large_desktop: "Portada a 1440 px; cuerpo centrado."
+      Accessibility:
+        semantics: ["article para el contenido del destino; aside para descargo", "Jerarquía h1 > h2 sin saltos; las secciones vacías opcionales no se renderizan (no hay encabezados huérfanos)"]
+        focus_order: ["Migas → h1 → acciones → contenido → Sigue explorando"]
+        aria: ["Acciones con nombre completo «Guardar Caño Cristales»"]
+      Motion: {enter: "Ninguna en carga inicial.", transition: "View Transition: la imagen de la tarjeta de origen puede continuar en la portada (view-transition-name por slug) solo si no hay reduced-motion.", feedback: "Guardar: icono se rellena con escala 1.15 100 ms.", reduced_motion: "Sin morph; fundido ≤100 ms."}
+      UX_Copy: {sin_itinerarios: "Aún no hay itinerario para este destino", afines: "Itinerarios en destinos parecidos", escala: "¿Qué significa?", ubicacion_cta: "Ver en el mapa"}
+
+    - NombreVista: "Visor de galería"
+      SCR: "SCR-005"
+      Ruta: "(modal dentro de SCR-004)"
+      Plantilla: "Dialog fullscreen"
+      FLOW: ["FLOW-001 paso 5"]
+      Purpose: "Ver las fotografías del destino a gran tamaño con su información y créditos."
+      Layout: "Fondo overlay.lightbox; barra superior (posición «3 de 8» y botón Cerrar); imagen centrada con object-fit: contain en el máximo espacio disponible; botones Anterior/Siguiente a los lados (≥ md) o en la barra inferior (< md); figcaption bajo la imagen con pie y crédito (autor + licencia enlazada)."
+      Hierarquia_Visual: ["Imagen", "Pie", "Crédito", "Posición", "Controles"]
+      Componentes: ["Dialog fullscreen", "IconButton inverse", "Link external (licencia)"]
+      Estados_UI:
+        default: "Imagen con derivado adecuado al viewport (sizes=100vw)."
+        loading: "Spinner centrado sobre el color de fondo; texto alternativo disponible como aria-label del contenedor."
+        error: "La imagen no carga: caja con el texto alternativo visible, crédito y botón «Reintentar»."
+        empty: "No aplica (≥3 medios por RULE-002)."
+        offline: "Las imágenes ya descargadas siguen; las no descargadas muestran el estado error con Reintentar."
+        success: "No aplica."
+        disabled: "Anterior deshabilitado en la primera; Siguiente en la última (sin bucle, para orientación)."
+        permission_denied: "No aplica."
+      Responsive:
+        mobile: "Pantalla completa; deslizar horizontal cambia de foto (además de los botones); pie en panel inferior plegable «Información» para no tapar la foto."
+        tablet: "Igual que mobile con pie siempre visible."
+        desktop: "Botones laterales de 48 px; pie bajo la imagen."
+        large_desktop: "Imagen hasta el derivado de 1920 px."
+      Accessibility:
+        semantics: ["role=dialog aria-modal=true aria-label «Galería de {destino}»", "figure + img alt + figcaption"]
+        keyboard: ["← / → cambian de foto; Esc cierra; Tab recorre Cerrar, Anterior, Siguiente, enlace de licencia"]
+        focus_order: ["Foco inicial en Cerrar; al cerrar vuelve a la miniatura que lo abrió"]
+        aria: ["Posición «Foto 3 de 8» en aria-live=polite al cambiar"]
+      Motion: {enter: "Fundido 240 ms.", transition: "Cambio de foto: fundido cruzado 160 ms.", feedback: "Ninguno.", reduced_motion: "Sin fundido cruzado; cambio instantáneo."}
+      UX_Copy: {cerrar: "Cerrar galería", anterior: "Foto anterior", siguiente: "Foto siguiente", posicion: "{n} de {N}", credito: "Foto: {autor} · {licencia}"}
+
+    - NombreVista: "Listado de itinerarios"
+      SCR: "SCR-006"
+      Ruta: "/itinerarios?orden=&pagina="
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-001", "FLOW-004"]
+      Purpose: "Recorrer todos los itinerarios publicados."
+      Layout: "h1 «Itinerarios» + entradilla + recuento + Ordenar (A-Z · Duración: más cortos primero · Duración: más largos primero) · rejilla CardItinerario · paginación."
+      Hierarquia_Visual: ["h1", "recuento", "orden", "rejilla", "paginación"]
+      Componentes: ["CardItinerario", "SaveButton*", "Pagination", "EmptyState"]
+      Estados_UI: {default: "Rejilla.", loading: "ST-LOADING (esqueletos de tarjeta).", empty: "«Aún no hay itinerarios publicados» + Explorar destinos + Guías.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "1-2 col.", tablet: "2 col.", desktop: "3 col.", large_desktop: "4 col."}
+      Accessibility: {semantics: ["ul de tarjetas", "select de orden con etiqueta visible «Ordenar por»"], aria: ["Recuento role=status"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover de tarjeta.", reduced_motion: "Sin escala de imagen."}
+      UX_Copy: {h1: "Itinerarios", vacio: "Aún no hay itinerarios publicados"}
+
+    - NombreVista: "Detalle de itinerario"
+      SCR: "SCR-007"
+      Ruta: "/itinerarios/{slug}"
+      Plantilla: "TPL-PUB-DETAIL"
+      FLOW: ["FLOW-001", "FLOW-004", "FLOW-009"]
+      Purpose: "Planear día a día con riesgos visibles."
+      Layout: "Migas «Inicio › Destinos › {Destino} › {Itinerario}» · h1 · enlace al destino · acciones (Imprimir*, Compartir*, Guardar*) · portada · KeyFacts itinerario · resumen · h2 «Día a día» con DayTimeline · Riesgos y seguridad · Fuentes · Autoría · Descargo · Sigue explorando."
+      Hierarquia_Visual:
+        - "KeyFacts arriba: duración, dificultad, tipos (chips), distancia y desnivel totales si aplican."
+        - "Navegación de días: PageToc con «Día 1 … Día n» (desplegable en móvil; en ≥ lg fija en la columna lateral)."
+        - "DayTimeline con cada día completo (sin acordeones: el contenido debe poder buscarse con el buscador del navegador e imprimirse)."
+      Componentes: ["Breadcrumbs", "KeyFacts", "DifficultyMeter", "DayTimeline", "SafetyCallout", "PrintButton*", "ShareButton*", "SaveButton*", "SourcesList", "AuthorshipMeta", "DisclaimerBlock", "RelatedBlock", "PageToc"]
+      Estados_UI: {default: "Completo.", loading: "ST-LOADING (encabezado + 3 días esqueleto).", empty: "No aplica (RULE-003 exige días).", error: "ST-ERROR por sección diferida.", not_found: "SCR-023.", gone: "SCR-024 (también si su destino fue retirado, RULE-007).", offline: "ST-OFFLINE.", success: "Guardar/Compartir role=status.", disabled: "Guardar* no disponible (ALT-011).", permission_denied: "No aplica."}
+      Responsive: {mobile: "Una columna; datos de cada día en fila que se ajusta; acciones en fila con texto.", tablet: "Igual con KeyFacts 3 col.", desktop: "Cuerpo 8/12 + índice de días fijo 4/12.", large_desktop: "Igual, contenedor 1280."}
+      Accessibility: {semantics: ["ol para los días; article por día con h3", "Distancia/desnivel en dl"], keyboard: ["Índice de días salta al h3 correspondiente"], aria: ["Desnivel con texto accesible «desnivel positivo 850 metros, negativo 420 metros»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "Sin scroll suave."}
+      UX_Copy: {dia: "Día {n} · {título}", distancia: "Distancia", desnivel: "Desnivel", alojamiento: "Alojamiento orientativo", imprimir: "Imprimir itinerario"}
+
+    - NombreVista: "Índice de tipos de aventura"
+      SCR: "SCR-008"
+      Ruta: "/tipos-de-aventura"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-006"]
+      Purpose: "Elegir cómo quiere vivir la aventura."
+      Layout: "h1 «Tipos de aventura» + entradilla · rejilla CardTipo (imagen, nombre, exigencia 1-5, «{n} destinos»)."
+      Hierarquia_Visual: ["h1", "rejilla"]
+      Componentes: ["CardTipo", "DifficultyMeter compacto (etiquetado «Exigencia»)"]
+      Estados_UI: {default: "Todos los tipos publicados.", loading: "ST-LOADING.", empty: "ST-EMPTY: «Aún no hay tipos de aventura publicados» + Destinos + Guías.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "2 col con imagen 4:3 pequeña.", tablet: "3 col.", desktop: "4 col.", large_desktop: "4 col."}
+      Accessibility: {semantics: ["ul de tarjetas"], aria: ["Exigencia con texto «Exigencia 4 de 5»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "Sin escala."}
+      UX_Copy: {h1: "Tipos de aventura", conteo: "{n, plural, =1 {1 destino} other {# destinos}}"}
+
+    - NombreVista: "Detalle de tipo de aventura"
+      SCR: "SCR-009"
+      Ruta: "/tipos-de-aventura/{slug}"
+      Plantilla: "TPL-PUB-DETAIL"
+      FLOW: ["FLOW-004", "FLOW-006"]
+      Purpose: "Entender el tipo, prepararse (checklist) y saltar a sus destinos."
+      Layout: "Migas · h1 · portada · descripción · nivel de exigencia (medidor completo) · h2 Destinos (hasta 6 CardDestino + «Ver todos en Explorar» → SCR-002?tipo=) · h2 Checklist de equipo* (ChecklistGroup + «Imprimir checklist»*) · h2 Guías relacionadas · Descargo · Sigue explorando."
+      Hierarquia_Visual: ["Descripción y exigencia", "Destinos (acción principal)", "Checklist", "Guías"]
+      Componentes: ["Breadcrumbs", "DifficultyMeter", "CardDestino", "ChecklistGroup*", "PrintButton*", "CardGuia", "DisclaimerBlock", "RelatedBlock", "PageToc"]
+      Estados_UI: {default: "Completo.", loading: "ST-LOADING.", empty: "Tipo sin checklist: la sección no se renderiza (FEAT-011).", error: "ST-ERROR local.", not_found: "SCR-023.", gone: "SCR-024.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Una columna; checklist a ancho completo.", tablet: "Destinos 2 col.", desktop: "Destinos 3 col; checklist en 2 columnas de grupos.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["Checklist: h3 por grupo + ul", "«Esencial» como texto en Badge"], aria: ["Enlace «Ver todos los destinos de {tipo} en Explorar»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {ver_todos: "Ver todos en Explorar", checklist: "Checklist de equipo", esencial: "Esencial", imprimir: "Imprimir checklist"}
+
+    - NombreVista: "Índice de guías"
+      SCR: "SCR-010"
+      Ruta: "/guias"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-005"]
+      Purpose: "Aprender por temas."
+      Layout: "h1 «Guías expertas» + entradilla · por cada categoría con guías: section con h2 (nombre de la categoría), descripción corta, hasta 4 CardGuia y «Ver todas las guías de {categoría}»."
+      Hierarquia_Visual: ["h1", "secciones por categoría"]
+      Componentes: ["CardGuia", "Link standalone"]
+      Estados_UI: {default: "Solo categorías con ≥1 guía publicada.", loading: "ST-LOADING.", empty: "ST-EMPTY con Destinos y Tipos.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Tarjetas en lista horizontal (CardGuia variante horizontal) 1 col.", tablet: "2 col.", desktop: "4 col por categoría.", large_desktop: "4 col."}
+      Accessibility: {semantics: ["section + h2 por categoría"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "Sin escala."}
+      UX_Copy: {h1: "Guías expertas", ver_todas: "Ver todas las guías de {categoría}"}
+
+    - NombreVista: "Categoría de guías"
+      SCR: "SCR-011"
+      Ruta: "/guias/categoria/{slug}"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-005"]
+      Purpose: "Ver todas las guías de un tema."
+      Layout: "Migas «Inicio › Guías › {Categoría}» · h1 · descripción · lista de CardGuia horizontal (título, resumen, fecha de revisión, tiempo de lectura*) ordenada por revisión descendente · paginación (24) · h2 «Otras categorías» (chips enlace)."
+      Hierarquia_Visual: ["h1 + descripción", "lista", "otras categorías"]
+      Componentes: ["Breadcrumbs", "CardGuia horizontal", "Pagination", "Chip enlace"]
+      Estados_UI: {default: "Lista.", loading: "ST-LOADING.", empty: "No se alcanza (categoría sin guías → SCR-023).", error: "ST-ERROR.", not_found: "SCR-023.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Lista 1 col con miniatura 1:1 de 88 px.", tablet: "Lista 1 col con miniatura 4:3.", desktop: "Lista a 8/12 + otras categorías en columna lateral 4/12.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["ul de guías; fecha en time"], aria: ["Tiempo de lectura «Lectura de 6 minutos»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "N/A."}
+      UX_Copy: {lectura: "{n} min de lectura", revisado: "Revisado el {fecha}"}
+
+    - NombreVista: "Detalle de guía"
+      SCR: "SCR-012"
+      Ruta: "/guias/{slug}"
+      Plantilla: "TPL-PUB-ARTICLE"
+      FLOW: ["FLOW-004", "FLOW-005"]
+      Purpose: "Leer consejo experto con comodidad y saltar a lo relacionado."
+      Layout: "Migas «Inicio › Guías › {Categoría} › {Guía}» · overline categoría · h1 · AuthorshipMeta cabecera + tiempo de lectura* · portada · cuerpo (body-lg, 68ch, h2-h4 del texto enriquecido) con PageToc lateral ≥ xl · h2 Destinos y tipos relacionados · Fuentes · Descargo · Sigue explorando."
+      Hierarquia_Visual: ["Título y credibilidad", "Cuerpo", "Relacionados"]
+      Componentes: ["Breadcrumbs", "AuthorshipMeta", "PageToc", "Link glosario", "Link external", "CardDestino", "CardTipo", "SourcesList", "DisclaimerBlock", "RelatedBlock", "ShareButton*"]
+      Tipografia_Cuerpo: "Párrafos body-lg; h2 con space.12 arriba; listas con sangría 1.25rem; citas con borde izquierdo brand 4 px y cursiva; enlaces subrayados."
+      Estados_UI: {default: "Completo.", loading: "ST-LOADING (título + 6 líneas).", empty: "No aplica.", error: "ST-ERROR local.", not_found: "SCR-023.", gone: "SCR-024.", offline: "ST-OFFLINE.", success: "Compartir role=status.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Una columna, márgenes 16 px; índice desplegable.", tablet: "Igual con márgenes 32 px.", desktop: "Cuerpo centrado 68ch.", large_desktop: "Índice fijo en el margen izquierdo."}
+      Accessibility: {semantics: ["article; los encabezados del cuerpo empiezan en h2"], aria: ["Enlaces externos anunciados «(sitio externo)»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {lectura: "{n} min de lectura"}
+
+    - NombreVista: "Índice de colecciones"
+      SCR: "SCR-013"
+      Ruta: "/colecciones"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-008"]
+      Purpose: "Descubrir selecciones curadas."
+      Layout: "h1 «Colecciones» + entradilla · rejilla CardColeccion (portada 4:3, título, descripción 2 líneas, «{n} aventuras»)."
+      Hierarquia_Visual: ["h1", "rejilla"]
+      Componentes: ["CardColeccion"]
+      Estados_UI: {default: "Colecciones publicadas.", loading: "ST-LOADING.", empty: "ST-EMPTY con Destinos e Itinerarios.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "1 col.", tablet: "2 col.", desktop: "3 col.", large_desktop: "3 col."}
+      Accessibility: {semantics: ["ul de tarjetas"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "Sin escala."}
+      UX_Copy: {h1: "Colecciones"}
+
+    - NombreVista: "Detalle de colección"
+      SCR: "SCR-014"
+      Ruta: "/colecciones/{slug}"
+      Plantilla: "TPL-PUB-DETAIL"
+      FLOW: ["FLOW-008"]
+      Purpose: "Recorrer una selección con la mirada del editor."
+      Layout: "Migas · h1 · portada · descripción · ol de elementos: cada uno CardDestino o CardItinerario horizontal + nota editorial en cita debajo · Sigue explorando no aplica (no es requisito para colecciones; se muestra enlace «Ver todas las colecciones»)."
+      Hierarquia_Visual: ["Descripción", "Elementos numerados con nota"]
+      Componentes: ["Breadcrumbs", "CardDestino horizontal", "CardItinerario horizontal", "SaveButton*"]
+      Estados_UI: {default: "Solo elementos publicados (RULE-024), numeración continua sin huecos.", loading: "ST-LOADING.", empty: "No aplica (≥4).", error: "ST-ERROR.", not_found: "SCR-023.", gone: "SCR-024.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Tarjeta vertical + nota.", tablet: "Tarjeta horizontal.", desktop: "Tarjeta horizontal a 8/12, nota al lado.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["ol (el orden es significativo)"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "N/A."}
+      UX_Copy: {nota: "Nota del equipo editorial"}
+
+    - NombreVista: "¿Dónde ir cada mes?"
+      SCR: "SCR-015"
+      Ruta: "/cuando-ir"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-008"]
+      Purpose: "Elegir destino según la época del viaje."
+      Layout: "h1 «¿Dónde ir cada mes?» + entradilla · rejilla de 12 CardMes en orden enero → diciembre."
+      Hierarquia_Visual: ["h1", "12 meses"]
+      Componentes: ["CardMes"]
+      Estados_UI: {default: "12 meses.", loading: "ST-LOADING.", empty: "Mes con 0 destinos: la tarjeta muestra «Sin destinos este mes» sin imagen y sigue enlazada (SCR-016 gestiona su vacío).", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "2 col.", tablet: "3 col.", desktop: "4 col.", large_desktop: "6 col."}
+      Accessibility: {semantics: ["ol de meses"], aria: ["Nombre accesible «Enero: 5 destinos»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "¿Dónde ir cada mes?"}
+
+    - NombreVista: "Destinos del mes"
+      SCR: "SCR-016"
+      Ruta: "/cuando-ir/{mes}"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-008"]
+      Purpose: "Ver los destinos cuya mejor época incluye el mes."
+      Layout: "Migas «Inicio › Cuándo ir › {Mes}» · h1 «Dónde ir en {mes}» · navegación «‹ {mes anterior}» / «{mes siguiente} ›» · rejilla CardDestino · enlace «Filtrar {mes} en Explorar» (SCR-002?mes=)."
+      Hierarquia_Visual: ["h1", "navegación entre meses", "rejilla", "enlace a Explorar"]
+      Componentes: ["Breadcrumbs", "CardDestino", "Link standalone"]
+      Estados_UI: {default: "Rejilla.", loading: "ST-LOADING.", empty: "«Aún no hay destinos recomendados para {mes}» + meses adyacentes con destinos como CardMes + Explorar.", error: "ST-ERROR.", not_found: "Mes inválido → SCR-023.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Navegación de meses a ancho completo en dos botones; rejilla 1-2 col.", tablet: "2 col.", desktop: "3 col.", large_desktop: "4 col."}
+      Accessibility: {semantics: ["nav aria-label «Otros meses»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Hover.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Dónde ir en {mes}", explorar: "Filtrar {mes} en Explorar"}
+
+    - NombreVista: "Resultados de búsqueda"
+      SCR: "SCR-017"
+      Ruta: "/buscar?q=&tipo=&pagina="
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-003"]
+      Purpose: "Encontrar contenido por texto, agrupado por tipo."
+      Layout: "SearchField precargado · h1 «Resultados para «{q}»» (q como texto) · total · secciones por grupo (Destinos · Itinerarios · Guías · Tipos de aventura) con h2 «Destinos ({n})», hasta 10 resultados y «Ver los {n} destinos» (&tipo=) · con &tipo=: un único grupo paginado (24) + «Volver a todos los resultados»."
+      Hierarquia_Visual: ["Campo", "h1 + total", "grupos"]
+      Componentes: ["SearchField", "CardDestino horizontal", "CardItinerario horizontal", "CardGuia horizontal", "CardTipo horizontal", "Pagination", "EmptyState"]
+      Estados_UI: {default: "Grupos con resultados; los grupos vacíos no se muestran.", loading: "Navegación interna: esqueleto de 3 filas por grupo.", empty: "«Sin resultados para «{q}»» + sugerencias: tipos de aventura (chips), 3 destinos destacados y «Explorar destinos» (ALT-007).", error: "ST-ERROR con Reintentar.", invalid: "q vacía, <2 o >100: mensaje en línea bajo el campo; no se muestran resultados (AC-020).", offline: "ST-OFFLINE (enviar deshabilitado con motivo).", success: "No aplica.", disabled: "Ver offline.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Lista 1 col.", tablet: "Lista con miniaturas 4:3.", desktop: "Lista a 8/12; índice de grupos (enlaces con conteos) en 4/12.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["section + h2 por grupo"], aria: ["Total en role=status", "La consulta del usuario siempre como texto (nunca HTML), también en title"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Resultados para «{q}»", total: "{n, plural, =1 {1 resultado} other {# resultados}}", corto: "Escribe al menos 2 caracteres.", largo: "Usa como máximo 100 caracteres.", vacio: "Sin resultados para «{q}»", vacio_ayuda: "Revisa la ortografía o prueba con un término más general. También puedes explorar por tipo de aventura:"}
+
+    - NombreVista: "Glosario"
+      SCR: "SCR-018"
+      Ruta: "/glosario (#{termino})"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-005 (enlaces desde contenidos)"]
+      Purpose: "Entender el vocabulario experto."
+      Layout: "h1 «Glosario» · AlphabetIndex fijo bajo la cabecera (≥ md) · secciones por letra (h2 «A») con dl: dt con id=slug, dd con definición + «Aparece en:» (enlaces)."
+      Hierarquia_Visual: ["Índice A-Z", "términos"]
+      Componentes: ["AlphabetIndex", "Link"]
+      Estados_UI: {default: "Términos publicados.", loading: "ST-LOADING.", empty: "ST-EMPTY.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "Término de destino (:target) resaltado con bg.highlight durante la visita (sin animación con reduced-motion).", disabled: "Letras sin términos como texto no enlazado.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Índice A-Z en rejilla de 7 columnas no fija.", tablet: "Índice en una fila que se ajusta.", desktop: "Índice fijo en columna lateral.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["dl/dt/dd"], keyboard: ["Tras saltar a un ancla el foco va al dt (tabindex=-1)"]}
+      Motion: {enter: "Ninguna.", transition: "Sin scroll suave con reduced-motion.", feedback: "Resaltado de :target.", reduced_motion: "Resaltado sin transición."}
+      UX_Copy: {h1: "Glosario", aparece: "Aparece en:"}
+
+    - NombreVista: "Mis aventuras guardadas"
+      SCR: "SCR-019"
+      Ruta: "/guardados"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-009"]
+      Purpose: "Volver a lo guardado sin cuenta y sin enviar datos."
+      Layout: "h1 «Mis aventuras guardadas» · nota «Se guardan solo en este navegador.» · recuento · lista de filas (tipo como overline, título enlazado, país, botón «Quitar») · botón secundario «Vaciar todo»."
+      Hierarquia_Visual: ["h1 + nota de privacidad", "lista", "Vaciar todo"]
+      Componentes: ["Lista de filas", "Button ghost «Quitar»", "Button secondary «Vaciar todo»", "Dialog alertdialog", "EmptyState", "SurpriseButton*"]
+      Estados_UI:
+        default: "Lista renderizada desde el almacenamiento local, sin llamada al servidor (RULE-013). Datos tratados como no confiables: texto plano y rutas internas construidas desde tipo+slug (THREAT-026)."
+        loading: "Tras hidratar (el HTML inicial no conoce los guardados): contenedor con altura mínima reservada y esqueleto de 3 filas."
+        empty: "«Aún no has guardado aventuras» + «Explorar destinos» + «Sorpréndeme»*."
+        error: "Almacenamiento no disponible: InlineAlert info con la explicación (ALT-011) + Explorar."
+        success: "Quitar: fila desaparece; role=status «Quitaste {título}.» con botón «Deshacer» visible 10 s y también accesible por teclado (no depende del tiempo: permanece hasta la siguiente acción)."
+        offline: "Funciona sin red (datos locales); abrir un elemento sin red muestra el aviso GI-04."
+        disabled: "No aplica."
+        permission_denied: "No aplica."
+      Responsive: {mobile: "Filas a ancho completo; «Quitar» como IconButton con nombre accesible.", tablet: "Filas con botón de texto.", desktop: "Lista a 8/12.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["ul de filas"], keyboard: ["Tras quitar, foco a la fila siguiente o al h1 si no quedan"], aria: ["«Quitar {título} de guardados»"]}
+      Motion: {enter: "Ninguna.", transition: "Salida de fila: colapso 160 ms.", feedback: "role=status.", reduced_motion: "Eliminación instantánea."}
+      UX_Copy: {h1: "Mis aventuras guardadas", nota: "Se guardan solo en este navegador. No enviamos esta lista a ningún servidor.", vaciar_titulo: "¿Vaciar tus aventuras guardadas?", vaciar_texto: "Se borrarán las {n} aventuras guardadas en este navegador. No se puede deshacer.", vaciar_confirmar: "Vaciar", cancelar: "Cancelar"}
+
+    - NombreVista: "Página institucional"
+      SCR: "SCR-020"
+      Ruta: "/acerca-de · /politica-de-tratamiento-de-datos · /politica-de-cookies · /aviso-legal"
+      Plantilla: "TPL-PUB-ARTICLE"
+      FLOW: ["FLOW-001 (enlaces de escala)", "FLOW-017"]
+      Purpose: "Transparencia editorial y cumplimiento legal."
+      Layout: "Migas · h1 · metadatos del documento («Versión {v} · Vigente desde {fecha}» en páginas legales) · cuerpo 68ch con PageToc · en /acerca-de: secciones Metodología editorial, Escala de dificultad (#escala-de-dificultad) y Escala de presupuesto (#escala-de-presupuesto) como tablas (nivel con medidor + nombre + descripción), descargo ampliado."
+      Hierarquia_Visual: ["h1", "metadatos de versión", "cuerpo", "escalas (acerca-de)"]
+      Componentes: ["Breadcrumbs", "PageToc", "DifficultyMeter", "BudgetMeter", "DisclaimerBlock (ampliado)", "Marcador pendiente"]
+      Marcador_Pendiente: "[RESPONSABLE POR DEFINIR] se muestra como texto en línea con fondo status.warning-bg, borde 1 px status.warning-fg e icono; nunca oculto (ALT-024)."
+      Estados_UI: {default: "Documento completo.", loading: "ST-LOADING.", empty: "No aplica (AC-033: siempre existen).", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "Ancla de escala resaltada con :target.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Tablas de escala como lista de tarjetas (nivel + descripción).", tablet: "Tabla.", desktop: "Tabla con medidor.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["table con caption y th scope en escalas"], keyboard: ["Anclas con scroll-margin-top"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Resaltado de :target.", reduced_motion: "Sin transición."}
+      UX_Copy: {version: "Versión {v} · Vigente desde {fecha}", pendiente: "[RESPONSABLE POR DEFINIR]"}
+
+    - NombreVista: "Créditos de imágenes"
+      SCR: "SCR-021"
+      Ruta: "/creditos"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-017 (institucional)"]
+      Purpose: "Reconocer autoría y licencias de todos los medios publicados."
+      Layout: "h1 «Créditos de imágenes» + entradilla · agrupado por contenido (h2 = título del contenido enlazado, con tipo en overline) · por medio: fila con miniatura 1:1 de 64 px, autor, licencia (enlace externo al texto legal), fuente (enlace externo) · paginación de 24 contenidos por página."
+      Hierarquia_Visual: ["h1", "grupos por contenido", "filas de medio"]
+      Componentes: ["Link external", "Pagination"]
+      Estados_UI: {default: "Grupos.", loading: "ST-LOADING.", empty: "ST-EMPTY.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Fila con miniatura y datos apilados.", tablet: "Datos en línea.", desktop: "Tabla por grupo (Imagen · Autor · Licencia · Fuente).", large_desktop: "Igual."}
+      Accessibility: {semantics: ["Miniaturas con alt del medio"], aria: ["Licencia y fuente anunciadas como externas"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Créditos de imágenes"}
+
+    - NombreVista: "Mapa del sitio"
+      SCR: "SCR-022"
+      Ruta: "/mapa-del-sitio"
+      Plantilla: "TPL-PUB-LIST"
+      FLOW: ["FLOW-017"]
+      Purpose: "Garantizar que toda página publicada sea alcanzable (AC-025)."
+      Layout: "h1 · secciones h2 (Destinos por región con h3 por región, Itinerarios, Tipos de aventura, Guías por categoría, Colecciones*, Meses*, Institucional) · listas en columnas CSS (1 < md, 2 md, 3 ≥ xl)."
+      Hierarquia_Visual: ["h1", "secciones"]
+      Componentes: ["Link"]
+      Estados_UI: {default: "Todas las páginas publicadas.", loading: "ST-LOADING.", empty: "No aplica.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "1 columna.", tablet: "2 columnas.", desktop: "3 columnas.", large_desktop: "3 columnas."}
+      Accessibility: {semantics: ["ul anidadas bajo h2/h3"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Mapa del sitio"}
+
+    - NombreVista: "Error 404"
+      SCR: "SCR-023"
+      Ruta: "HTTP 404"
+      Plantilla: "TPL-PUB-ERROR"
+      FLOW: ["FLOW-017"]
+      Purpose: "Recuperar al visitante perdido."
+      Layout: "Ilustración de brújula · h1 · texto · SearchField · enlaces Inicio / Destinos / Guías · h2 «Destinos para empezar» con 3 CardDestino · Sorpréndeme*."
+      Hierarquia_Visual: ["Mensaje", "Búsqueda", "Rutas", "Destacados"]
+      Componentes: ["SearchField", "CardDestino", "SurpriseButton*", "Link standalone"]
+      Estados_UI: {default: "Completo.", loading: "No aplica.", empty: "Si no hay destacados, se omite esa sección.", error: "Si los destacados fallan, se omiten (la página sigue siendo útil).", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Una columna; ilustración de 120 px.", tablet: "Igual.", desktop: "Mensaje y búsqueda centrados; destacados en 3 col.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["title «Página no encontrada — {marca}»", "h1 único"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "No encontramos esta página", texto: "Puede que el enlace esté mal escrito o que la página nunca haya existido. Sigue explorando desde aquí:"}
+
+    - NombreVista: "Contenido retirado"
+      SCR: "SCR-024"
+      Ruta: "HTTP 410"
+      Plantilla: "TPL-PUB-ERROR"
+      FLOW: ["FLOW-017", "FLOW-009"]
+      Purpose: "Explicar que el contenido ya no está y ofrecer alternativas afines."
+      Layout: "h1 · texto · h2 «Aventuras parecidas» con ≥3 tarjetas afines · enlace al listado padre · si está en Guardados*: InlineAlert info con «Quitar de guardados»."
+      Hierarquia_Visual: ["Mensaje", "Alternativas", "Listado padre", "Quitar de guardados*"]
+      Componentes: ["CardDestino / CardItinerario / CardGuia / CardTipo", "InlineAlert", "SaveButton* (acción quitar)"]
+      Estados_UI: {default: "Completo.", loading: "No aplica.", empty: "No aplica (≥3 alternativas, AC-100).", error: "Alternativas fallan → solo listado padre e Inicio.", offline: "ST-OFFLINE.", success: "«Quitaste {título} de guardados.» role=status.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "1 col.", tablet: "2 col.", desktop: "3 col.", large_desktop: "3 col."}
+      Accessibility: {semantics: ["title «Contenido no disponible — {marca}»"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "role=status.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Este contenido ya no está disponible", texto: "Lo retiramos de {marca}. Estas aventuras se le parecen:", quitar: "Quitar de guardados"}
+
+    - NombreVista: "Error 500"
+      SCR: "SCR-025"
+      Ruta: "HTTP 500"
+      Plantilla: "TPL-PUB-ERROR"
+      FLOW: ["FLOW-017"]
+      Purpose: "Informar sin detalles técnicos y permitir reintentar."
+      Layout: "Cabecera y pie en versión estática (sin contador de guardados ni datos) · ilustración · h1 · texto · «Reintentar» (recarga la URL) · «Ir al inicio»."
+      Hierarquia_Visual: ["Mensaje", "Reintentar", "Inicio"]
+      Componentes: ["Button primary", "Link"]
+      Restriccion: "Sin dependencias de datos ni de JS para mostrarse (BLUEPRINT SCR-025); solo CSS y SVG en línea."
+      Estados_UI: {default: "Completo.", loading: "No aplica.", empty: "No aplica.", error: "Es el estado de error.", offline: "ST-OFFLINE si hay JS.", success: "No aplica.", disabled: "No aplica.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Una columna centrada.", tablet: "Igual.", desktop: "Igual, máx. 640 px.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["title «Error del servidor — {marca}»"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Tuvimos un problema de nuestro lado", texto: "No es tu culpa. Vuelve a intentarlo en unos segundos.", reintentar: "Reintentar", inicio: "Ir al inicio"}
+
+    # ------------------------------------------------------------------ PANEL EDITORIAL (/panel/**)
+    - NombreVista: "Acceso"
+      SCR: "SCR-030"
+      Ruta: "/panel/acceso?siguiente="
+      Plantilla: "TPL-PANEL-AUTH"
+      FLOW: ["FLOW-010"]
+      Purpose: "Entrar al panel de forma segura."
+      Layout: "Tarjeta: marca + «Panel editorial» · h1 «Acceso al panel editorial» · banner de estado (si aplica) · Usuario · Contraseña (Mostrar/Ocultar) · «Entrar» (primary a ancho completo) · ayuda «¿No puedes entrar? Pide a un administrador que restablezca tu contraseña.»"
+      Hierarquia_Visual: ["Mensaje de estado", "Campos", "Entrar", "Ayuda"]
+      Componentes: ["FormField (username, current-password)", "Button primary", "InlineAlert"]
+      Estados_UI:
+        default: "Formulario vacío."
+        loading: "Entrar en loading «Entrando…»; campos readonly."
+        error: "Credenciales inválidas: banner error genérico «Usuario o contraseña incorrectos.» (nunca indica cuál, THREAT-018); foco al banner; contraseña se vacía, usuario se conserva."
+        locked: "Bloqueo: banner error «Por seguridad, el acceso está bloqueado temporalmente. Inténtalo de nuevo en {min} minutos.»"
+        expired: "Banner info «Tu sesión expiró por inactividad. Vuelve a entrar para continuar.»"
+        closed: "Banner success «Cerraste sesión.»"
+        offline: "Entrar deshabilitado con motivo."
+        empty: "No aplica."
+        success: "Navega a SCR-031 / 032 / 033 / siguiente / SCR-034."
+        disabled: "Ver offline."
+        permission_denied: "No aplica."
+      Responsive: {mobile: "Tarjeta a ancho completo con márgenes de 16 px.", tablet: "Tarjeta de 420 px centrada.", desktop: "Igual.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["main con h1"], keyboard: ["Enter envía"], aria: ["Banner role=alert en errores"], autenticacion: ["Permite pegar y gestores de contraseñas; sin CAPTCHA ni pruebas cognitivas (3.3.8)"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Loading del botón.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Acceso al panel editorial", usuario: "Usuario", contrasena: "Contraseña", entrar: "Entrar", mostrar: "Mostrar contraseña", ayuda: "¿No puedes entrar? Pide a un administrador que restablezca tu contraseña."}
+
+    - NombreVista: "Verificación MFA"
+      SCR: "SCR-031"
+      Ruta: "/panel/acceso/verificacion"
+      Plantilla: "TPL-PANEL-AUTH"
+      FLOW: ["FLOW-010"]
+      Purpose: "Completar el segundo factor."
+      Layout: "h1 «Verificación en dos pasos» · texto · OtpInput · «Verificar» · «Usar un código de recuperación» · «Volver» (cierra el intento)."
+      Hierarquia_Visual: ["Código", "Verificar", "Alternativa", "Volver"]
+      Componentes: ["OtpInput", "Button primary", "Button ghost"]
+      Estados_UI: {default: "Campo vacío con foco.", loading: "«Verificando…».", error: "«El código no es válido.» bajo el campo (cuenta como intento, sin revelar más).", locked: "Mismo mensaje de bloqueo que SCR-030.", offline: "Verificar deshabilitado con motivo.", empty: "No aplica.", success: "Continúa el FLOW-010.", disabled: "Ver offline.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Tarjeta a ancho completo.", tablet: "420 px.", desktop: "420 px.", large_desktop: "420 px."}
+      Accessibility: {aria: ["Ayuda vinculada: «Escribe el código de 6 dígitos de tu aplicación autenticadora.»"], autenticacion: ["Pegar permitido (3.3.8)"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Loading.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Verificación en dos pasos", verificar: "Verificar", recuperacion: "Usar un código de recuperación", volver: "Volver"}
+
+    - NombreVista: "Mi cuenta"
+      SCR: "SCR-032"
+      Ruta: "/panel/cuenta"
+      Plantilla: "TPL-PANEL-SHELL (normal) / TPL-PANEL-AUTH (cambio obligatorio)"
+      FLOW: ["FLOW-010", "FLOW-015"]
+      Purpose: "Gestionar credenciales propias y MFA."
+      Layout: "h1 «Mi cuenta» · section «Contraseña» (actual, nueva, confirmación; política visible) · section «Verificación en dos pasos»* (estado + Activar/Desactivar/Regenerar códigos) · section «Autorización de tratamiento» (fecha y versión otorgada, solo lectura)."
+      Modo_Cambio_Obligatorio: "Sin barra lateral ni navegación; banner warning «Debes cambiar tu contraseña temporal para continuar.»; solo sección Contraseña + «Cerrar sesión»."
+      Activacion_MFA: "Asistente en 3 pasos dentro de la sección (no en otra ruta): 1) QR generado localmente (img con alt «Código QR para configurar tu aplicación autenticadora») + clave manual en mono agrupada de 4 en 4 + Copiar; 2) OtpInput para confirmar; 3) OneTimeSecret con los códigos de recuperación. Indicador «Paso 2 de 3»."
+      Hierarquia_Visual: ["Contraseña", "MFA", "Autorización"]
+      Componentes: ["FormField password (new-password)", "OtpInput", "OneTimeSecret", "InlineAlert", "Dialog alertdialog (desactivar MFA)"]
+      Estados_UI: {default: "Secciones.", loading: "Botones en loading.", error: "Contraseña débil/comprometida/igual al usuario: mensaje bajo «Nueva contraseña» («Elige una contraseña menos común. Usa al menos 12 caracteres; una frase larga funciona bien.»). Confirmación distinta: «Las contraseñas no coinciden.»", success: "Banner success «Actualizaste tu contraseña.»; en modo obligatorio continúa a SCR-033 o destino.", offline: "Guardar deshabilitado.", empty: "No aplica.", disabled: "MFA obligatorio para Admin: «Desactivar» no disponible con explicación (DEC-AUTO-037).", permission_denied: "No aplica."}
+      Responsive: {mobile: "Secciones apiladas.", tablet: "Igual, 640 px.", desktop: "Formulario de 640 px.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["section con h2"], aria: ["Política de contraseña vinculada con aria-describedby", "Requisitos listados en texto (no solo medidor de fuerza)"]}
+      Motion: {enter: "Ninguna.", transition: "Pasos del asistente: sin animación.", feedback: "Banner.", reduced_motion: "N/A."}
+      UX_Copy: {politica: "Al menos 12 caracteres. Evita contraseñas comunes o tu nombre de usuario. No hace falta combinar símbolos.", obligatorio: "Debes cambiar tu contraseña temporal para continuar."}
+
+    - NombreVista: "Autorización de tratamiento"
+      SCR: "SCR-033"
+      Ruta: "/panel/autorizacion"
+      Plantilla: "TPL-PANEL-AUTH (ancho dialog-md)"
+      FLOW: ["FLOW-010", "FLOW-015"]
+      Purpose: "Obtener la autorización del titular (REQ-070)."
+      Layout: "h1 «Autorización de tratamiento de datos» · resumen de finalidades en lista · enlace «Leer la política completa (versión {v})» (abre la política pública en pestaña nueva, avisado) · «Autorizo» (primary) · «No autorizo» (secondary)."
+      Hierarquia_Visual: ["Resumen", "Enlace a política", "Decisión"]
+      Componentes: ["Button primary", "Button secondary", "Dialog alertdialog"]
+      Estados_UI: {default: "Pendiente de decisión.", loading: "Botón en loading.", error: "ST-ERROR con Reintentar.", success: "Autorizo → continúa a siguiente / SCR-034.", no_autorizo: "Diálogo de confirmación (DEC-AUTO-079) «Si no autorizas, se cerrará tu sesión y no podrás usar el panel.» → «No autorizo y salir» / «Volver»; tras confirmar: SCR-030 con sesión cerrada.", offline: "Botones deshabilitados.", empty: "No aplica.", disabled: "Ver offline.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Ancho completo; botones apilados (Autorizo primero).", tablet: "640 px.", desktop: "640 px.", large_desktop: "640 px."}
+      Accessibility: {aria: ["Enlace «(se abre en una pestaña nueva)»"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Loading.", reduced_motion: "N/A."}
+      UX_Copy: {autorizo: "Autorizo", no_autorizo: "No autorizo"}
+
+    - NombreVista: "Tablero"
+      SCR: "SCR-034"
+      Ruta: "/panel"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-010", "FLOW-011", "FLOW-013", "FLOW-014"]
+      Purpose: "Orientar al staff y dar accesos rápidos."
+      Layout: "h1 «Tablero» · (Admin) banner warning de Responsable sin datos · fila de accesos rápidos (Nuevo destino · Subir medios · Destacados de inicio · [Admin] Cuentas · Auditoría · Configuración) · 2 columnas ≥ xl: izquierda «Contenido por estado» (tabla tipos × BORRADOR/PUBLICADO/RETIRADO con enlaces) + «Últimos cambios» (10 filas: título, tipo, estado, quién, cuándo); derecha HealthWidget*."
+      Hierarquia_Visual: ["Alerta Admin", "Accesos rápidos", "Conteos", "Últimos cambios", "Salud editorial*"]
+      Componentes: ["Button secondary (accesos)", "StatCard (tabla compacta)", "DataTable", "HealthWidget*", "InlineAlert"]
+      Estados_UI: {default: "Datos.", loading: "Esqueletos por bloque.", empty: "Instalación nueva: «Aún no hay contenido. Empieza creando tu primer destino.» + Nuevo destino.", error: "ErrorState por bloque con Reintentar.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "Accesos de Admin ocultos para Editor."}
+      Responsive: {mobile: "Bloques apilados; accesos rápidos en rejilla 2 col.", tablet: "Igual.", desktop: "Conteos y últimos cambios a ancho completo; salud debajo.", large_desktop: "2 columnas 8/4."}
+      Accessibility: {semantics: ["section con h2 por bloque", "Tabla de conteos con th"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {alerta_responsable: "Faltan los datos del Responsable del tratamiento. Las páginas legales muestran [RESPONSABLE POR DEFINIR].", alerta_cta: "Completar configuración"}
+
+    - NombreVista: "Listado de contenidos"
+      SCR: "SCR-035"
+      Ruta: "/panel/contenido/{tipo}?estado=&q=&pagina="
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-011", "FLOW-012"]
+      Purpose: "Encontrar y abrir contenido de un tipo."
+      Layout: "Cabecera de página: h1 «{Tipo en plural}» + «Nuevo {tipo}» (primary) · barra de filtros (buscar por texto, estado select, Limpiar) · recuento · DataTable (Título · Estado · Revisión · Última modificación «{quién} · {cuándo}» · Publicado Sí/No · Acciones: «Ver en el sitio» si PUBLICADO) · paginación (50)."
+      Hierarquia_Visual: ["h1 + Nuevo", "filtros", "tabla"]
+      Componentes: ["DataTable", "Badge editorial", "FormField search", "select", "Pagination", "EmptyState", "Link external (pestaña nueva avisada)"]
+      Estados_UI: {default: "Tabla ordenada por última modificación descendente.", loading: "Filas esqueleto.", empty: "«Aún no hay {tipo}» + «Nuevo {tipo}»; con filtros: «Ningún resultado con estos filtros» + Limpiar.", error: "ST-ERROR.", offline: "ST-OFFLINE (filtros en espera).", success: "No aplica.", disabled: "Páginas institucionales: sin «Nuevo» (siempre existen); legales solo editables por Admin (el Editor ve el título sin enlace de edición y la insignia «Solo administrador»).", permission_denied: "SCR-048."}
+      Responsive: {mobile: "Tarjetas por fila (DEC-AUTO-070).", tablet: "Tabla con columnas Título, Estado, Modificación.", desktop: "Tabla completa.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["table con caption «Destinos, ordenados por última modificación»"], aria: ["Recuento role=status"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {nuevo: "Nuevo {tipo}", ver_sitio: "Ver en el sitio", vacio: "Aún no hay {tipo}"}
+
+    - NombreVista: "Editor de contenido"
+      SCR: "SCR-036"
+      Ruta: "/panel/contenido/{tipo}/nuevo | /panel/contenido/{tipo}/{id}"
+      Plantilla: "TPL-PANEL-SHELL (variante editor)"
+      FLOW: ["FLOW-011", "FLOW-012", "FLOW-013", "FLOW-016"]
+      Purpose: "Crear, editar y llevar a publicación cualquier tipo de contenido con calidad garantizada."
+      Layout: "Una sola página con secciones (DEC-AUTO-076): ≥ xl 3 columnas = navegación de secciones (220 px, con icono Cumplido/Pendiente por sección) · formulario (máx. 760 px) · StatusBar lateral (300 px: estado, acciones, CompletenessPanel, «Guardado a las…», versión). lg-xl: navegación de secciones como select «Ir a sección» + StatusBar fija superior. < lg: StatusBar fija inferior."
+      Secciones: "Las del BLUEPRINT §11.2 (SCR-036) por tipo, en el mismo orden, cada una section con h2 y fieldsets."
+      Detalle_Campos:
+        - "Slug: prefijo visible («/destinos/») + campo; se propone desde el nombre mientras no se edite a mano; tras la primera publicación, readonly con icono de candado y ayuda «El slug no se puede cambiar después de publicar.» (RULE-008, AC-101)."
+        - "Tipos + principal: CheckboxGroup de tipos + RadioGroup «Tipo principal» limitado a los marcados."
+        - "Meses: rejilla 3×4 de casillas."
+        - "Duración: dos number «Mínimo» y «Máximo» (días) en fieldset."
+        - "Dificultad y presupuesto: RadioGroup con etiqueta de la escala."
+        - "Textos con límite: contador (resumen 300, título SEO 70, descripción SEO 160); descripción con contador de palabras (≥600)."
+        - "Ubicación: latitud/longitud (6 decimales) + vista previa de marcador sobre WorldMap en solo lectura (carga diferida)."
+        - "Medios: portada (MediaTile + «Elegir portada» → SCR-041 modo único) y galería (SortableList en rejilla + «Añadir imágenes» → SCR-041 múltiple; «{n} de 3 mínimo»)."
+        - "Días (itinerario): SortableList de días; cada día en details (abierto el último añadido) con título, actividades (RichText corto), distancia, desnivel +/−, alojamiento, consejos; «Añadir día»; indicador «Días: 5 de 7 según la duración» en warning si no coincide (AC-118)."
+        - "Checklist (tipo): SortableList de elementos con grupo, nombre y casilla «Esencial»; «{n} de 8 mínimo»."
+        - "Relacionados: Combobox + SortableList; nota «Si hay menos de 3, se completarán automáticamente por afinidad al publicar.»"
+        - "Glosario vinculado: Combobox múltiple."
+        - "Fuentes: filas repetibles (título, URL) con «Añadir fuente»; alternativa casilla «Remite a la Metodología» (guías, RULE-004)."
+        - "Revisión: date con máximo hoy; ayuda «Actualízala solo cuando revises el contenido.» (RULE-009)."
+        - "Historial: lista de revisiones (fecha, acción, actor) con «Restaurar en el formulario»* (confirmación: «Se cargará la revisión del {fecha} en el formulario. No cambia nada público hasta que publiques o actualices.»)."
+        - "Página institucional: clave fija como texto, versión y vigencia; sin Retirar ni Eliminar."
+      Componentes: ["StatusBar", "CompletenessPanel", "ErrorSummary", "FormField", "CheckboxGroup", "RadioGroup", "RichTextEditor", "SortableList", "Combobox", "MediaTile", "WorldMap (solo lectura)", "ConflictBanner", "SessionExpiryDialog", "UnsavedChangesDialog", "OfflineBanner", "Badge editorial"]
+      Estados_UI:
+        default: "Formulario con datos."
+        loading: "Carga inicial: esqueleto de secciones. Guardar: «Guardando…» en el botón; formulario editable."
+        empty: "Alta: campos vacíos; CompletenessPanel con todos los requisitos pendientes."
+        error: "Validación de formato al guardar: ErrorSummary + errores en línea. Error de red: banner error con Reintentar; datos intactos."
+        success: "«Borrador guardado a las {hora}.» en la StatusBar (role=status); tras publicar: banner success «{título} está publicado.» + «Ver en el sitio»."
+        conflict: "ConflictBanner (AC-110)."
+        session_expiring: "SessionExpiryDialog 2 min antes."
+        session_expired: "Datos conservados en la página; la siguiente acción lleva a SCR-030 (ALT-014)."
+        offline: "Guardar/Publicar deshabilitados con «Sin conexión: tus cambios se conservan en esta página.»; edición permitida."
+        unsaved_exit: "UnsavedChangesDialog."
+        disabled: "RETIRADO: campos en solo lectura con banner info «Este contenido está retirado. Reactívalo como borrador para editarlo.» + acción principal «Reactivar como borrador»."
+        permission_denied: "Páginas legales para Editor → SCR-048."
+      Responsive:
+        mobile: "Operable (ASM-009): una columna; StatusBar inferior con acción principal y «Más acciones»; secciones con encabezado fijo al hacer scroll."
+        tablet: "Una columna de 720 px; StatusBar inferior."
+        desktop: "Selector de secciones + formulario + StatusBar superior."
+        large_desktop: "3 columnas descritas en Layout."
+      Accessibility:
+        semantics: ["form con aria-labelledby al h1 («Editar destino: {nombre}» / «Nuevo destino»)", "Cada sección section + h2; grupos en fieldset + legend"]
+        focus_order: ["Navegación de secciones → formulario → StatusBar (en ≥ xl); en móvil la StatusBar inferior va al final del orden"]
+        keyboard: ["Ctrl/Cmd+S = Guardar borrador (anunciado en la ayuda del botón)", "Enlaces de navegación de secciones mueven el foco al h2"]
+        aria: ["Estado de guardado en role=status", "Campos obligatorios para publicar marcados «(obligatorio para publicar)» — distinto de obligatorio para guardar"]
+      Motion: {enter: "Ninguna.", transition: "Reordenación de listas 160 ms.", feedback: "Punto de «Cambios sin guardar».", reduced_motion: "Reordenación instantánea."}
+      UX_Copy: {guardar: "Guardar borrador", vista_previa: "Vista previa", publicar: "Publicar", actualizar: "Actualizar publicación", retirar: "Retirar", reactivar: "Reactivar como borrador", eliminar: "Eliminar borrador", guardado: "Guardado a las {hora}", sin_guardar: "Cambios sin guardar", completitud_ok: "Listo para publicar", completitud_pend: "Faltan {n} requisitos para publicar"}
+
+    - NombreVista: "Vista previa"
+      SCR: "SCR-037"
+      Ruta: "/panel/contenido/{tipo}/{id}/vista-previa"
+      Plantilla: "TPL-PANEL-FULL"
+      FLOW: ["FLOW-011", "FLOW-012"]
+      Purpose: "Ver el contenido tal como se publicaría, sin persistir."
+      Layout: "PreviewBanner fijo + plantilla pública del tipo (SCR-004/007/009/012/014/020/018) con los datos del formulario. Enlaces a otros contenidos llevan a sus versiones públicas."
+      Hierarquia_Visual: ["Franja VISTA PREVIA", "plantilla pública"]
+      Componentes: ["PreviewBanner", "plantillas públicas"]
+      Estados_UI: {default: "Plantilla renderizada.", loading: "Esqueleto de la plantilla pública.", empty: "Campos vacíos se omiten como en público; la franja indica «Faltan datos para publicar» con enlace al editor.", error: "ST-ERROR con «Volver al editor».", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "Sin sesión → SCR-030."}
+      Nota: "Al volver al editor el formulario conserva el estado sin guardar. Contenido nuevo sin id: ver NPD-UX-001."
+      Responsive: {mobile: "Franja compacta (texto corto «VISTA PREVIA» + botón).", tablet: "Franja completa.", desktop: "Franja completa.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["title «Vista previa (no publicado) — {título}»; noindex"], aria: ["Franja role=region aria-label «Vista previa»"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {franja: "VISTA PREVIA – NO PUBLICADO", volver: "Volver al editor"}
+
+    - NombreVista: "Diálogo de publicación / retiro"
+      SCR: "SCR-038"
+      Ruta: "(diálogo sobre SCR-036)"
+      Plantilla: "Dialog (dialog-md; fullscreen < md)"
+      FLOW: ["FLOW-011", "FLOW-012"]
+      Purpose: "Confirmar transiciones de STATE-001 con validación e impacto visibles."
+      Variantes:
+        publicar_actualizar: "1) «Comprobando requisitos…» (spinner). 2a) Falla: ErrorSummary «No se puede publicar todavía. Corrige {n} problemas:» con enlaces (cierran el diálogo y enfocan el campo); única acción «Volver al editor». 2b) Pasa: resumen (título, URL final /destinos/{slug} con aviso de que el slug quedará fijo en la primera publicación, relacionados que se mostrarán, fecha de revisión) + «Confirmar publicación» / «Cancelar»."
+        retirar: "alertdialog: título «Retirar «{título}»» · ImpactSummary · Motivo (textarea obligatorio, «Solo lo verá el equipo») · «Retirar» (danger, deshabilitado hasta escribir motivo) / «Cancelar»."
+        retirar_bloqueado: "ImpactSummary variante bloqueado; solo «Entendido»."
+        eliminar: "alertdialog «¿Eliminar este borrador?» · «Se borrará definitivamente. Esta acción no se puede deshacer.» · «Eliminar borrador» (danger) / «Cancelar» (foco inicial)."
+      Componentes: ["Dialog", "ErrorSummary", "ImpactSummary", "FormField textarea", "Button primary/danger"]
+      Estados_UI: {default: "Según variante.", loading: "Confirmar en loading «Publicando…» / «Retirando…»; Esc deshabilitado durante la operación; doble clic neutralizado (ALT-017).", empty: "No aplica.", error: "Fallo de red: InlineAlert error dentro del diálogo con Reintentar; el contenido sigue en su estado previo.", success: "Cierra y vuelve a SCR-036 con banner success + «Ver en el sitio».", offline: "Confirmar deshabilitado con motivo.", disabled: "Retirar sin motivo.", permission_denied: "SCR-048 si el servidor rechaza por rol."}
+      Responsive: {mobile: "Pantalla completa; acciones fijas abajo.", tablet: "640 px.", desktop: "640 px.", large_desktop: "640 px."}
+      Accessibility: {semantics: ["role=dialog / alertdialog según variante"], focus_order: ["Publicar: foco en el título del resultado; Retirar: foco en Motivo; Eliminar: foco en Cancelar"]}
+      Motion: {enter: "Fundido + escala 0.98→1, 240 ms.", transition: "Entre pasos: sin animación.", feedback: "Loading.", reduced_motion: "Solo fundido ≤100 ms."}
+      UX_Copy: {confirmar_publicar: "Confirmar publicación", motivo: "Motivo del retiro (solo lo verá el equipo)", retirar: "Retirar", eliminar: "Eliminar borrador", exito_publicar: "«{título}» está publicado.", exito_retirar: "«{título}» se retiró. Su página ahora muestra «contenido no disponible»."}
+
+    - NombreVista: "Biblioteca de medios"
+      SCR: "SCR-039"
+      Ruta: "/panel/medios?estado=&licencia=&q=&en_uso="
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-013"]
+      Purpose: "Subir y gestionar imágenes con licencia."
+      Layout: "h1 «Medios» + «Subir imágenes» (despliega MediaUploader bajo la cabecera) · filtros (buscar, estado, licencia, en uso) · recuento · rejilla de MediaTile (enlace a SCR-040) · paginación."
+      Hierarquia_Visual: ["Subir", "Resultados de subida", "Filtros", "Rejilla"]
+      Componentes: ["MediaUploader", "MediaTile", "Badge medio", "FormField", "Pagination", "EmptyState"]
+      Estados_UI: {default: "Rejilla.", loading: "Esqueletos de mosaico.", empty: "«Sube tu primera imagen» + «Seleccionar imágenes».", error: "ST-ERROR.", upload_results: "Lista por archivo persistente hasta cerrarla (ALT-020, ALT-021).", offline: "Subida deshabilitada con motivo.", success: "Resumen de subida role=status.", disabled: "Ver offline.", permission_denied: "No aplica (Editor y Admin)."}
+      Responsive: {mobile: "Rejilla 2 col; filtros en details «Filtros».", tablet: "3-4 col.", desktop: "5 col.", large_desktop: "6 col."}
+      Accessibility: {semantics: ["ul de mosaicos"], aria: ["Mosaico: «{título}, {estado}, {licencia}, usado en {n} contenidos»"]}
+      Motion: {enter: "Uploader se despliega 160 ms.", transition: "Por defecto.", feedback: "Progreso.", reduced_motion: "Despliegue instantáneo."}
+      UX_Copy: {h1: "Medios", subir: "Subir imágenes", reglas: "JPEG, PNG o WebP · hasta 10 MB · mínimo 1.200 px en el lado mayor · hasta 10 a la vez", duplicada: "Esta imagen ya está en la biblioteca.", usar_existente: "Usar la existente"}
+
+    - NombreVista: "Detalle de medio"
+      SCR: "SCR-040"
+      Ruta: "/panel/medios/{id}"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-013"]
+      Purpose: "Catalogar el medio para que pueda publicarse."
+      Layout: "≥ lg: 2 columnas — izquierda: imagen (contain, fondo sunken) + ficha técnica (dimensiones, peso, derivados) ; derecha: formulario (título interno, texto alternativo obligatorio ≤250 con contador y guía de redacción, pie, autor/crédito obligatorio, URL de la fuente, licencia select obligatoria) + «Guardar» · lista «Usado en» · zona «Retirar medio»."
+      Hierarquia_Visual: ["Estado (Badge)", "Formulario", "Usos", "Retirar"]
+      Componentes: ["FormField", "Badge medio", "InlineAlert", "Button danger", "ImpactSummary bloqueado"]
+      Estados_UI: {default: "Formulario.", loading: "Esqueleto.", empty: "PENDIENTE_METADATOS: banner info «Completa el texto alternativo, el autor y la licencia para poder usar esta imagen en contenido publicado.»", error: "Licencia incompatible: sigue PENDIENTE_METADATOS con banner warning.", success: "«Imagen disponible.» Badge DISPONIBLE.", offline: "Guardar deshabilitado.", disabled: "Retirar deshabilitado (aria-disabled) si está en uso publicado, con la lista de usos (AC-117).", permission_denied: "No aplica."}
+      Responsive: {mobile: "Imagen arriba, formulario debajo.", tablet: "Igual.", desktop: "2 columnas 5/7.", large_desktop: "Igual."}
+      Accessibility: {aria: ["Guía de alt como ayuda: «Describe lo que muestra la foto como se lo contarías a alguien que no la ve. No empieces con «Imagen de».»"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Banner.", reduced_motion: "N/A."}
+      UX_Copy: {alt: "Texto alternativo", credito: "Autor o crédito", licencia: "Licencia", retirar: "Retirar medio"}
+
+    - NombreVista: "Selector de medios"
+      SCR: "SCR-041"
+      Ruta: "(modal sobre SCR-036)"
+      Plantilla: "Dialog (dialog-lg; fullscreen < md)"
+      FLOW: ["FLOW-011", "FLOW-013"]
+      Purpose: "Elegir o subir medios sin salir del editor."
+      Layout: "Título «Elegir imágenes» / «Elegir portada» · pestañas «Biblioteca» / «Subir» · barra de búsqueda y filtros · rejilla de MediaTile seleccionables · bandeja inferior fija «{n} seleccionadas» con miniaturas ordenables (SortableList) · «Añadir» (primary) / «Cancelar»."
+      Hierarquia_Visual: ["Buscar", "Rejilla", "Selección", "Añadir"]
+      Componentes: ["Dialog", "Tabs", "MediaTile seleccionable", "MediaUploader", "SortableList", "Badge medio"]
+      Estados_UI: {default: "Biblioteca de DISPONIBLES primero.", loading: "Esqueletos.", empty: "«No hay imágenes disponibles» + pestaña Subir.", error: "ST-ERROR dentro del diálogo.", disabled: "No DISPONIBLES: visibles con insignia y casilla deshabilitada + «Completa sus datos en Medios para usarla».", offline: "Añadir y Subir deshabilitados.", success: "Al añadir: cierra y la sección Medios anuncia «Se añadieron {n} imágenes.»", permission_denied: "No aplica."}
+      Responsive: {mobile: "Pantalla completa, rejilla 3 col, bandeja plegable.", tablet: "4 col.", desktop: "6 col.", large_desktop: "6 col, 1100 px."}
+      Accessibility: {semantics: ["Modo múltiple: casillas; modo portada: radios en radiogroup"], keyboard: ["Espacio selecciona; Tab entre mosaicos"], aria: ["Recuento de selección role=status"]}
+      Motion: {enter: "240 ms.", transition: "Ninguna.", feedback: "Marca de selección 100 ms.", reduced_motion: "Instantáneo."}
+      UX_Copy: {titulo: "Elegir imágenes", anadir: "Añadir {n} imágenes", no_disponible: "Completa sus datos en Medios para usarla"}
+
+    - NombreVista: "Destacados de inicio"
+      SCR: "SCR-042"
+      Ruta: "/panel/inicio"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-014"]
+      Purpose: "Configurar la portada del sitio."
+      Layout: "h1 «Destacados de inicio» · section Bloque principal (titular ≤80, subtítulo ≤160 con contadores, imagen vía SCR-041 modo único) · section Destinos (6-12) · Itinerarios (3-6) · Guías (3-6): cada una Combobox (solo PUBLICADO) + SortableList + contador «{n} de 6 mínimo» · «Guardar» · tras guardar: banner success + «Ver inicio»."
+      Hierarquia_Visual: ["Bloque principal", "Listas", "Guardar"]
+      Componentes: ["FormField", "MediaTile", "Combobox", "SortableList", "ErrorSummary", "UnsavedChangesDialog"]
+      Estados_UI: {default: "Configuración actual.", loading: "Esqueleto.", empty: "Lista vacía: «Sin destacados. El inicio se completará automáticamente con el contenido revisado más recientemente.» (RULE-016).", error: "Por debajo del mínimo o por encima del máximo: ErrorSummary + error en la sección.", success: "«Los cambios ya se ven en el inicio.» + «Ver inicio».", offline: "Guardar deshabilitado.", disabled: "Añadir deshabilitado al llegar al máximo con motivo.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Secciones apiladas.", tablet: "Igual.", desktop: "Formulario de 880 px.", large_desktop: "Igual."}
+      Accessibility: {aria: ["Contadores role=status"]}
+      Motion: {enter: "Ninguna.", transition: "Reordenación 160 ms.", feedback: "Ninguno.", reduced_motion: "Instantáneo."}
+      UX_Copy: {h1: "Destacados de inicio", ver_inicio: "Ver inicio"}
+
+    - NombreVista: "Taxonomías y catálogos"
+      SCR: "SCR-043"
+      Ruta: "/panel/taxonomias"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-012 (bloqueos de retiro)"]
+      Purpose: "Mantener regiones, países, categorías, licencias y escalas."
+      Layout: "h1 · Tabs (Regiones · Países · Categorías de guía · Licencias · Escalas) · por pestaña: «Nuevo» + DataTable (nombre, uso, estado, acciones Editar/Retirar) · formularios en Dialog. Pestaña activa reflejada en la URL para enlaces directos (recomendación)."
+      Hierarquia_Visual: ["Pestañas", "Tabla", "Acciones"]
+      Componentes: ["Tabs", "DataTable", "Dialog", "FormField", "ImpactSummary bloqueado", "InlineAlert info"]
+      Estados_UI: {default: "Tabla.", loading: "Filas esqueleto.", empty: "«Aún no hay {elementos}» + Nuevo.", error: "ST-ERROR.", disabled: "Editor en Licencias/Escalas: tabla en solo lectura, sin acciones, con InlineAlert «Solo un administrador puede modificar las licencias y las escalas.»", blocked: "Retirar en uso: ImpactSummary bloqueado (RULE-007).", offline: "Acciones deshabilitadas.", success: "Banner success.", permission_denied: "No aplica."}
+      Responsive: {mobile: "Pestañas como select «Catálogo» (evita scroll horizontal); tablas → tarjetas.", tablet: "Pestañas que se ajustan en 2 líneas.", desktop: "Pestañas en una línea.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["Patrón ARIA tabs"]}
+      Motion: {enter: "Ninguna.", transition: "Cambio de pestaña instantáneo.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {solo_admin: "Solo un administrador puede modificar las licencias y las escalas."}
+
+    - NombreVista: "Cuentas del equipo"
+      SCR: "SCR-044"
+      Ruta: "/panel/usuarios"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-015"]
+      Purpose: "Controlar quién accede."
+      Layout: "h1 «Cuentas del equipo» + «Nueva cuenta» · DataTable (Usuario · Nombre visible · Rol · Estado [Badge] · Verificación en dos pasos Sí/No · Último acceso)."
+      Hierarquia_Visual: ["h1 + Nueva", "Tabla"]
+      Componentes: ["DataTable", "Badge cuenta", "Button primary"]
+      Estados_UI: {default: "Tabla.", loading: "Filas esqueleto.", empty: "No aplica (siempre ≥1 Admin).", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "Cuentas ANONIMIZADAS: seudónimo en cursiva, sin enlace.", permission_denied: "Editor → SCR-048 (AC-105)."}
+      Responsive: {mobile: "Tarjetas.", tablet: "Tabla reducida.", desktop: "Tabla completa.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["table con caption"]}
+      Motion: {enter: "Ninguna.", transition: "Por defecto.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {nueva: "Nueva cuenta"}
+
+    - NombreVista: "Formulario de cuenta"
+      SCR: "SCR-045"
+      Ruta: "/panel/usuarios/nuevo | /panel/usuarios/{id}"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-015"]
+      Purpose: "Alta y ciclo de vida de una cuenta."
+      Layout: "h1 «Nueva cuenta» / «{usuario}» + Badge de estado · datos (usuario inmutable tras crear, nombre visible, rol RadioGroup Editor/Administrador) · «Crear» / «Guardar» · section «Acciones de la cuenta» separada (borde superior, h2) con Restablecer contraseña · Restablecer verificación en dos pasos · Desactivar · Reactivar · Anonimizar ahora (solo DESACTIVADA), cada una con descripción de su efecto y alertdialog."
+      Hierarquia_Visual: ["Datos", "Guardar", "Acciones de la cuenta"]
+      Componentes: ["FormField", "RadioGroup", "Badge cuenta", "Dialog alertdialog", "OneTimeSecret", "InlineAlert"]
+      Estados_UI: {default: "Formulario.", loading: "Botones en loading.", empty: "Alta vacía.", error: "Último Admin / auto-desactivación: InlineAlert error «No puedes desactivar ni cambiar el rol del último administrador activo.» / «No puedes desactivar tu propia cuenta.» (ALT-023, RULE-015); acciones no permitidas deshabilitadas con el mismo texto como descripción.", success: "Crear/Restablecer: OneTimeSecret con la contraseña temporal (AC-106).", offline: "Acciones deshabilitadas.", disabled: "Ver error.", permission_denied: "Editor → SCR-048."}
+      Responsive: {mobile: "Apilado.", tablet: "640 px.", desktop: "640 px.", large_desktop: "Igual."}
+      Accessibility: {aria: ["Cada acción destructiva describe su efecto antes de confirmar («Se cerrarán todas sus sesiones de inmediato.»)"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Loading.", reduced_motion: "N/A."}
+      UX_Copy: {temporal_titulo: "Contraseña temporal de {usuario}", temporal_aviso: "Se muestra solo esta vez. Cópiala y entrégala por un canal seguro fuera del sistema.", ya_guardada: "Ya la guardé", desactivar_texto: "Se cerrarán todas sus sesiones de inmediato. Sus datos se anonimizarán en un máximo de 30 días."}
+
+    - NombreVista: "Registro de auditoría"
+      SCR: "SCR-046"
+      Ruta: "/panel/auditoria?desde=&hasta=&actor=&accion=&tipo="
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-016"]
+      Purpose: "Trazar quién hizo qué y cuándo (solo lectura)."
+      Layout: "h1 · nota «Registro de solo lectura. Se conserva 365 días.» · filtros (Desde, Hasta [date], Actor, Acción, Tipo [select]) + Limpiar · DataTable (Fecha y hora · Actor · Acción · Entidad [tipo + título enlazado si existe] · Resultado [Badge] · «Ver cambios» desplegable con el resumen de campos) · paginación."
+      Hierarquia_Visual: ["Filtros", "Tabla"]
+      Componentes: ["DataTable (filas desplegables)", "FormField date", "select", "Badge", "Pagination"]
+      Estados_UI: {default: "Tabla por fecha descendente.", loading: "Filas esqueleto.", empty: "«No hay eventos con estos filtros» + Limpiar.", error: "ST-ERROR.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "Sin acciones de edición ni borrado (THREAT-013).", permission_denied: "Editor → SCR-048."}
+      Responsive: {mobile: "Tarjetas; filtros en details.", tablet: "Tabla reducida (Fecha, Actor, Acción).", desktop: "Tabla completa.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["Botón «Ver cambios» con aria-expanded y aria-controls"], aria: ["Fechas absolutas es-CO con zona horaria (America/Bogota)"]}
+      Motion: {enter: "Ninguna.", transition: "Despliegue 160 ms.", feedback: "Ninguno.", reduced_motion: "Instantáneo."}
+      UX_Copy: {nota: "Registro de solo lectura. Se conserva 365 días."}
+
+    - NombreVista: "Configuración del sitio"
+      SCR: "SCR-047"
+      Ruta: "/panel/configuracion"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-015 (Admin)", "FLOW-001 (efecto público)"]
+      Purpose: "Mantener marca, descargo y datos del Responsable."
+      Layout: "h1 · section Marca (nombre, lema) · section Descargo de responsabilidad (textarea con vista previa del DisclaimerBlock) · section Responsable del tratamiento (nombre o razón social, identificación, domicilio, canal de atención) · Guardar."
+      Hierarquia_Visual: ["Marca", "Descargo", "Responsable", "Guardar"]
+      Componentes: ["FormField", "DisclaimerBlock (vista previa)", "InlineAlert", "UnsavedChangesDialog"]
+      Estados_UI: {default: "Formulario.", loading: "Esqueleto.", empty: "Responsable vacío: InlineAlert warning «Mientras falten estos datos, las páginas legales mostrarán [RESPONSABLE POR DEFINIR].»", error: "Validación en línea.", success: "«Configuración guardada.»", offline: "Guardar deshabilitado.", disabled: "No aplica.", permission_denied: "Editor → SCR-048."}
+      Responsive: {mobile: "Apilado.", tablet: "720 px.", desktop: "720 px.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["section + h2"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Banner.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "Configuración del sitio"}
+
+    - NombreVista: "Acceso denegado"
+      SCR: "SCR-048"
+      Ruta: "(403 dentro del panel)"
+      Plantilla: "TPL-PANEL-SHELL"
+      FLOW: ["FLOW-010", "FLOW-015", "FLOW-016"]
+      Purpose: "Explicar la falta de permiso y devolver al trabajo."
+      Layout: "Icono de candado · h1 · texto · «Ir al tablero»."
+      Hierarquia_Visual: ["Mensaje", "Salida"]
+      Componentes: ["Button primary"]
+      Estados_UI: {default: "Mensaje.", loading: "No aplica.", empty: "No aplica.", error: "Es el estado.", offline: "ST-OFFLINE.", success: "No aplica.", disabled: "No aplica.", permission_denied: "Es el estado."}
+      Responsive: {mobile: "Centrado.", tablet: "Centrado.", desktop: "Centrado, 560 px.", large_desktop: "Igual."}
+      Accessibility: {semantics: ["title «Acceso denegado — Panel»; foco al h1 al cargar"]}
+      Motion: {enter: "Ninguna.", transition: "Ninguna.", feedback: "Ninguno.", reduced_motion: "N/A."}
+      UX_Copy: {h1: "No tienes permiso para ver esta sección", texto: "Si crees que es un error, pide a un administrador que revise tu rol.", cta: "Ir al tablero"}
+
+  FLUJOS_VALIDADOS:
+    # Validación de experiencia (Skill_UI_UX §8 USER FLOW CHECKER) sobre los FLOW del Blueprint. No redefine pasos.
+    - FLOW: "FLOW-001 Descubrir e inspirarse"
+      Resultado: "OK"
+      Soporte_UX: "CTA de acento único en Inicio; KeyFacts arriba en la ficha; Sigue explorando al final de cada detalle; transición de imagen tarjeta→portada."
+      Friccion: "Longitud de la ficha → PageToc."
+      Recuperacion: "404/410/500 con rutas de salida; sin estado que perder."
+    - FLOW: "FLOW-002 Explorar con filtros"
+      Resultado: "OK"
+      Soporte_UX: "Aplicación inmediata, recuento anunciado, fichas quitables, URL compartible."
+      Friccion: "En móvil, abrir/cerrar la hoja → botón «Ver {n} destinos» con recuento en vivo."
+      Recuperacion: "Vacío con «Quitar el último filtro» y «Limpiar filtros»; parámetros inválidos ignorados."
+    - FLOW: "FLOW-003 Buscar"
+      Resultado: "OK"
+      Soporte_UX: "Búsqueda en cabecera en todas las páginas (compacta en móvil); funciona sin JS."
+      Friccion: "Ninguna relevante."
+      Recuperacion: "Mensaje en línea para longitud; vacío con sugerencias."
+    - FLOW: "FLOW-004 Planificar con un itinerario"
+      Resultado: "OK"
+      Soporte_UX: "DayTimeline sin acordeones; imprimir; checklist imprimible; migas para volver al destino."
+      Friccion: "Ninguna relevante."
+      Recuperacion: "Estándar."
+    - FLOW: "FLOW-005 Aprender con guías"
+      Resultado: "OK"
+      Soporte_UX: "Lectura cómoda (body-lg, 68ch), glosario enlazado, relacionados."
+      Friccion: "Ninguna."
+      Recuperacion: "Estándar."
+    - FLOW: "FLOW-006 Explorar por tipo"
+      Resultado: "OK"
+      Soporte_UX: "Tipos en Inicio y en la cabecera; «Ver todos en Explorar» con filtro preaplicado."
+      Friccion: "Ninguna."
+      Recuperacion: "Estándar."
+    - FLOW: "FLOW-007 Explorar por mapa"
+      Resultado: "OK"
+      Soporte_UX: "Marcadores accesibles por teclado, agrupación, presets, lista equivalente en la misma página."
+      Friccion: "Superposición de marcadores → agrupación + presets."
+      Recuperacion: "Cartografía caída → lista con aviso."
+    - FLOW: "FLOW-008 Explorar por mes o colección"
+      Resultado: "OK"
+      Soporte_UX: "Navegación entre meses; notas editoriales en colecciones."
+      Friccion: "Ninguna."
+      Recuperacion: "Mes vacío → meses adyacentes."
+    - FLOW: "FLOW-009 Guardar aventuras"
+      Resultado: "OK"
+      Soporte_UX: "Botón conmutable con aria-pressed; contador en cabecera; «Deshacer» al quitar."
+      Friccion: "Guardados no disponibles en el HTML inicial → espacio reservado."
+      Recuperacion: "Almacenamiento no disponible explicado; retirado → «Quitar de guardados» en SCR-024."
+    - FLOW: "FLOW-010 Acceder al panel y cerrar sesión"
+      Resultado: "OK"
+      Soporte_UX: "Mensajes genéricos; OTP con pegado; cambio obligatorio y autorización en plantilla sin navegación."
+      Friccion: "Sin recuperación pública de contraseña (decisión de seguridad) → ayuda visible «Pide a un administrador…»."
+      Recuperacion: "Expiración avisada 2 min antes con «Seguir conectado»."
+    - FLOW: "FLOW-011 Crear y publicar un destino"
+      Resultado: "OK con NPD-UX-001"
+      Soporte_UX: "CompletenessPanel continuo; ErrorSummary enlazado; resumen antes de confirmar; «Ver en el sitio» tras publicar."
+      Friccion: "Vista previa de un contenido nuevo aún sin guardar (NPD-UX-001)."
+      Recuperacion: "Conflicto, expiración, offline y salida sin guardar cubiertos sin pérdida de datos."
+    - FLOW: "FLOW-012 Actualizar, retirar y reactivar"
+      Resultado: "OK"
+      Soporte_UX: "Impacto visible antes de retirar; motivo obligatorio; reactivación explícita desde solo lectura."
+      Friccion: "Ninguna relevante."
+      Recuperacion: "Bloqueos con lista de usos enlazada."
+    - FLOW: "FLOW-013 Subir y catalogar un medio"
+      Resultado: "OK"
+      Soporte_UX: "Reglas visibles antes de subir; resultado por archivo; enlace «Completar datos»."
+      Friccion: "Catalogar uno a uno → navegación directa a cada medio pendiente."
+      Recuperacion: "Rechazo con motivo; duplicado → «Usar la existente»."
+    - FLOW: "FLOW-014 Configurar destacados"
+      Resultado: "OK"
+      Soporte_UX: "Contadores mín./máx. en vivo; reordenación accesible; «Ver inicio»."
+      Friccion: "Ninguna."
+      Recuperacion: "Mínimos validados con ErrorSummary."
+    - FLOW: "FLOW-015 Ciclo de vida de una cuenta"
+      Resultado: "OK"
+      Soporte_UX: "Acciones con descripción de efecto; contraseña temporal una sola vez con confirmación."
+      Friccion: "Ninguna."
+      Recuperacion: "Último Admin y auto-desactivación explicados."
+    - FLOW: "FLOW-016 Consultar la auditoría"
+      Resultado: "OK"
+      Soporte_UX: "Filtros combinables; entidad enlazada al editor (historial)."
+      Friccion: "Ninguna."
+      Recuperacion: "Vacío con Limpiar."
+    - FLOW: "FLOW-017 Recuperación ante errores"
+      Resultado: "OK"
+      Soporte_UX: "Tres páginas de error con salidas diferenciadas; SCR-025 sin dependencias."
+      Friccion: "Ninguna."
+      Recuperacion: "Es el propio flujo."
+
+  RESPONSIVE_SPEC:
+    Strategy: "Fluid + Container Queries + Adaptive Breakpoints (mobile-first en público; panel desktop-first con adaptación descendente, DEC-AUTO-070)"
+    Breakpoints: ["xs 320", "sm 480", "md 768", "lg 1024", "xl 1280", "2xl 1536", "prueba 1920"]
+    Mobile: "320-767: una columna; cabecera compacta con cajón; filtros en hoja inferior; acciones del panel en barra inferior; objetivos táctiles de 44 px."
+    Tablet: "768-1023: rejillas de 2-3 columnas; hojas y diálogos centrados con ancho máximo; el panel es usable (ASM-009)."
+    Desktop: "1024-1535: barra lateral de filtros; índices fijos; panel con navegación lateral; tablas completas."
+    Large_Desktop: "≥1536 y 1920: contenedor de contenido 1280 px (1440 para medios a sangre); nunca líneas de texto de más de 68ch; imágenes a sangre hasta 1920 px."
+    Reglas:
+      - "Qué colapsa: navegación principal (< xl) → cajón; filtros (< lg) → hoja inferior; PageToc (< lg) → desplegable; tablas (< md) → tarjetas; barra lateral del panel (< lg) → cajón."
+      - "Qué se reordena: en la ficha, las acciones pasan bajo el h1 en móvil; en el editor, la StatusBar pasa a abajo."
+      - "Qué nunca desaparece: búsqueda, Guardados*, acción principal, migas (versión compacta), descargo."
+      - "Container queries en tarjetas: < 280 px ocultan tipos; ≥ 520 px (variante horizontal) muestran resumen."
+    Input_Modes: ["Touch", "Mouse", "Keyboard"]
+    Hover_Rule: "Nada depende del hover: toda información revelada al hover también está disponible con foco y con toque. Efectos de hover solo con (hover: hover) and (pointer: fine)."
+    Orientation: ["Portrait", "Landscape (sin bloqueo de orientación; visor de galería y mapa aprovechan horizontal)"]
+    Zoom: ["100%", "200% (sin pérdida de contenido)", "400% equivalente a 320 CSS px (reflow 1.4.10)", "Espaciado de texto 1.4.12 sin recortes"]
+    Overflow_Check: "0 scroll horizontal a 320/768/1280/1920 (REQ-060). Palabras largas y URL con overflow-wrap: anywhere; tablas del panel con contenedor de scroll propio solo ≥ md y con región enfocable etiquetada."
+    Safe_Areas: "Barras fijas inferiores respetan env(safe-area-inset-bottom)."
+
+  ACCESSIBILITY_SPEC:
+    Standard: "WCAG 2.2 AA (REQ-056, CON-008). Criterio de aceptación: 0 violaciones axe serious/critical en todas las plantillas + revisión manual por teclado y lector de pantalla (NVDA+Firefox, VoiceOver+Safari iOS)."
+    Semantic_HTML: "Landmarks header/nav/main/aside/footer en cada vista; un h1 por vista; listas reales; tablas con th/caption; formularios con label/fieldset/legend; botones para acciones y enlaces para navegación; lang=es en html."
+    Keyboard_Navigation: "Todo operable por teclado; orden de foco = orden visual; sin trampas salvo diálogos modales (con Esc); atajos solo con modificador (Ctrl/Cmd) y documentados; flechas en tabs, toolbar, listbox y galería."
+    Focus_Management: "Anillo visible de 3 px (focus.ring) con separación de 2 px, contraste ≥3:1 (2.4.7, 2.4.13 como buena práctica); en fondos oscuros focus.ring-inverse. Al navegar de ruta, el foco va al h1 (tabindex=-1) y se anuncia el título. Diálogos devuelven el foco al disparador. 2.4.11: cabecera fija compensada con scroll-padding-top 80 px y barras inferiores con scroll-padding-bottom."
+    Screen_Reader: "Anuncio de cambio de ruta en una región live única; recuentos y confirmaciones en role=status; errores en role=alert solo tras una acción; iconos decorativos aria-hidden; imágenes informativas con alt (100 %, REQ-056) y decorativas con alt vacío (imágenes de tarjeta)."
+    Contrast: "Texto ≥4.5:1 (grande ≥3:1); componentes y gráficos ≥3:1; pares calculados en DESIGN_SYSTEM.Contraste_Calculado; texto sobre foto solo con scrim."
+    Target_Size: "Mínimo 24×24 CSS px (2.5.8) en todo; objetivo 44×44 en todo el sitio público y en el panel con pointer: coarse."
+    Reduced_Motion: "prefers-reduced-motion: reduce desactiva desplazamientos, escalas, zoom animado, scroll suave, morph de View Transitions y pulsos de esqueleto; quedan solo fundidos ≤100 ms."
+    Color_Independence: "Estados, dificultad, presupuesto, selección, errores y enlaces llevan texto, forma o subrayado además del color (1.4.1)."
+    WCAG_22_Nuevos:
+      - "2.4.11 Focus Not Obscured: ver Focus_Management."
+      - "2.5.7 Dragging Movements: toda reordenación con botones Subir/Bajar (DEC-AUTO-069); subida de archivos con botón; mapa con botones de zoom."
+      - "2.5.8 Target Size (Minimum): ver Target_Size."
+      - "3.2.6 Consistent Help: la ayuda del panel («Pide a un administrador…») aparece en el mismo lugar en SCR-030/031; el pie público mantiene los enlaces institucionales en el mismo orden."
+      - "3.3.7 Redundant Entry: los formularios del panel conservan lo escrito ante expiración, conflicto u offline; no se pide dos veces el mismo dato salvo la confirmación de contraseña (excepción de seguridad)."
+      - "3.3.8 Accessible Authentication (Minimum): sin pruebas cognitivas; pegar y gestores de contraseñas permitidos; OTP con autocomplete=one-time-code."
+    Forced_Colors: "Soporte forced-colors: active (DEC-AUTO-059)."
+    Idioma: "Términos en otro idioma dentro del contenido (p. ej., «trekking», «via ferrata») con lang cuando el editor lo marque; no bloqueante."
+    Tiempo: "2.2.1: sesión con aviso y extensión; confirmaciones de éxito que no desaparecen solas si contienen acciones (DEC-AUTO-068)."
+
+  MOTION_SPEC:
+    Principles:
+      - "El movimiento orienta (de dónde viene y a dónde va algo), no decora."
+      - "Solo CSS (transiciones y @keyframes) + View Transitions API como mejora progresiva; 0 librerías de animación (DEC-AUTO-065)."
+      - "Solo se animan transform y opacity (compositor) para no afectar INP ni CLS."
+      - "Nada se anima en la carga inicial por encima del pliegue (protege LCP)."
+    Microinteractions:
+      - "Botón pressed: translateY(1px) 100 ms."
+      - "Guardar: relleno del icono con escala 1→1.15→1 en 160 ms."
+      - "Casillas y fichas: 100 ms."
+      - "Hover de tarjeta: sombra 1→2 y escala de imagen 1.03 en 360 ms (solo puntero fino)."
+      - "Marcador del mapa activo: escala 1.25 en 100 ms."
+    Page_Transitions:
+      - "Rutas públicas: View Transition de fundido 160 ms; imagen de tarjeta → portada con view-transition-name por slug (360 ms) cuando el navegador lo soporta."
+      - "Panel: sin transiciones de página (prioriza rapidez percibida)."
+    Overlays:
+      - "Diálogo: fundido + escala 0.98→1 en 240 ms (enter); salida 180 ms (exit)."
+      - "Hoja inferior y cajones: desplazamiento desde el borde 240 ms."
+      - "Mini-tarjeta y menús: fundido + desplazamiento de 4 px en 160 ms."
+    Feedback:
+      - "Esqueleto: pulso de opacidad 1.6 s tras 300 ms de espera."
+      - "Progreso de subida: barra determinada sin animación añadida."
+    Durations: "instant 0 · fast 100 · base 160 · moderate 240 · slow 360 ms; easing standard (0.2,0,0,1), enter (0.05,0.7,0.1,1), exit (0.3,0,1,1)."
+    Reduced_Motion: "Todo lo anterior pasa a instantáneo salvo fundidos ≤100 ms; sin morph, sin escalas, sin scroll suave, sin pulso."
+    Prohibido: ["Parallax", "Vídeo o carrusel en reproducción automática", "Animaciones infinitas fuera de indicadores de carga", "Animaciones que bloqueen la interacción"]
+
+  PERFORMANCE_SPEC:
+    Umbrales: "LCP ≤ 2,5 s · INP ≤ 200 ms · CLS ≤ 0,1 (p75 móvil, REQ-052); Lighthouse móvil ≥ 90 y TBT ≤ 200 ms en Inicio, Explorar, Ficha, Itinerario y Guía."
+    Presupuestos_Por_Ruta:
+      - "JS inicial ≤ 200 KB gzip por ruta pública (§47.2)."
+      - "Panel: JS inicial ≤ 200 KB gzip en SCR-030/031/033/034/035; excepción documentada para el editor (SCR-036/041) ≤ 350 KB gzip por el editor de texto enriquecido y drag-drop, cargados solo en esas rutas (DEC-AUTO-070)."
+      - "CSS total ≤ 40 KB gzip; CSS crítico en línea ≤ 14 KB (ver RSK-UX-001 sobre CSP)."
+      - "Fuentes: ≤ 2 archivos en la ruta crítica, ≤ 100 KB en total en la carga inicial."
+      - "Transferencia total de la carga inicial ≤ 1,5 MB en Inicio y Ficha (REQ-061); objetivo de diseño ≤ 1,1 MB."
+      - "Imagen LCP ≤ 200 KB en móvil y ≤ 350 KB en escritorio; imágenes de tarjeta ≤ 60 KB cada una."
+      - "Cartografía del mapa ≤ 120 KB gzip, solo en SCR-003 (y en el editor, diferida)."
+    Elementos_LCP: "SCR-001: imagen del bloque principal · SCR-004/007/009/012: portada · listados: primera fila de tarjetas (sin lazy en las 2-4 primeras)."
+    Sizes_Recomendados:
+      hero: "100vw"
+      portada_ficha: "(min-width: 1280px) 1280px, 100vw"
+      tarjeta_rejilla: "(min-width: 1536px) 25vw, (min-width: 1024px) 33vw, (min-width: 480px) 50vw, 100vw"
+      tarjeta_horizontal: "(min-width: 768px) 200px, 88px"
+      galeria_mosaico: "(min-width: 1024px) 50vw, 50vw"
+      lightbox: "100vw"
+      miniatura_panel: "160px"
+    CLS: "width/height o aspect-ratio en todo medio; esqueletos con la altura final; fuentes con fallback métrico; OfflineBanner, SessionExpiryDialog y confirmaciones como capas que no empujan contenido; contador de Guardados con espacio reservado; nada se inserta encima de contenido ya pintado."
+    INP: "Casillas de filtro responden visualmente en el mismo frame y la petición es asíncrona; sin trabajo síncrono >50 ms en manejadores; listas paginadas (24/50) sin virtualización necesaria; el recuento se actualiza al llegar la respuesta."
+    Carga_Diferida: "Bajo el pliegue: Sigue explorando, guías relacionadas, galería completa y código del visor, mapa; se hidratan/cargan al entrar en viewport o al interactuar (mecanismo según Skill_Frontend)."
+    Prefetch: "Prefetch de la ruta de ficha al hover/foco de una tarjeta (solo con conexión no ahorrada: navigator.connection.saveData = false)."
+
+  PRINT_SPEC:
+    Aplica: ["SCR-007 (itinerario)", "SCR-009 (checklist)"]
+    Reglas:
+      - "@media print: oculta cabecera, pie, migas, acciones, Sigue explorando, OfflineBanner e imágenes decorativas; mantiene título, KeyFacts, días completos, riesgos, descargo, fuentes, fecha de revisión y URL canónica al pie de la primera página."
+      - "Tipografía en negro sobre blanco, tamaño base 11 pt, sin fondos; los enlaces muestran su URL entre paréntesis salvo los internos."
+      - "Cada día evita cortes internos (break-inside: avoid) cuando cabe en una página; el checklist imprime casillas vacías."
+      - "Imprimir llama al diálogo del navegador sobre la misma página (FEAT-022); no hay ruta de impresión."
+
+  UX_NOTES:
+    Tono_de_Voz: "Cercano y experto, en español neutro con referencias de Colombia (DEC-AUTO-031), tuteo en todo el sitio y el panel (DEC-AUTO-064); frases cortas; verbos de acción en botones; sin tecnicismos en errores; sin culpar al usuario."
+    Microcopy:
+      - "Botones: infinitivo o imperativo breve («Explorar destinos», «Guardar», «Publicar»)."
+      - "Confirmaciones: pasado en primera persona del usuario («Guardaste…», «Quitaste…»)."
+      - "Estados editoriales en texto natural: Borrador, Publicado, Retirado, Pendiente de datos."
+      - "Plurales con ICU; nunca «destino(s)»."
+    Empty_States: ["Siempre título + explicación + ≥2 salidas (ST-EMPTY); ver cada VISTA."]
+    Error_Recovery:
+      - "Formato de error: qué pasó + qué hacer («Escribe al menos 2 caracteres.»)."
+      - "Nunca códigos, trazas ni identificadores técnicos (ST-ERROR, THREAT-028)."
+      - "Mensajes de autenticación genéricos (THREAT-018)."
+    Internationalization:
+      - "Solo es-CO (CON-004): fechas con Intl es-CO largas («25 de septiembre de 2026»), zona America/Bogota en el panel; números «1.234,5»; unidades km, m, m s. n. m., °C; meses en minúscula en el cuerpo del texto."
+      - "Coordenadas: «4,5709° N, 74,2973° O» (O = oeste)."
+      - "Orden alfabético español sin tildes (RULE-019) también en listas del glosario, mapa del sitio y lista del mapa."
+      - "Textos de interfaz centralizados para permitir corrección sin tocar plantillas (aunque no hay multi-idioma)."
+    Data_Visualization: ["Solo medidores simples (dificultad, presupuesto, mejor época); siempre con equivalente textual. Sin gráficos en el panel más allá de tablas de conteo."]
+    AI_Interface: ["NOT_APPLICABLE: el producto no tiene funcionalidades de IA."]
+    Analytics: "NOT_APPLICABLE por restricción (CON-002, REQ-059): sin analítica. Gate J no aplica."
+
+  QA:
+    Storybook: "NOT_APPLICABLE"
+    Storybook_Motivo: "DEC-AUTO-071: se evita una cadena de herramientas adicional; el catálogo de componentes está en este handoff y la regresión visual se hace con Playwright."
+    Visual_Regression: "REQUIRED"
+    Visual_Regression_Alcance: "Playwright toHaveScreenshot en las plantillas TPL-* y en SCR-001, 002, 004, 005, 007, 017, 023, 030, 036, 038 a 320/768/1280/1920 px."
+    E2E: "REQUIRED"
+    Accessibility_Test: "REQUIRED"
+    Accessibility_Alcance: "axe (0 serious/critical) en las 44 SCR y en estados clave (diálogos abiertos, hoja de filtros, visor, errores de formulario); recorrido de teclado de FLOW-001, 002, 003, 007, 010, 011, 013."
+    Cross_Browser: "REQUIRED"
+    Performance_Check: "REQUIRED"
+    Checks_de_Diseño_para_QA:
+      - {id: "UX-QA-01", check: "0 scroll horizontal a 320/768/1280/1920 en todas las SCR", verif: "Playwright"}
+      - {id: "UX-QA-02", check: "Foco visible y no oculto por la cabecera fija ni por barras inferiores", verif: "Manual + Playwright"}
+      - {id: "UX-QA-03", check: "Reordenación posible sin arrastrar (galería, días, checklist, relacionados, destacados, colecciones)", verif: "E2E teclado"}
+      - {id: "UX-QA-04", check: "Visor de galería: Esc, flechas, trampa y retorno de foco", verif: "E2E"}
+      - {id: "UX-QA-05", check: "Mapa: todos los marcadores por teclado en orden región→nombre; lista equivalente presente sin JS", verif: "E2E"}
+      - {id: "UX-QA-06", check: "0 peticiones a dominios de terceros (fuentes, iconos, cartografía)", verif: "Playwright red"}
+      - {id: "UX-QA-07", check: "Contraste de los pares de tokens y de texto sobre imagen", verif: "axe + revisión"}
+      - {id: "UX-QA-08", check: "CLS ≤ 0,1 incluyendo carga de fuentes, contador de Guardados y banners", verif: "Lighthouse CI"}
+      - {id: "UX-QA-09", check: "reduced-motion elimina desplazamientos y escalas", verif: "Playwright emulateMedia"}
+      - {id: "UX-QA-10", check: "Impresión de itinerario y checklist sin navegación", verif: "Playwright pdf/emulateMedia print"}
+      - {id: "UX-QA-11", check: "Datos del formulario conservados ante expiración, conflicto y offline", verif: "E2E"}
+      - {id: "UX-QA-12", check: "forced-colors: foco y controles visibles", verif: "Playwright emulateMedia forcedColors"}
+    Estado_Controles_en_F4: "NOT_RUN — no existe interfaz implementada; estos controles los ejecuta Skill_QA en F8."
+
+  DECISIONES:
+    # ORIGEN: EXPANSIÓN_AUTÓNOMA · Estado: PROPOSED · Autoridad: Orquestador (Autoridad Delegada, CLAUDE.md §0.2)
+    - {id: "DEC-AUTO-057", decision: "Design System propio sobre Angular CDK + Tailwind CSS con tema desde tokens.json", alternativas: ["Angular Material", "PrimeNG", "Bootstrap 5"], motivo: "Marca expresiva (DEC-AUTO-004), presupuesto JS ≤200 KB, patrones ARIA del CDK sin estética impuesta; §39A permite CDK y Tailwind", riesgo: "Más componentes a construir por Developer", reversibilidad: "Media"}
+    - {id: "DEC-AUTO-058", decision: "Tipografías Bricolage Grotesque (titulares) + Source Sans 3 (texto), variables, WOFF2 autoalojadas, subconjunto latin, OFL", alternativas: ["Solo fuentes del sistema", "Inter", "Fraunces + Inter"], motivo: "Carácter editorial de aventura con buena legibilidad en español; licencia libre; cumple CON-003", riesgo: "Peso de fuentes (mitigado con presupuesto y fallback métrico)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-059", decision: "Solo tema claro en el MVP con soporte forced-colors; sin modo oscuro", alternativas: ["Modo oscuro automático por prefers-color-scheme"], motivo: "Fotografía protagonista sobre fondos arena; reduce superficie de pruebas de contraste a la mitad", riesgo: "Preferencia de algunos usuarios por modo oscuro", reversibilidad: "Alta (los tokens semánticos permiten añadirlo)"}
+    - {id: "DEC-AUTO-060", decision: "Paleta Bosque (primario) · Atardecer (acento) · Laguna (secundario/foco) · Arena (fondos) · Tinta (texto)", alternativas: ["Azul océano como primario", "Paleta tierra monocroma"], motivo: "Evoca naturaleza y aventura; todos los pares de uso cumplen AA (calculado)", riesgo: "Marca provisional (DEC-003); el cambio de nombre no afecta a la paleta", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-061", decision: "Cartografía Natural Earth 1:110m (dominio público), proyección Equal Earth, SVG estático autoservido; marcadores como botones HTML; agrupación por proximidad y presets de región; sin librería de mapas ni teselas", alternativas: ["Leaflet con teselas locales", "Imagen raster del mundo", "Solo lista"], motivo: "Resuelve ASM-010; 0 terceros (CON-003); accesible por teclado; ligero", riesgo: "Sin zoom de detalle a nivel de calle (no requerido)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-062", decision: "Filtros: barra lateral ≥1024 px y hoja inferior <1024 px; aplicación inmediata con replaceUrl; paginación con nueva entrada de historial", alternativas: ["Botón Aplicar", "Filtros en la parte superior en todas las anchuras"], motivo: "Feedback inmediato (FLOW-002) sin llenar el historial; hoja inferior es el patrón móvil más alcanzable con el pulgar", riesgo: "Muchas peticiones al marcar varias casillas seguidas (mitigar con cancelación de la petición anterior)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-063", decision: "Dificultad (5) y presupuesto (4) como medidores de segmentos + número + etiqueta de la escala, sin símbolos de moneda", alternativas: ["Iconos de montaña / signos $", "Solo texto"], motivo: "Lectura rápida sin depender del color; RULE-020 prohíbe connotación de precio", riesgo: "Bajo", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-064", decision: "Tuteo en sitio público y panel", alternativas: ["Usted (más formal en Colombia)", "Impersonal"], motivo: "Tono cercano de DEC-AUTO-004", riesgo: "Parte de la audiencia colombiana prefiere «usted»", reversibilidad: "Alta (textos centralizados)"}
+    - {id: "DEC-AUTO-065", decision: "Motion solo con CSS y View Transitions API como mejora progresiva; sin librerías de animación", alternativas: ["@angular/animations", "GSAP"], motivo: "Presupuesto JS, INP y CSP", riesgo: "Navegadores sin View Transitions ven cortes instantáneos (aceptable)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-066", decision: "Iconos Lucide (ISC) vendorizados como SVG por icono", alternativas: ["Material Symbols (fuente)", "Iconos propios"], motivo: "Licencia permisiva, trazo coherente con la tipografía, tree-shaking, sin CDN", riesgo: "Algunos tipos de aventura sin icono específico (se representan con foto, no con icono)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-067", decision: "Rango de dificultad con dos select nativos Desde/Hasta", alternativas: ["Slider de doble pulgar", "Casillas 1-5"], motivo: "Accesibilidad y fiabilidad táctil superiores; conserva la semántica de rango de RULE-019", riesgo: "Menos vistoso", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-068", decision: "Resultados importantes como banners persistentes (role=status/alert), no toasts que se autodescartan", alternativas: ["Toasts de 5 s"], motivo: "WCAG 2.2.1 y acciones incluidas (Ver en el sitio, Deshacer, Reintentar)", riesgo: "Más elementos en pantalla", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-069", decision: "Toda reordenación con arrastre (CDK drag-drop) + botones Subir/Bajar + Mover a posición", alternativas: ["Solo arrastre", "Solo campo de orden numérico"], motivo: "WCAG 2.5.7 obligatorio", riesgo: "Bajo", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-070", decision: "Panel desktop-first: barra lateral colapsable (cajón <1024), tablas → tarjetas <768; presupuesto JS del editor ≤350 KB gzip como excepción documentada", alternativas: ["Panel mobile-first completo", "Sin soporte móvil"], motivo: "ASM-009 y §47.2 (excepciones documentadas permitidas)", riesgo: "Experiencia móvil del panel solo operable", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-071", decision: "Sin Storybook; regresión visual con Playwright en 4 anchos", alternativas: ["Storybook + Chromatic (servicio externo de pago)", "Storybook local"], motivo: "Reduce cadena de herramientas; Chromatic violaría CON-003/CON-005", riesgo: "Menor documentación viva de componentes", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-072", decision: "Sistema de imagen: proporciones fijas por uso, sizes por plantilla, placeholder de color arena, recorte centrado", alternativas: ["Proporción libre", "Placeholder difuminado (LQIP)"], motivo: "CLS 0 y REQ-061 sin procesos extra", riesgo: "Recortes mejorables sin punto focal (NPD-UX-002)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-073", decision: "Cabecera pública fija compacta (64/72 px) siempre visible con scroll-padding", alternativas: ["Cabecera que se oculta al bajar", "Cabecera no fija"], motivo: "Búsqueda y Guardados siempre accesibles; 2.4.11 controlado", riesgo: "Ocupa altura en móviles pequeños", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-074", decision: "Código MFA en un único campo con autocomplete=one-time-code y pegado", alternativas: ["6 casillas separadas"], motivo: "WCAG 3.3.8 y compatibilidad con gestores", riesgo: "Bajo", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-075", decision: "Secretos de un solo uso (contraseña temporal, códigos de recuperación) con Copiar y confirmación explícita antes de ocultarlos", alternativas: ["Mostrar en un diálogo que se cierra con Esc"], motivo: "Evita perder el secreto por un cierre accidental (AC-106)", riesgo: "Bajo", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-076", decision: "Editor de contenido y fichas largas en una sola página con navegación de secciones (no pestañas)", alternativas: ["Pestañas por sección", "Asistente por pasos"], motivo: "El ErrorSummary puede enlazar a cualquier campo; búsqueda del navegador funciona; menos estado oculto", riesgo: "Página larga (mitigado con navegación y estado por sección)", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-077", decision: "Sin carruseles ni filas con scroll horizontal; siempre rejillas que se ajustan", alternativas: ["Carrusel de destacados en Inicio"], motivo: "REQ-060 (sin scroll horizontal), accesibilidad y descubribilidad", riesgo: "Inicio más largo en móvil", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-078", decision: "Enlaces externos del sitio público en la misma pestaña, con icono y texto oculto «(sitio externo)»; en el panel, «Ver en el sitio» y la política abren pestaña nueva avisada", alternativas: ["Todos los externos en pestaña nueva"], motivo: "Control del usuario (G201) en público; en el panel evita perder el formulario", riesgo: "Bajo", reversibilidad: "Alta"}
+    - {id: "DEC-AUTO-079", decision: "Confirmación antes de «No autorizo» en SCR-033 (no cambia el resultado del FLOW-010)", alternativas: ["Cierre de sesión inmediato"], motivo: "Acción de consecuencia alta que puede pulsarse por error", riesgo: "Un clic más para quien realmente no autoriza", reversibilidad: "Alta"}
+
+  NEEDS_PRODUCT_DECISION:
+    - id: "NPD-UX-001"
+      afecta: ["SCR-037", "SCR-036", "FLOW-011", "FEAT-035"]
+      problema: "La ruta de SCR-037 requiere {id} (/panel/contenido/{tipo}/{id}/vista-previa), pero FEAT-035 pide previsualizar el estado actual del formulario sin persistir, lo que incluye contenido nuevo (/nuevo) que aún no tiene id."
+      opciones: ["A) Añadir la variante /panel/contenido/{tipo}/nuevo/vista-previa usando el estado del formulario en memoria", "B) Deshabilitar «Vista previa» hasta el primer «Guardar borrador» con el motivo visible «Guarda el borrador para previsualizar»"]
+      recomendacion: "A (no obliga a persistir borradores incompletos)."
+      comportamiento_provisional: "Hasta decidir, el diseño contempla B (botón con aria-disabled y motivo), que no requiere cambiar rutas."
+      severidad: "LOW"
+      bloqueante: false
+    - id: "NPD-UX-002"
+      afecta: ["DATA de Medio (BLUEPRINT §18)", "SCR-040", "SCR-001", "SCR-004"]
+      problema: "El bloque principal y las portadas cambian de proporción entre móvil (4:5 / 4:3) y escritorio (16:9). Sin un punto focal por medio, el recorte centrado puede cortar el sujeto de la foto."
+      opciones: ["A) Añadir un atributo opcional «punto focal» (x,y en %) al Medio, editable en SCR-040 con un clic sobre la imagen (y alternativa por campos numéricos)", "B) Mantener el recorte centrado"]
+      recomendacion: "A como COULD; no bloquea."
+      comportamiento_provisional: "B (object-position: center)."
+      severidad: "LOW"
+      bloqueante: false
+
+  OPEN_ITEMS:
+    - "OI-UX-001 (Developer, F7): vendorizar Bricolage Grotesque y Source Sans 3 (WOFF2, OFL.txt, versión y hash) y calcular los fallback métricos."
+    - "OI-UX-002 (Developer, F7): preparar el SVG del mundo desde Natural Earth 1:110m (Equal Earth, simplificado ≤120 KB gzip) y proyectar las coordenadas de los destinos; registrar la fuente en Créditos o Acerca de."
+    - "OI-UX-003 (Developer/DevOps): compatibilidad del CSS crítico en línea con la CSP sin unsafe-inline (ver RSK-UX-001)."
+    - "OI-UX-004 (Contenido, F7): fotografías semilla con licencia verificable (GAP-007); si faltan, usar la ilustración de marca en proporción 4:3 como portada provisional, nunca un hueco."
+    - "OI-UX-005 (Orquestador): resolver NPD-UX-001 y NPD-UX-002 con el Arquitecto Funcional."
+    - "OI-UX-006 (Backend contrato): confirmar que las respuestas de medios incluyen ancho, alto y lista de derivados con ancho para construir srcset sin descargas extra."
+
+  ASSUMPTIONS:
+    - {id: "ASM-UX-001", asuncion: "Backend genera derivados en formato moderno con los anchos 320-1920 (DEC-AUTO-044 dice «derivados responsivos» sin fijar anchos)", impacto_si_falso: "Ajustar sizes/srcset; el diseño no cambia"}
+    - {id: "ASM-UX-002", asuncion: "Las 7 regiones de DEC-AUTO-051 tienen nombres cortos que caben en los presets del mapa en 320 px (en dos líneas)", impacto_si_falso: "Presets pasan a un select en < sm"}
+    - {id: "ASM-UX-003", asuncion: "La librería de texto enriquecido elegida por Developer permite restringir el esquema a RULE-022 y es operable por teclado", impacto_si_falso: "Ticket de vuelta a Capa 2 (Botón de Pánico) para ajustar el componente"}
+
+  RIESGOS:
+    - {id: "RSK-UX-001", riesgo: "El CSS crítico en línea del SSR de Angular suele cargar el resto de la hoja con un manejador onload en línea, incompatible con una CSP sin unsafe-inline para scripts (THREAT-015)", severidad: "MEDIUM", mitigacion: "Usar nonce de CSP compatible con Angular o desactivar el inlining crítico y confiar en una hoja única pequeña (≤40 KB gzip) precargada; verificar en F6/F8"}
+    - {id: "RSK-UX-002", riesgo: "Hidratación de estado solo del cliente (Guardados, offline) produce saltos de maquetación o desajustes de hidratación", severidad: "LOW", mitigacion: "Espacios reservados y renderizado de esos elementos solo tras hidratar"}
+    - {id: "RSK-UX-003", riesgo: "El contraste se calculó sobre los HEX; composiciones reales (texto sobre fotografías, estados hover) podrían degradarlo", severidad: "LOW", mitigacion: "Scrim obligatorio y verificación axe + revisión visual en F8"}
+    - {id: "RSK-UX-004", riesgo: "Sin fotografía real verificable (GAP-007) la dirección «fotografía protagonista» pierde fuerza", severidad: "MEDIUM", mitigacion: "Ilustración de marca de respaldo y revisión en VAL-001"}
+    - {id: "RSK-UX-005", riesgo: "El editor de texto enriquecido supera el presupuesto del panel", severidad: "LOW", mitigacion: "Carga solo en SCR-036; excepción documentada ≤350 KB gzip"}
+
+  QUALITY_GATES:
+    Gate_A_UX: "PASS (revisión estática): 44 VISTAS con propósito, entradas/salidas y recuperación; 17 FLOW validados."
+    Gate_B_UI: "PASS (revisión estática): jerarquía, escala tipográfica, color y espaciado definidos por tokens."
+    Gate_C_States: "PASS (revisión estática): estados estándar + específicos por vista y matriz de estados por componente."
+    Gate_D_Responsive: "PASS (revisión estática): reglas de colapso/reordenación por rango; ejecución en navegador NOT_RUN."
+    Gate_E_Accessibility: "PASS en diseño (contraste calculado, patrones ARIA, WCAG 2.2 nuevos cubiertos); axe NOT_RUN (sin implementación)."
+    Gate_F_Motion: "PASS (revisión estática): duraciones, easing y reduced-motion definidos."
+    Gate_G_System: "PASS: todo se expresa con tokens y componentes reutilizables."
+    Gate_H_QA: "NOT_RUN: se ejecuta en F8."
+    Gate_I_Performance: "PASS en diseño (presupuestos definidos); Lighthouse NOT_RUN."
+    Gate_J_Product_Analytics: "NOT_APPLICABLE (CON-002)."
+  QUALITY_GATE_STATUS: "PASS_WITH_NOTES"
+  SIGUIENTE_PASO: "Orquestador: registrar DEC-AUTO-057..079 y NPD-UX-001/002 en kanban.md y audit_log.md; F5 fijación de stack; Developer (F7) implementa shared/ui + tokens antes que las features; QA (F8) ejecuta los checks UX-QA-01..12."

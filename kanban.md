@@ -3,18 +3,276 @@
 > Gestionado exclusivamente por el Orquestador (CLAUDE.md §0.8). Se actualiza ANTES y DESPUÉS de cada delegación.
 
 ## Proyecto
-- nombre: (sin proyecto activo)
-- fase_actual: —
-- abierto: —
+- nombre: Portal web experto sobre vacaciones (nombre provisional)
+- fase_actual: F7 — Desarrollo por Micro-Tickets
+- abierto: 2026-09-24
+- idea_original: "crear una página web nivel experto sobre vacaciones"
 
 ## Tickets
 ```yaml
-tickets: []
+tickets:
+  - id: TKT-F2-001
+    titulo: "Entrevista Pública + PRD y requirements.yaml (Modo Expansor)"
+    fase: F2
+    estado: DONE
+    owner: Orquestador (entrevista) -> requerimientos (Modo Expansor)
+    trazabilidad: []
+    depende_de: []
+    archivos_permitidos: ["docs/01_requerimientos/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Entrevista respondida 2026-09-24 (P1-P13); P14-P16 sin respuesta -> DEC-AUTO", "docs/01_requerimientos/PRD.md", "docs/01_requerimientos/requirements.yaml (YAML válido, js-yaml)", "51 REQ, 60 AC (corregido: el handoff F2 decía 53/64), 34 DEC-AUTO, gate PASS"]
+    actualizado: 2026-09-24
+  - id: TKT-F3-001
+    titulo: "Blueprint Funcional / Master PRD (sitemap, flujos, modelo lógico, §55, §56)"
+    fase: F3
+    estado: DONE
+    owner: arquitecto-funcional
+    trazabilidad: [REQ-001, REQ-040]
+    depende_de: [TKT-F2-001]
+    archivos_permitidos: ["docs/02_blueprint/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["docs/02_blueprint/BLUEPRINT.md (1333 líneas)", "44 SCR, 17 FLOW, 26 entidades, 28 THREAT, 52 FEAT, 4 EXP, DEC-AUTO-035..056", "Cobertura 51/51 REQ; gate PASS por revisión estática"]
+    actualizado: 2026-09-24
+  - id: TKT-F4-001
+    titulo: "Design System + tokens + VIEW_SPEC (HANDOFF_UI_UX)"
+    fase: F4
+    estado: DONE
+    owner: ui-ux
+    trazabilidad: [REQ-001, REQ-040]
+    depende_de: [TKT-F3-001]
+    archivos_permitidos: ["docs/03_diseno/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["docs/03_diseno/HANDOFF_UI_UX.yaml (YAML válido, 44/44 SCR, 17/17 FLOW)", "docs/03_diseno/tokens.json (JSON válido)", "Validación sintáctica ejecutada por el Orquestador (js-yaml, json)", "QUALITY_GATE PASS_WITH_NOTES; axe/Lighthouse NOT_RUN hasta F8"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-002
+    titulo: "Modelo físico PostgreSQL + ADR-DB + plan de migraciones"
+    fase: F4
+    estado: DONE
+    owner: base-datos
+    trazabilidad: [REQ-001, REQ-040]
+    depende_de: [TKT-F3-001]
+    archivos_permitidos: ["docs/04_datos/**", "docs/adr/ADR-DB-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["docs/04_datos/DB_HANDOFF.yaml (YAML válido, js-yaml por el Orquestador)", "ADR-DB-001..005", "PostgreSQL 18.6, 37 tablas + 1 vista, 12 migraciones reversibles", "gate NOT_RUN: diseño estático; pruebas en F7/F8"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-003
+    titulo: "Contrato OpenAPI v1 + ADR-API"
+    fase: F4
+    estado: DONE
+    owner: backend-contrato
+    trazabilidad: [REQ-001, REQ-040]
+    depende_de: [TKT-F3-001]
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["contracts/openapi.yaml: OpenAPI 3.1.0, 127 operaciones; js-yaml OK; redocly lint: válido, 0 errores, 12 warnings de estilo (ejecutado por el Orquestador)", "docs/adr/ADR-API-001.md (sesión+CSRF), ADR-API-002.md (DEC-AUTO-100..119)", "Gates de implementación NOT_RUN (modo contrato)"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-004
+    titulo: "CHG-DB-001: persistencia de Idempotency-Key (24 h) para las POST del panel"
+    fase: F4
+    estado: DONE
+    owner: base-datos
+    trazabilidad: [REQ-055]
+    depende_de: [TKT-F4-002, TKT-F4-003]
+    archivos_permitidos: ["docs/04_datos/**", "docs/adr/ADR-DB-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DB_HANDOFF v1.1 con idempotencia_peticion (YAML válido, js-yaml por el Orquestador)", "ADR-DB-004/005 actualizados; RSK-DB-007 cerrado; DEC-AUTO-124..128"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-005
+    titulo: "CHG-API-001: repetición idempotente de panelCrearCuenta y 409 por lock_timeout"
+    fase: F4
+    estado: DONE
+    owner: backend-contrato
+    trazabilidad: [REQ-055, AC-106]
+    depende_de: [TKT-F4-004]
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["contracts/openapi.yaml: redocly lint válido, 0 errores, 12 warnings (ejecutado por el Orquestador)", "ADR-API-002 §5 actualizado; 11 operaciones con Idempotency-Key = CHECK de DB_HANDOFF v1.1"]
+    actualizado: 2026-09-25
+  - id: TKT-F6-001
+    titulo: "DevOps PRE-DESARROLLO: matriz de interoperabilidad, compose.yaml, Dockerfiles, CI base"
+    fase: F6
+    estado: DONE
+    owner: devops
+    trazabilidad: [REQ-050, REQ-054, REQ-055]
+    depende_de: [TKT-F4-001, TKT-F4-002, TKT-F4-003, TKT-F4-004]
+    archivos_permitidos: ["Dockerfile*", "**/Dockerfile*", "compose*.yaml", ".github/workflows/**", "infra/**", "scripts/ops/**", ".env.example", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["docs/05_operacion/DEVOPS_HANDOFF.md", "compose config 4/4 OK; INFRA-DB-000 healthy y roles verificados; proxy/CSP/backup probados con fixtures fuera del repo", "Orquestador verificó: stack brujula bajado (0 contenedores/volúmenes), ci.yaml YAML válido, gitleaks sin fugas", "gate NOT_RUN (sin código de aplicación); RSK-OPS-001 HIGH -> Puerta Humana antes de F9"]
+    actualizado: 2026-09-25
+  - id: TKT-001
+    titulo: "Backend base: startproject, uv/pyproject, settings por entorno, apps/core (RFC 9457 + trace_id, logging JSON, health live/ready, cabeceras, throttling base, confianza en proxy), pytest"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [REQ-050, REQ-055, REQ-057, FEAT-048, MOD-014]
+    depende_de: [TKT-F6-001]
+    archivos_permitidos: ["backend/*", "backend/config/**", "backend/apps/__init__.py", "backend/apps/core/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-002
+    titulo: "Frontend base: ng new SSR, versiones exactas, CSP nonce, tokens+Tailwind+fuentes+Lucide, core/http (traceparent, XSRF, ErrorApi), cliente generado del OpenAPI, shared/ui, shell de layout y páginas de error, Playwright+axe"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [REQ-052, REQ-056, REQ-058, FEAT-001, FEAT-002, MOD-001, MOD-008]
+    depende_de: [TKT-F6-001]
+    archivos_permitidos: ["frontend/*", "frontend/.*", "frontend/public/**", "frontend/e2e/**", "frontend/src/*", "frontend/src/app/*", "frontend/src/app/core/**", "frontend/src/app/shared/**", "frontend/src/app/api/**", "frontend/src/styles/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-003
+    titulo: "Backend datos: modelos y migraciones de DB_HANDOFF v1.1 (catálogos + semilla de catálogos, cuentas, medios, contenido + integridad SQL, inicio, auditoría inmutable, búsqueda, ops, idempotencia) con pruebas de introspección"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [REQ-040, REQ-057, DATA-001..026]
+    depende_de: [TKT-001]
+    archivos_permitidos: ["backend/config/settings/**", "backend/apps/catalogos/**", "backend/apps/cuentas/**", "backend/apps/medios/**", "backend/apps/contenido/**", "backend/apps/inicio/**", "backend/apps/auditoria/**", "backend/apps/busqueda/**", "backend/apps/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-004
+    titulo: "Backend acceso al panel y cuentas: sesión+CSRF, login por pasos, MFA TOTP, bloqueo progresivo, autorización Ley 1581, cuentas (alta/restablecer/desactivar/anonimizar), auditoría, servicio común de idempotencia"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055]
+    depende_de: [TKT-003]
+    archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/**", "backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-005
+    titulo: "Backend API pública + búsqueda + comandos de operación: /api/v1/publico/**, filtros/facetas, mapa, aleatorio, 410, búsqueda es_unaccent+pg_trgm, throttling público, comandos programados del crontab"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052]
+    depende_de: [TKT-004]
+    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-006
+    titulo: "Backend API del panel: contenidos (CRUD, vista previa, publicar/retirar/reactivar, revisiones, bloqueo optimista), medios (subida segura, derivados, publico/privado), taxonomías, inicio, configuración, tablero"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-010, MOD-011, MOD-012, FEAT-033..044, FEAT-047, FEAT-049, FEAT-050]
+    depende_de: [TKT-005]
+    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-007
+    titulo: "Semilla de contenido: comando cargar_semilla (24 destinos reales, itinerarios, guías, 12 tipos, colecciones, glosario, páginas legales, config de inicio, medios propios con licencia) vía servicio de publicación"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [REQ-040, REQ-043, DEC-AUTO-007, DEC-AUTO-033, PRB-BP-002]
+    depende_de: [TKT-006]
+    archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-008
+    titulo: "Frontend público 1: inicio, explorar destinos (filtros en URL, mapa SVG, por mes, sorpréndeme), ficha de destino, guardados y compartir, SEO"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-001, MOD-002, MOD-003, MOD-006, MOD-008]
+    depende_de: [TKT-002, TKT-007]
+    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/guardados/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-009
+    titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-003, MOD-004, MOD-005, MOD-007]
+    depende_de: [TKT-008]
+    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/itinerarios/**", "frontend/src/app/features/guias/**", "frontend/src/app/features/tipos-aventura/**", "frontend/src/app/features/colecciones/**", "frontend/src/app/features/glosario/**", "frontend/src/app/features/busqueda/**", "frontend/src/app/features/institucional/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-010
+    titulo: "Frontend panel editorial /panel: acceso (login, MFA, cambio credencial, autorización), tablero, editores de contenido, medios, taxonomías, inicio, configuración, cuentas, auditoría"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [MOD-009..013, FEAT-029..050]
+    depende_de: [TKT-009, TKT-006]
+    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/panel/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-25
+```
+
+## F5 — Reglas de stack inyectadas (Orquestador, leídas de los Contratos Técnicos el 2026-09-25)
+```yaml
+stack_fijado:
+  frontend:   # Skill_Frontend §2, §4, §7, §13, §27
+    framework: "Angular 22, zoneless, Signals, httpResource, standalone"
+    estructura: "src/app/{core/{http,auth,forms}, shared/ui, features/<MOD>/{ui,state,data,domain}}; nombres de features desde MOD-XXX del Blueprint"
+    cliente_api: "DTO y cliente GENERADOS desde contracts/openapi.yaml (openapi-typescript o ng-openapi-gen); prohibido DTO a mano; CI falla si difiere"
+    errores: "ErrorApi mapea RFC 9457: type->tipo, title/detail->mensaje, errors->campos, trace_id->traceId"
+    seguridad: "sin bypassSecurityTrust*, sin innerHTML no saneado, sin eval; CSP estricta sin unsafe-inline en scripts (RSK-UX-001: nonce o desactivar inlining de CSS crítico del SSR); XSRF cookie csrftoken/cabecera X-CSRFToken; mismo origen vía proxy; nada de tokens en localStorage; npm audit --audit-level=high limpio"
+    observabilidad: "interceptor traceparent W3C; ErrorHandler global sin PII"
+    cobertura: "domain >=90 %, state >=80 %, global >=70 %"
+    e2e: "@playwright/test con data-testid por FLOW crítico; @axe-core/playwright 0 serious/critical por ruta"
+    diseno: "docs/03_diseno/tokens.json + HANDOFF_UI_UX.yaml; Angular CDK + Tailwind; fuentes WOFF2 y Lucide autoalojados; sin CDN"
+  backend:    # Skill_Backend §2, §4, §7, §12
+    framework: "Django 5.2 + DRF + drf-spectacular; monolito modular"
+    capas: "apps/<dominio>/{api/(views,serializers,urls), services.py, selectors.py, models.py}; services sin Request/Response/serializers"
+    errores: "RFC 9457 application/problem+json con code y trace_id obligatorio (X-Trace-Id)"
+    auth: "sesión Django + CSRF (ADR-API-001); sin JWT"
+    seguridad: "ASVS L2; permisos por objeto + test de acceso horizontal; throttling; CORS explícito; cabeceras check --deploy; subida de medios validada por contenido (DEC-AUTO-044); cada THREAT-XXX con test; bandit, pip-audit, semgrep p/django, gitleaks"
+    observabilidad: "logging JSON (structlog) con trace_id, sin PII; OpenTelemetry HTTP+ORM; /health/live y /health/ready"
+    asincronia: "SIN Celery ni broker (CONFLICT-001 / DEC-AUTO-122): comandos de gestión con advisory lock"
+    contrato: "implementar contra contracts/openapi.yaml; diff semántico con oasdiff; schemathesis sin 5xx"
+    versiones: "dependencias Python con == y lockfile (Skill_Developer §16.2)"
+  datos:      # Skill_Base_datos §4, §7
+    motor: "PostgreSQL 18.6 (DEC-AUTO-080)"
+    fuente: "docs/04_datos/DB_HANDOFF.yaml + ADR-DB-001..005"
+    migraciones: "Django migrations, expand/contract, reversibles; RunSQL solo donde lo indica DB_HANDOFF con pruebas de introspección"
+    roles: "app_rw sin DDL; app_migrator con DDL; readonly; app_backup"
+  proceso:    # Skill_Developer §16
+    cli_first: "ng new / ng generate; django-admin startproject / manage.py startapp"
+    versiones_exactas: ".npmrc save-exact=true; sin ^ ni ~"
+    pruebas_ac: "cada AC-XXX con test nombrado test_AC_XXX_*"
+    ramas: "tkt-XXX-descripcion; commits convencionales; nunca a main"
+  entorno: "Docker Compose local (F6); sin despliegue ni costes (DEC-AUTO-002)"
 ```
 
 ## Conflictos
 ```yaml
-conflictos: []   # CONFLICT-XXX (CLAUDE.md §0.1)
+conflictos:   # CONFLICT-XXX (CLAUDE.md §0.1)
+  - id: CONFLICT-001
+    partes: ["Skill_Backend §2/§12.3/§12.4 (Celery + broker como referencia)", "Skill_Base_datos §4.E + ADR-DB-005 / DEC-AUTO-090 (sin broker)"]
+    rango: "igual (nivel 4, Contratos Técnicos)"
+    resolucion: "DEC-AUTO-122: sin Celery ni broker en el MVP. No hay tareas asíncronas ni efectos externos; los trabajos periódicos son comandos de gestión con advisory lock. §12.4 condiciona el broker a que exista Celery. Gate OBSERVABILITY: trazas Celery = NOT_APPLICABLE. Reversible: se introduce Celery+broker con ADR si aparece trabajo asíncrono"
+    estado: RESUELTO
 ```
 
 ## Bloqueados que requieren intervención humana

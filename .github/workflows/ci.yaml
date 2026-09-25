@@ -1,0 +1,286 @@
+# =============================================================================
+# CI base — Brújula Salvaje (TKT-F6-001, Skill_devops §23.2, fail-fast en este orden):
+#   checkout -> install (lockfile) -> lint/format -> typecheck -> unit tests + cobertura
+#   -> contract tests (oasdiff + schemathesis) -> SAST (semgrep, bandit) -> SCA (pip-audit, npm audit)
+#   -> secret scan (gitleaks) -> build imagen -> image scan (trivy CRITICAL/HIGH = fail)
+#   -> SBOM (syft, CycloneDX) -> firma (cosign keyless, DESACTIVADA por defecto)
+# NO IMPLEMENTADO (Puerta Humana, CLAUDE.md §0.5 / DEC-AUTO-002): deploy staging, E2E en staging,
+# aprobación humana y deploy prod. Solo local; sin push a registros; sin secretos reales.
+# Acciones fijadas por SHA de commit; herramientas con versión exacta + sha256 (VERSIONS.md).
+# Los jobs de backend/frontend se saltan (con aviso) mientras no exista el código (F7).
+# =============================================================================
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.21.0"
+  PYTHON_VERSION: "3.13.15"
+  UV_VERSION: "0.12.19"
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  TRIVY_VERSION: "0.74.0"
+  TRIVY_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+  SYFT_VERSION: "1.51.0"
+  SYFT_SHA256: "2a2e837a2c8d59ec9af5472ee22d3b04ee463c4e44476ecf993fd1e5ab6ebc7f"
+  COSIGN_VERSION: "3.1.3"
+  COSIGN_SHA256: "4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71"
+  OASDIFF_VERSION: "1.32.1"
+  OASDIFF_SHA256: "7c8939fc49b75ee11fec66a5b83b37a2fca6aee109fed85013b1ba2ac2a1ee7f"
+  SEMGREP_VERSION: "1.178.0"
+  BANDIT_VERSION: "1.9.4"
+  PIP_AUDIT_VERSION: "2.10.1"
+  SCHEMATHESIS_VERSION: "4.28.0"
+  DB_CI_HOST_PORT: "5432"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  detect:
+    name: detectar código
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.d.outputs.backend }}
+      frontend: ${{ steps.d.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - id: d
+        run: |
+          if [ -f backend/uv.lock ] && [ -f backend/manage.py ]; then echo "backend=true" >> "$GITHUB_OUTPUT"; else echo "backend=false" >> "$GITHUB_OUTPUT"; echo "::warning::backend/ sin uv.lock o manage.py: jobs de backend NOT_RUN"; fi
+          if [ -f frontend/package-lock.json ] && [ -f frontend/angular.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; echo "::warning::frontend/ sin package-lock.json o angular.json: jobs de frontend NOT_RUN"; fi
+
+  # ---------------------------------------------------------------------------
+  infra:
+    name: infraestructura (compose + secret scan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false, fetch-depth: 0}
+      - name: .env efímero (valores aleatorios por ejecución, no secretos reales)
+        run: bash scripts/ops/init-env.sh .env
+      - name: docker compose config (todas las variantes)
+        run: |
+          docker compose config --quiet
+          docker compose --profile ops config --quiet
+          docker compose -f compose.yaml -f compose.ci.yaml config --quiet
+          docker compose -f compose.yaml -f compose.debug.yaml config --quiet
+      - name: INFRA-DB-000 (init de PostgreSQL 18.6 en modo CI)
+        run: |
+          docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
+          docker compose -f compose.yaml -f compose.ci.yaml exec -T db psql -U postgres -d brujula -XAtc \
+            "select datlocprovider||':'||datlocale from pg_database where datname='brujula'" | grep -qx 'b:C.UTF-8'
+          docker compose -f compose.yaml -f compose.ci.yaml down -v
+      - name: gitleaks (secret scan del historial)
+        run: |
+          curl -fsSLo /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
+          gitleaks git --redact --no-banner --exit-code 1 .
+
+  # ---------------------------------------------------------------------------
+  backend:
+    name: backend (lint, tipos, tests, SAST, SCA)
+    needs: [detect, infra]
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    defaults: {run: {working-directory: backend}}
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: brujula
+      DB_USER: app_migrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: {python-version: "${{ env.PYTHON_VERSION }}"}
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with: {version: "${{ env.UV_VERSION }}", enable-cache: true, cache-dependency-glob: "backend/uv.lock"}
+      - name: install (lockfile)
+        run: uv sync --frozen
+      - name: lint / format
+        run: |
+          uv run --frozen ruff check .
+          uv run --frozen ruff format --check .
+      - name: typecheck
+        run: uv run --frozen mypy .
+      - name: PostgreSQL efímero (INFRA-DB-000 + plantilla de test)
+        working-directory: .
+        run: |
+          bash scripts/ops/init-env.sh .env
+          docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
+          {
+            grep -E '^(DJANGO_SECRET_KEY|THROTTLE_HMAC_KEY|MFA_FERNET_KEY)=' .env
+            echo "DB_PASSWORD=$(grep '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
+          } >> "$GITHUB_ENV"
+      - name: migraciones (makemigrations --check + migrate)
+        run: |
+          uv run --frozen python manage.py makemigrations --check --dry-run
+          uv run --frozen python manage.py migrate --noinput
+      - name: unit tests + cobertura (umbral en la config de pytest del Developer)
+        run: uv run --frozen pytest
+      - name: check --deploy
+        env: {DJANGO_DEBUG: "false", DJANGO_SECURE_SSL_REDIRECT: "true", DJANGO_SECURE_HSTS_SECONDS: "31536000"}
+        run: uv run --frozen python manage.py check --deploy --fail-level WARNING
+      - name: "contrato: oasdiff (esquema generado vs contracts/openapi.yaml)"
+        run: |
+          curl -fsSLo /tmp/oasdiff.tgz "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "${OASDIFF_SHA256}  /tmp/oasdiff.tgz" | sha256sum -c -
+          tar -xzf /tmp/oasdiff.tgz -C /usr/local/bin oasdiff
+          uv run --frozen python manage.py spectacular --validate --file /tmp/generado.yaml
+          oasdiff diff ../contracts/openapi.yaml /tmp/generado.yaml --fail-on-diff
+      - name: SAST (bandit + semgrep)
+        run: |
+          uvx --from "bandit==${BANDIT_VERSION}" bandit -r . -x ./.venv,./tests -ll
+          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan --metrics=off --error --config p/django --config p/python .
+      - name: SCA (pip-audit sobre el lock)
+        run: |
+          uv export --frozen --no-hashes --format requirements-txt > /tmp/req.txt
+          uvx --from "pip-audit==${PIP_AUDIT_VERSION}" pip-audit --strict --requirement /tmp/req.txt
+      - name: parar BD
+        if: always()
+        working-directory: .
+        run: docker compose -f compose.yaml -f compose.ci.yaml down -v
+
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: frontend (lint, tipos, tests, cliente generado, SCA)
+    needs: [detect, infra]
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    defaults: {run: {working-directory: frontend}}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - name: install (lockfile)
+        run: npm ci --no-audit --no-fund
+      - name: lint / format
+        run: npx --no-install eslint . --max-warnings=0
+      - name: typecheck
+        run: npx --no-install tsc --noEmit -p tsconfig.app.json
+      - name: unit tests + cobertura (umbrales en la config de Vitest del Developer)
+        run: npx --no-install ng test --watch=false --coverage
+      - name: "contrato: cliente generado == contracts/openapi.yaml"
+        run: |
+          npm run api:generate
+          git diff --exit-code -- src/app
+      - name: SAST (semgrep)
+        run: pipx run "semgrep==${SEMGREP_VERSION}" scan --metrics=off --error --config p/typescript --config p/javascript .
+      - name: SCA (npm audit)
+        run: npm audit --audit-level=high
+      - name: build SSR
+        run: npx --no-install ng build --configuration production
+
+  # ---------------------------------------------------------------------------
+  images:
+    name: build + trivy + SBOM (+ smoke y schemathesis)
+    needs: [detect, backend, frontend]
+    if: needs.detect.outputs.backend == 'true' && needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: .env efímero
+        run: bash scripts/ops/init-env.sh .env
+      - name: build imágenes (sin push)
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: docker compose --profile ops build --pull
+      - name: herramientas (trivy, syft) con sha256
+        run: |
+          curl -fsSLo /tmp/trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  /tmp/trivy.tgz" | sha256sum -c -
+          tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy
+          curl -fsSLo /tmp/syft.tgz "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          echo "${SYFT_SHA256}  /tmp/syft.tgz" | sha256sum -c -
+          tar -xzf /tmp/syft.tgz -C /usr/local/bin syft
+      - name: image scan (trivy CRITICAL/HIGH = fail; excepciones solo en .trivyignore con aprobación humana)
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: |
+          mkdir -p reports
+          rc=0
+          for s in backend frontend proxy scheduler backup; do
+            img="brujula/${s}:${APP_VERSION}"
+            trivy image --scanners vuln --severity CRITICAL,HIGH --format json --output "reports/trivy-${s}.json" "$img"
+            trivy image --scanners vuln --severity CRITICAL,HIGH --exit-code 1 "$img" || rc=1
+          done
+          exit $rc
+      - name: SBOM (syft, CycloneDX JSON)
+        if: always()
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: |
+          mkdir -p reports
+          for s in backend frontend proxy scheduler backup; do
+            syft "brujula/${s}:${APP_VERSION}" -o "cyclonedx-json=reports/sbom-${s}.cdx.json"
+          done
+      - name: smoke (stack completo local en el runner) + schemathesis (superficie pública)
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: |
+          docker compose up -d --no-build --wait
+          curl -fsS http://127.0.0.1:8080/health/ready
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+          pipx run "schemathesis==${SCHEMATHESIS_VERSION}" run contracts/openapi.yaml \
+            --url http://127.0.0.1:8080 \
+            --include-path-regex '^/(api/v1/publico|health)/' \
+            --checks not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
+      - name: logs del stack
+        if: always()
+        run: docker compose logs --no-color > reports/compose.log 2>&1 || true
+      - name: parar stack
+        if: always()
+        run: docker compose --profile ops down -v
+      - name: publicar evidencias (SBOM, trivy, logs)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: supply-chain-${{ github.sha }}
+          path: reports/
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # Firma cosign KEYLESS (OIDC de GitHub + Sigstore público, sin secretos). DESACTIVADA por defecto:
+  # publica la identidad del repositorio en el log de transparencia Rekor. Se activa con la variable
+  # de repositorio COSIGN_KEYLESS_ENABLED=true tras decisión humana. Firma los SBOM (sign-blob);
+  # la firma de imágenes requiere un registro (push = Puerta Humana, DEC-AUTO-002).
+  sign:
+    name: firma keyless de SBOM (opcional)
+    needs: [images]
+    if: vars.COSIGN_KEYLESS_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: cosign con sha256
+        run: |
+          curl -fsSLo /usr/local/bin/cosign "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64"
+          echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+          chmod +x /usr/local/bin/cosign
+      - name: descargar SBOM
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with: {name: "supply-chain-${{ github.sha }}", path: reports}
+      - name: firmar
+        run: |
+          for f in reports/sbom-*.cdx.json; do
+            cosign sign-blob --yes --bundle "${f}.sigstore.json" "$f"
+          done
+
+  # ---------------------------------------------------------------------------
+  # deploy-staging / e2e-staging / deploy-prod: NO IMPLEMENTADOS.
+  # Requieren: ADR de plataforma (Skill_devops §23.5), entornos y secretos separados, registro de
+  # imágenes y aprobación humana (CLAUDE.md §0.5). El mismo digest se promociona sin reconstruir (§23.3).

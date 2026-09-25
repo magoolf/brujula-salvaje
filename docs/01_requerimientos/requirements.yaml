@@ -1,0 +1,1134 @@
+# requirements.yaml — fuente estructurada del PRD (Skill_Requerimientos §47)
+# Proyecto: Portal editorial de viajes de aventura (marca provisional "Brújula Salvaje", DEC-AUTO-001)
+# Vocabulario BCP 14 (RFC 2119/8174) en MAYÚSCULAS y en inglés.
+
+meta:
+  documento: requirements.yaml
+  version: "1.0"
+  ticket: TKT-F2-001
+  fase: F2
+  fecha: "2026-09-24"
+  productor: Skill_Requerimientos (subagente requerimientos, Modo Expansor)
+  consumidor: skill_arquitecto_funcional (F3)
+  autoridad: "Orquestador (Autoridad Delegada, CLAUDE.md §0.2)"
+  estado_conjunto: PROPOSED
+  health_check_conjunto: PASS
+  prd: docs/01_requerimientos/PRD.md
+  normative_snapshot_date: "2026-09-24"
+  stack: "NO fijado en F2; lo fija F5 (Skill_Frontend/Backend/Base_datos)"
+
+# Plantillas de Health Check individual (§16)
+health_templates:
+  hc_usuario: &hc_usuario
+    necessary: PASS
+    appropriate: PASS
+    unambiguous: PASS
+    complete: PASS
+    singular: PASS
+    feasible: PASS
+    verifiable: PASS
+    correct: PASS        # evidencia: respuesta literal de la Entrevista Pública
+    conforming: PASS
+  hc_expansion: &hc_expansion
+    necessary: PASS
+    appropriate: PASS
+    unambiguous: PASS
+    complete: PASS
+    singular: PASS
+    feasible: PASS
+    verifiable: PASS
+    correct: UNKNOWN     # expansión autónoma: pendiente de VAL-001
+    conforming: PASS
+  hc_reg: &hc_reg
+    necessary: PASS
+    appropriate: PASS
+    unambiguous: PASS
+    complete: UNKNOWN    # GAP-004 / GAP-006
+    singular: PASS
+    feasible: PASS
+    verifiable: PASS
+    correct: UNKNOWN     # fuente primaria no consultada (GAP-006)
+    conforming: UNKNOWN
+
+fuentes:
+  - id: SRC-001
+    tipo: idea_usuario
+    contenido: "crear una página web nivel experto sobre vacaciones"
+    fiabilidad: HECHO
+  - id: SRC-002
+    tipo: entrevista_publica
+    fecha: "2026-09-24"
+    conducida_por: Orquestador (sesión principal)
+    respuestas:
+      P1: "a"
+      P1_opcion_A: "guía/portal de viajes y destinos con inspiración, contenido experto e itinerarios"
+      P2: "enfoque de aventura"
+      P3: "que sea algo de inspiracion, de explorar de aventuras, descubrimientos"
+      P4: "no tiene un objetivo de negocios, es de explorar de vivir"
+      P5: "todo tipo de visitantes que ingresen"
+      P6: "no"
+      P7: "que sea completo"
+      P8: "inspirar a explorar"
+      P9: "solo español."
+      P10: "no"
+      P11: "colombia"
+      P12: "no"
+      P13: "pueden haber mas de 100 personas diarias además pon por lo menos 20 destinos distintos"
+      P14: SIN_RESPUESTA
+      P15: SIN_RESPUESTA
+      P16: SIN_RESPUESTA
+    fiabilidad: HECHO
+  - id: SRC-003
+    tipo: restricciones_orquestador
+    contenido: "Sin costes ni despliegue (entrega local Docker Compose); sin cuentas públicas; panel editorial como DEC-AUTO; >=20 destinos reales; Ley 1581; sin API de pago ni API keys"
+    fiabilidad: DECISION_AUTORIDAD_DELEGADA
+  - id: SRC-004
+    tipo: normativa_secundaria
+    contenido: "Ley 1581 de 2012; Decreto 1074 de 2015 art. 2.2.2.25.3.1 (compila Decreto 1377 de 2013)"
+    ubicacion: ["https://www.cancilleria.gov.co/normograma/compilacion/docs/decreto_1377_2013.htm", "https://www.mintic.gov.co/portal/715/articles-62124_politica_tratamiento_datos_personales_u20200917.pdf"]
+    fecha_consulta: "2026-09-24"
+    estado: VIGENTE (según fuente secundaria)
+    nota: "Fuente primaria (SUIN-Juriscol / SIC) no consultada: GAP-006"
+
+problemas:
+  - id: PRB-001
+    version: "1.0"
+    descripcion: "Se necesita un sitio web de nivel experto sobre vacaciones con enfoque de aventura, cuyo propósito es inspirar a explorar y descubrir, accesible a cualquier visitante, en español, sin registro ni datos personales."
+    origen: "USUARIO (SRC-001, P1, P2, P3, P8)"
+    estado: CONFIRMED
+
+objetivos:
+  - id: OBJ-001
+    objetivo: "Inspirar a explorar mediante contenido de aventura"
+    metrica: "destinos publicados; % páginas de contenido con >=3 enlaces relacionados; nº páginas huérfanas"
+    target: ">=20; 100%; 0"
+    horizonte: "Entrega F10"
+    origen: "USUARIO (P4, P8); métrica EXPANSIÓN_AUTÓNOMA (DEC-AUTO-032)"
+    estado: IDENTIFIED
+  - id: OBJ-002
+    objetivo: "Contenido de nivel experto y creíble"
+    metrica: "% contenidos publicados con autoría, fecha de revisión, dificultad y advertencias de seguridad"
+    target: "100%"
+    horizonte: "Entrega F10"
+    origen: "USUARIO (idea 'nivel experto'); métrica EXPANSIÓN_AUTÓNOMA (DEC-AUTO-023, DEC-AUTO-033)"
+    estado: IDENTIFIED
+  - id: OBJ-003
+    objetivo: "Servir a todo tipo de visitantes"
+    metrica: "violaciones axe serious/critical; funciones públicas que exigen registro"
+    target: "0; 0"
+    horizonte: "Entrega F10"
+    origen: "USUARIO (P5, P6); métrica EXPANSIÓN_AUTÓNOMA (DEC-AUTO-029)"
+    estado: IDENTIFIED
+
+stakeholders:
+  - {id: SH-001, nombre: "Visitante anónimo", origen: "USUARIO (P5, P6)"}
+  - {id: SH-002, nombre: "Equipo editorial (staff interno)", origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-005)"}
+  - {id: SH-003, nombre: "Usuario / propietario del proyecto", origen: HECHO}
+  - {id: SH-004, nombre: "Orquestador (Autoridad Delegada)", origen: "CLAUDE.md §0.2"}
+
+necesidades:
+  - {id: STN-001, necesidad: "Inspirarse con destinos de aventura en todo el mundo", stakeholder: SH-001, origen: "USUARIO (P2, P3, P8)", estado: CONFIRMED}
+  - {id: STN-002, necesidad: "Explorar y descubrir por sí mismo: navegar, buscar, filtrar, encontrar contenido relacionado", stakeholder: SH-001, origen: "USUARIO (P3)", estado: CONFIRMED}
+  - {id: STN-003, necesidad: "Información experta y fiable para planear una aventura (itinerarios, guías, consejos)", stakeholder: SH-001, origen: "USUARIO (SRC-001, P1)", estado: CONFIRMED}
+  - {id: STN-004, necesidad: "Usar el sitio sin registrarse ni entregar datos personales", stakeholder: SH-001, origen: "USUARIO (P6, P10)", estado: CONFIRMED}
+  - {id: STN-005, necesidad: "Contenido en español", stakeholder: SH-001, origen: "USUARIO (P9)", estado: CONFIRMED}
+  - {id: STN-006, necesidad: "Al menos 20 destinos distintos y soporte para más de 100 visitantes diarios", stakeholder: SH-003, origen: "USUARIO (P13)", estado: CONFIRMED}
+  - {id: STN-007, necesidad: "Mantener y ampliar el contenido sin modificar código", stakeholder: SH-002, origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-005)", estado: IDENTIFIED}
+
+# ---------------------------------------------------------------------------
+# REQUISITOS
+# Todos: version "1.0", creado_por Skill_Requerimientos, fecha 2026-09-24, estado PROPOSED
+# ---------------------------------------------------------------------------
+requisitos:
+
+  # ---- Business / Constraints ----
+  - id: REQ-001
+    nivel: Business
+    tipo: BR
+    titulo: "Portal editorial de aventura en español"
+    descripcion: "El producto SHALL ser un portal web editorial de viajes de aventura, en español, cuyo propósito es inspirar a los visitantes a explorar destinos, itinerarios y guías expertas."
+    moscow: Must
+    criticidad: CRITICAL
+    origen: "USUARIO (P1, P2, P3, P8)"
+    satisface: [PRB-001, OBJ-001, STN-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-001, criterio: "El sitio publicado en local presenta destinos, itinerarios y guías de aventura navegables desde la página de inicio.", metodo: Demonstration}
+    health: *hc_usuario
+
+  - id: REQ-002
+    nivel: System
+    tipo: CR
+    titulo: "Sin cuentas públicas"
+    descripcion: "El sitio público SHALL NOT ofrecer registro, inicio de sesión ni perfiles para visitantes. Toda función pública SHALL estar disponible de forma anónima."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P6)"
+    satisface: [STN-004, OBJ-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-002, criterio: "Ninguna ruta pública muestra formulario de registro o login; todas las rutas públicas responden 200 sin sesión.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-003
+    nivel: System
+    tipo: CR
+    titulo: "Sin datos personales de visitantes"
+    descripcion: "El sistema SHALL NOT recopilar, almacenar ni transmitir datos personales de visitantes (formularios, identificadores persistentes, analítica o huella digital)."
+    moscow: Must
+    criticidad: CRITICAL
+    origen: "USUARIO (P10)"
+    satisface: [STN-004]
+    derivados: [REQ-057, REQ-059]
+    estado: PROPOSED
+    ac:
+      - {id: AC-003, criterio: "La inspección del modelo de datos no contiene entidades de visitante; no existe ningún formulario público que envíe datos al servidor.", metodo: Inspection}
+    health: *hc_usuario
+
+  - id: REQ-004
+    nivel: System
+    tipo: CR
+    titulo: "Sin integraciones externas"
+    descripcion: "El sistema SHALL NOT depender en tiempo de ejecución de servicios, APIs, CDNs, fuentes tipográficas o mapas de terceros."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P12)"
+    satisface: [STN-004]
+    estado: PROPOSED
+    ac:
+      - {id: AC-004, criterio: "Con el sistema levantado y la red externa bloqueada, todas las plantillas públicas se renderizan completas (imágenes, fuentes, mapa).", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-005
+    nivel: System
+    tipo: CR
+    titulo: "Solo español"
+    descripcion: "El sistema SHALL ofrecer la interfaz y el contenido únicamente en español; no se requiere multi-idioma."
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "USUARIO (P9)"
+    satisface: [STN-005]
+    derivados: [REQ-058]
+    estado: PROPOSED
+    ac:
+      - {id: AC-005, criterio: "Revisión de todas las plantillas: 0 textos de interfaz en otro idioma.", metodo: Review}
+    health: *hc_usuario
+
+  - id: REQ-006
+    nivel: System
+    tipo: CR
+    titulo: "Entrega local sin costes"
+    descripcion: "La entrega SHALL consistir en construcción y pruebas locales ejecutables con Docker Compose, sin contraer costes recurrentes ni desplegar a entornos compartidos o de producción."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-002); SRC-003"
+    satisface: [PRB-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-006, criterio: "Un único comando de Compose levanta el sistema completo en local sin credenciales reales ni servicios de pago.", metodo: Demonstration}
+    health: *hc_expansion
+
+  # ---- Functional ----
+  - id: REQ-010
+    nivel: Software
+    tipo: FR
+    titulo: "Inicio inspiracional"
+    descripcion: "La página de inicio SHALL mostrar un bloque principal inspiracional, al menos 6 destinos destacados, los tipos de aventura, al menos 3 itinerarios destacados, al menos 3 guías destacadas y accesos a explorar/buscar."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P3); formato EXPANSIÓN_AUTÓNOMA (DEC-AUTO-008)"
+    dec_auto: [DEC-AUTO-008]
+    satisface: [STN-001, OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-010, criterio: "La página de inicio contiene >=6 destinos, todos los tipos de aventura publicados, >=3 itinerarios y >=3 guías destacadas, cada uno enlazado a su página.", metodo: Test}
+      - {id: AC-011, criterio: "Los destacados son configurables desde el panel editorial sin cambiar código.", metodo: Demonstration}
+    health: *hc_expansion
+
+  - id: REQ-011
+    nivel: Software
+    tipo: FR
+    titulo: "Catálogo de destinos"
+    descripcion: "El sistema SHALL listar todos los destinos publicados con imagen, nombre, país, tipos de aventura y dificultad, con paginación (<=24 por página) y orden alfabético o por dificultad."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P1, P13)"
+    satisface: [STN-002, STN-006]
+    estado: PROPOSED
+    ac:
+      - {id: AC-012, criterio: "Con el dataset semilla, el listado muestra los >=20 destinos publicados y ninguno en borrador o retirado.", metodo: Test}
+      - {id: AC-013, criterio: "Cambiar el orden reordena los resultados según el criterio elegido.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-012
+    nivel: Software
+    tipo: FR
+    titulo: "Ficha de destino"
+    descripcion: "El sistema SHALL mostrar para cada destino todos los campos del modelo mínimo (PRD §6.2) y enlaces a sus tipos de aventura, itinerarios y guías relacionadas."
+    moscow: Must
+    criticidad: CRITICAL
+    origen: "USUARIO (P1); campos EXPANSIÓN_AUTÓNOMA (DEC-AUTO-008)"
+    dec_auto: [DEC-AUTO-008]
+    satisface: [STN-001, STN-003, OBJ-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-014, criterio: "Para cada destino semilla, la ficha renderiza todos los campos obligatorios de PRD §6.2.", metodo: Test}
+      - {id: AC-015, criterio: "Un slug inexistente devuelve la página 404 del sitio con enlaces de navegación.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-013
+    nivel: Software
+    tipo: FR
+    titulo: "Tipos de aventura"
+    descripcion: "El sistema SHALL ofrecer una taxonomía de al menos 10 tipos de aventura; cada tipo SHALL tener una página con descripción, nivel de exigencia y destinos asociados."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-006)"
+    dec_auto: [DEC-AUTO-006]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-016, criterio: ">=10 tipos publicados; cada página de tipo lista >=1 destino asociado.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-014
+    nivel: Software
+    tipo: FR
+    titulo: "Filtros facetados"
+    descripcion: "El catálogo SHALL permitir combinar filtros por tipo de aventura, continente/región, país, dificultad, mes de mejor época, duración y nivel de presupuesto; el estado de filtros SHALL reflejarse en la URL."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-012)"
+    dec_auto: [DEC-AUTO-012]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-017, criterio: "Aplicar tipo=Trekking y dificultad<=3 devuelve exactamente los destinos del dataset que cumplen ambas condiciones.", metodo: Test}
+      - {id: AC-018, criterio: "Recargar o compartir la URL filtrada reproduce el mismo resultado; sin resultados se muestra un estado vacío con sugerencias.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-015
+    nivel: Software
+    tipo: FR
+    titulo: "Búsqueda interna"
+    descripcion: "El sistema SHALL ofrecer búsqueda de texto sobre destinos, itinerarios, guías y tipos, insensible a tildes y mayúsculas, sin servicios externos."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-011)"
+    dec_auto: [DEC-AUTO-011]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-019, criterio: "Buscar 'patagonia', 'Patagonía' y 'PATAGONIA' devuelve los mismos resultados.", metodo: Test}
+      - {id: AC-020, criterio: "Una consulta sin coincidencias muestra estado vacío con enlaces a explorar; la entrada se valida (longitud máxima 100) y no permite inyección.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-016
+    nivel: Software
+    tipo: FR
+    titulo: "Itinerarios día a día"
+    descripcion: "El sistema SHALL publicar itinerarios vinculados a un destino, con duración total, dificultad, resumen y una sección por día (actividades, distancia/desnivel cuando aplique, alojamiento orientativo, consejos)."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P1 opción A 'itinerarios'); formato EXPANSIÓN_AUTÓNOMA (DEC-AUTO-009)"
+    dec_auto: [DEC-AUTO-009]
+    satisface: [STN-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-021, criterio: "Cada itinerario muestra N secciones de día coherentes con su duración y enlaza a su destino; el destino enlaza de vuelta al itinerario.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-017
+    nivel: Software
+    tipo: FR
+    titulo: "Guías expertas"
+    descripcion: "El sistema SHALL publicar guías/artículos expertos clasificados por categoría (PRD §6.5), con índice por categoría y enlaces a destinos y tipos relacionados."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P1 'contenido experto'); categorías EXPANSIÓN_AUTÓNOMA (DEC-AUTO-010)"
+    dec_auto: [DEC-AUTO-010]
+    satisface: [STN-003, OBJ-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-022, criterio: ">=10 guías publicadas repartidas en >=5 categorías; cada categoría tiene página índice.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-018
+    nivel: Software
+    tipo: FR
+    titulo: "Mapa de destinos local"
+    descripcion: "El sistema SHOULD mostrar un mapa interactivo del mundo con un marcador por destino publicado, usando cartografía servida por el propio sistema, sin teselas ni API de terceros; SHALL existir alternativa accesible en forma de lista."
+    moscow: Should
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-013)"
+    dec_auto: [DEC-AUTO-013]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-023, criterio: "El mapa muestra un marcador por destino con coordenadas; al activarlo (ratón o teclado) navega a la ficha; 0 solicitudes a dominios externos.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-019
+    nivel: Software
+    tipo: FR
+    titulo: "Galería de imágenes"
+    descripcion: "Cada destino SHALL tener una galería de al menos 3 imágenes con texto alternativo, pie de foto y créditos; la ampliación SHALL ser operable por teclado."
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-014)"
+    dec_auto: [DEC-AUTO-014]
+    satisface: [STN-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-024, criterio: "Cada ficha muestra >=3 imágenes con alt no vacío y crédito visible; la vista ampliada se abre, navega y cierra con teclado (Esc).", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-020
+    nivel: Software
+    tipo: FR
+    titulo: "Sigue explorando (contenido relacionado)"
+    descripcion: "Cada página de destino, itinerario, guía y tipo de aventura SHALL enlazar al menos 3 contenidos relacionados publicados; ninguna página pública SHALL quedar huérfana."
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P3 'explorar, descubrimientos'); regla EXPANSIÓN_AUTÓNOMA (DEC-AUTO-032)"
+    dec_auto: [DEC-AUTO-032]
+    satisface: [STN-002, OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-025, criterio: "Un rastreo desde la página de inicio alcanza el 100% de las páginas publicadas (0 huérfanas) y 0 enlaces internos rotos.", metodo: Test}
+      - {id: AC-026, criterio: "Cada página de contenido muestra >=3 enlaces relacionados.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-021
+    nivel: Software
+    tipo: FR
+    titulo: "Navegación global y errores"
+    descripcion: "El sitio SHALL tener cabecera con navegación principal, pie con enlaces institucionales/legales, migas de pan en páginas de detalle, mapa del sitio HTML y páginas 404/500 propias con rutas de salida."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-018)"
+    dec_auto: [DEC-AUTO-018]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-027, criterio: "Todas las plantillas incluyen cabecera y pie; las páginas de detalle muestran migas de pan correctas; /ruta-inexistente devuelve HTTP 404 con la página propia.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-022
+    nivel: Software
+    tipo: FR
+    titulo: "Panel editorial"
+    descripcion: "El sistema SHALL ofrecer un panel interno autenticado, solo para staff, para crear, editar, previsualizar, publicar y retirar destinos, tipos, itinerarios, guías, colecciones, glosario, páginas institucionales y medios, con estados borrador/publicado/retirado. Solo el contenido publicado SHALL ser visible al público."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-005)"
+    dec_auto: [DEC-AUTO-005, DEC-AUTO-034]
+    satisface: [STN-007]
+    estado: PROPOSED
+    ac:
+      - {id: AC-028, criterio: "Un editor crea un destino en borrador (no visible públicamente), lo publica (visible) y lo retira (404/410 público) sin tocar código.", metodo: Demonstration}
+      - {id: AC-029, criterio: "Un usuario no autenticado que accede al panel es redirigido al login; no existe enlace al panel en el sitio público.", metodo: Test}
+      - {id: AC-030, criterio: "Cada alta/edición/publicación queda registrada con usuario, acción, entidad y fecha.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-023
+    nivel: Software
+    tipo: FR
+    titulo: "Autoría, revisión y fuentes"
+    descripcion: "Todo destino, itinerario y guía publicado SHALL mostrar autoría (equipo editorial), fecha de última revisión y una sección de fuentes o enlace a la metodología editorial."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-023)"
+    dec_auto: [DEC-AUTO-023, DEC-AUTO-033]
+    satisface: [STN-003, OBJ-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-031, criterio: "100% de contenidos publicados muestran autoría y fecha de última revisión; el panel impide publicar sin fecha de revisión.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-024
+    nivel: Software
+    tipo: FR
+    titulo: "Advertencias de seguridad y descargo"
+    descripcion: "Cada destino e itinerario SHALL mostrar nivel de dificultad (escala 1-5 definida públicamente), riesgos principales y recomendaciones de seguridad; todo contenido de actividad SHALL mostrar un descargo indicando que la información es orientativa y no sustituye a guías certificados ni a fuentes oficiales."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-023)"
+    dec_auto: [DEC-AUTO-023]
+    satisface: [STN-003, OBJ-002]
+    iso25010: {caracteristica: Safety, subcaracteristica: "Hazard warning"}
+    mitiga: [RSK-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-032, criterio: "100% de fichas e itinerarios muestran dificultad, sección de riesgos/seguridad y descargo.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-025
+    nivel: Software
+    tipo: FR
+    titulo: "Páginas institucionales y legales"
+    descripcion: "El sitio SHALL publicar: Acerca de / Metodología editorial, Política de Tratamiento de la Información, Política de cookies, Aviso legal / Términos de uso y Créditos de imágenes, enlazadas desde el pie de todas las páginas."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-017); derivado de REQ-070, REQ-071"
+    dec_auto: [DEC-AUTO-017]
+    satisface: [OBJ-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-033, criterio: "Las 5 páginas existen, responden 200 y se enlazan desde el pie de todas las plantillas.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-026
+    nivel: Software
+    tipo: FR
+    titulo: "SEO técnico"
+    descripcion: "Cada página pública SHALL tener title y meta description únicos, URL canónica, etiquetas Open Graph, datos estructurados schema.org (TouristDestination/TouristTrip/Article/BreadcrumbList según tipo), URL legible en español; el sistema SHALL generar sitemap.xml y robots.txt."
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-018)"
+    dec_auto: [DEC-AUTO-018]
+    satisface: [OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-034, criterio: "Lighthouse SEO >=90 en las plantillas principales; sitemap.xml lista el 100% de las páginas publicadas; datos estructurados válidos (0 errores en validador schema).", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-027
+    nivel: Software
+    tipo: FR
+    titulo: "Colecciones curadas"
+    descripcion: "El sistema SHOULD permitir colecciones editoriales de destinos/itinerarios (p. ej. 'Aventuras para principiantes', 'Retos de alta montaña', 'Aventura en Colombia')."
+    moscow: Should
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-019)"
+    dec_auto: [DEC-AUTO-019]
+    satisface: [STN-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-035, criterio: ">=3 colecciones publicadas, cada una con >=4 elementos enlazados.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-028
+    nivel: Software
+    tipo: FR
+    titulo: "¿Dónde ir cada mes?"
+    descripcion: "El sistema SHOULD ofrecer una vista por mes que liste los destinos cuya mejor época incluye ese mes, derivada de los datos del destino."
+    moscow: Should
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-019)"
+    dec_auto: [DEC-AUTO-019]
+    satisface: [STN-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-036, criterio: "Para cada mes, la vista lista exactamente los destinos cuyo campo mejor época lo incluye.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-029
+    nivel: Software
+    tipo: FR
+    titulo: "Checklist de equipo"
+    descripcion: "Cada tipo de aventura SHOULD tener un checklist de equipo recomendado."
+    moscow: Should
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-022)"
+    dec_auto: [DEC-AUTO-022]
+    satisface: [STN-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-037, criterio: ">=10 tipos con checklist publicado de >=8 elementos.", metodo: Inspection}
+    health: *hc_expansion
+
+  - id: REQ-030
+    nivel: Software
+    tipo: FR
+    titulo: "Aventuras guardadas en el navegador"
+    descripcion: "El sitio MAY permitir marcar destinos/itinerarios como guardados, almacenados solo en el navegador del visitante y nunca enviados al servidor."
+    moscow: Could
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-020)"
+    dec_auto: [DEC-AUTO-020]
+    satisface: [STN-002]
+    restriccion: [REQ-003, REQ-059]
+    estado: PROPOSED
+    ac:
+      - {id: AC-038, criterio: "Guardar y recargar conserva la lista; la captura de red muestra 0 solicitudes con dicha información.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-031
+    nivel: Software
+    tipo: FR
+    titulo: "Compartir"
+    descripcion: "Las páginas de contenido MAY ofrecer copiar enlace y compartir nativo del dispositivo, sin SDKs ni scripts de redes sociales."
+    moscow: Could
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-021)"
+    dec_auto: [DEC-AUTO-021]
+    satisface: [OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-039, criterio: "El botón copia la URL canónica; 0 scripts de terceros cargados.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-032
+    nivel: Software
+    tipo: FR
+    titulo: "Glosario"
+    descripcion: "El sitio MAY incluir un glosario de términos de aventura enlazado desde los contenidos."
+    moscow: Could
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-022)"
+    dec_auto: [DEC-AUTO-022]
+    satisface: [STN-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-040, criterio: ">=30 términos publicados; cada término enlazado desde >=1 contenido.", metodo: Inspection}
+    health: *hc_expansion
+
+  - id: REQ-033
+    nivel: Software
+    tipo: FR
+    titulo: "Versión imprimible"
+    descripcion: "Los itinerarios y checklists MAY tener una hoja de estilos de impresión que oculte navegación y conserve el contenido completo."
+    moscow: Could
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-022)"
+    dec_auto: [DEC-AUTO-022]
+    satisface: [STN-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-041, criterio: "La emulación de impresión de un itinerario muestra todos los días sin cabecera ni pie de navegación.", metodo: Test}
+    health: *hc_expansion
+
+  # ---- Datos / contenido semilla ----
+  - id: REQ-040
+    nivel: Stakeholder
+    tipo: SR
+    titulo: "Mínimo 20 destinos reales"
+    descripcion: "El sistema SHALL publicar como mínimo 20 destinos reales y distintos, con contenido en español."
+    moscow: Must
+    criticidad: CRITICAL
+    origen: "USUARIO (P13)"
+    satisface: [STN-006, OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-042, criterio: "El dataset semilla cargado contiene >=20 destinos publicados, con nombres únicos y correspondientes a lugares reales verificables.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-041
+    nivel: System
+    tipo: FR
+    titulo: "Cobertura del contenido semilla"
+    descripcion: "El contenido semilla SHALL incluir >=10 tipos de aventura, >=10 itinerarios (SHOULD: 1 por destino), >=10 guías expertas y, si REQ-027 entra en alcance, >=3 colecciones."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-006, DEC-AUTO-009, DEC-AUTO-010)"
+    dec_auto: [DEC-AUTO-006, DEC-AUTO-009, DEC-AUTO-010, DEC-AUTO-033]
+    satisface: [STN-003, OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-043, criterio: "Conteos del dataset semilla cumplen los mínimos indicados.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-042
+    nivel: System
+    tipo: FR
+    titulo: "Completitud de campos de destino"
+    descripcion: "El 100% de los destinos publicados SHALL tener completos los campos obligatorios de PRD §6.2; el panel SHALL impedir publicar un destino incompleto."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-008)"
+    dec_auto: [DEC-AUTO-008]
+    satisface: [OBJ-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-044, criterio: "Validación automática del dataset: 0 destinos publicados con campos obligatorios vacíos; intento de publicar uno incompleto es rechazado con mensaje.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-043
+    nivel: System
+    tipo: FR
+    titulo: "Licencia y créditos de medios"
+    descripcion: "El 100% de los medios SHALL tener registrados licencia, autor/fuente y texto alternativo en español; SHALL NOT publicarse un medio sin licencia registrada."
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-014); derivado de REQ-071"
+    dec_auto: [DEC-AUTO-014]
+    satisface: [OBJ-002]
+    mitiga: [RSK-002]
+    estado: PROPOSED
+    ac:
+      - {id: AC-045, criterio: "0 medios publicados sin licencia, crédito o alt; la página de Créditos lista todos los medios con atribución.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-044
+    nivel: System
+    tipo: FR
+    titulo: "Distribución geográfica"
+    descripcion: "Los destinos semilla SHOULD cubrir >=5 continentes e incluir >=4 destinos de Colombia."
+    moscow: Should
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-007)"
+    dec_auto: [DEC-AUTO-007]
+    satisface: [STN-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-046, criterio: "Conteo por continente >=5 distintos; >=4 destinos con país Colombia.", metodo: Test}
+    health: *hc_expansion
+
+  # ---- NFR obligatorios §47 y adicionales ----
+  - id: REQ-050
+    nivel: System
+    tipo: NFR
+    titulo: "Disponibilidad"
+    descripcion: "El sistema SHALL alcanzar disponibilidad >=99.5% mensual en producción futura; en el alcance local, todos los servicios SHALL reportar healthy <=120 s tras el arranque."
+    iso25010: {caracteristica: Reliability, subcaracteristica: Availability}
+    metrica: {objetivo: "99.5%", unidad: "% tiempo mensual", tolerancia: "0", entorno: "producción futura (ASM-004); local: Docker Compose", evidencia_esperada: "estado healthcheck de Compose; en prod, monitor externo"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-003) — P15 sin respuesta"
+    dec_auto: [DEC-AUTO-003]
+    asm: [ASM-004]
+    satisface: [OBJ-001]
+    estado: PROPOSED
+    ac:
+      - {id: AC-050, criterio: "Tras 'compose up' en local, 100% de servicios en estado healthy en <=120 s.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-051
+    nivel: System
+    tipo: NFR
+    titulo: "Latencia p95 de API"
+    descripcion: "Los endpoints de lectura SHALL responder con p95 <=300 ms y la búsqueda con p95 <=500 ms, con tasa de error <1%."
+    iso25010: {caracteristica: "Performance efficiency", subcaracteristica: "Time behaviour"}
+    metrica: {objetivo: "p95 <=300 ms lectura; p95 <=500 ms búsqueda", unidad: ms, percentil: p95, carga: "20 req/s sostenidas 5 min", dataset: "semilla completa", entorno: "local de referencia", evidencia_esperada: "informe de prueba de carga"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-026)"
+    dec_auto: [DEC-AUTO-026]
+    satisface: [STN-006]
+    estado: PROPOSED
+    ac:
+      - {id: AC-051, criterio: "Informe de carga con p95 y tasa de error dentro de objetivo.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-052
+    nivel: System
+    tipo: NFR
+    titulo: "Core Web Vitals"
+    descripcion: "Las plantillas públicas SHALL cumplir LCP <=2.5 s, INP <=200 ms y CLS <=0.1; en laboratorio, Lighthouse móvil rendimiento >=90 y TBT <=200 ms."
+    iso25010: {caracteristica: "Performance efficiency", subcaracteristica: "Time behaviour"}
+    metrica: {objetivo: "LCP<=2.5s; INP<=200ms; CLS<=0.1", percentil: p75, entorno: "Lighthouse CI móvil (throttling por defecto); INP medido en laboratorio con interacción automatizada", evidencia_esperada: "informes Lighthouse de Inicio, Listado, Destino, Itinerario, Guía"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "Obligatorio §47; valores EXPANSIÓN_AUTÓNOMA (DEC-AUTO-026)"
+    dec_auto: [DEC-AUTO-026]
+    satisface: [OBJ-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-052, criterio: "Las 5 plantillas cumplen los umbrales en 3 ejecuciones (mediana).", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-053
+    nivel: System
+    tipo: NFR
+    titulo: "Capacidad"
+    descripcion: "El sistema SHALL soportar 1.000 visitas/día y 50 usuarios concurrentes (10x lo declarado) sin incumplir REQ-051."
+    iso25010: {caracteristica: "Performance efficiency", subcaracteristica: Capacity}
+    metrica: {objetivo: "50 concurrentes", carga: "50 usuarios virtuales navegando 10 min", evidencia_esperada: "informe de carga"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "USUARIO (P13 '>100 personas diarias'); factor EXPANSIÓN_AUTÓNOMA (DEC-AUTO-025)"
+    dec_auto: [DEC-AUTO-025]
+    asm: [ASM-002]
+    satisface: [STN-006]
+    estado: PROPOSED
+    ac:
+      - {id: AC-053, criterio: "Con 50 usuarios concurrentes, p95 <=300 ms y error <1%.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-054
+    nivel: System
+    tipo: NFR
+    titulo: "RPO / RTO"
+    descripcion: "El sistema SHALL garantizar RPO <=24 h y RTO <=4 h para contenido y medios, mediante copia diaria y procedimiento de restauración documentado y probado."
+    iso25010: {caracteristica: Reliability, subcaracteristica: Recoverability}
+    metrica: {objetivo: "RPO<=24h; RTO<=4h", evidencia_esperada: "registro de simulacro de restauración en local"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "Obligatorio §47; valores EXPANSIÓN_AUTÓNOMA (DEC-AUTO-027)"
+    dec_auto: [DEC-AUTO-027]
+    satisface: [STN-007]
+    estado: PROPOSED
+    ac:
+      - {id: AC-054, criterio: "Simulacro: restaurar copia sobre entorno limpio en <=4 h con contenido íntegro (conteos y checksums de medios coinciden).", metodo: Demonstration}
+    health: *hc_expansion
+
+  - id: REQ-055
+    nivel: System
+    tipo: NFR
+    titulo: "Seguridad OWASP ASVS L2"
+    descripcion: "El sistema SHALL cumplir OWASP ASVS 4.0.3 nivel L2 en los controles aplicables; SHALL enviar CSP sin 'unsafe-inline' para scripts, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin y frame-ancestors 'none' (HSTS en producción); el panel SHALL limitar intentos de autenticación y SHOULD soportar MFA."
+    iso25010: {caracteristica: Security, subcaracteristica: "Integrity; Authenticity; Resistance"}
+    metrica: {objetivo: "0 hallazgos HIGH/CRITICAL abiertos; 100% controles ASVS L2 aplicables verificados o justificados", evidencia_esperada: "SAST semgrep, gitleaks, auditoría de dependencias, checklist ASVS"}
+    moscow: Must
+    criticidad: HIGH
+    origen: "Obligatorio §47 (L2 por defecto); detalle EXPANSIÓN_AUTÓNOMA (DEC-AUTO-028)"
+    dec_auto: [DEC-AUTO-028]
+    mitiga: [RSK-005]
+    satisface: [STN-004, STN-007]
+    estado: PROPOSED
+    ac:
+      - {id: AC-055, criterio: "Escáneres sin hallazgos HIGH/CRITICAL abiertos; cabeceras presentes en todas las respuestas HTML.", metodo: Test}
+      - {id: AC-056, criterio: "Tras N intentos fallidos (N<=10) de login al panel, se aplica bloqueo o retardo.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-056
+    nivel: System
+    tipo: NFR
+    titulo: "Accesibilidad WCAG 2.2 AA"
+    descripcion: "Todas las plantillas públicas SHALL cumplir WCAG 2.2 nivel AA."
+    iso25010: {caracteristica: "Interaction capability", subcaracteristica: Inclusivity}
+    metrica: {objetivo: "0 violaciones axe serious/critical; 100% operable por teclado; 100% imágenes informativas con alt", evidencia_esperada: "informes axe + registro de revisión manual por teclado"}
+    moscow: Must
+    criticidad: HIGH
+    origen: "Obligatorio §47; USUARIO (P5 'todo tipo de visitantes'); DEC-AUTO-029"
+    dec_auto: [DEC-AUTO-029]
+    satisface: [OBJ-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-057, criterio: "axe en todas las plantillas: 0 serious/critical; recorrido completo por teclado con foco visible.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-057
+    nivel: System
+    tipo: NFR
+    titulo: "Retención de datos"
+    descripcion: "El sistema SHALL: no almacenar datos personales de visitantes; conservar registros técnicos con IP truncada/anonimizada <=30 días; conservar la auditoría editorial 365 días; eliminar o anonimizar cuentas editoriales <=30 días tras la baja; conservar el contenido indefinidamente con versión archivada al retirarse."
+    iso25010: {caracteristica: Security, subcaracteristica: Confidentiality}
+    metrica: {objetivo: "logs<=30 días; auditoría 365 días; 0 IP completas", evidencia_esperada: "inspección de configuración de logs y esquema"}
+    moscow: Must
+    criticidad: HIGH
+    origen: "Obligatorio §47; USUARIO (P10); valores EXPANSIÓN_AUTÓNOMA (DEC-AUTO-016, DEC-AUTO-034)"
+    dec_auto: [DEC-AUTO-016, DEC-AUTO-034]
+    derivado_de: [REQ-003, REQ-070]
+    estado: PROPOSED
+    ac:
+      - {id: AC-058, criterio: "Muestra de logs sin IP completa; rotación configurada a <=30 días.", metodo: Inspection}
+    health: *hc_expansion
+
+  - id: REQ-058
+    nivel: System
+    tipo: NFR
+    titulo: "Idioma y locale"
+    descripcion: "El 100% de la interfaz y el contenido públicos SHALL estar en español; el documento SHALL declarar lang='es'; fechas y números SHALL usar locale es-CO; las medidas SHALL usar el sistema métrico."
+    iso25010: {caracteristica: "Functional suitability", subcaracteristica: "Functional appropriateness"}
+    metrica: {objetivo: "100% plantillas con lang='es'", evidencia_esperada: "prueba automatizada"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "Obligatorio §47; USUARIO (P9); locale EXPANSIÓN_AUTÓNOMA (DEC-AUTO-031)"
+    dec_auto: [DEC-AUTO-031]
+    derivado_de: [REQ-005]
+    satisface: [STN-005]
+    estado: PROPOSED
+    ac:
+      - {id: AC-059, criterio: "Todas las plantillas tienen lang='es'; fechas formateadas en es-CO.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-059
+    nivel: System
+    tipo: NFR
+    titulo: "Privacidad: sin terceros ni cookies no esenciales"
+    descripcion: "El sitio público SHALL realizar 0 solicitudes a dominios de terceros y SHALL NOT fijar cookies no esenciales; las cookies de sesión/CSRF del panel SHALL ser Secure (en HTTPS), HttpOnly (sesión) y SameSite=Lax o Strict."
+    iso25010: {caracteristica: Security, subcaracteristica: Confidentiality}
+    metrica: {objetivo: "0 solicitudes a terceros; 0 cookies en rutas públicas", evidencia_esperada: "captura de red y cookies con Playwright"}
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P10, P12); DEC-AUTO-015"
+    dec_auto: [DEC-AUTO-015]
+    derivado_de: [REQ-003, REQ-004]
+    satisface: [STN-004]
+    estado: PROPOSED
+    ac:
+      - {id: AC-060, criterio: "Recorrido por todas las plantillas públicas: 0 solicitudes a otros orígenes y 0 cookies fijadas.", metodo: Test}
+    health: *hc_usuario
+
+  - id: REQ-060
+    nivel: System
+    tipo: NFR
+    titulo: "Compatibilidad y responsive"
+    descripcion: "El sitio SHALL funcionar en las 2 últimas versiones estables de Chrome, Firefox, Safari y Edge, y en Safari iOS y Chrome Android, sin scroll horizontal entre 320 px y 1920 px."
+    iso25010: {caracteristica: Flexibility, subcaracteristica: Adaptability}
+    metrica: {objetivo: "0 fallos E2E por motor; 0 overflow horizontal", entorno: "Playwright chromium/firefox/webkit; viewports 320/768/1280/1920"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-030)"
+    dec_auto: [DEC-AUTO-030]
+    asm: [ASM-001]
+    satisface: [OBJ-003]
+    estado: PROPOSED
+    ac:
+      - {id: AC-061, criterio: "Suite E2E pasa en los 3 motores y 4 viewports sin overflow horizontal.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-061
+    nivel: System
+    tipo: NFR
+    titulo: "Peso de página e imágenes"
+    descripcion: "La carga inicial de Inicio y Ficha de destino SHALL transferir <=1.5 MB; las imágenes SHALL servirse en formato moderno con tamaños responsivos y carga diferida fuera del primer viewport."
+    iso25010: {caracteristica: "Performance efficiency", subcaracteristica: "Resource utilization"}
+    metrica: {objetivo: "<=1.5 MB", unidad: MB, entorno: "Lighthouse móvil"}
+    moscow: Must
+    criticidad: LOW
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-026)"
+    dec_auto: [DEC-AUTO-026]
+    mitiga: [RSK-007]
+    estado: PROPOSED
+    ac:
+      - {id: AC-062, criterio: "Informe Lighthouse muestra transferencia total inicial <=1.5 MB en ambas plantillas.", metodo: Test}
+    health: *hc_expansion
+
+  - id: REQ-062
+    nivel: Software
+    tipo: NFR
+    titulo: "Testabilidad"
+    descripcion: "La lógica de dominio y la API SHALL tener cobertura de pruebas automatizadas >=80% de líneas; todas las rutas públicas SHALL estar cubiertas por pruebas E2E."
+    iso25010: {caracteristica: Maintainability, subcaracteristica: Testability}
+    metrica: {objetivo: ">=80% líneas", evidencia_esperada: "informe de cobertura en CI"}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-028)"
+    dec_auto: [DEC-AUTO-028]
+    asm: [ASM-007]
+    estado: PROPOSED
+    ac:
+      - {id: AC-063, criterio: "Informe de cobertura >=80%; inventario de rutas públicas vs. specs E2E sin huecos.", metodo: Analysis}
+    health: *hc_expansion
+
+  - id: REQ-063
+    nivel: System
+    tipo: OR
+    titulo: "Salud y registros operativos"
+    descripcion: "El sistema SHALL exponer comprobaciones de liveness y readiness y SHALL emitir registros estructurados sin datos personales."
+    iso25010: {caracteristica: Maintainability, subcaracteristica: Analysability}
+    moscow: Must
+    criticidad: MEDIUM
+    origen: "EXPANSIÓN_AUTÓNOMA (DEC-AUTO-027)"
+    dec_auto: [DEC-AUTO-027]
+    estado: PROPOSED
+    ac:
+      - {id: AC-064, criterio: "Readiness responde error si la base de datos no está disponible y OK cuando lo está; los logs son JSON sin IP completa.", metodo: Test}
+    health: *hc_expansion
+
+  # ---- Regulatorios ----
+  - id: REQ-070
+    nivel: Business
+    tipo: REG
+    titulo: "Protección de datos personales (Colombia)"
+    descripcion: "El sitio SHALL publicar una Política de Tratamiento de la Información que identifique al Responsable, finalidades, derechos del titular y canal de atención; las cuentas editoriales SHALL registrar la autorización del titular para el tratamiento de sus datos."
+    regulatorio:
+      jurisdiccion: Colombia
+      autoridad_emisora: "Congreso de la República (Ley); Presidencia (Decreto); autoridad de control: Superintendencia de Industria y Comercio"
+      norma: "Ley Estatutaria 1581 de 2012; Decreto 1074 de 2015, Libro 2, Parte 2, Título 2, Capítulo 25 (compila Decreto 1377 de 2013)"
+      version: "texto vigente compilado"
+      articulo: "Ley 1581 arts. 9, 12, 17, 25; Decreto 1074 art. 2.2.2.25.3.1"
+      aplicabilidad: "PARCIAL: no aplica a visitantes (P10, sin datos); aplica a datos del equipo editorial y a IP en registros técnicos (mitigado con REQ-057). RNBD: depende del Responsable (GAP-004)"
+      evidencia_requerida: "Política publicada; registro de autorización de editores"
+      fuente_oficial: "SUIN-Juriscol / Secretaría del Senado / SIC (no consultada, GAP-006)"
+      fuente_consultada: SRC-004
+      fecha_consulta: "2026-09-24"
+      estado_normativo: VIGENTE
+    moscow: Must
+    criticidad: HIGH
+    origen: "USUARIO (P11 'colombia'); SRC-003 (Ley 1581)"
+    gaps: [GAP-004, GAP-006]
+    derivados: [REQ-025, REQ-057]
+    estado: PROPOSED
+    ac:
+      - {id: AC-070, criterio: "La página de política existe, contiene las secciones exigidas y el marcador del Responsable está señalado para resolución antes de producción.", metodo: Inspection}
+    health: *hc_reg
+
+  - id: REQ-071
+    nivel: Business
+    tipo: REG
+    titulo: "Derechos de autor sobre medios y textos"
+    descripcion: "El sitio SHALL publicar solo medios y textos cuya licencia permita su uso y SHALL mostrar la atribución que exija cada licencia."
+    regulatorio:
+      jurisdiccion: "Colombia / Comunidad Andina"
+      autoridad_emisora: "Congreso de la República; Comunidad Andina; autoridad: Dirección Nacional de Derecho de Autor"
+      norma: "Ley 23 de 1982; Decisión Andina 351 de 1993"
+      version: "texto vigente"
+      articulo: "Por determinar en verificación primaria (GAP-006)"
+      aplicabilidad: "Aplica a todo medio y texto publicado"
+      evidencia_requerida: "Registro de licencia y créditos por medio (REQ-043)"
+      fuente_oficial: "SUIN-Juriscol / DNDA (no consultada, GAP-006)"
+      fecha_consulta: "NO_CONSULTADA"
+      estado_normativo: "VIGENTE (conocimiento del agente, sin verificación primaria)"
+    moscow: Must
+    criticidad: HIGH
+    origen: "EXPANSIÓN_AUTÓNOMA (evaluación regulatoria por P11 + medios de DEC-AUTO-014)"
+    gaps: [GAP-006, GAP-007]
+    derivados: [REQ-043, REQ-025]
+    estado: PROPOSED
+    ac:
+      - {id: AC-071, criterio: "Auditoría de medios: 100% con licencia compatible y atribución mostrada.", metodo: Inspection}
+    health: *hc_reg
+
+evaluacion_no_aplicabilidad:
+  - norma: "Ley 1618 de 2013 / Resolución MinTIC 1519 de 2020 (accesibilidad web)"
+    conclusion: "INFERENCIA: no obligatoria (el sitio no es sujeto obligado de la Ley 1712 de 2014); WCAG 2.2 AA se adopta por DEC-AUTO-029"
+  - norma: "Ley 1480 de 2011 (Estatuto del Consumidor)"
+    conclusion: "INFERENCIA: no aplica (no hay venta ni oferta de bienes/servicios)"
+
+exclusiones_wont:   # DEC-AUTO-024
+  - "Reservas, pagos, precios en tiempo real, afiliados (P1 descartó opciones B y C)"
+  - "Cuentas públicas, perfiles, comentarios, valoraciones (P6)"
+  - "Newsletter, formulario de contacto, captura de datos de visitantes (P10)"
+  - "Analítica de terceros, píxeles publicitarios, SDKs sociales (P10, P12)"
+  - "Mapas/APIs de terceros: teselas, geocodificación, clima en vivo (P12)"
+  - "Multi-idioma (P9)"
+  - "Despliegue a producción u hosting con coste (Puerta Humana §0.5)"
+
+contenido_semilla:   # DEC-AUTO-006, 007, 010
+  destinos_propuestos:
+    - {n: 1, nombre: "Ciudad Perdida (Teyuna), Sierra Nevada de Santa Marta", pais: Colombia, continente: America, aventura: Trekking}
+    - {n: 2, nombre: "Caño Cristales, Serranía de La Macarena", pais: Colombia, continente: America, aventura: "Senderismo / naturaleza"}
+    - {n: 3, nombre: "San Gil y Cañón del Chicamocha", pais: Colombia, continente: America, aventura: "Rafting, parapente"}
+    - {n: 4, nombre: "Parque Nacional Natural Los Nevados", pais: Colombia, continente: America, aventura: "Alta montaña"}
+    - {n: 5, nombre: "Torres del Paine", pais: Chile, continente: America, aventura: Trekking}
+    - {n: 6, nombre: "El Chaltén y Monte Fitz Roy", pais: Argentina, continente: America, aventura: "Trekking / escalada"}
+    - {n: 7, nombre: "Camino Inca a Machu Picchu", pais: Perú, continente: America, aventura: Trekking}
+    - {n: 8, nombre: "Salar de Uyuni", pais: Bolivia, continente: America, aventura: "Travesía / expedición"}
+    - {n: 9, nombre: "Islas Galápagos", pais: Ecuador, continente: America, aventura: "Buceo / fauna"}
+    - {n: 10, nombre: "Volcán Arenal y Monteverde", pais: "Costa Rica", continente: America, aventura: "Canopy / senderismo"}
+    - {n: 11, nombre: "Cenotes de la Península de Yucatán", pais: México, continente: America, aventura: "Buceo en cavernas / espeleología"}
+    - {n: 12, nombre: "Parque Nacional Yosemite", pais: "Estados Unidos", continente: America, aventura: "Escalada / senderismo"}
+    - {n: 13, nombre: "Parque Nacional Banff", pais: Canadá, continente: America, aventura: "Kayak / montaña"}
+    - {n: 14, nombre: "Ruta Laugavegur", pais: Islandia, continente: Europa, aventura: Trekking}
+    - {n: 15, nombre: "Dolomitas", pais: Italia, continente: Europa, aventura: "Vía ferrata"}
+    - {n: 16, nombre: "Chamonix-Mont-Blanc", pais: Francia, continente: Europa, aventura: Alpinismo}
+    - {n: 17, nombre: "Fiordos del oeste", pais: Noruega, continente: Europa, aventura: "Kayak / senderismo"}
+    - {n: 18, nombre: "Monte Kilimanjaro", pais: Tanzania, continente: Africa, aventura: "Alta montaña"}
+    - {n: 19, nombre: "Delta del Okavango", pais: Botsuana, continente: Africa, aventura: "Safari / fauna"}
+    - {n: 20, nombre: "Campo base del Everest", pais: Nepal, continente: Asia, aventura: "Trekking de altitud"}
+    - {n: 21, nombre: "Bahía de Ha Long", pais: Vietnam, continente: Asia, aventura: "Kayak / navegación"}
+    - {n: 22, nombre: "Wadi Rum", pais: Jordania, continente: Asia, aventura: "Travesía por desierto"}
+    - {n: 23, nombre: "Queenstown", pais: "Nueva Zelanda", continente: Oceania, aventura: "Deportes extremos"}
+    - {n: 24, nombre: "Gran Barrera de Coral", pais: Australia, continente: Oceania, aventura: Buceo}
+  tipos_aventura:
+    - "Senderismo y trekking"
+    - "Alta montaña y alpinismo"
+    - "Escalada y vía ferrata"
+    - "Buceo y snorkel"
+    - "Rafting y deportes de río"
+    - "Kayak y navegación"
+    - "Ciclismo de montaña"
+    - "Parapente y deportes aéreos"
+    - "Safari y observación de fauna"
+    - "Surf"
+    - "Espeleología y cenotes"
+    - "Travesías por desierto y expediciones"
+  categorias_guias:
+    - "Preparación física"
+    - "Equipo y mochila"
+    - "Seguridad y gestión de riesgos"
+    - "Salud en altitud y en viaje"
+    - "Viaje sostenible y no dejar rastro"
+    - "Presupuesto y planificación"
+    - "Fotografía de aventura"
+    - "Primera aventura (principiantes)"
+  campos_obligatorios_destino: [nombre, slug, pais, region_continente, resumen_inspiracional_max_300c, descripcion_experta_min_600_palabras, tipos_aventura_min_1, dificultad_1_5, mejor_epoca_meses, duracion_recomendada_dias, nivel_presupuesto_1_4, clima_altitud_si_aplica, como_llegar, seguridad_riesgos, sostenibilidad, coordenadas, imagenes_min_3_con_alt_y_credito, relacionados, fecha_ultima_revision, estado_editorial]
+
+# ---------------------------------------------------------------------------
+# DECISIONES AUTÓNOMAS — Autoridad: Orquestador (Autoridad Delegada); estado PROPOSED; ORIGEN: EXPANSIÓN_AUTÓNOMA
+# ---------------------------------------------------------------------------
+dec_auto:
+  - {id: DEC-AUTO-001, resumen: "Nombre de marca provisional 'Brújula Salvaje'", alternativas: ["Brújula Salvaje", "Rumbo Aventura", "Nombre genérico sin marca"], elegida: "Brújula Salvaje", motivo: "Evoca exploración y aventura (P2, P3); P16 sin respuesta", riesgo: "RSK-003 conflicto marcario", reversibilidad: "Alta: nombre configurable"}
+  - {id: DEC-AUTO-002, resumen: "Entrega solo local con Docker Compose, sin hosting ni costes", alternativas: ["Local Compose", "Hosting gratuito", "Cloud de pago"], elegida: "Local Compose", motivo: "P14 sin respuesta; §0.5 prohíbe costes/despliegue sin aprobación", riesgo: "Ninguno funcional; producción diferida", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-003, resumen: "Disponibilidad provisional 99.5% mensual (prod futura); healthchecks en local", alternativas: ["99%", "99.5%", "99.9%"], elegida: "99.5%", motivo: "Sitio informativo sin transacciones; 99.9% encarece hosting", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-004, resumen: "Dirección de marca 'aventura inspiradora': fotografía protagonista, tono cercano y experto; detalle a UI/UX", alternativas: ["Editorial revista", "Minimalista técnico", "Aventura inspiradora"], elegida: "Aventura inspiradora", motivo: "P3 inspiración/descubrimiento; P16 sin respuesta", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-005, resumen: "Panel editorial interno con cuentas de staff (no públicas) y flujo borrador/publicado", alternativas: ["Contenido estático en archivos", "Panel editorial interno", "CMS SaaS externo"], elegida: "Panel editorial interno", motivo: "Mantener contenido sin código; P12 descarta SaaS; P6 se refiere a cuentas públicas", riesgo: "RSK-005 superficie de autenticación", reversibilidad: "Media"}
+  - {id: DEC-AUTO-006, resumen: "Taxonomía de 12 tipos de aventura (mínimo 10)", alternativas: ["6 tipos", "12 tipos", "Etiquetas libres"], elegida: "12 tipos", motivo: "Cobertura 'completa' (P7) de los 24 destinos", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-007, resumen: "24 destinos reales en 5 continentes, 4 en Colombia", alternativas: ["20 exactos", "24 con margen", "Solo Latinoamérica"], elegida: "24 con margen", motivo: "Supera el mínimo de P13 con margen ante descartes; relevancia para audiencia colombiana (P11)", riesgo: "Volumen de redacción", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-008, resumen: "Modelo de contenido y campos obligatorios de destino", alternativas: ["Ficha mínima", "Ficha experta completa"], elegida: "Ficha experta completa", motivo: "'Nivel experto' (idea) y 'completo' (P7)", riesgo: "Esfuerzo de contenido", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-009, resumen: "Itinerarios día a día: >=10 Must, 1 por destino Should", alternativas: ["Sin itinerarios", ">=10", "1 por destino obligatorio"], elegida: ">=10 Must / 20+ Should", motivo: "P1 opción A incluye itinerarios; MVP realizable", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-010, resumen: "Guías expertas en 8 categorías, mínimo 10 artículos", alternativas: ["Blog libre", "Categorías fijas"], elegida: "Categorías fijas", motivo: "Contenido experto estructurado (P1)", riesgo: "RSK-001", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-011, resumen: "Búsqueda interna en español insensible a tildes, sin servicio externo", alternativas: ["Sin búsqueda", "Búsqueda interna", "Servicio SaaS de búsqueda"], elegida: "Búsqueda interna", motivo: "P3 explorar; P12 sin integraciones", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-012, resumen: "Filtros facetados combinables reflejados en URL", alternativas: ["Solo categorías", "Filtros facetados"], elegida: "Filtros facetados", motivo: "Descubrimiento (P3) sobre >=20 destinos", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-013, resumen: "Mapa con cartografía estática local, sin teselas ni API keys", alternativas: ["Sin mapa", "Mapa con teselas de terceros", "Cartografía local estática"], elegida: "Cartografía local estática (Should)", motivo: "P12 y privacidad (teselas externas exponen IP); sin costes", riesgo: "Menor detalle cartográfico (aceptable)", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-014, resumen: "Medios alojados localmente con licencia registrada, créditos y alt obligatorios", alternativas: ["Hotlink a bancos de imágenes", "Medios locales con licencia", "Solo ilustraciones propias"], elegida: "Medios locales con licencia; ilustraciones propias como respaldo", motivo: "P12; REQ-071; accesibilidad", riesgo: "RSK-002", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-015, resumen: "Sin analítica ni cookies no esenciales en sitio público; política de cookies publicada, sin banner", alternativas: ["Analítica de terceros + banner", "Analítica propia anónima", "Sin analítica"], elegida: "Sin analítica", motivo: "P10, P12; minimiza obligaciones Ley 1581", riesgo: "Sin métricas de uso (GAP-005 aceptado)", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-016, resumen: "Logs técnicos con IP anonimizada y retención <=30 días", alternativas: ["IP completa 90 días", "IP anonimizada 30 días", "Sin logs de acceso"], elegida: "IP anonimizada 30 días", motivo: "Operabilidad + minimización de datos", riesgo: "Menor capacidad forense", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-017, resumen: "Páginas legales e institucionales (privacidad, cookies, aviso legal, metodología, créditos)", alternativas: ["Solo aviso legal", "Conjunto completo"], elegida: "Conjunto completo", motivo: "REQ-070/071; credibilidad experta", riesgo: "GAP-004 Responsable por definir", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-018, resumen: "SEO técnico, navegación global, migas de pan, mapa del sitio y páginas de error", alternativas: ["Mínimo", "Completo"], elegida: "Completo", motivo: "Cero huérfanos (CLAUDE.md §5.3); descubribilidad para inspirar", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-019, resumen: "Colecciones curadas y '¿Dónde ir cada mes?' como Should", alternativas: ["Must", "Should", "Won't"], elegida: "Should", motivo: "Aportan descubrimiento sin bloquear MVP", riesgo: "RSK-004", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-020, resumen: "'Aventuras guardadas' solo en el navegador (Could)", alternativas: ["Cuentas", "Almacenamiento local", "Won't"], elegida: "Almacenamiento local (Could)", motivo: "P6 sin cuentas; P10 sin datos al servidor", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-021, resumen: "Compartir con enlace o función nativa, sin SDKs sociales (Could)", alternativas: ["SDKs sociales", "Nativo/enlace"], elegida: "Nativo/enlace", motivo: "P12, REQ-059", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-022, resumen: "Checklist de equipo (Should), glosario e imprimible (Could)", alternativas: ["Incluir todo como Must", "Priorizar MoSCoW"], elegida: "Priorizar MoSCoW", motivo: "Completo (P7) sin comprometer MVP", riesgo: "RSK-004", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-023, resumen: "Autoría, fecha de revisión, advertencias de seguridad y descargo en todo contenido experto", alternativas: ["Sin metadatos", "Metadatos de credibilidad y seguridad"], elegida: "Metadatos de credibilidad y seguridad", motivo: "'Nivel experto'; Safety ISO 25010; RSK-001", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-024, resumen: "Exclusiones Won't: reservas, pagos, cuentas públicas, comentarios, newsletter, contacto, multi-idioma, datos en vivo", alternativas: ["Incluir parcialmente", "Excluir"], elegida: "Excluir", motivo: "P1, P6, P9, P10, P12", riesgo: "Bajo", reversibilidad: "Media (requiere CHG)"}
+  - {id: DEC-AUTO-025, resumen: "Capacidad dimensionada a 10x: 1.000 visitas/día, 50 concurrentes", alternativas: ["1x", "10x", "100x"], elegida: "10x", motivo: "Margen ante picos por difusión; coste nulo en local", riesgo: "ASM-002", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-026, resumen: "Rendimiento: API p95<=300 ms, búsqueda<=500 ms, CWV 'good', <=1.5 MB carga inicial", alternativas: ["Umbrales laxos", "Umbrales 'good' de Web Vitals"], elegida: "Umbrales 'good'", motivo: "Sitio de imágenes pesadas; experiencia inspiracional móvil", riesgo: "Esfuerzo de optimización", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-027, resumen: "RPO 24 h / RTO 4 h con copia diaria y simulacro; endpoints de salud", alternativas: ["RPO 1h", "RPO 24h"], elegida: "RPO 24h", motivo: "Contenido editorial de baja frecuencia de cambio", riesgo: "Pérdida máx. de 1 día de edición", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-028, resumen: "OWASP ASVS L2, cabeceras de seguridad, cobertura >=80% dominio", alternativas: ["L1", "L2"], elegida: "L2", motivo: "Por defecto §47; panel editorial autenticado", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-029, resumen: "WCAG 2.2 AA verificado con axe y revisión por teclado", alternativas: ["WCAG 2.1 AA", "WCAG 2.2 AA"], elegida: "WCAG 2.2 AA", motivo: "Obligatorio §47; P5 todo tipo de visitantes", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-030, resumen: "Matriz de navegadores (2 últimas versiones) y responsive 320-1920 px, mobile-first", alternativas: ["Solo escritorio", "Mobile-first multi-navegador"], elegida: "Mobile-first multi-navegador", motivo: "ASM-001; P5", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-031, resumen: "Locale es-CO, sistema métrico, español neutro con referencias colombianas", alternativas: ["es-ES", "es-CO", "es-419"], elegida: "es-CO", motivo: "P9 + P11", riesgo: "Bajo", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-032, resumen: "Métricas sustitutas de OBJ-001 (cobertura, >=3 relacionados, 0 huérfanas) por ausencia de objetivo de negocio", alternativas: ["Analítica de uso", "Métricas de producto verificables"], elegida: "Métricas de producto verificables", motivo: "P4 sin objetivo de negocio; P10 sin analítica", riesgo: "No mide inspiración real (VAL-001 cualitativa)", reversibilidad: "Alta"}
+  - {id: DEC-AUTO-033, resumen: "Contenido semilla redactado por el ecosistema, con fecha de revisión y sin cifras volátiles", alternativas: ["Esperar redacción humana", "Semilla generada y marcada"], elegida: "Semilla generada y marcada", motivo: "Requisito P13 de >=20 destinos en la entrega; sin redactor disponible", riesgo: "RSK-001, RSK-006", reversibilidad: "Alta (editable en panel)"}
+  - {id: DEC-AUTO-034, resumen: "Auditoría de cambios del panel editorial retenida 365 días", alternativas: ["Sin auditoría", "90 días", "365 días"], elegida: "365 días", motivo: "Trazabilidad ante desfiguración (RSK-005); ASVS L2", riesgo: "Bajo", reversibilidad: "Alta"}
+
+supuestos:
+  - {id: ASM-001, supuesto: "Audiencia mayoritariamente hispanohablante de Colombia/LatAm y navegación mayoritariamente móvil", owner: Orquestador, expiracion: "F10", validacion: VAL-001, impacto_si_falso: "Ajuste de prioridades de diseño", estado: IDENTIFIED}
+  - {id: ASM-002, supuesto: "Picos de tráfico <=10x lo declarado", owner: Orquestador, expiracion: "Producción +3 meses", validacion: "Monitorización en producción", impacto_si_falso: "Redimensionar REQ-053", estado: IDENTIFIED}
+  - {id: ASM-003, supuesto: "Equipo editorial de 1-5 personas", owner: Orquestador, expiracion: "F10", validacion: "Usuario en entrega", impacto_si_falso: "Roles/permisos más finos", estado: IDENTIFIED}
+  - {id: ASM-004, supuesto: "La producción futura tendrá TLS y hosting capaz de 99.5%", owner: Usuario, expiracion: "Puerta Humana de despliegue", validacion: "Decisión de hosting", impacto_si_falso: "Revisar REQ-050", estado: IDENTIFIED}
+  - {id: ASM-005, supuesto: "Contenido semilla generado es aceptable si se marca y revisa", owner: Orquestador, expiracion: "F10", validacion: VAL-001, impacto_si_falso: "Redacción humana experta", estado: IDENTIFIED}
+  - {id: ASM-006, supuesto: "Las fuentes legales secundarias reflejan las primarias", owner: Orquestador, expiracion: "Antes de producción", validacion: GAP-006, impacto_si_falso: "Revisión de REQ-070/071", estado: IDENTIFIED}
+  - {id: ASM-007, supuesto: "Cobertura del 80% es un umbral adecuado", owner: Orquestador, expiracion: "F8", validacion: "Revisión QA", impacto_si_falso: "Ajuste del umbral", estado: IDENTIFIED}
+
+dependencias:
+  - {id: DEP-001, origen: "docs/01_requerimientos", destino: "F3 Arquitecto Funcional", tipo: precondition, criticidad: HIGH, owner: Orquestador, estado: OPEN, condicion: "PRD entregado"}
+  - {id: DEP-002, origen: "F5 fijación de stack", destino: "REQ técnicos", tipo: technical, criticidad: MEDIUM, owner: Orquestador, estado: OPEN, condicion: "Stack leído de Skill_Frontend/Backend/Base_datos"}
+  - {id: DEP-003, origen: "F4 modelo físico (Base de Datos)", destino: "REQ-040..044 carga semilla (F7)", tipo: technical, criticidad: HIGH, owner: Orquestador, estado: OPEN, condicion: "DB_HANDOFF disponible"}
+  - {id: DEP-004, origen: "Puerta Humana §0.5 + GAP-004", destino: "Despliegue a producción", tipo: blocking, criticidad: HIGH, owner: Usuario, estado: OPEN, condicion: "Aprobación explícita y Responsable identificado"}
+
+gaps:
+  - {id: GAP-001, descripcion: "Presupuesto/hosting (P14) sin respuesta", criticidad: HIGH, estado: CLOSED-WITH-DECISION, resolucion: DEC-AUTO-002}
+  - {id: GAP-002, descripcion: "Disponibilidad esperada (P15) sin respuesta", criticidad: MEDIUM, estado: CLOSED-WITH-DECISION, resolucion: DEC-AUTO-003}
+  - {id: GAP-003, descripcion: "Marca/estilo (P16) sin respuesta", criticidad: LOW, estado: CLOSED-WITH-DECISION, resolucion: "DEC-AUTO-001, DEC-AUTO-004"}
+  - {id: GAP-004, descripcion: "Identidad legal y contacto del Responsable del tratamiento; aplicabilidad RNBD", criticidad: HIGH, alcance_bloqueo: "Solo producción y APPROVED de REQ-070; no bloquea F3-F8", estado: OPEN, owner: Usuario, condicion_salida: "Datos del Responsable proporcionados antes de la Puerta Humana de despliegue"}
+  - {id: GAP-005, descripcion: "No existe objetivo de negocio medible (P4)", criticidad: MEDIUM, estado: ACCEPTED, resolucion: "DEC-AUTO-032 + VAL-001"}
+  - {id: GAP-006, descripcion: "Fuente primaria normativa no consultada (Ley 1581, Decreto 1074, Ley 23/1982, Decisión 351)", criticidad: MEDIUM, estado: OPEN, owner: Orquestador, condicion_salida: "Verificación en SUIN-Juriscol/SIC/DNDA antes de producción"}
+  - {id: GAP-007, descripcion: "Origen y licencia concretos del material gráfico", criticidad: MEDIUM, estado: OPEN, owner: "Developer (F7) bajo DEC-AUTO-014", condicion_salida: "100% medios con licencia registrada (AC-045)"}
+  - {id: GAP-008, descripcion: "Sin revisor experto humano del contenido de aventura", criticidad: MEDIUM, estado: OPEN, owner: Usuario, condicion_salida: "Revisión humana antes de producción o aceptación explícita"}
+
+riesgos:
+  - {id: RSK-001, descripcion: "Contenido de aventura inexacto induce práctica insegura", causa: "Contenido semilla generado sin revisor experto", consecuencia: "Daño físico potencial a lectores; reputación", probabilidad: MEDIUM, impacto: HIGH, inherente: HIGH, tratamiento: "Mitigar: REQ-023, REQ-024, DEC-AUTO-033 (sin cifras volátiles), descargo", residual: MEDIUM, risk_owner: Orquestador, acceptance_authority: "Orquestador (residual MEDIUM); usuario si residual >=HIGH", estado: MITIGATING}
+  - {id: RSK-002, descripcion: "Uso de imágenes sin licencia válida", causa: "Obtención de medios sin control", consecuencia: "Infracción de derechos de autor", probabilidad: MEDIUM, impacto: HIGH, inherente: HIGH, tratamiento: "REQ-043, REQ-071, respaldo de ilustraciones propias", residual: LOW, risk_owner: Orquestador, estado: MITIGATING}
+  - {id: RSK-003, descripcion: "Conflicto marcario con 'Brújula Salvaje'", causa: "Nombre no verificado", consecuencia: "Cambio de marca forzoso", probabilidad: LOW, impacto: MEDIUM, inherente: MEDIUM, tratamiento: "Nombre configurable; consulta SIC antes de producción", residual: LOW, risk_owner: Usuario, estado: IDENTIFIED}
+  - {id: RSK-004, descripcion: "Scope creep por 'que sea completo' (P7)", causa: "Expansión sin límite", consecuencia: "MVP no entregable", probabilidad: MEDIUM, impacto: MEDIUM, inherente: MEDIUM, tratamiento: "MoSCoW; Could solo tras cerrar Must", residual: LOW, risk_owner: Orquestador, estado: MITIGATING}
+  - {id: RSK-005, descripcion: "Compromiso de cuentas editoriales (desfiguración)", causa: "Credenciales débiles o ataques de fuerza bruta", consecuencia: "Contenido malicioso publicado", probabilidad: MEDIUM, impacto: HIGH, inherente: HIGH, tratamiento: "REQ-055 (ASVS L2, rate limit, MFA Should), DEC-AUTO-034 auditoría", residual: MEDIUM, risk_owner: Orquestador, estado: MITIGATING}
+  - {id: RSK-006, descripcion: "Información desactualizada (temporadas, accesos, requisitos)", causa: "Datos cambiantes", consecuencia: "Planificación errónea del lector", probabilidad: MEDIUM, impacto: MEDIUM, inherente: MEDIUM, tratamiento: "Fecha de revisión visible; aviso de verificar fuentes oficiales", residual: LOW, risk_owner: Orquestador, estado: MITIGATING}
+  - {id: RSK-007, descripcion: "Degradación de rendimiento por imágenes pesadas", causa: "Sitio fotográfico", consecuencia: "Incumplimiento REQ-052", probabilidad: MEDIUM, impacto: MEDIUM, inherente: MEDIUM, tratamiento: "REQ-061", residual: LOW, risk_owner: Orquestador, estado: MITIGATING}
+
+evaluacion_riesgos_puerta_humana: "Ningún riesgo residual HIGH/CRITICAL; no se activa CLAUDE.md §0.5 en F2"
+
+validaciones:
+  - {id: VAL-001, descripcion: "El usuario revisa el producto terminado frente a la visión 'inspirar a explorar' (Informe de Entrega F10)", cubre: [OBJ-001, OBJ-002, OBJ-003, ASM-001, ASM-005], estado: DEFINED}
+  - {id: VAL-002, descripcion: "El Orquestador revisa este PRD como Autoridad Delegada antes de F3", cubre: [PRB-001, "todos los REQ"], estado: READY}
+
+health_check_conjunto:
+  complete: PASS
+  consistent: PASS
+  feasible: PASS
+  comprehensible: PASS
+  able_to_be_validated: PASS
+  resultado: PASS
+  nota: "Revisión estática. GAP-004 (HIGH) y GAP-006/007/008 (MEDIUM) abiertos: solo bloquean producción y el APPROVED de REQ-070/071; no bloquean F3. PASS no equivale a APPROVED."
+
+control_orfandad:
+  reqs_sin_ac: 0
+  reqs_sin_origen: 0
+  stn_sin_req: 0
+  obj_sin_req: 0
+  nota: "Cada REQ declara 'satisface' o 'derivado_de'; cada STN/OBJ está cubierto por >=1 REQ."
