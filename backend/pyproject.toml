@@ -41,7 +41,7 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "DJ", "N", "SIM", "RUF", "PT", "T2
 ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101", "S105", "S106", "N802"]
+"**/tests/**" = ["S101", "S105", "S106", "N802", "PT018", "SIM300"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -50,9 +50,9 @@ exclude = ["^\\.venv/", "/migrations/"]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 [[tool.mypy.overrides]]
-module = ["apps.*.tests.*"]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+# Las pruebas usan dobles (SimpleNamespace, listas como queryset): no se tipan en estricto.
+module = ["apps.*.tests.*", "conftest"]
+ignore_errors = true
 
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
@@ -71,4 +71,6 @@ python_files = ["test_*.py"]
 
 [tool.coverage.run]
 branch = true
+# Mide también los subprocesos (manage.py check --deploy, arranque WSGI con settings prod).
+patch = ["subprocess"]
 omit = ["**/migrations/**", "**/tests/**", "config/asgi.py"]

@@ -219,6 +219,8 @@ LOGGING = {
     "root": {"handlers": ["stdout"], "level": LOG_LEVEL},
     "loggers": {
         "django": {"handlers": ["stdout"], "level": LOG_LEVEL, "propagate": False},
+        # 4xx ya quedan en la línea "peticion" (con trace_id); aquí solo errores de servidor.
+        "django.request": {"handlers": ["stdout"], "level": "ERROR", "propagate": False},
         # El proxy emite el access log con IP truncada; el servidor de desarrollo no registra.
         "django.server": {"handlers": [], "level": "CRITICAL", "propagate": False},
         "brujula": {"handlers": ["stdout"], "level": LOG_LEVEL, "propagate": False},
