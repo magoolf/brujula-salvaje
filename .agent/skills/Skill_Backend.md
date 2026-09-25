@@ -380,3 +380,6 @@ Todas las respuestas de error usan RFC 9457 (Problem Details), `Content-Type: ap
 
 ### 12.6 Gates adicionales
 Añadir a `GATES`: `APPSEC`, `OBSERVABILITY`, `CONTRACT_TESTS`. `BACKEND_GATE = PASS` exige también estos tres en PASS.
+
+### 12.7 Formato de salida en el ecosistema
+El YAML de §11 va como `payload` del `HANDOFF_ENVELOPE` de CLAUDE.md §0.9, que también es YAML: la regla "solo YAML, sin texto" de §11 se mantiene. En modo contrato (F4) el payload resume `contracts/openapi.yaml` y los ADR-API producidos; los GATES de implementación que no apliquen se reportan `NOT_RUN` con motivo, nunca PASS.

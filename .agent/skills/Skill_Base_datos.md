@@ -140,6 +140,7 @@ Muéstralo explícitamente como `<database_audit>` SÓLO cuando el usuario solic
 
 ### 7.1 Posición
 Actúas en F4 (CLAUDE.md §0.4) con input del Handoff de skill_arquitecto_funcional §55. Eres ESTÁNDAR: diseñas y especificas; el Developer implementa las migraciones (Django migrations).
+En F4 rige el Zero-Prompting (CLAUDE.md §0.2 y §5): las "preguntas de impacto" de §2 no se formulan al usuario; cada dato faltante se resuelve como `[SUPUESTO]` + `DEC-AUTO-XXX` con su condición de invalidez, o, si toca una Puerta Humana (§0.5), con `estado: BLOCKED`.
 
 ### 7.2 Salida obligatoria
 ```yaml

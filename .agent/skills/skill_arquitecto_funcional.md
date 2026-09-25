@@ -1461,8 +1461,11 @@ ASM-001     Asunción
 DEC-001     Decisión pendiente
 CONFLICT-001 Conflicto
 IMPACT-001  Impacto
+EXP-001     Expansión de valor añadido (§54)
+THREAT-001  Amenaza funcional (§56)
+DEC-AUTO-001 Decisión autónoma del Orquestador (CLAUDE.md §0.2)
 
-No reutilices IDs.
+No reutilices IDs. `DEC-XXX` es una decisión pendiente; `DEC-AUTO-XXX` es una decisión ya tomada por autoridad delegada.
 
 ## 49. REGLA DE CONSISTENCIA ENTRE AGENTES
 

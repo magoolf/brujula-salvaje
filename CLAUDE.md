@@ -144,6 +144,7 @@ Una ruta no listada requiere `DEC-AUTO` registrada antes de usarse.
 - **F4 en paralelo:** `ui-ux`, `base-datos` y `backend-contrato` se lanzan en un mismo mensaje con tres llamadas Agent.
 - **F7:** un subagente `developer` por Micro-Ticket. En paralelo (§0.10) se usa `isolation: "worktree"`. El Micro-Ticket, con sus `archivos_permitidos` y AC, constituye el plan aprobado (estado PLAN_APROBADO de Skill_Developer): no se requiere una ronda adicional de aprobación salvo que el Developer detecte una desviación.
 - **F8:** subagente `qa` por ticket (security-audit en modo guía, sin artefactos).
+- **Integración (F8 → DONE):** con `QA_VERDICT: PASS`, el Orquestador integra la rama del ticket (`tkt-XXX-…`, Skill_Developer §16.5) en `main` con `git merge --no-ff`, sin editar contenido (con remoto, mediante PR y pipeline verde, Skill_devops §23.3), y solo entonces marca el ticket DONE. Si hay conflicto de merge, lo aborta y emite ticket al Developer: nunca lo resuelve a mano (§2). Los tickets dependientes (`depende_de`) parten de `main` ya integrado.
 - **F9:** la auditoría de seguridad completa (security-audit "Full audit mode", perfil `standard`) la ejecuta el Orquestador en la sesión principal, porque requiere lanzar agentes aislados y un subagente no puede hacerlo. Su directorio de salida es el externo por defecto (`~/security-audit-skill/<repo>/run-<N>`); la ruta se registra en `audit_log.md`.
 - Los subagentes devuelven su `HANDOFF_ENVELOPE` como respuesta final; solo el Orquestador escribe `kanban.md` y `audit_log.md`.
 

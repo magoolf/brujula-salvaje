@@ -777,6 +777,7 @@ Si no existe Nexus, `npm ci` usa el registro público con lockfile obligatorio; 
 - Prohibido `bypassSecurityTrust*`, `innerHTML` con datos no saneados y `eval`/`new Function`.
 - Content-Security-Policy estricta sin `unsafe-inline` para scripts; Trusted Types cuando sea viable.
 - Tokens: preferir cookies `HttpOnly; Secure; SameSite` gestionadas por el Backend. Prohibido guardar tokens de acceso en `localStorage`/`sessionStorage`. Esta regla prevalece sobre la extensión de §12 cuando el Backend use sesión.
+- Con la autenticación por defecto del Backend (sesión Django + CSRF, Skill_Backend §12.2) el interceptor de tokens de §12 no aplica: `provideHttpClient(withXsrfConfiguration({cookieName: 'csrftoken', headerName: 'X-CSRFToken'}))` alinea el XSRF de Angular con Django, y las llamadas a la API van al mismo origen (proxy en dev, reverse proxy en prod) para que la cookie viaje. El interceptor de §12 solo se implementa si existe un ADR-API que elija JWT.
 - `npm audit --audit-level=high` sin hallazgos no aceptados.
 
 ### 27.5 Observabilidad
@@ -786,3 +787,6 @@ Si no existe Nexus, `npm ci` usa el registro público con lockfile obligatorio; 
 ### 27.6 Pruebas E2E y accesibilidad
 - Cada FLOW-XXX crítico del Blueprint tiene un test Playwright (`@playwright/test`) con selectores `data-testid`.
 - Cada ruta pasa `@axe-core/playwright` sin violaciones serious/critical.
+
+### 27.7 Formato de salida en el ecosistema
+El YAML de §25 (o el HANDOFF de §22) va como `payload` del `HANDOFF_ENVELOPE` de CLAUDE.md §0.9, que también es YAML: la regla "solo YAML, sin texto" se mantiene.

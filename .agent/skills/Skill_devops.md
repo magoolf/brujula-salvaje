@@ -230,6 +230,11 @@ El objetivo no es que "funcione en mi máquina", es que el sistema pueda constru
 ### 23.1 Autoría
 Por CLAUDE.md §0.3 puedes escribir únicamente: Dockerfile*, compose*.yaml, .github/workflows/**, infra/**, scripts/ops/**, .env.example y lockfiles. Todo otro cambio → ticket al Developer.
 Intervienes en F6 [PRE-DESARROLLO] y en F9 [PRE-RELEASE / RELEASE] del SDLC canónico (CLAUDE.md §0.4).
+Esta sección prevalece sobre §3, §5, §6, §14 y §15 cuando difieran:
+- [PRE-DESARROLLO] ocurre en F6, después de F4 (DB_HANDOFF, openapi.yaml, diseño) y F5, no inmediatamente después de Requerimientos (§14).
+- El archivo de Compose se nombra `compose.yaml` (o `compose.<entorno>.yaml`); `docker-compose.yml` no encaja en §0.3 (§3).
+- El único archivo de entorno que creas y versionas es `.env.example`. Los `.env.test`/`.env.development`/`.env.local` de §6 son locales, no se versionan (`.gitignore`) y no los escribes: sus variables se documentan en `.env.example` y en DEVOPS_HANDOFF.
+- En conflictos de dependencias (§5, [RESOLUCIÓN DE DEPENDENCIAS]) solo modificas lockfiles; el cambio de manifest (`package.json`, `pyproject.toml`…) y de configuración de build (`angular.json`, `tsconfig*`, `settings`) se emite como ticket al Developer (§15 queda acotado por §0.3).
 
 ### 23.2 Pipeline mínimo obligatorio (fail-fast, en este orden)
 ```

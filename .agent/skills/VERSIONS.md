@@ -28,7 +28,7 @@ security-audit-skill NO tiene `ignore = dirty`: cualquier modificación local de
 | gitleaks | 8.30.1 | winget `Gitleaks.Gitleaks` | Backend §12.2, DevOps §23.2, QA |
 | trivy | 0.74.0 | winget `AquaSecurity.Trivy` | DevOps §23.2 |
 | syft | 1.51.0 | winget `Anchore.Syft` | DevOps §23.2 (SBOM) |
-| cosign | v3.1.3 | winget `Sigstore.Cosign` (+ copia `cosign.exe`) | DevOps §23.2 (firma) |
+| cosign | v3.1.3 | winget `Sigstore.Cosign` (+ copia `cosign.exe`) | DevOps §23.2 (firma). Se verifica con `cosign version` (no admite `--version`) |
 | semgrep | 1.178.0 | pipx | Backend §12.2, DevOps, QA |
 | bandit | 1.9.4 | pipx | Backend §12.2, DevOps |
 | pip-audit | 2.10.1 | pipx | Backend §12.2, DevOps |
