@@ -134,14 +134,14 @@ tickets:
   - id: TKT-003
     titulo: "Backend datos: modelos y migraciones de DB_HANDOFF v1.1 (catálogos + semilla de catálogos, cuentas, medios, contenido + integridad SQL, inicio, auditoría inmutable, búsqueda, ops, idempotencia) con pruebas de introspección"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-057, DATA-001..026]
     depende_de: [TKT-001]
     archivos_permitidos: ["backend/config/settings/**", "backend/apps/catalogos/**", "backend/apps/cuentas/**", "backend/apps/medios/**", "backend/apps/contenido/**", "backend/apps/inicio/**", "backend/apps/auditoria/**", "backend/apps/busqueda/**", "backend/apps/ops/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-003-modelo-datos @ 8f1480e; PR #2", "QA_VERDICT PASS 1/3: AC-01..08 PASS, 187 tests + 1 xfail (NV-02), cobertura 97.78 %, esquema verificado contra DB_HANDOFF, privilegios con psql por rol", "Integración pendiente de CI verde (TKT-OPS-003)"]
+    evidencia: ["rama tkt-003-modelo-datos @ 8f1480e; PR #2 integrado en main @ 0fd6f33", "QA_VERDICT PASS 1/3; CI verde (run 36235308337)"]
     actualizado: 2026-09-25
   - id: TKT-004
     titulo: "Backend acceso al panel y cuentas: sesión+CSRF, login por pasos, MFA TOTP, bloqueo progresivo, autorización Ley 1581, cuentas (alta/restablecer/desactivar/anonimizar), auditoría, servicio común de idempotencia"
@@ -242,26 +242,26 @@ tickets:
   - id: TKT-OPS-002
     titulo: "DevOps: excluir tests/conftest de la imagen (OBS-06); acotar --forwarded-allow-ips (OBS-08/NV-QAOPS-01); APP_VERSION por proyecto (RSK-OPS-010); chown -h en init-volumes (NV-QAOPS-02); smoke CI 0 líneas no JSON (RSK-OPS-009)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-055]
     depende_de: [TKT-OPS-001]
     archivos_permitidos: ["compose*.yaml", "infra/**", "docs/05_operacion/**", ".env.example"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-ops-002-hardening @ 1c6c524; PR #1 abierto", "QA_VERDICT PASS 1/3 (C1-C8 PASS, gitleaks 0, semgrep 0 confirmados)", "Merge bloqueado: CI rojo por defecto previo ci.yaml:83; merge con --admin denegado por el clasificador de permisos -> se integrará junto con TKT-OPS-003 (PR con CI verde)"]
+    evidencia: ["PR #1 integrado vía PR #4 (merge 486005e)", "QA_VERDICT PASS 1/3 @ 1c6c524"]
     actualizado: 2026-09-25
   - id: TKT-OPS-003
     titulo: "DevOps: CI verde en GitHub (ci.yaml:83 cast ::text), gzip text/javascript en nginx (F-01 de QA TKT-002), 429 del proxy en problem+json (HALLAZGO-QA-OPS002-02), dependabot.yml, runbook de init-volumes abortado (OBS-QA-OPS002-03)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-055, RSK-OPS-007]
     depende_de: [TKT-OPS-002]
     archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["https://github.com/magoolf/brujula-salvaje/actions/runs/36218734526"]
+    evidencia: ["PR #4 integrado en main @ 486005e", "QA_VERDICT PASS 1/3 @ 29aae22 (LCP 2366 ms); corrección gitleaks 79e14ac revisada por el Orquestador (diff de 1 línea CI + 1 huella)", "CI verde run 36235144225"]
     actualizado: 2026-09-25
   - id: TKT-F4-006
     titulo: "CHG-DB-002: impedir borrado físico de cuenta_staff por app_rw (OBS-QA003-01) y pg_temp al final del search_path de funciones SECURITY DEFINER (OBS-QA003-05)"
@@ -275,6 +275,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DB_HANDOFF v1.2 (YAML válido, js-yaml por el Orquestador), ADR-DB-001/004 actualizados", "para_tkt_004 inyectado en TKT-004; para_otro_ticket (medios/contenido/catalogos/inicio) inyectado en TKT-005"]
     actualizado: 2026-09-25
+  - id: TKT-OPS-004
+    titulo: "DevOps: gate de contrato detecta status y propiedades nuevas (N9/N10) y sin falso positivo en rutas parciales (N11); límite de borde propio para /health (RSK-OPS-016); cabeceras de seguridad en errores del proxy (OBS-QA-OPS003-03/04)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [REQ-055, HALLAZGO-QA-OPS003-01, HALLAZGO-QA-OPS003-02, RSK-OPS-016]
+    depende_de: [TKT-OPS-003]
+    archivos_permitidos: [".github/workflows/**", "infra/**", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-26
 ```
 
 ## F5 — Reglas de stack inyectadas (Orquestador, leídas de los Contratos Técnicos el 2026-09-25)
