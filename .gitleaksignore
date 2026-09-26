@@ -1,0 +1,6 @@
+# Excepciones de gitleaks: SOLO huellas exactas (commit:archivo:regla:línea), nunca reglas ni rutas
+# genéricas. Cada entrada requiere justificación y decisión registrada (DEC-AUTO-207, TKT-OPS-003).
+#
+# Vector de prueba PÚBLICO de TOTP, RFC 6238 apéndice B: secreto base32 de "12345678901234567890"
+# (no es una credencial). Falso positivo generic-api-key verificado por el Orquestador (DEC-AUTO-207).
+b9f1a3469a41678b04aa72dcf50f384e9246ed8f:backend/apps/cuentas/tests/test_ac_tkt004_01_login.py:generic-api-key:396

@@ -79,7 +79,12 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=30s --retries=3 \
 # --no-control-socket (DEC-AUTO-152): gunicorn 26 abre por defecto un socket de control en
 # $HOME/.gunicorn, imposible con la raíz de solo lectura; no se usa (gunicornc) en contenedor.
 # --log-config-json (DEC-AUTO-153): las líneas propias de gunicorn salen en JSON a stdout.
-CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --graceful-timeout 30 --max-requests 2000 --max-requests-jitter 200 --worker-tmp-dir /tmp --forwarded-allow-ips='*' --no-control-socket --log-config-json /etc/brujula/gunicorn-logging.json --log-level ${GUNICORN_LOG_LEVEL:-info}"]
+# --forwarded-allow-ips (OBS-08, DEC-AUTO-155): solo la IP fija del proxy en la red "app" (la
+# inyecta compose en GUNICORN_FORWARDED_ALLOW_IPS). Sin ella, el valor seguro por defecto es
+# 127.0.0.1 (nunca '*'): gunicorn fija wsgi.url_scheme desde X-Forwarded-Proto solo si el
+# emisor es de confianza. Django también lee esa cabecera (SECURE_PROXY_SSL_HEADER): ver
+# DEVOPS_HANDOFF §14 (requisito para el Developer).
+CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --graceful-timeout 30 --max-requests 2000 --max-requests-jitter 200 --worker-tmp-dir /tmp --forwarded-allow-ips=\"${GUNICORN_FORWARDED_ALLOW_IPS:-127.0.0.1}\" --no-control-socket --log-config-json /etc/brujula/gunicorn-logging.json --log-level ${GUNICORN_LOG_LEVEL:-info}"]
 
 # ---------------------------------------------------------------------------
 # scheduler: runtime + supercronic 0.2.49 (verificado por sha256) + crontab versionado

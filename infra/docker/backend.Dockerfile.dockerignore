@@ -19,3 +19,13 @@
 **/media
 **/staticfiles
 **/node_modules
+# Código solo de pruebas: fuera de las imágenes runtime/scheduler (OBS-06, DEC-AUTO-154).
+# pytest y pytest-django son dependencias de desarrollo (uv sync --no-dev): nada del runtime los importa.
+**/tests
+**/conftest.py
+**/urls_prueba.py
+# Motor de BD y settings SOLO de pruebas (OBS-QA003-02, TKT-OPS-003): inertes en runtime, pero no
+# deben viajar en la imagen. Con ellos fuera, DJANGO_ENV=test en un contenedor falla al arrancar
+# (ModuleNotFoundError) en lugar de activar la configuración de pruebas.
+apps/ops/bd_pruebas
+config/settings/test.py
