@@ -22,7 +22,7 @@ package = false
 
 [dependency-groups]
 dev = [
-    "django-stubs==5.2.9",
+    "django-stubs==6.1.1",
     "djangorestframework-stubs==3.16.9",
     "mypy==1.19.1",
     "pytest==9.1.1",
