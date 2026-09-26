@@ -281,16 +281,49 @@ jobs:
           for s in backend frontend proxy scheduler backup; do
             syft "brujula/${s}:${APP_VERSION}" -o "cyclonedx-json=reports/sbom-${s}.cdx.json"
           done
-      - name: smoke (stack completo local en el runner) + schemathesis (superficie pública)
+      # DEC-AUTO-196: schemathesis solo sobre las rutas públicas YA IMPLEMENTADAS (esquema generado por
+      # el backend en ejecución); lo no implementado respondería 404 y no es un fallo de este cambio.
+      # El gate "sin operaciones no documentadas" está en el job backend (oasdiff).
+      - name: smoke (stack completo local en el runner) + schemathesis (superficie pública implementada)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
           docker compose up -d --no-build --wait
           curl -fsS http://127.0.0.1:8080/health/ready
           curl -fsS -o /dev/null http://127.0.0.1:8080/
+          docker compose exec -T backend sh -c 'python manage.py spectacular --file /tmp/generado.yaml >/dev/null'
+          rutas="$(docker compose exec -T backend python - <<'PY'
+          import re, yaml
+          with open("/tmp/generado.yaml", encoding="utf-8") as f:
+              paths = sorted(yaml.safe_load(f).get("paths") or {})
+          sel = [p for p in paths if re.match(r"^/(api/v1/publico|health)/", p)]
+          print("^(" + "|".join(re.sub(r"\\\{[^}]+\\\}", r"\\{[^}]+\\}", re.escape(p)) for p in sel) + ")$" if sel else "")
+          PY
+          )"
+          test -n "$rutas" || { echo "::error::el backend no expone ninguna ruta pública ni de health"; exit 1; }
+          echo "rutas: $rutas"
           pipx run "schemathesis==${SCHEMATHESIS_VERSION}" run contracts/openapi.yaml \
             --url http://127.0.0.1:8080 \
-            --include-path-regex '^/(api/v1/publico|health)/' \
+            --include-path-regex "$rutas" \
             --checks not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance
+      # HALLAZGO-QA-OPS002-02 / DEC-AUTO-190/194/195: los errores que genera el propio proxy salen
+      # como application/problem+json (no text/html) y el JS del SSR sale comprimido (F-01, DEC-AUTO-191).
+      - name: "smoke: errores del proxy como Problem Details + gzip del JS"
+        run: |
+          B=http://127.0.0.1:8080
+          sleep 2
+          seq 1 250 | xargs -P 50 -I{} curl -s -o /dev/null -w '%{http_code} %{content_type}\n' "$B/api/v1/publico/inicio" > /tmp/rafaga.txt
+          sort /tmp/rafaga.txt | uniq -c
+          grep -q '^429 ' /tmp/rafaga.txt || { echo "::error::la ráfaga no produjo ningún 429"; exit 1; }
+          if grep '^429 ' /tmp/rafaga.txt | grep -qv 'application/problem+json'; then echo "::error::429 sin application/problem+json"; exit 1; fi
+          sleep 5
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$B/health/live")" = 200
+          q="$(head -c 9000 /dev/zero | tr '\0' a)"
+          r="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$B/api/v1/publico/inicio?q=$q")"
+          echo "URI larga: $r"; test "$r" = "400 application/problem+json"
+          js="$(curl -fsS "$B/" | grep -oE 'src="[^"]+\.js"' | head -1 | sed 's/^src="//; s/"$//')"
+          test -n "$js" || { echo "::error::el HTML del SSR no referencia ningún .js"; exit 1; }
+          enc="$(curl -fsS -o /dev/null -D - -H 'Accept-Encoding: gzip' "$B/${js#/}" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-encoding"{print $2}')"
+          echo "/${js#/}: Content-Encoding=${enc:-ninguno}"; test "$enc" = gzip
       # RSK-OPS-009 / DEC-AUTO-158: gunicorn vuelve en silencio al formato texto si no puede leer
       # --log-config-json. Se para el backend (para capturar también el apagado) y se exige que
       # TODAS las líneas no vacías de su log sean objetos JSON (y que haya al menos una).

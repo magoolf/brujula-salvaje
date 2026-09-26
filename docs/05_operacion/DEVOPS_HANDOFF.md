@@ -2,6 +2,7 @@
 
 Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
 Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
+Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -504,3 +505,187 @@ NOT_RUN y por qué:
 2. Registrar DEC-AUTO-154 a DEC-AUTO-159, cerrar RSK-OPS-009 y RSK-OPS-010 y abrir RSK-OPS-011 a RSK-OPS-014.
 3. Emitir un Micro-Ticket al Developer para REQ-OPS002-01 (`backend/config/settings/base.py`; AC: con `DJANGO_SECURE_SSL_REDIRECT=true`, una petición directa a `backend:8000` desde una IP distinta de `${APP_NET_PREFIX}.10` con `X-Forwarded-Proto: https` → 301; desde el proxy → no redirige; `check --deploy` sin avisos). REQ-OPS002-02 es opcional.
 4. Tras el merge, avisar a quien use un `.env` local antiguo de que vacíe `APP_VERSION`, y a los proyectos paralelos de que usen su propio `APP_NET_PREFIX`.
+
+## 15. TKT-OPS-003 — CI verde, proxy conforme al contrato, gzip y Dependabot (F7, soporte)
+
+### 15.1 Estado
+**COMPLETADO**. Rama `tkt-ops-003-ci-verde`, que parte de `tkt-ops-002-hardening` y la incluye. Sin merge: la integra el Orquestador mediante PR con pipeline verde.
+
+CI de GitHub:
+- `infraestructura` y `backend`: en verde.
+- `frontend`, `images` (build + trivy + SBOM + smoke) y `sign`: se omiten por diseño en esta rama, porque no hay `frontend/`.
+- Por eso trivy **no se ha ejecutado** en GitHub y RSK-OPS-001 sigue abierto (Puerta Humana).
+
+### 15.2 Objetivo
+- CI rojo de `main` (run 36218734526).
+- F-01 de QA TKT-002: JS del SSR sin comprimir.
+- HALLAZGO-QA-OPS002-02: 429 del proxy en `text/html`.
+- DEC-AUTO-180: Dependabot.
+- OBS-QA-OPS002-03: runbook de init-volumes.
+- OBS-QA-OPS002-04: semgrep `p/docker-compose`.
+- Ampliación OBS-QA003-02: código solo de pruebas en la imagen del backend.
+
+### 15.3 Cambios realizados
+
+**CI (`.github/workflows/ci.yaml`)**
+- **INFRA-DB-000** (job `infraestructura`):
+  - `datlocprovider` es de tipo `"char"`, y en PostgreSQL 18 `"char" || unknown` es ambiguo. Se cambia a `datlocprovider::text||':'||datlocale`. No había más SQL con ese patrón.
+  - El valor se imprime (`brujula locale: b:C.UTF-8`) y se compara con `test`.
+  - La BD se para en un paso aparte con `if: always()`.
+- **Job `backend`** (DEC-AUTO-197): el `.env` efímero y las variables se generan antes del typecheck.
+  - Variables: `DJANGO_SECRET_KEY`, `THROTTLE_HMAC_KEY`, `MFA_FERNET_KEY` y `DB_PASSWORD`.
+  - Motivo: el plugin de django-stubs de mypy carga los settings, que fallan cerrados si falta `DB_PASSWORD`.
+  - Además, "parar BD" necesitaba el `.env` para interpolar `compose.yaml`.
+- **Gate de contrato incremental** (DEC-AUTO-196). El `oasdiff diff --fail-on-diff` literal no podía pasar nunca: el contrato API-first tiene 127 operaciones y componentes escritos a mano, y drf-spectacular solo genera lo implementado, con sus propios nombres de componentes. Ahora:
+  - (1) Falla si una operación implementada no está en el contrato.
+  - (2) `oasdiff breaking contrato → generado --match-path <rutas implementadas> --fail-on WARN`.
+  - En el job `images`, schemathesis se limita a las rutas públicas y de health que expone el backend en ejecución (esquema generado dentro del contenedor).
+- **SAST de compose** (OBS-QA-OPS002-04, DEC-AUTO-192). Las reglas `p/docker-compose` de semgrep solo se aplican a YAML con clave `version:` y no resuelven anclas ni merge keys (`<<: *hardening`).
+  - Sobre `compose.yaml` en bruto, con `version:` añadido, dan 14 falsos positivos: `read_only` y `no-new-privileges` sí están, vía `*hardening`.
+  - El nuevo paso escanea la salida resuelta de `docker compose [-f compose.ci.yaml|-f compose.debug.yaml] --profile ops config`, con `version: "3.9"` antepuesto.
+  - La salida se escribe en `$RUNNER_TEMP` y no se publica, porque contiene los valores efímeros del `.env`.
+  - Se usa `pipx run semgrep==1.178.0`.
+- **Smoke del proxy** (job `images`). Comprueba que:
+  - una ráfaga de 250 peticiones produce algún 429, y todos los 429 son `application/problem+json`;
+  - `/health/live` responde 200;
+  - una URI de 9 KB responde `400 application/problem+json`;
+  - el primer `.js` del HTML del SSR llega con `Content-Encoding: gzip`.
+
+**Proxy (`infra/proxy/nginx.conf`)**
+- **gzip** (F-01, DEC-AUTO-191):
+  - Se añade `text/javascript`, el tipo con el que Express sirve `.js` y `.mjs` (RFC 9239).
+  - Se añaden también `application/manifest+json`, `gzip_comp_level 5` y `gzip_proxied any`, para comprimir también detrás de un balanceador que añada `Via`.
+  - `gzip_vary on` ya existía.
+- **429 como Problem Details** (HALLAZGO-QA-OPS002-02, DEC-AUTO-190): `error_page 429 =429 /_errores_proxy/429`, una location `internal`. La respuesta lleva:
+  - `application/problem+json`, `code: limite_tasa`, y `title`/`detail` del catálogo del backend;
+  - `trace_id` igual al trace-id del `traceparent` propagado (el del cliente si es válido; si no, `$request_id`, 32 hex);
+  - `X-Trace-Id`, `Retry-After: 1` (la zona repone 20 r/s), `Cache-Control: no-store` y `nosniff`.
+- **Resto de errores propios del proxy** (DEC-AUTO-194). Se usan locations internas por URI porque una location con nombre no admite URI vacía, y el 414 acababa en 500.
+  - 400/414/494 → 400 `parametro_invalido`, con `errors._general`, porque varios 400 del contrato son `ProblemaValidacion`.
+  - 413 → `carga_demasiado_grande`.
+  - 502/503/504 → 503 `servicio_no_disponible`, con `Retry-After: 5`.
+  - `proxy_intercept_errors` sigue en off: los errores que genera el backend no se tocan.
+- **`/health/*` fuera del límite de borde** (DEC-AUTO-193): la clave de `limit_req_zone` es un `map` que vale "" (no contabiliza) para `/health/live|ready`. El contrato solo documenta 200/503 para health, y schemathesis lo detectaba.
+- **`large_client_header_buffers 4 4k`** (DEC-AUTO-195):
+  - gunicorn rechaza las líneas de petición de más de 4094 bytes con un 400 `text/html`. Con este ajuste, nginx rechaza antes y responde con Problem Details.
+  - El total es 16 KB, igual que el límite de cabeceras por defecto de Node (SSR).
+
+**Dependabot (`.github/dependabot.yml`, DEC-AUTO-180/198)**
+
+Frecuencia semanal, los lunes a las 06:00 Europe/Madrid.
+
+| Ecosistema | Directorio | Límite de PR | Notas |
+|---|---|---|---|
+| npm | `/frontend` | 3 | Grupo Angular minor/patch, `versioning-strategy: increase` |
+| uv | `/backend` | 3 | Ecosistema nativo |
+| docker | `/infra/docker`, `/infra/proxy`, `/infra/backup` | 2 | |
+| docker-compose | `/` | 1 | Imágenes postgres de `compose.yaml` |
+| github-actions | `/` | 2 | Agrupadas |
+
+- Sin `labels`: una etiqueta personalizada que no existe genera errores.
+- Los PR de manifest los propone Dependabot, pero se integran como ticket al Developer y pasan por QA (CLAUDE.md §0.3).
+
+**Imagen del backend (`infra/docker/backend.Dockerfile.dockerignore`)** (OBS-QA003-02, DEC-AUTO-199)
+- Se excluyen `apps/ops/bd_pruebas` y `config/settings/test.py`, además de `**/tests`, `**/conftest.py` y `**/urls_prueba.py`.
+- Efecto intencionado: con `DJANGO_ENV=test`, un contenedor falla al arrancar (`ModuleNotFoundError`) en lugar de activar la configuración de pruebas.
+
+### 15.4 Versiones aprobadas
+No cambia ninguna imagen base, acción ni herramienta. Se usan versiones ya fijadas: oasdiff 1.32.1, semgrep 1.178.0 y nginx 1.30.5.
+
+### 15.5 Infraestructura
+- Proxy: gzip, errores propios como Problem Details, health sin límite de borde y cabeceras de hasta 4 KB.
+- Sin cambios de topología, puertos, límites de recursos ni capacidades.
+
+### 15.6 Dependencias
+No se modificó ningún manifest ni lockfile.
+
+### 15.7 Variables de entorno
+No hay variables nuevas.
+
+Nota: el `type` de los Problem Details del proxy usa literalmente el valor por defecto de `PROBLEM_TYPE_BASE_URL` (`https://brujulasalvaje.example`), porque `nginx.conf` es estático (RSK-OPS-015).
+
+### 15.8 Validaciones ejecutadas (2026-09-26, Docker Engine 29.6.1, Compose v5.2.0)
+
+Entorno local:
+- Copia temporal fuera del repo: esta rama más el `frontend/` real de `origin/tkt-002-frontend-base`.
+- `-p brujula-ops003`, `APP_NET_PREFIX=10.231.43`, `PROXY_HOST_PORT=18093`, `APP_VERSION` vacío.
+- `.env` generado con `init-env.sh`.
+
+| Check | Resultado |
+|---|---|
+| `docker compose --profile ops config --quiet`, build de 5 imágenes y `up -d --wait` | VALIDADO: db, backend, frontend y proxy healthy. init-volumes y migrate terminan con exit 0 |
+| gzip de `main-*.js` (`text/javascript`) con `Accept-Encoding: gzip` | VALIDADO: `Content-Encoding: gzip` y `Vary: Accept-Encoding`; 410.496 B → 126.062 B. CSS y HTML también salen en gzip. Antes del cambio, el JS salía sin comprimir (F-01) |
+| 429 con ráfagas de 200-300 peticiones | VALIDADO: `application/problem+json` con `X-Trace-Id`, `Retry-After: 1` y `no-store`. Con `traceparent` del cliente, `trace_id` = su trace-id. El cuerpo valida contra `components.schemas.Problem` (jsonschema + FormatChecker) |
+| `/health/live`: 300 peticiones, 60 en paralelo | VALIDADO: 300 × 200. Antes: 43 × 429 |
+| URI de 9 KB; cabecera de 9 KB; cuerpo de 3 MB; frontend parado | VALIDADO: 400 / 400 / 413 / 503, todos `application/problem+json`. En la frontera de línea (4093-4100 B), siempre problem+json. Antes: 400 HTML de gunicorn |
+| schemathesis 4.28.0 vía proxy, `^/(api/v1/publico|health)/`, 4 checks, 5 ejecuciones | Sin fallos de infraestructura. Solo quedan 404 de endpoints públicos del contrato que el backend aún no implementa (DEV-OPS003-01, no es de DevOps). Antes aparecían además: 429 en health, 414/400 en `text/html` y un 400 sin `errors` |
+| schemathesis sobre las rutas implementadas (script del paso nuevo del CI) | VALIDADO: `^(/health/live|/health/ready)$`; todos los casos generados pasan |
+| Smoke nuevo del CI (script extraído del YAML y ejecutado contra el stack) | VALIDADO: rc=0 (429 problem+json, URI larga 400 problem+json, JS en gzip) |
+| Gate de contrato (script extraído) con oasdiff 1.32.1 | VALIDADO: caso positivo rc=0. Negativos: ruta no documentada → rc=1; `200`→`201` en `/health/ready` → `response-success-status-removed`, rc=1 |
+| semgrep `p/docker-compose` sobre la config resuelta (3 variantes) | VALIDADO: 0 hallazgos. Control negativo (servicio sin endurecer): 2 hallazgos, rc=1. Sin `version:` no se aplica ninguna regla (confirma OBS-04) |
+| OBS-QA003-02: backend de `origin/tkt-003-modelo-datos` con el dockerignore nuevo, targets `runtime` y `scheduler` | VALIDADO: ambos construyen. `find` de `tests`, `conftest.py`, `urls_prueba.py`, `bd_pruebas` y `test.py`: 0 resultados. `manage.py check`: sin problemas en ambos. `DJANGO_ENV=test` → `ModuleNotFoundError: config.settings.test`. El backend de esta rama, reconstruido, sigue healthy |
+| Runbook de init-volumes (§15.9), con un enlace `publico -> /tmp` creado desde el backend | VALIDADO: init-volumes sale con exit 1 "ABORTA…". Inspección y reparación con los comandos del runbook. Después, `up` → exit 0 y `publico` queda 10001 0755 |
+| `dependabot.yml` contra el esquema de SchemaStore (`dependabot-2.0.json`) | VALIDADO. El esquema incluye `uv` y `docker-compose` |
+| `ci.yaml` con `@action-validator/cli` 0.6.0; gitleaks 8.30.1 `dir` sobre `.github` e `infra` | VALIDADO: rc=0; no leaks found |
+| GitHub Actions, `workflow_dispatch` sobre la rama | Resultado en el HANDOFF_ENVELOPE. `infraestructura`: locale `b:C.UTF-8`, semgrep compose con 0 hallazgos, gitleaks sin fugas. `backend`: ruff, mypy, 79 tests, cobertura del 99 %, `check --deploy`, gate de contrato 2/127 sin cambios incompatibles, bandit y semgrep sin hallazgos, pip-audit sin vulnerabilidades. `frontend`, `images` y `sign`: SKIPPED |
+
+NOT_RUN y por qué:
+- **Job `images` en GitHub** (trivy, syft, smoke, schemathesis y el smoke nuevo): se omite porque la rama no tiene `frontend/`. Se ejecutará en el PR que integre TKT-002. Si falla SOLO por CVE HIGH/CRITICAL de las imágenes base, es RSK-OPS-001 (Puerta Humana).
+- **Lighthouse (LCP)** tras el gzip: no se volvió a medir; las cifras de 2.29-2.45 s son las de QA.
+- **Dependabot real**: solo se ejecuta sobre la rama por defecto. Se verifica tras el merge en Insights → Dependency graph → Dependabot.
+
+### 15.9 Runbook: init-volumes aborta (OBS-QA-OPS002-03)
+
+**Síntoma**
+- `up` termina con `service "init-volumes" didn't complete successfully: exit 1`.
+- El log dice `ABORTA: /vol/media/publico es un enlace simbólico`, o bien `existe y no es un directorio`.
+- Un backend que ya estaba en marcha sigue funcionando. Uno recién creado no arranca, porque depende de init-volumes.
+
+**Qué significa:** alguien con uid 10001 (el backend) sustituyó `publico` o `privado` en el volumen de medios. Trátalo como **posible manipulación** y conserva la evidencia antes de reparar.
+
+    P=brujula     # el -p del proyecto compose
+    IMG=postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    docker compose -p $P logs --no-log-prefix init-volumes | tail -5
+    # 1) Evidencia (solo lectura): destino del enlace y propietario
+    docker run --rm --network none --read-only --cap-drop ALL -v ${P}_media:/vol/media:ro $IMG ls -la /vol/media
+    # 2) Eliminar SOLO la entrada señalada (rm de un enlace borra el enlace, nunca su destino).
+    #    Si es un archivo regular con valor forense, cópialo antes.
+    docker run --rm --network none --read-only --user 0:0 --cap-drop ALL --security-opt no-new-privileges:true \
+      -v ${P}_media:/vol/media $IMG rm -f -- /vol/media/publico      # o /vol/media/privado
+    # 3) Volver a ejecutar: init-volumes recrea el directorio (10001, 0755/0750; idempotente)
+    docker compose -p $P up -d --wait
+
+Notas:
+- No hace falta `DAC_OVERRIDE`: tras el abort, `/vol/media` es `root:root 0755`, así que root, como propietario, puede borrar.
+- Nunca uses `rm -rf`: el abort solo se produce con un enlace o con algo que no es un directorio.
+- El Orquestador debe registrar el incidente en `audit_log.md`.
+
+### 15.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-015 | El `type` de los Problem Details del proxy usa literalmente `https://brujulasalvaje.example`. Si un entorno cambia `PROBLEM_TYPE_BASE_URL`, el proxy y Django dejan de coincidir | LOW | Los clientes deciden por `code`, no por `type`. En el ADR de producción: plantilla de nginx (envsubst) o un valor fijo común | ABIERTO |
+| RSK-OPS-016 | `/health/live|ready` no tiene límite de borde, y `ready` hace un `SELECT 1` | LOW | Coste mínimo por petición. En producción, los sondeos del balanceador van por la red interna y el borde TLS puede restringir `/health/` | ABIERTO (F9) |
+| RSK-OPS-017 | Dependabot `docker` quizá no detecte los `FROM ${ARG}` parametrizados. La entrada npm `/frontend` falla hasta que exista `frontend/` en `main` | LOW | La entrada `docker-compose` cubre postgres. Verificar tras el merge; si no aparecen PR de Docker, pasar a `FROM` literal (ticket a DevOps) | NOT_VALIDATED |
+| RSK-OPS-018 | gunicorn limita el número de cabeceras (`limit_request_fields` 100) y nginx no. Con más de 100 cabeceras, gunicorn responde 400 en `text/html` | LOW | Es un caso anómalo. Opcional: `--limit-request-fields` o un módulo de borde | ACEPTADO (local) |
+| RSK-OPS-019 | El gate de contrato del CI solo cubre las operaciones implementadas: una operación del contrato sin implementar no hace fallar el CI | LOW | Intencionado durante F7 (DEC-AUTO-196). QA ejecuta schemathesis completo en cada ticket. En F9, exigir cobertura total (implementadas == contrato) | ABIERTO |
+| OBS-OPS003-01 | Los assets CSS del SSR llevan `X-Content-Type-Options` duplicado (Express + snippet de nginx) | INFO | Inocuo; se puede quitar de uno de los dos lados | ABIERTO |
+| DEV-OPS003-01 | Endpoints públicos del contrato que responden 404 porque aún no están implementados: `/api/v1/publico/busqueda`, `/inicio`, `/escalas`, `/configuracion`, `/facetas/destinos`, `/meses`, entre otros | — | Tickets de backend en F7 | Fuera del alcance de DevOps |
+
+Estado de riesgos anteriores:
+- **RSK-OPS-007**: validado en GitHub para `infraestructura` y `backend`; `frontend` e `images` siguen NOT_RUN.
+- **RSK-OPS-001**: sin cambios (REQUIERE INTERVENCIÓN).
+
+### 15.11 Archivos modificados
+- `.github/workflows/ci.yaml`
+- `.github/dependabot.yml` (nuevo)
+- `infra/proxy/nginx.conf`
+- `infra/docker/backend.Dockerfile.dockerignore`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 15.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Integrarla mediante un PR a `main`. La rama incluye TKT-OPS-002, así que este PR sustituye al de `tkt-ops-002-hardening`.
+3. Registrar DEC-AUTO-190 a DEC-AUTO-199 y RSK-OPS-015 a RSK-OPS-019.
+4. Tras integrar TKT-002 (frontend), comprobar que el job `images` llega a ejecutarse. Si trivy falla solo por las imágenes base, aplicar RSK-OPS-001 como Puerta Humana.
