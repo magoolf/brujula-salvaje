@@ -76,12 +76,30 @@ jobs:
           docker compose --profile ops config --quiet
           docker compose -f compose.yaml -f compose.ci.yaml config --quiet
           docker compose -f compose.yaml -f compose.debug.yaml config --quiet
+      # OBS-QA-OPS002-04 / DEC-AUTO-192: las reglas p/docker-compose de semgrep solo se aplican a YAML
+      # con clave "version:" y no resuelven anclas/merge keys (<<: *hardening). Se escanea la salida
+      # RESUELTA de "docker compose config" (con version: prepended) en $RUNNER_TEMP: contiene los
+      # valores efímeros del .env de este job, nunca se publica como artefacto.
+      - name: "SAST compose (semgrep p/docker-compose sobre la config resuelta)"
+        run: |
+          d="${RUNNER_TEMP}/compose-resuelto"; mkdir -p "$d"
+          for extra in "" compose.ci.yaml compose.debug.yaml; do
+            args=(-f compose.yaml); [ -n "$extra" ] && args+=(-f "$extra")
+            { echo 'version: "3.9"'; docker compose "${args[@]}" --profile ops config; } > "$d/compose-${extra:-base}.yaml"
+          done
+          pipx run "semgrep==${SEMGREP_VERSION}" scan --metrics=off --error --config p/docker-compose "$d"
       - name: INFRA-DB-000 (init de PostgreSQL 18.6 en modo CI)
         run: |
           docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
-          docker compose -f compose.yaml -f compose.ci.yaml exec -T db psql -U postgres -d brujula -XAtc \
-            "select datlocprovider||':'||datlocale from pg_database where datname='brujula'" | grep -qx 'b:C.UTF-8'
-          docker compose -f compose.yaml -f compose.ci.yaml down -v
+          # datlocprovider es de tipo "char": sin ::text, "char" || unknown es ambiguo en PostgreSQL 18
+          # (ERROR: operator is not unique; TKT-OPS-003).
+          loc="$(docker compose -f compose.yaml -f compose.ci.yaml exec -T db psql -U postgres -d brujula -XAtc \
+            "select datlocprovider::text||':'||datlocale from pg_database where datname='brujula'")"
+          echo "brujula locale: ${loc}"
+          test "${loc}" = 'b:C.UTF-8'
+      - name: parar BD de INFRA-DB-000
+        if: always()
+        run: docker compose -f compose.yaml -f compose.ci.yaml down -v
       - name: gitleaks (secret scan del historial)
         run: |
           curl -fsSLo /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
