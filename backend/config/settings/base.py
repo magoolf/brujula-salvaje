@@ -246,6 +246,12 @@ SPECTACULAR_SETTINGS = {
     "OAS_VERSION": "3.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Convenciones estructurales del contrato (apps/core/esquema.py, DEC-AUTO-196).
+    "DEFAULT_GENERATOR_CLASS": "apps.core.esquema.GeneradorContrato",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "apps.core.esquema.alinear_con_contrato",
+    ],
     # Nombres de los enums del contrato (components.schemas.Rol, EstadoCuenta, AccionAuditoria).
     "ENUM_NAME_OVERRIDES": {
         "Rol": "apps.cuentas.models.RolCuenta",

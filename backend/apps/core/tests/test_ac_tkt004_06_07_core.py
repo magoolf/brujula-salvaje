@@ -37,7 +37,9 @@ PII = "persona.secreta-nv02"
 def _error_bd_encadenado() -> IntegrityError:
     try:
         try:
-            raise psycopg.errors.UniqueViolation(f'duplicate key\nDETAIL:  Key (usuario)=({PII}) already exists.')
+            raise psycopg.errors.UniqueViolation(
+                f"duplicate key\nDETAIL:  Key (usuario)=({PII}) already exists."
+            )
         except psycopg.Error as origen:
             raise IntegrityError(str(origen)) from origen
     except IntegrityError as error:
@@ -67,7 +69,9 @@ def test_AC_TKT004_06_procesador_sanea_exc_info_de_bd(forma):
 def test_AC_TKT004_06_procesador_no_toca_otras_excepciones():
     evento = {"event": "x", "exc_info": ValueError("mensaje normal")}
     assert sanear_excepciones_bd(None, "error", dict(evento)) == evento
-    assert sanear_excepciones_bd(None, "info", {"event": "sin excepción"}) == {"event": "sin excepción"}
+    assert sanear_excepciones_bd(None, "info", {"event": "sin excepción"}) == {
+        "event": "sin excepción"
+    }
 
 
 def test_AC_TKT004_06_exc_info_true_dentro_de_un_except(logs_json):
@@ -144,14 +148,18 @@ def test_AC_TKT004_07_x_forwarded_proto_directo_no_evita_la_redireccion():
         ("10.0.0.2", " , ", [], "10.0.0.2"),
     ],
 )
-def test_AC_TKT004_07_ip_cliente_solo_desde_proxy_de_confianza(remota, reenviada, proxies, esperada):
+def test_AC_TKT004_07_ip_cliente_solo_desde_proxy_de_confianza(
+    remota, reenviada, proxies, esperada
+):
     with override_settings(PROXIES_CONFIANZA=proxies):
         assert ip_cliente({"REMOTE_ADDR": remota, "HTTP_X_FORWARDED_FOR": reenviada}) == esperada
 
 
 def test_AC_TKT004_07_sin_proxies_configurados_num_proxies_cero():
     with override_settings(NUM_PROXIES=0, PROXIES_CONFIANZA=[]):
-        assert ip_cliente({"REMOTE_ADDR": "10.0.0.2", "HTTP_X_FORWARDED_FOR": "1.2.3.4"}) == "10.0.0.2"
+        assert (
+            ip_cliente({"REMOTE_ADDR": "10.0.0.2", "HTTP_X_FORWARDED_FOR": "1.2.3.4"}) == "10.0.0.2"
+        )
 
 
 def test_AC_TKT004_07_throttle_usa_la_ip_de_confianza():

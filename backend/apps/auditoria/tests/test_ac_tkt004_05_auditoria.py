@@ -18,19 +18,7 @@ from django.utils import timezone
 from apps.auditoria.models import EventoAuditoria
 from apps.auditoria.services import registrar_evento
 from apps.contenido.tests.fabricas import como_rol
-from apps.cuentas.tests.conftest import (  # noqa: F401 (fixtures)
-    BASE,
-    CONTRASENA,
-    IP,
-    admin,
-    cliente_admin,
-    cliente_editora,
-    crear_staff,
-    editora,
-    entrar,
-    post,
-    problema,
-)
+from apps.cuentas.tests.conftest import BASE, IP, post, problema
 
 pytestmark = pytest.mark.django_db
 RUTA = f"{BASE}/auditoria"
@@ -39,9 +27,13 @@ RUTA = f"{BASE}/auditoria"
 def test_AC_TKT004_05_cada_accion_del_panel_genera_un_evento(cliente_admin, admin):
     cliente = Client(raise_request_exception=False)
     post(cliente, "/auth/login", {"usuario": "nadie", "contrasena": "x"}, REMOTE_ADDR=IP)
-    alta = post(cliente_admin, "/cuentas", {"usuario": "auditada", "nombre_visible": "A", "rol": "EDITOR"})
+    alta = post(
+        cliente_admin, "/cuentas", {"usuario": "auditada", "nombre_visible": "A", "rol": "EDITOR"}
+    )
     cuenta_id = alta.json()["cuenta"]["id"]
-    cliente_admin.patch(f"{BASE}/cuentas/{cuenta_id}", {"rol": "ADMINISTRADOR"}, content_type="application/json")
+    cliente_admin.patch(
+        f"{BASE}/cuentas/{cuenta_id}", {"rol": "ADMINISTRADOR"}, content_type="application/json"
+    )
     post(cliente_admin, f"/cuentas/{cuenta_id}/restablecer-contrasena")
     post(cliente_admin, f"/cuentas/{cuenta_id}/restablecer-mfa")
     post(cliente_admin, f"/cuentas/{cuenta_id}/desactivar")
@@ -72,7 +64,15 @@ def test_AC_TKT004_05_cada_accion_del_panel_genera_un_evento(cliente_admin, admi
 def test_AC_TKT004_05_consulta_paginada_ordenada_y_filtrada(cliente_admin, admin, editora):
     ahora = timezone.now()
     for indice in range(55):
-        registrar_evento(accion="CREAR", actor_id=editora.cuenta.pk, actor_etiqueta="editora.uno", tipo_entidad="DESTINO", entidad_id=indice + 1, entidad_titulo=f"Destino {indice}", campos_cambiados=["titulo"])
+        registrar_evento(
+            accion="CREAR",
+            actor_id=editora.cuenta.pk,
+            actor_etiqueta="editora.uno",
+            tipo_entidad="DESTINO",
+            entidad_id=indice + 1,
+            entidad_titulo=f"Destino {indice}",
+            campos_cambiados=["titulo"],
+        )
     registrar_evento(accion="LOGIN_FALLIDO", resultado="FALLO", ip="198.51.100.9")
     pagina1 = cliente_admin.get(RUTA).json()
     total = EventoAuditoria.objects.count()
@@ -81,7 +81,15 @@ def test_AC_TKT004_05_consulta_paginada_ordenada_y_filtrada(cliente_admin, admin
     fechas = [e["ocurrido_en"] for e in pagina1["resultados"]]
     assert fechas == sorted(fechas, reverse=True)
     primero = pagina1["resultados"][0]
-    assert set(primero) >= {"id", "ocurrido_en", "actor", "accion", "resultado", "campos_cambiados", "ip_truncada"}
+    assert set(primero) >= {
+        "id",
+        "ocurrido_en",
+        "actor",
+        "accion",
+        "resultado",
+        "campos_cambiados",
+        "ip_truncada",
+    }
     assert set(primero["actor"]) == {"id", "etiqueta"}
 
     fallidos = cliente_admin.get(f"{RUTA}?accion=LOGIN_FALLIDO&resultado=FALLO").json()
@@ -89,7 +97,9 @@ def test_AC_TKT004_05_consulta_paginada_ordenada_y_filtrada(cliente_admin, admin
     assert fallidos["resultados"][0]["ip_truncada"] == "198.51.100.0/24"
     assert fallidos["resultados"][0]["actor"] == {"id": None, "etiqueta": "desconocido"}
     assert fallidos["resultados"][0]["campos_cambiados"] == []
-    por_actor = cliente_admin.get(f"{RUTA}?actor_id={editora.cuenta.pk}&tipo_entidad=DESTINO").json()
+    por_actor = cliente_admin.get(
+        f"{RUTA}?actor_id={editora.cuenta.pk}&tipo_entidad=DESTINO"
+    ).json()
     assert por_actor["total"] == 55
     desde = (ahora - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
     hasta = (ahora + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
@@ -101,7 +111,17 @@ def test_AC_TKT004_05_consulta_paginada_ordenada_y_filtrada(cliente_admin, admin
 
 @pytest.mark.parametrize(
     "consulta",
-    ["accion=BORRAR", "resultado=QUIZA", "actor_id=0", "actor_id=abc", "desde=ayer", "tipo_entidad=destino", "orden=asc", "pagina=0", "accion=CREAR&accion=EDITAR"],
+    [
+        "accion=BORRAR",
+        "resultado=QUIZA",
+        "actor_id=0",
+        "actor_id=abc",
+        "desde=ayer",
+        "tipo_entidad=destino",
+        "orden=asc",
+        "pagina=0",
+        "accion=CREAR&accion=EDITAR",
+    ],
 )
 def test_AC_TKT004_05_filtros_invalidos_son_400(cliente_admin, consulta):
     problema(cliente_admin.get(f"{RUTA}?{consulta}"), 400, "parametro_invalido")
@@ -120,12 +140,17 @@ def test_AC_TKT004_05_solo_administrador_y_solo_lectura(cliente_admin, cliente_e
 
 
 def test_AC_TKT004_05_app_rw_no_puede_alterar_eventos(admin):
-    evento = registrar_evento(accion="CREAR", actor_id=admin.cuenta.pk, actor_etiqueta="admin.principal")
+    evento = registrar_evento(
+        accion="CREAR", actor_id=admin.cuenta.pk, actor_etiqueta="admin.principal"
+    )
     for sentencia in (
         "UPDATE app.evento_auditoria SET accion = 'EDITAR' WHERE id = %s",
         "DELETE FROM app.evento_auditoria WHERE id = %s",
     ):
-        with como_rol("app_rw") as cursor, pytest.raises(ProgrammingError, match="permission denied"):
+        with (
+            como_rol("app_rw") as cursor,
+            pytest.raises(ProgrammingError, match="permission denied"),
+        ):
             cursor.execute(sentencia, [evento.pk])
     assert EventoAuditoria.objects.get(pk=evento.pk).accion == "CREAR"
 

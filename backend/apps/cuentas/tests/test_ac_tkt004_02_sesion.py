@@ -71,7 +71,9 @@ def test_AC_TKT004_02_csrf_obligatorio_en_login_y_operaciones_de_cambio(editora)
     datos = {"usuario": "editora.uno", "contrasena": CONTRASENA}
     problema(post(cliente, "/auth/login", datos), 403, "csrf_invalido")
     token = cliente.get(f"{BASE}/auth/csrf").cookies["csrftoken"].value
-    problema(post(cliente, "/auth/login", datos, HTTP_X_CSRFTOKEN="token-falso"), 403, "csrf_invalido")
+    problema(
+        post(cliente, "/auth/login", datos, HTTP_X_CSRFTOKEN="token-falso"), 403, "csrf_invalido"
+    )
     assert post(cliente, "/auth/login", datos, HTTP_X_CSRFTOKEN=token).status_code == 200
     # Con sesión: sin cabecera → 403; GET no la necesita.
     problema(post(cliente, "/auth/sesion/renovar"), 403, "csrf_invalido")
@@ -98,7 +100,12 @@ def test_AC_TKT004_02_csrf_rechaza_origen_no_confiable(editora):
 # ---------------------------------------------------------------------------
 def test_AC_TKT004_02_rota_la_sesion_al_autenticarse_verificar_mfa_y_cambiar_contrasena(admin):
     cliente = Client(raise_request_exception=False)
-    post(cliente, "/auth/login", {"usuario": "admin.principal", "contrasena": CONTRASENA}, REMOTE_ADDR=IP)
+    post(
+        cliente,
+        "/auth/login",
+        {"usuario": "admin.principal", "contrasena": CONTRASENA},
+        REMOTE_ADDR=IP,
+    )
     parcial = _clave(cliente)
     assert post(cliente, "/auth/mfa/verificar", {"codigo": admin.codigo()}).status_code == 200
     completa = _clave(cliente)
@@ -111,7 +118,9 @@ def test_AC_TKT004_02_rota_la_sesion_al_autenticarse_verificar_mfa_y_cambiar_con
     assert not SesionPanel.objects.filter(session_key=completa).exists()
 
     antes = _clave(cliente)
-    respuesta = post(cliente, "/auth/contrasena", {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA})
+    respuesta = post(
+        cliente, "/auth/contrasena", {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
+    )
     assert respuesta.status_code == 200
     assert _clave(cliente) != antes
 

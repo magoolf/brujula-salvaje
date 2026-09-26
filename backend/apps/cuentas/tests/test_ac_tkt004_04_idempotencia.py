@@ -57,7 +57,9 @@ def test_AC_TKT004_04_crear_cuenta_repetida_no_reproducible_con_location(cliente
 def test_AC_TKT004_04_misma_clave_otra_huella_es_422(cliente_admin):
     clave = str(uuid.uuid4())
     assert post(cliente_admin, "/cuentas", ALTA, HTTP_IDEMPOTENCY_KEY=clave).status_code == 201
-    otra = post(cliente_admin, "/cuentas", {**ALTA, "usuario": "otra.alta"}, HTTP_IDEMPOTENCY_KEY=clave)
+    otra = post(
+        cliente_admin, "/cuentas", {**ALTA, "usuario": "otra.alta"}, HTTP_IDEMPOTENCY_KEY=clave
+    )
     assert "Idempotency-Key" in problema(otra, 422, "idempotencia_conflicto")["errors"]
     assert not CuentaStaff.objects.filter(usuario="otra.alta").exists()
 
@@ -66,7 +68,13 @@ def test_AC_TKT004_04_misma_clave_otra_huella_es_422(cliente_admin):
 def test_AC_TKT004_04_error_no_guarda_la_clave_y_el_reintento_se_ejecuta(cliente_admin, admin):
     crear_staff("ya.existe")
     clave = str(uuid.uuid4())
-    problema(post(cliente_admin, "/cuentas", {**ALTA, "usuario": "ya.existe"}, HTTP_IDEMPOTENCY_KEY=clave), 409, "duplicado")
+    problema(
+        post(
+            cliente_admin, "/cuentas", {**ALTA, "usuario": "ya.existe"}, HTTP_IDEMPOTENCY_KEY=clave
+        ),
+        409,
+        "duplicado",
+    )
     assert _filas(admin.cuenta.pk) == []
     # Sin clave también funciona (la cabecera es opcional).
     assert post(cliente_admin, "/cuentas", ALTA).status_code == 201
@@ -111,7 +119,11 @@ def test_AC_TKT004_04_repeticion_devuelve_la_respuesta_original(cuenta_id):
     primera = _ejecutar(cuenta_id, clave, _efecto(llamadas, {"id": 7, "titulo": "Río"}))
     segunda = _ejecutar(cuenta_id, clave, _efecto(llamadas))
     assert len(llamadas) == 1
-    assert (segunda.codigo_http, segunda.cuerpo, segunda.recurso_id) == (201, {"id": 7, "titulo": "Río"}, 7)
+    assert (segunda.codigo_http, segunda.cuerpo, segunda.recurso_id) == (
+        201,
+        {"id": 7, "titulo": "Río"},
+        7,
+    )
     assert segunda.repetida is True and primera.repetida is False
 
 
@@ -126,7 +138,9 @@ def test_AC_TKT004_04_huella_canonica(cuenta_id):
     uno = idempotencia.huella_peticion("panelCrearDestino", {"id": 1}, {"b": 1, "a": [1, 2]})
     dos = idempotencia.huella_peticion("panelCrearDestino", {"id": 1}, {"a": [1, 2], "b": 1})
     assert uno == dos and len(uno) == 64
-    assert uno != idempotencia.huella_peticion("panelCrearDestino", {"id": 2}, {"a": [1, 2], "b": 1})
+    assert uno != idempotencia.huella_peticion(
+        "panelCrearDestino", {"id": 2}, {"a": [1, 2], "b": 1}
+    )
 
 
 def test_AC_TKT004_04_clave_vencida_se_reutiliza_como_nueva(cuenta_id):

@@ -39,7 +39,10 @@ NUEVA = "otra-frase-bastante-larga-para-el-panel"
 
 def _login(cliente, usuario, contrasena, **extra):
     return post(
-        cliente, "/auth/login", {"usuario": usuario, "contrasena": contrasena, **extra}, REMOTE_ADDR=IP
+        cliente,
+        "/auth/login",
+        {"usuario": usuario, "contrasena": contrasena, **extra},
+        REMOTE_ADDR=IP,
     )
 
 
@@ -65,7 +68,11 @@ def test_AC_TKT004_01_login_simple_editora_activa(cliente, editora, logs_json):
 
 
 def test_AC_TKT004_01_flujo_completo_cuenta_nueva_de_editor(cliente_admin):
-    alta = post(cliente_admin, "/cuentas", {"usuario": "nuevo.editor", "nombre_visible": "Nuevo", "rol": "EDITOR"})
+    alta = post(
+        cliente_admin,
+        "/cuentas",
+        {"usuario": "nuevo.editor", "nombre_visible": "Nuevo", "rol": "EDITOR"},
+    )
     assert alta.status_code == 201
     temporal = alta.json()["contrasena_temporal"]
     nuevo = Client(raise_request_exception=False)
@@ -74,9 +81,15 @@ def test_AC_TKT004_01_flujo_completo_cuenta_nueva_de_editor(cliente_admin):
     assert paso["paso_pendiente"] == "CAMBIO_CREDENCIAL"
     # Mientras haya paso pendiente, el resto del panel responde el código del paso.
     problema(post(nuevo, "/auth/mfa/activacion"), 403, "cambio_credencial_requerido")
-    problema(post(nuevo, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}), 403, "cambio_credencial_requerido")
+    problema(
+        post(nuevo, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}),
+        403,
+        "cambio_credencial_requerido",
+    )
 
-    cambio = post(nuevo, "/auth/contrasena", {"contrasena_actual": temporal, "contrasena_nueva": NUEVA})
+    cambio = post(
+        nuevo, "/auth/contrasena", {"contrasena_actual": temporal, "contrasena_nueva": NUEVA}
+    )
     assert cambio.status_code == 200
     assert cambio.json()["paso_pendiente"] == "AUTORIZACION"
     problema(nuevo.get(f"{BASE}/cuentas"), 403, "autorizacion_requerida")
@@ -86,7 +99,11 @@ def test_AC_TKT004_01_flujo_completo_cuenta_nueva_de_editor(cliente_admin):
     assert politica["url_politica"] == "/politica-de-tratamiento-de-datos"
     assert politica["otorgada_en"] is None
 
-    problema(post(nuevo, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "0.9"}), 409, "conflicto_version")
+    problema(
+        post(nuevo, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "0.9"}),
+        409,
+        "conflicto_version",
+    )
     final = post(nuevo, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"})
     assert final.status_code == 200
     assert final.json()["paso_pendiente"] == "NINGUNO"
@@ -99,14 +116,24 @@ def test_AC_TKT004_01_flujo_completo_cuenta_nueva_de_editor(cliente_admin):
 
 
 def test_AC_TKT004_01_flujo_completo_administrador_con_mfa_obligatorio(cliente_admin):
-    alta = post(cliente_admin, "/cuentas", {"usuario": "nueva.admin", "nombre_visible": "Admin", "rol": "ADMINISTRADOR"})
+    alta = post(
+        cliente_admin,
+        "/cuentas",
+        {"usuario": "nueva.admin", "nombre_visible": "Admin", "rol": "ADMINISTRADOR"},
+    )
     temporal = alta.json()["contrasena_temporal"]
     nueva = Client(raise_request_exception=False)
     assert _login(nueva, "nueva.admin", temporal).json()["paso_pendiente"] == "CAMBIO_CREDENCIAL"
-    cambio = post(nueva, "/auth/contrasena", {"contrasena_actual": temporal, "contrasena_nueva": NUEVA})
+    cambio = post(
+        nueva, "/auth/contrasena", {"contrasena_actual": temporal, "contrasena_nueva": NUEVA}
+    )
     assert cambio.json()["paso_pendiente"] == "CONFIGURAR_MFA"
     assert cambio.json()["mfa_obligatorio"] is True
-    problema(post(nueva, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}), 403, "configuracion_mfa_requerida")
+    problema(
+        post(nueva, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}),
+        403,
+        "configuracion_mfa_requerida",
+    )
 
     inicio = post(nueva, "/auth/mfa/activacion").json()
     assert inicio["otpauth_uri"].startswith("otpauth://totp/")
@@ -119,12 +146,19 @@ def test_AC_TKT004_01_flujo_completo_administrador_con_mfa_obligatorio(cliente_a
     assert len(codigos) == 10
     cuenta = CuentaStaff.objects.get(usuario="nueva.admin")
     # Solo se guardan hashes de los códigos y el secreto cifrado (nunca en claro).
-    hashes = set(CuentaCodigoRecuperacion.objects.filter(cuenta=cuenta).values_list("hash_codigo", flat=True))
+    hashes = set(
+        CuentaCodigoRecuperacion.objects.filter(cuenta=cuenta).values_list("hash_codigo", flat=True)
+    )
     assert not set(codigos) & hashes
     assert secreto.encode() not in bytes(cuenta.secreto_mfa)
 
     assert nueva.get(f"{BASE}/auth/sesion").json()["paso_pendiente"] == "AUTORIZACION"
-    assert post(nueva, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}).json()["paso_pendiente"] == "NINGUNO"
+    assert (
+        post(
+            nueva, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "1.0"}
+        ).json()["paso_pendiente"]
+        == "NINGUNO"
+    )
 
     # Nuevo acceso: paso MFA; el panel responde 401 mfa_requerido hasta verificarlo.
     otra = Client(raise_request_exception=False)
@@ -133,7 +167,10 @@ def test_AC_TKT004_01_flujo_completo_administrador_con_mfa_obligatorio(cliente_a
     assert otra.get(f"{BASE}/auth/sesion").json()["paso_pendiente"] == "MFA"
     problema(post(otra, "/auth/mfa/verificar", {"codigo": "123456"}), 401, "mfa_invalido")
     # Un código de recuperación sirve una sola vez.
-    assert post(otra, "/auth/mfa/verificar", {"codigo": codigos[0]}).json()["paso_pendiente"] == "NINGUNO"
+    assert (
+        post(otra, "/auth/mfa/verificar", {"codigo": codigos[0]}).json()["paso_pendiente"]
+        == "NINGUNO"
+    )
     tercera = Client(raise_request_exception=False)
     _login(tercera, "nueva.admin", NUEVA)
     problema(post(tercera, "/auth/mfa/verificar", {"codigo": codigos[0]}), 401, "mfa_invalido")
@@ -142,9 +179,15 @@ def test_AC_TKT004_01_flujo_completo_administrador_con_mfa_obligatorio(cliente_a
 
 
 def test_AC_TKT004_01_no_autorizo_cierra_la_sesion(cliente):
-    staff = crear_staff("pendiente.autoriza", autorizada=False, estado=EstadoCuenta.PENDIENTE_ACTIVACION)
-    assert _login(cliente, "pendiente.autoriza", CONTRASENA).json()["paso_pendiente"] == "AUTORIZACION"
-    respuesta = post(cliente, "/auth/autorizacion", {"decision": "NO_AUTORIZO", "version_politica": "1.0"})
+    staff = crear_staff(
+        "pendiente.autoriza", autorizada=False, estado=EstadoCuenta.PENDIENTE_ACTIVACION
+    )
+    assert (
+        _login(cliente, "pendiente.autoriza", CONTRASENA).json()["paso_pendiente"] == "AUTORIZACION"
+    )
+    respuesta = post(
+        cliente, "/auth/autorizacion", {"decision": "NO_AUTORIZO", "version_politica": "1.0"}
+    )
     assert respuesta.status_code == 204
     assert respuesta.cookies["sessionid"].value == ""
     problema(cliente.get(f"{BASE}/auth/sesion"), 401, "no_autenticado")
@@ -166,7 +209,12 @@ def test_AC_TKT004_01_cambio_de_version_de_politica_pide_autorizar_de_nuevo(clie
     vigente = cliente.get(f"{BASE}/auth/autorizacion").json()
     assert vigente["version_politica"] == "2.0"
     assert vigente["version_otorgada"] == "1.0"
-    assert post(cliente, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "2.0"}).json()["paso_pendiente"] == "NINGUNO"
+    assert (
+        post(
+            cliente, "/auth/autorizacion", {"decision": "AUTORIZO", "version_politica": "2.0"}
+        ).json()["paso_pendiente"]
+        == "NINGUNO"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +226,9 @@ def _sin_traza(respuesta) -> dict:
     return cuerpo
 
 
-def test_AC_TKT004_01_misma_respuesta_para_usuario_inexistente_y_contrasena_erronea(cliente, editora):
+def test_AC_TKT004_01_misma_respuesta_para_usuario_inexistente_y_contrasena_erronea(
+    cliente, editora
+):
     erronea = _login(cliente, "editora.uno", "contrasena-incorrecta")
     inexistente = _login(cliente, "no.existe", "contrasena-incorrecta")
     desactivada = crear_staff("ya.no.esta", estado=EstadoCuenta.DESACTIVADA)
@@ -231,7 +281,9 @@ def test_AC_TKT004_01_cinco_fallos_bloquean_15_min_y_luego_30(cliente, editora):
     # Se cumple el bloqueo: vuelve a ACTIVA; otros 5 fallos → bloqueo de 30 min. Se vacía la
     # caché de límites por IP (10/min, perfil panel-login), que si no respondería 429 limite_tasa.
     cache.clear()
-    CuentaStaff.objects.filter(pk=cuenta.pk).update(bloqueado_hasta=timezone.now() - timedelta(seconds=1))
+    CuentaStaff.objects.filter(pk=cuenta.pk).update(
+        bloqueado_hasta=timezone.now() - timedelta(seconds=1)
+    )
     for _ in range(4):
         problema(_login(cliente, "editora.uno", "mal"), 401, "credenciales_invalidas")
     cuenta.refresh_from_db()
@@ -242,10 +294,16 @@ def test_AC_TKT004_01_cinco_fallos_bloquean_15_min_y_luego_30(cliente, editora):
 
     # Cumplido el segundo bloqueo, un acceso correcto reinicia la progresión.
     cache.clear()
-    CuentaStaff.objects.filter(pk=cuenta.pk).update(bloqueado_hasta=timezone.now() - timedelta(seconds=1))
+    CuentaStaff.objects.filter(pk=cuenta.pk).update(
+        bloqueado_hasta=timezone.now() - timedelta(seconds=1)
+    )
     assert _login(cliente, "editora.uno", CONTRASENA).status_code == 200
     cuenta.refresh_from_db()
-    assert (cuenta.intentos_fallidos, cuenta.bloqueos_consecutivos, cuenta.bloqueado_hasta) == (0, 0, None)
+    assert (cuenta.intentos_fallidos, cuenta.bloqueos_consecutivos, cuenta.bloqueado_hasta) == (
+        0,
+        0,
+        None,
+    )
 
 
 def test_AC_TKT004_01_limite_por_ip_en_login(cliente):
@@ -265,11 +323,18 @@ def test_AC_TKT004_01_bloqueo_tambien_para_usuario_inexistente(cliente):
 
 
 def test_AC_TKT004_01_cuenta_pendiente_bloqueada_vuelve_a_pendiente(cliente):
-    staff = crear_staff("pendiente.bloq", estado=EstadoCuenta.PENDIENTE_ACTIVACION, debe_cambiar=True)
+    staff = crear_staff(
+        "pendiente.bloq", estado=EstadoCuenta.PENDIENTE_ACTIVACION, debe_cambiar=True
+    )
     for _ in range(5):
         _login(cliente, "pendiente.bloq", "mal")
-    CuentaStaff.objects.filter(pk=staff.cuenta.pk).update(bloqueado_hasta=timezone.now() - timedelta(seconds=1))
-    assert _login(cliente, "pendiente.bloq", CONTRASENA).json()["paso_pendiente"] == "CAMBIO_CREDENCIAL"
+    CuentaStaff.objects.filter(pk=staff.cuenta.pk).update(
+        bloqueado_hasta=timezone.now() - timedelta(seconds=1)
+    )
+    assert (
+        _login(cliente, "pendiente.bloq", CONTRASENA).json()["paso_pendiente"]
+        == "CAMBIO_CREDENCIAL"
+    )
     staff.cuenta.refresh_from_db()
     assert staff.cuenta.estado == EstadoCuenta.PENDIENTE_ACTIVACION
 
@@ -278,7 +343,11 @@ def test_AC_TKT004_01_fallos_del_segundo_factor_cuentan_y_bloquean(cliente, admi
     assert _login(cliente, "admin.principal", CONTRASENA).json()["paso_pendiente"] == "MFA"
     for _ in range(4):
         problema(post(cliente, "/auth/mfa/verificar", {"codigo": "000000"}), 401, "mfa_invalido")
-    problema(post(cliente, "/auth/mfa/verificar", {"codigo": "000000"}), 429, "acceso_bloqueado_temporalmente")
+    problema(
+        post(cliente, "/auth/mfa/verificar", {"codigo": "000000"}),
+        429,
+        "acceso_bloqueado_temporalmente",
+    )
     # El bloqueo cierra la sesión parcial.
     problema(cliente.get(f"{BASE}/auth/sesion"), 401, "no_autenticado")
     admin.cuenta.refresh_from_db()
@@ -328,7 +397,9 @@ def test_AC_TKT004_01_siguiente_solo_rutas_bajo_panel(cliente, editora, siguient
 
 
 def test_AC_TKT004_01_login_rechaza_campos_desconocidos_y_vacios(cliente, editora):
-    problema(_login(cliente, "editora.uno", CONTRASENA, rol="ADMINISTRADOR"), 400, "campo_no_permitido")
+    problema(
+        _login(cliente, "editora.uno", CONTRASENA, rol="ADMINISTRADOR"), 400, "campo_no_permitido"
+    )
     problema(post(cliente, "/auth/login", {"usuario": "", "contrasena": ""}), 400, "validacion")
     problema(post(cliente, "/auth/login", ["no", "es", "objeto"]), 400, "validacion")
 
@@ -347,17 +418,29 @@ def test_AC_TKT004_01_login_rechaza_campos_desconocidos_y_vacios(cliente, editor
     ],
 )
 def test_AC_TKT004_01_politica_de_contrasena(cliente_editora, nueva, campo):
-    respuesta = post(cliente_editora, "/auth/contrasena", {"contrasena_actual": CONTRASENA, "contrasena_nueva": nueva})
+    respuesta = post(
+        cliente_editora,
+        "/auth/contrasena",
+        {"contrasena_actual": CONTRASENA, "contrasena_nueva": nueva},
+    )
     assert campo in problema(respuesta, 400, "validacion")["errors"]
 
 
 def test_AC_TKT004_01_contrasena_actual_erronea(cliente_editora):
-    respuesta = post(cliente_editora, "/auth/contrasena", {"contrasena_actual": "no-es-esta", "contrasena_nueva": NUEVA})
+    respuesta = post(
+        cliente_editora,
+        "/auth/contrasena",
+        {"contrasena_actual": "no-es-esta", "contrasena_nueva": NUEVA},
+    )
     assert "contrasena_actual" in problema(respuesta, 400, "validacion")["errors"]
 
 
 def test_AC_TKT004_01_cambio_voluntario_de_contrasena(cliente_editora, editora):
-    respuesta = post(cliente_editora, "/auth/contrasena", {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA})
+    respuesta = post(
+        cliente_editora,
+        "/auth/contrasena",
+        {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA},
+    )
     assert respuesta.status_code == 200
     editora.cuenta.refresh_from_db()
     assert editora.cuenta.check_password(NUEVA)
@@ -367,28 +450,86 @@ def test_AC_TKT004_01_cambio_voluntario_de_contrasena(cliente_editora, editora):
 # ---------------------------------------------------------------------------
 # MFA propio (FEAT-030)
 # ---------------------------------------------------------------------------
-def test_AC_TKT004_01_mfa_opcional_del_editor_activar_regenerar_y_desactivar(cliente_editora, editora):
-    problema(post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": "123456"}), 409, "transicion_invalida")
-    problema(post(cliente_editora, "/auth/mfa/activacion/confirmar", {"codigo": "123456"}), 409, "transicion_invalida")
+def test_AC_TKT004_01_mfa_opcional_del_editor_activar_regenerar_y_desactivar(
+    cliente_editora, editora
+):
+    problema(
+        post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": "123456"}),
+        409,
+        "transicion_invalida",
+    )
+    problema(
+        post(cliente_editora, "/auth/mfa/activacion/confirmar", {"codigo": "123456"}),
+        409,
+        "transicion_invalida",
+    )
     secreto = post(cliente_editora, "/auth/mfa/activacion").json()["clave_secreta"]
-    assert post(cliente_editora, "/auth/mfa/activacion/confirmar", {"codigo": mfa.codigo_totp(secreto, mfa.periodo_actual())}).status_code == 200
+    assert (
+        post(
+            cliente_editora,
+            "/auth/mfa/activacion/confirmar",
+            {"codigo": mfa.codigo_totp(secreto, mfa.periodo_actual())},
+        ).status_code
+        == 200
+    )
     problema(post(cliente_editora, "/auth/mfa/activacion"), 409, "transicion_invalida")
-    problema(post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": "000000"}), 400, "validacion")
-    nuevos = post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": mfa.codigo_totp(secreto, mfa.periodo_actual() + 1)})
+    problema(
+        post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": "000000"}),
+        400,
+        "validacion",
+    )
+    nuevos = post(
+        cliente_editora,
+        "/auth/mfa/codigos-recuperacion",
+        {"codigo": mfa.codigo_totp(secreto, mfa.periodo_actual() + 1)},
+    )
     assert len(nuevos.json()["codigos"]) == 10
-    problema(post(cliente_editora, "/auth/mfa/desactivar", {"contrasena": "mal", "codigo": nuevos.json()["codigos"][0]}), 400, "validacion")
-    problema(post(cliente_editora, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": "AAAA-AAAA"}), 400, "validacion")
-    assert post(cliente_editora, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": nuevos.json()["codigos"][0]}).status_code == 204
+    problema(
+        post(
+            cliente_editora,
+            "/auth/mfa/desactivar",
+            {"contrasena": "mal", "codigo": nuevos.json()["codigos"][0]},
+        ),
+        400,
+        "validacion",
+    )
+    problema(
+        post(
+            cliente_editora,
+            "/auth/mfa/desactivar",
+            {"contrasena": CONTRASENA, "codigo": "AAAA-AAAA"},
+        ),
+        400,
+        "validacion",
+    )
+    assert (
+        post(
+            cliente_editora,
+            "/auth/mfa/desactivar",
+            {"contrasena": CONTRASENA, "codigo": nuevos.json()["codigos"][0]},
+        ).status_code
+        == 204
+    )
     editora.cuenta.refresh_from_db()
     assert (editora.cuenta.mfa_activo, editora.cuenta.secreto_mfa) == (False, None)
     assert not CuentaCodigoRecuperacion.objects.filter(cuenta=editora.cuenta).exists()
-    acciones = list(EventoAuditoria.objects.filter(actor=editora.cuenta).values_list("accion", flat=True))
+    acciones = list(
+        EventoAuditoria.objects.filter(actor=editora.cuenta).values_list("accion", flat=True)
+    )
     assert "MFA_ACTIVAR" in acciones and "MFA_DESACTIVAR" in acciones
-    problema(post(cliente_editora, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": "123456"}), 409, "transicion_invalida")
+    problema(
+        post(
+            cliente_editora, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": "123456"}
+        ),
+        409,
+        "transicion_invalida",
+    )
 
 
 def test_AC_TKT004_01_administrador_no_puede_desactivar_su_mfa(cliente_admin, admin):
-    respuesta = post(cliente_admin, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": admin.codigo(1)})
+    respuesta = post(
+        cliente_admin, "/auth/mfa/desactivar", {"contrasena": CONTRASENA, "codigo": admin.codigo(1)}
+    )
     problema(respuesta, 409, "mfa_obligatorio")
 
 

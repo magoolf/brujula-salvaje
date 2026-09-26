@@ -104,7 +104,10 @@ def problema(respuesta: Any, estado: int, codigo: str) -> dict[str, Any]:
 
 def post(cliente: Client, ruta: str, datos: Any = None, **extra: Any) -> Any:
     return cliente.post(
-        f"{BASE}{ruta}", datos if datos is not None else {}, content_type="application/json", **extra
+        f"{BASE}{ruta}",
+        datos if datos is not None else {},
+        content_type="application/json",
+        **extra,
     )
 
 
