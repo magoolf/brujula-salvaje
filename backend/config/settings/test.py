@@ -15,6 +15,11 @@ os.environ.setdefault("DB_HOST", "127.0.0.1")
 os.environ.setdefault("DB_USER", "app_migrator")
 
 from config.settings.base import *  # noqa: F403
+from config.settings.base import DATABASES
+
+# PostgreSQL estándar + vaciado compatible con el trigger anti-TRUNCATE de evento_auditoria en
+# las pruebas transaccionales (apps/ops/bd_pruebas/base.py, TKT-003).
+DATABASES["default"]["ENGINE"] = "apps.ops.bd_pruebas"
 
 DEBUG = False
 SECURE_SSL_REDIRECT = False
