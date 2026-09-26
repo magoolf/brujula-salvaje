@@ -162,43 +162,23 @@ jobs:
       - name: check --deploy
         env: {DJANGO_DEBUG: "false", DJANGO_SECURE_SSL_REDIRECT: "true", DJANGO_SECURE_HSTS_SECONDS: "31536000"}
         run: uv run --frozen python manage.py check --deploy --fail-level WARNING
-      # DEC-AUTO-196 (TKT-OPS-003): gate de contrato INCREMENTAL. Un "oasdiff diff --fail-on-diff"
-      # literal nunca pasa: el contrato (API-first) tiene todas las operaciones y componentes escritos
-      # a mano, y drf-spectacular solo genera lo implementado, con sus propios nombres de componentes.
-      #   1) Toda operación del esquema generado existe en el contrato (nada sin documentar).
-      #   2) "oasdiff breaking" contrato -> implementación, limitado a las rutas implementadas:
-      #      falla con cualquier ERR o WARN (lo implementado no puede romper a un cliente del contrato).
-      # Lo aún no implementado lo cubre QA (schemathesis) y la trazabilidad de tickets.
-      - name: "contrato: oasdiff (operaciones implementadas vs contracts/openapi.yaml)"
+      # DEC-AUTO-196 (TKT-OPS-003) revisado por DEC-AUTO-211 (TKT-OPS-004): gate de contrato INCREMENTAL
+      # por OPERACIÓN (método + ruta). Un "oasdiff diff --fail-on-diff" literal nunca pasa: el contrato
+      # (API-first) tiene todas las operaciones escritas a mano y drf-spectacular solo genera lo implementado.
+      #   1) infra/ci/gate_contrato.py: operaciones generadas ⊆ contrato; por operación, códigos de estado,
+      #      media types y propiedades de respuesta (recursivo) ⊆ contrato; escribe el contrato FILTRADO
+      #      a las operaciones implementadas (una ruta implementada en parte no cuenta como eliminada).
+      #   2) "oasdiff breaking" contrato filtrado -> implementación con --fail-on WARN.
+      # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004).
+      - name: "contrato: gate por operación + oasdiff (implementado vs contracts/openapi.yaml)"
         run: |
           curl -fsSLo /tmp/oasdiff.tgz "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
           echo "${OASDIFF_SHA256}  /tmp/oasdiff.tgz" | sha256sum -c -
           tar -xzf /tmp/oasdiff.tgz -C /usr/local/bin oasdiff
           uv run --frozen python manage.py spectacular --validate --file /tmp/generado.yaml
-          uv run --frozen python - ../contracts/openapi.yaml /tmp/generado.yaml /tmp/rutas.txt <<'PY'
-          import re, sys, yaml
-          contrato, generado, salida = sys.argv[1:4]
-          METODOS = {"get", "put", "post", "delete", "patch", "head", "options", "trace"}
-          def ops(ruta):
-              with open(ruta, encoding="utf-8") as f:
-                  doc = yaml.safe_load(f)
-              norm = lambda p: re.sub(r"\{[^}]+\}", "{}", p)
-              return {(norm(p), m.lower()): p for p, item in (doc.get("paths") or {}).items()
-                      for m in item if m.lower() in METODOS}
-          c, g = ops(contrato), ops(generado)
-          extra = sorted(set(g) - set(c))
-          for p, m in extra:
-              print(f"::error::operación implementada y NO documentada en el contrato: {m.upper()} {g[(p, m)]}")
-          print(f"contrato: {len(c)} operaciones; implementadas: {len(g)}; no documentadas: {len(extra)}")
-          rutas = sorted(set(g.values()))
-          patron = "^(" + "|".join(re.sub(r"\\\{[^}]+\\\}", r"\\{[^}]+\\}", re.escape(p)) for p in rutas) + ")$"
-          with open(salida, "w", encoding="utf-8") as f:
-              f.write(patron if rutas else "")
-          sys.exit(1 if extra else 0)
-          PY
-          if [ ! -s /tmp/rutas.txt ]; then echo "::warning::el esquema generado no tiene operaciones"; exit 0; fi
-          echo "rutas comparadas: $(cat /tmp/rutas.txt)"
-          oasdiff breaking ../contracts/openapi.yaml /tmp/generado.yaml --match-path "$(cat /tmp/rutas.txt)" --fail-on WARN
+          uv run --frozen python ../infra/ci/gate_contrato.py ../contracts/openapi.yaml /tmp/generado.yaml /tmp/contrato-filtrado.yaml
+          if ! grep -qE '^  /' /tmp/generado.yaml; then echo "::warning::el esquema generado no tiene operaciones"; exit 0; fi
+          oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on WARN
       - name: SAST (bandit + semgrep)
         run: |
           uvx --from "bandit==${BANDIT_VERSION}" bandit -r . -x ./.venv,./tests -ll
@@ -328,6 +308,46 @@ jobs:
           test -n "$js" || { echo "::error::el HTML del SSR no referencia ningún .js"; exit 1; }
           enc="$(curl -fsS -o /dev/null -D - -H 'Accept-Encoding: gzip' "$B/${js#/}" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-encoding"{print $2}')"
           echo "/${js#/}: Content-Encoding=${enc:-ninguno}"; test "$enc" = gzip
+          # TKT-OPS-004 (DEC-AUTO-212/213/214): 403/404 del proxy como Problem Details, cabeceras de
+          # seguridad en los errores del proxy y zona "salud" propia para /health (RSK-OPS-016).
+          problema() {  # uso: problema <estado esperado> <curl args...>
+            esperado="$1"; shift
+            curl -s -o /tmp/cuerpo.json -D /tmp/cab.txt -w '%{http_code} %{content_type}' "$@" > /tmp/res.txt
+            echo "$(echo "$*" | cut -c1-80) -> $(cat /tmp/res.txt)"
+            test "$(cat /tmp/res.txt)" = "$esperado application/problem+json"
+            python3 -c 'import json,sys; d=json.load(open("/tmp/cuerpo.json")); assert d["status"]==int(sys.argv[1]) and len(d["trace_id"])==32, d' "$esperado"
+            for h in x-content-type-options content-security-policy x-frame-options referrer-policy x-trace-id cache-control; do
+              grep -qi "^$h:" /tmp/cab.txt || { echo "::error::falta la cabecera $h en el $esperado del proxy"; exit 1; }
+            done
+          }
+          problema 404 "$B/health/otra"
+          problema 404 "$B/media/privado/x.jpg"
+          problema 403 -X POST "$B/"
+          problema 400 "$B/api/v1/publico/inicio?q=$q"
+          seq 1 120 | xargs -P 1 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$B/health/live" > /tmp/salud_normal.txt
+          sort /tmp/salud_normal.txt | uniq -c
+          test "$(grep -vc '^200$' /tmp/salud_normal.txt)" = 0 || { echo "::error::/health recibe no-200 a ritmo de sondeo"; exit 1; }
+          # Ráfaga con conexiones keep-alive (20 x 50 peticiones): supera 50 r/s + burst 200 en cualquier runner.
+          python3 - "$B" <<'PY'
+          import collections, concurrent.futures as cf, http.client, sys, urllib.parse
+          u = urllib.parse.urlsplit(sys.argv[1])
+          def rafaga(n):
+              c, r = http.client.HTTPConnection(u.hostname, u.port, timeout=10), []
+              for _ in range(n):
+                  c.request("GET", "/health/live")
+                  resp = c.getresponse(); resp.read()
+                  r.append((resp.status, resp.getheader("Content-Type")))
+              return r
+          with cf.ThreadPoolExecutor(20) as ex:
+              res = [x for f in [ex.submit(rafaga, 50) for _ in range(20)] for x in f.result()]
+          cuenta = collections.Counter(res); print(dict(cuenta))
+          if not cuenta.get((429, "application/problem+json")):
+              print("::error::la ráfaga a /health no produjo 429 Problem Details"); sys.exit(1)
+          if set(cuenta) - {(200, "application/json"), (429, "application/problem+json")}:
+              print("::error::respuestas inesperadas en la ráfaga a /health"); sys.exit(1)
+          PY
+          sleep 5
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$B/health/ready")" = 200
       # RSK-OPS-009 / DEC-AUTO-158: gunicorn vuelve en silencio al formato texto si no puede leer
       # --log-config-json. Se para el backend (para capturar también el apagado) y se exige que
       # TODAS las líneas no vacías de su log sean objetos JSON (y que haya al menos una).
