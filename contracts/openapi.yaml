@@ -19,7 +19,8 @@ info:
       cookies (RULE-029), nunca expone ids internos ni datos del staff (THREAT-011, THREAT-019).
     - `/api/v1/panel/**`: sesión Django + CSRF (ADR-API-001), autorización por acción en el servidor
       (deny-by-default, Blueprint §12), toda acción auditada (FEAT-046).
-    - `/health/live`, `/health/ready`: fuera de la versión, respuesta mínima (THREAT-028).
+    - `/health/live`, `/health/ready`: fuera de la versión, respuesta mínima (THREAT-028). Pueden recibir
+      429 del proxy de borde (CHG-API-002).
 
     ## Cabeceras globales (todas las respuestas)
     - `X-Trace-Id`: 32 hex (W3C trace-id); coincide con `trace_id` de los errores y con logs/trazas.
@@ -52,7 +53,15 @@ info:
     | panel-escritura | 120/min por cuenta |
     | panel-subida | 20/min por cuenta |
     | panel-vista-previa | 60/min por cuenta |
+    | (salud, solo proxy de borde) | 50 r/s por IP, burst 200 → 429 limite_tasa (CHG-API-002, DEC-AUTO-216) |
+
+    ## Texto de entrada sin NUL (CHG-API-002, DEC-AUTO-217)
+    Norma para TODA cadena de entrada (cuerpo JSON, query y cabeceras): el carácter U+0000 (NUL) no se
+    admite y el servidor responde 400 `validacion` (o `parametro_invalido` en query) con el campo en
+    `errors`. Los esquemas de texto de entrada lo declaran con `pattern: '^[^\u0000]*$'` (o con un
+    patrón propio que ya lo excluye) para que los clientes generados y schemathesis no generen NUL.
   x-ticket: TKT-F4-003
+  x-cambios: [CHG-API-001, CHG-API-002]
   x-estado: PROPOSED
   x-adr: [ADR-API-001, ADR-API-002]
 servers:
@@ -101,6 +110,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/EstadoSalud'}
               example: {status: ok}
+        '429': {$ref: '#/components/responses/LimiteTasaBorde'}
   /health/ready:
     get:
       tags: [salud]
@@ -116,6 +126,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/EstadoSalud'}
               example: {status: ok}
+        '429': {$ref: '#/components/responses/LimiteTasaBorde'}
         '503': {$ref: '#/components/responses/NoDisponible'}
 
   # ---------------------------------------------------------------- PÚBLICO
@@ -992,20 +1003,38 @@ paths:
     post:
       tags: [panel-auth]
       operationId: panelIniciarActivacionMfa
-      summary: Iniciar activación TOTP (devuelve URI otpauth; el QR se genera en el cliente, sin terceros)
+      summary: Iniciar activación TOTP con reautenticación (devuelve URI otpauth; el QR se genera en el cliente, sin terceros)
+      description: >-
+        Exige reautenticación con la contraseña actual de la cuenta (CHG-API-002, DEC-AUTO-215/218), también
+        con paso pendiente CONFIGURAR_MFA: una sesión robada no puede vincular un segundo factor del
+        atacante. Contraseña ausente, vacía o con formato inválido → 400 validacion con
+        `errors.contrasena`. Contraseña incorrecta → 401 credenciales_invalidas (misma semántica y tiempo
+        equivalente que el login, THREAT-018); NO cierra la sesión y el cliente NO debe tratar este 401
+        como sesión expirada (distinguir por `code`). Cada fallo cuenta en el contador por usuario
+        normalizado de RULE-017 (5 fallos → 429 acceso_bloqueado_temporalmente con Retry-After) y se
+        audita como LOGIN_FALLIDO. Solo con contraseña correcta se genera el secreto provisional;
+        cualquier secreto provisional previo de la sesión se descarta. MFA ya activo → 409
+        transicion_invalida. El cuerpo nunca se registra (THREAT-020).
       security:
         - sesionPanel: []
           csrfToken: []
       x-prioridad: SHOULD
-      x-trazabilidad: [FEAT-030, SCR-032, DEC-AUTO-037]
-      x-amenazas: [THREAT-001]
+      x-trazabilidad: [FEAT-030, SCR-032, DEC-AUTO-037, DEC-AUTO-215, DEC-AUTO-218]
+      x-amenazas: [THREAT-001, THREAT-002, THREAT-018, THREAT-020]
       x-limite-tasa: panel-escritura
+      x-cambio-incompatible: CHG-API-002 (requestBody obligatorio nuevo; operación aún no desplegada, ADR-API-002 §17)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/MfaActivacionInicioEntrada'}
       responses:
         '200':
-          description: Secreto provisional (no-store). No activa MFA hasta confirmar.
+          description: Contraseña verificada. Secreto provisional (no-store). No activa MFA hasta confirmar.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/MfaActivacionInicio'}
+        '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
         '409': {$ref: '#/components/responses/Conflicto'}
@@ -3281,7 +3310,8 @@ paths:
       summary: Alta de cuenta con contraseña temporal (se devuelve una sola vez)
       description: >-
         Estado inicial PENDIENTE_ACTIVACION. Usuario duplicado → 409 duplicado. Audita CUENTA_CREAR (sin
-        valores secretos). Idempotencia (DEC-AUTO-129): la respuesta no se persiste (AC-106). Repetir con
+        valores secretos). Idempotencia (DEC-AUTO-129; caso general en el parámetro IdempotencyKey,
+        CHG-API-002): la respuesta no se persiste nunca (AC-106). Repetir con
         una Idempotency-Key ya completada y la misma huella → 409 idempotencia_respuesta_no_reproducible con
         cabecera Location de la cuenta creada; el Administrador emite otra contraseña con
         POST /api/v1/panel/cuentas/{id}/restablecer-contrasena.
@@ -3618,12 +3648,12 @@ components:
       in: query
       required: true
       description: Texto de búsqueda (2..100 caracteres tras recortar espacios).
-      schema: {type: string, minLength: 2, maxLength: 100}
+      schema: {type: string, minLength: 2, maxLength: 100, pattern: '^[^\u0000]*$'}
     TextoFiltro:
       name: q
       in: query
       description: Filtro de texto del panel (título, alt, crédito según el recurso).
-      schema: {type: string, minLength: 1, maxLength: 100}
+      schema: {type: string, minLength: 1, maxLength: 100, pattern: '^[^\u0000]*$'}
     EstadoEditorialFiltro:
       name: estado
       in: query
@@ -3646,10 +3676,15 @@ components:
         el código y el cuerpo originales sin repetir el efecto (ALT-017). Misma clave con otra operación u
         otra huella → 422 idempotencia_conflicto. Si hay una petición concurrente con la misma clave aún en
         curso y la espera supera 3 s → 409 idempotencia_en_curso con Retry-After (reintentable con la misma
-        clave). Excepción: panelCrearCuenta no persiste su respuesta (AC-106, la contraseña temporal nunca
-        se guarda); repetirla con una clave ya completada → 409 idempotencia_respuesta_no_reproducible con
-        Location de la cuenta creada (DEC-AUTO-129). Si la operación falla (4xx/5xx) no se guarda nada y el
-        reintento con la misma clave la ejecuta de nuevo.
+        clave). Respuesta no reproducible (CHG-API-002, DEC-AUTO-219): si la operación se completó pero su
+        respuesta original NO se guardó, repetir la misma clave con la misma huella devuelve 409
+        idempotencia_respuesta_no_reproducible sin repetir el efecto. Ocurre (a) siempre en panelCrearCuenta,
+        que nunca persiste su respuesta (AC-106, la contraseña temporal nunca se guarda; DEC-AUTO-129), y
+        (b) en CUALQUIER operación idempotente cuyo cuerpo de respuesta original superó 64 KB (65 536 bytes,
+        DEC-AUTO-128). La cabecera Location solo acompaña al caso de panelCrearCuenta (ruta de la cuenta
+        creada); en el resto, el cliente trata la operación como ya realizada y relee el recurso afectado.
+        Si la operación falla (4xx/5xx) no se guarda nada y el reintento con la misma clave la ejecuta de
+        nuevo.
       schema: {type: string, format: uuid}
   responses:
     Validacion:
@@ -3693,7 +3728,9 @@ components:
         409 conflicto_version / transicion_invalida / slug_inmutable / slug_en_uso / duplicado /
         dependencia_bloqueante / medio_en_uso / ultimo_administrador / operacion_sobre_si_mismo /
         mfa_obligatorio / idempotencia_en_curso (reintentable: incluye Retry-After) /
-        idempotencia_respuesta_no_reproducible (solo panelCrearCuenta: incluye Location).
+        idempotencia_respuesta_no_reproducible (cualquier operación con Idempotency-Key cuya respuesta
+        original no se guardó: siempre panelCrearCuenta y, en las demás, cuando superó 64 KB; ver el
+        parámetro IdempotencyKey, DEC-AUTO-128/219. Solo en panelCrearCuenta incluye Location).
       headers:
         X-Trace-Id: {$ref: '#/components/headers/X-Trace-Id'}
         Retry-After:
@@ -3701,7 +3738,7 @@ components:
           required: false
           schema: {type: integer, minimum: 1}
         Location:
-          description: Solo con code idempotencia_respuesta_no_reproducible. Ruta de la cuenta creada (/api/v1/panel/cuentas/{id}).
+          description: Solo con code idempotencia_respuesta_no_reproducible y solo en panelCrearCuenta. Ruta de la cuenta creada (/api/v1/panel/cuentas/{id}). Ausente en el resto de operaciones.
           required: false
           schema: {type: string, format: uri-reference, pattern: '^/api/v1/panel/cuentas/[1-9][0-9]*$'}
       content:
@@ -3717,11 +3754,21 @@ components:
                 code: idempotencia_en_curso
                 trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
             idempotencia_respuesta_no_reproducible:
+              summary: panelCrearCuenta (con cabecera Location)
               value:
                 type: https://brujulasalvaje.example/errors/idempotencia_respuesta_no_reproducible
                 title: La cuenta ya se creó
                 status: 409
                 detail: La contraseña temporal no puede mostrarse otra vez. Usa Restablecer contraseña sobre la cuenta indicada.
+                code: idempotencia_respuesta_no_reproducible
+                trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
+            idempotencia_respuesta_no_reproducible_generica:
+              summary: Otra operación idempotente cuya respuesta original superó 64 KB (sin Location)
+              value:
+                type: https://brujulasalvaje.example/errors/idempotencia_respuesta_no_reproducible
+                title: Respuesta no reproducible
+                status: 409
+                detail: La operación ya se realizó y su respuesta no puede repetirse.
                 code: idempotencia_respuesta_no_reproducible
                 trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
     Retirado:
@@ -3771,6 +3818,25 @@ components:
       content:
         application/problem+json:
           schema: {$ref: '#/components/schemas/Problem'}
+    LimiteTasaBorde:
+      description: >-
+        429 limite_tasa emitido por el proxy de borde (no por Django) en /health/live y /health/ready:
+        zona de límite propia por IP, 50 r/s con burst 200 (RSK-OPS-020, CHG-API-002, DEC-AUTO-216). Mismo
+        cuerpo Problem que LimiteTasa, con X-Trace-Id y Retry-After. Un sondeo de orquestador/balanceador
+        que lo reciba debe tratarlo como "reintentar", no como caída del proceso.
+      headers:
+        X-Trace-Id: {$ref: '#/components/headers/X-Trace-Id'}
+        Retry-After: {$ref: '#/components/headers/Retry-After'}
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+          example:
+            type: https://brujulasalvaje.example/errors/limite_tasa
+            title: Demasiadas peticiones
+            status: 429
+            detail: Has superado el límite de peticiones. Inténtalo más tarde.
+            code: limite_tasa
+            trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
     ErrorInterno:
       description: 500 error_interno. Sin trazas ni detalles técnicos (ALT-025).
       headers:
@@ -3872,6 +3938,7 @@ components:
       type: string
       contentMediaType: text/html
       maxLength: 200000
+      pattern: '^[^\u0000]*$'
       description: >-
         HTML de lista blanca saneado en el servidor al guardar (RULE-022, DEC-AUTO-043/109): p, h2-h4,
         ul, ol, li, strong, em, blockquote y a[href] con http, https o ruta interna (RULE-021); términos
@@ -3880,7 +3947,7 @@ components:
       type: string
       format: uri
       maxLength: 2000
-      pattern: '^https?://'
+      pattern: '^https?://[^\u0000]*$'
       description: Solo http/https (RULE-021). Nunca se descarga desde el servidor (THREAT-022).
     EstadoEditorial:
       type: string
@@ -4647,9 +4714,9 @@ components:
       additionalProperties: false
       required: [usuario, contrasena]
       properties:
-        usuario: {type: string, minLength: 1, maxLength: 40}
-        contrasena: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true}
-        siguiente: {type: ['string', 'null'], maxLength: 2000, description: 'Solo se honra si es ruta relativa bajo /panel/ (AC-115).'}
+        usuario: {type: string, minLength: 1, maxLength: 40, pattern: '^[^\u0000]*$'}
+        contrasena: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true, pattern: '^[^\u0000]*$'}
+        siguiente: {type: ['string', 'null'], maxLength: 2000, pattern: '^[^\u0000]*$', description: 'Solo se honra si es ruta relativa bajo /panel/ (AC-115).'}
     SesionEstado:
       type: object
       required: [usuario, nombre_visible, rol, paso_pendiente, mfa_activo, mfa_obligatorio, expira_inactividad_en, expira_absoluta_en, redireccion]
@@ -4686,8 +4753,15 @@ components:
       additionalProperties: false
       required: [contrasena, codigo]
       properties:
-        contrasena: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true}
+        contrasena: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true, pattern: '^[^\u0000]*$'}
         codigo: {type: string, pattern: '^([0-9]{6}|[A-Z0-9]{4}-[A-Z0-9]{4})$', writeOnly: true}
+    MfaActivacionInicioEntrada:
+      type: object
+      description: Reautenticación para iniciar la activación de MFA (CHG-API-002, DEC-AUTO-215).
+      additionalProperties: false
+      required: [contrasena]
+      properties:
+        contrasena: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true, pattern: '^[^\u0000]*$'}
     MfaActivacionInicio:
       type: object
       required: [otpauth_uri, clave_secreta]
@@ -4708,8 +4782,8 @@ components:
       additionalProperties: false
       required: [contrasena_actual, contrasena_nueva]
       properties:
-        contrasena_actual: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true}
-        contrasena_nueva: {type: string, minLength: 12, maxLength: 128, format: password, writeOnly: true}
+        contrasena_actual: {type: string, minLength: 1, maxLength: 128, format: password, writeOnly: true, pattern: '^[^\u0000]*$'}
+        contrasena_nueva: {type: string, minLength: 12, maxLength: 128, format: password, writeOnly: true, pattern: '^[^\u0000]*$'}
     AutorizacionVigente:
       type: object
       required: [version_politica, vigente_desde, resumen_finalidad, url_politica]
@@ -4726,7 +4800,7 @@ components:
       required: [decision, version_politica]
       properties:
         decision: {type: string, enum: [AUTORIZO, NO_AUTORIZO]}
-        version_politica: {type: string, maxLength: 20, description: 'Debe coincidir con la vigente; si no, 409 conflicto_version.'}
+        version_politica: {type: string, maxLength: 20, pattern: '^[^\u0000]*$', description: 'Debe coincidir con la vigente; si no, 409 conflicto_version.'}
 
     # ------------------------------------------------------------ Panel: referencias comunes
     ActorRef:
@@ -4793,19 +4867,19 @@ components:
       additionalProperties: false
       required: [titulo]
       properties:
-        titulo: {type: string, minLength: 1, maxLength: 200}
-        entidad_editora: {type: ['string', 'null'], maxLength: 150}
-        url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://'}
+        titulo: {type: string, minLength: 1, maxLength: 200, pattern: '^[^\u0000]*$'}
+        entidad_editora: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
+        url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
         fecha_consulta: {type: ['string', 'null'], format: date}
     ContenidoComunCampos:
       type: object
       description: Campos editoriales comunes (ATR-COMUN). Nunca incluye estado, autoría ni version (THREAT-024).
       properties:
-        titulo: {type: string, minLength: 1, maxLength: 150}
+        titulo: {type: string, minLength: 1, maxLength: 150, pattern: '^[^\u0000]*$'}
         slug: {type: ['string', 'null'], maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', description: 'Null → se propone desde el título. Inmutable tras la primera publicación (RULE-008).'}
         fecha_ultima_revision: {type: ['string', 'null'], format: date, description: 'No futura (RULE-009).'}
-        seo_titulo: {type: ['string', 'null'], maxLength: 70}
-        seo_descripcion: {type: ['string', 'null'], maxLength: 160}
+        seo_titulo: {type: ['string', 'null'], maxLength: 70, pattern: '^[^\u0000]*$'}
+        seo_descripcion: {type: ['string', 'null'], maxLength: 160, pattern: '^[^\u0000]*$'}
         relaciones:
           type: array
           description: Relacionados curados en orden (FEAT-039). Sin autorrelación ni duplicados.
@@ -4903,8 +4977,8 @@ components:
       type: object
       properties:
         pais_id: {type: ['integer', 'null'], format: int64, minimum: 1}
-        resumen: {type: ['string', 'null'], maxLength: 300}
-        descripcion_experta: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        descripcion_experta: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         tipos_ids:
           type: array
           maxItems: 12
@@ -4920,11 +4994,11 @@ components:
         duracion_min_dias: {type: ['integer', 'null'], minimum: 1, maximum: 90}
         duracion_max_dias: {type: ['integer', 'null'], minimum: 1, maximum: 90}
         nivel_presupuesto: {type: ['integer', 'null'], minimum: 1, maximum: 4}
-        clima: {type: ['string', 'null'], maxLength: 5000}
+        clima: {type: ['string', 'null'], maxLength: 5000, pattern: '^[^\u0000]*$'}
         altitud_max_m: {type: ['integer', 'null'], minimum: -500, maximum: 9000}
-        como_llegar: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
-        seguridad_riesgos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
-        sostenibilidad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        como_llegar: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        seguridad_riesgos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        sostenibilidad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         latitud: {type: ['number', 'null'], minimum: -90, maximum: 90}
         longitud: {type: ['number', 'null'], minimum: -180, maximum: 180}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
@@ -4966,18 +5040,18 @@ components:
       required: [numero_dia]
       properties:
         numero_dia: {type: integer, minimum: 1, maximum: 60}
-        titulo: {type: ['string', 'null'], maxLength: 150}
-        actividades: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 50000}
+        titulo: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
+        actividades: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 50000, pattern: '^[^\u0000]*$'}
         distancia_km: {type: ['number', 'null'], minimum: 0, maximum: 99999.9}
         desnivel_positivo_m: {type: ['integer', 'null'], minimum: 0, maximum: 20000}
         desnivel_negativo_m: {type: ['integer', 'null'], minimum: 0, maximum: 20000}
-        alojamiento_orientativo: {type: ['string', 'null'], maxLength: 300}
-        consejos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 50000}
+        alojamiento_orientativo: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        consejos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 50000, pattern: '^[^\u0000]*$'}
     ItinerarioCampos:
       type: object
       properties:
         destino_id: {type: ['integer', 'null'], format: int64, minimum: 1}
-        resumen: {type: ['string', 'null'], maxLength: 300}
+        resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
         duracion_dias: {type: ['integer', 'null'], minimum: 1, maximum: 60}
         dificultad: {type: ['integer', 'null'], minimum: 1, maximum: 5}
         tipos_ids:
@@ -4987,7 +5061,7 @@ components:
           items: {$ref: '#/components/schemas/Id'}
         distancia_total_km: {type: ['number', 'null'], minimum: 0, maximum: 99999.9}
         desnivel_acumulado_m: {type: ['integer', 'null'], minimum: 0, maximum: 1000000}
-        riesgos_seguridad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        riesgos_seguridad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         galeria_ids:
           type: array
@@ -5030,8 +5104,8 @@ components:
       type: object
       properties:
         categoria_id: {type: ['integer', 'null'], format: int64, minimum: 1}
-        resumen: {type: ['string', 'null'], maxLength: 300}
-        cuerpo: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        cuerpo: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         destinos_ids:
           type: array
           maxItems: 20
@@ -5079,15 +5153,15 @@ components:
       additionalProperties: false
       required: [texto, esencial, orden]
       properties:
-        texto: {type: string, minLength: 1, maxLength: 200}
-        grupo: {type: ['string', 'null'], maxLength: 60}
+        texto: {type: string, minLength: 1, maxLength: 200, pattern: '^[^\u0000]*$'}
+        grupo: {type: ['string', 'null'], maxLength: 60, pattern: '^[^\u0000]*$'}
         esencial: {type: boolean}
         orden: {type: integer, minimum: 0, maximum: 1000}
     TipoAventuraCampos:
       type: object
       properties:
-        resumen: {type: ['string', 'null'], maxLength: 300}
-        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         nivel_exigencia: {type: ['integer', 'null'], minimum: 1, maximum: 5}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         orden: {type: integer, minimum: 0, maximum: 1000, default: 0}
@@ -5131,12 +5205,12 @@ components:
         tipo_contenido: {type: string, enum: [DESTINO, ITINERARIO]}
         contenido_id: {$ref: '#/components/schemas/Id'}
         orden: {type: integer, minimum: 0, maximum: 1000}
-        nota_editorial: {type: ['string', 'null'], maxLength: 300}
+        nota_editorial: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
     ColeccionCampos:
       type: object
       properties:
-        resumen: {type: ['string', 'null'], maxLength: 300}
-        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000}
+        resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         elementos:
           type: array
@@ -5173,9 +5247,9 @@ components:
     TerminoGlosarioCampos:
       type: object
       properties:
-        titulo: {type: string, minLength: 1, maxLength: 150, description: 'El término; único sin distinguir mayúsculas ni tildes (RULE-026).'}
+        titulo: {type: string, minLength: 1, maxLength: 150, pattern: '^[^\u0000]*$', description: 'El término; único sin distinguir mayúsculas ni tildes (RULE-026).'}
         slug: {type: ['string', 'null'], maxLength: 120, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'}
-        definicion: {type: ['string', 'null'], maxLength: 600}
+        definicion: {type: ['string', 'null'], maxLength: 600, pattern: '^[^\u0000]*$'}
         fecha_ultima_revision: {type: ['string', 'null'], format: date}
     TerminoGlosarioEntrada:
       allOf:
@@ -5205,13 +5279,13 @@ components:
     PaginaInstitucionalCampos:
       type: object
       properties:
-        titulo: {type: string, minLength: 1, maxLength: 150}
-        cuerpo: {type: string, contentMediaType: text/html, maxLength: 200000}
-        version_documento: {type: string, minLength: 1, maxLength: 20}
+        titulo: {type: string, minLength: 1, maxLength: 150, pattern: '^[^\u0000]*$'}
+        cuerpo: {type: string, contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        version_documento: {type: string, minLength: 1, maxLength: 20, pattern: '^[^\u0000]*$'}
         vigente_desde: {type: string, format: date}
         fecha_ultima_revision: {type: ['string', 'null'], format: date}
-        seo_titulo: {type: ['string', 'null'], maxLength: 70}
-        seo_descripcion: {type: ['string', 'null'], maxLength: 160}
+        seo_titulo: {type: ['string', 'null'], maxLength: 70, pattern: '^[^\u0000]*$'}
+        seo_descripcion: {type: ['string', 'null'], maxLength: 160, pattern: '^[^\u0000]*$'}
     PaginaInstitucionalActualizacion:
       allOf:
         - $ref: '#/components/schemas/PaginaInstitucionalCampos'
@@ -5247,7 +5321,7 @@ components:
       required: [version, motivo]
       properties:
         version: {type: integer, minimum: 1}
-        motivo: {type: string, minLength: 1, maxLength: 300, description: 'Interno; nunca se publica.'}
+        motivo: {type: string, minLength: 1, maxLength: 300, pattern: '^[^\u0000]*$', description: 'Interno; nunca se publica.'}
         confirmar_cascada: {type: boolean, default: false}
     ResultadoTransicion:
       type: object
@@ -5352,11 +5426,11 @@ components:
       type: object
       additionalProperties: false
       properties:
-        titulo_interno: {type: ['string', 'null'], maxLength: 150}
-        texto_alternativo: {type: ['string', 'null'], maxLength: 250}
-        pie_de_foto: {type: ['string', 'null'], maxLength: 300}
-        autor_credito: {type: ['string', 'null'], maxLength: 150}
-        fuente_url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://'}
+        titulo_interno: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
+        texto_alternativo: {type: ['string', 'null'], maxLength: 250, pattern: '^[^\u0000]*$'}
+        pie_de_foto: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
+        autor_credito: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
+        fuente_url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
         licencia_id: {type: ['integer', 'null'], format: int64, minimum: 1}
     MedioPanel:
       type: object
@@ -5412,8 +5486,8 @@ components:
     ConfigInicioCampos:
       type: object
       properties:
-        hero_titular: {type: string, minLength: 1, maxLength: 80}
-        hero_subtitulo: {type: string, minLength: 1, maxLength: 160}
+        hero_titular: {type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000]*$'}
+        hero_subtitulo: {type: string, minLength: 1, maxLength: 160, pattern: '^[^\u0000]*$'}
         hero_medio_id: {$ref: '#/components/schemas/Id'}
         destinos_ids:
           type: array
@@ -5460,13 +5534,13 @@ components:
     ConfiguracionSitioCampos:
       type: object
       properties:
-        nombre_marca: {type: string, minLength: 1, maxLength: 60}
-        lema: {type: ['string', 'null'], maxLength: 120}
-        texto_descargo: {type: string, minLength: 1, maxLength: 5000}
-        responsable_nombre: {type: ['string', 'null'], maxLength: 150}
-        responsable_identificacion: {type: ['string', 'null'], maxLength: 40}
-        responsable_domicilio: {type: ['string', 'null'], maxLength: 200}
-        responsable_canal_atencion: {type: ['string', 'null'], maxLength: 200}
+        nombre_marca: {type: string, minLength: 1, maxLength: 60, pattern: '^[^\u0000]*$'}
+        lema: {type: ['string', 'null'], maxLength: 120, pattern: '^[^\u0000]*$'}
+        texto_descargo: {type: string, minLength: 1, maxLength: 5000, pattern: '^[^\u0000]*$'}
+        responsable_nombre: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
+        responsable_identificacion: {type: ['string', 'null'], maxLength: 40, pattern: '^[^\u0000]*$'}
+        responsable_domicilio: {type: ['string', 'null'], maxLength: 200, pattern: '^[^\u0000]*$'}
+        responsable_canal_atencion: {type: ['string', 'null'], maxLength: 200, pattern: '^[^\u0000]*$'}
     ConfiguracionSitioEntrada:
       allOf:
         - $ref: '#/components/schemas/ConfiguracionSitioCampos'
@@ -5484,7 +5558,7 @@ components:
     RegionCampos:
       type: object
       properties:
-        nombre: {type: string, minLength: 1, maxLength: 60}
+        nombre: {type: string, minLength: 1, maxLength: 60, pattern: '^[^\u0000]*$'}
         slug: {$ref: '#/components/schemas/Slug'}
         continente: {$ref: '#/components/schemas/Continente'}
         orden: {type: integer, minimum: 0, maximum: 1000}
@@ -5504,7 +5578,7 @@ components:
     PaisCampos:
       type: object
       properties:
-        nombre: {type: string, minLength: 1, maxLength: 80}
+        nombre: {type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000]*$'}
         slug: {$ref: '#/components/schemas/Slug'}
         codigo_iso2: {type: string, pattern: '^[A-Z]{2}$'}
         region_id: {$ref: '#/components/schemas/Id'}
@@ -5524,9 +5598,9 @@ components:
     CategoriaGuiaCampos:
       type: object
       properties:
-        nombre: {type: string, minLength: 1, maxLength: 80}
+        nombre: {type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000]*$'}
         slug: {$ref: '#/components/schemas/Slug'}
-        descripcion: {type: string, minLength: 1, maxLength: 400}
+        descripcion: {type: string, minLength: 1, maxLength: 400, pattern: '^[^\u0000]*$'}
         orden: {type: integer, minimum: 0, maximum: 1000}
         activo: {type: boolean}
     CategoriaGuiaEntrada:
@@ -5545,8 +5619,8 @@ components:
       type: object
       properties:
         codigo: {type: string, minLength: 1, maxLength: 40, pattern: '^[A-Za-z0-9.-]+$'}
-        nombre: {type: string, minLength: 1, maxLength: 120}
-        url_texto_legal: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://'}
+        nombre: {type: string, minLength: 1, maxLength: 120, pattern: '^[^\u0000]*$'}
+        url_texto_legal: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
         requiere_atribucion: {type: boolean}
         compatible_publicacion: {type: boolean}
         activo: {type: boolean}
@@ -5567,8 +5641,8 @@ components:
       additionalProperties: false
       required: [etiqueta, descripcion]
       properties:
-        etiqueta: {type: string, minLength: 1, maxLength: 40}
-        descripcion: {type: string, minLength: 1, maxLength: 400}
+        etiqueta: {type: string, minLength: 1, maxLength: 40, pattern: '^[^\u0000]*$'}
+        descripcion: {type: string, minLength: 1, maxLength: 400, pattern: '^[^\u0000]*$'}
     NivelEscalaPanel:
       allOf:
         - type: object
@@ -5616,14 +5690,14 @@ components:
       required: [usuario, nombre_visible, rol]
       properties:
         usuario: {type: string, pattern: '^[a-z0-9._-]{3,40}$'}
-        nombre_visible: {type: string, minLength: 1, maxLength: 100}
+        nombre_visible: {type: string, minLength: 1, maxLength: 100, pattern: '^[^\u0000]*$'}
         rol: {$ref: '#/components/schemas/Rol'}
     CuentaActualizacionEntrada:
       type: object
       additionalProperties: false
       minProperties: 1
       properties:
-        nombre_visible: {type: string, minLength: 1, maxLength: 100}
+        nombre_visible: {type: string, minLength: 1, maxLength: 100, pattern: '^[^\u0000]*$'}
         rol: {$ref: '#/components/schemas/Rol'}
     CuentaConCredencialTemporal:
       type: object
