@@ -1,6 +1,7 @@
 # DEVOPS HANDOFF — TKT-F6-001 (F6 [PRE-DESARROLLO])
 
 Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
+Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -147,6 +148,7 @@ Archivos que DevOps **no** puede crear (CLAUDE.md §0.3) y que el entorno espera
 7. Comandos de gestión con los nombres del crontab: `purgar_sesiones`, `purgar_auditoria`, `anonimizar_cuentas`, `purgar_ops`, `verificar_busqueda`, `reindexar_busqueda` y `reaplicar_anonimizaciones`. Deben ser idempotentes, usar `pg_try_advisory_lock` (si no obtienen el lock, salen con código 0), registrar en `ops_ejecucion_tarea` y no escribir PII en los logs.
 8. Las migraciones RunSQL aplican las excepciones de privilegios que no son de F6: `django_migrations` solo SELECT para `app_rw`; los REVOKE de `readonly` y `app_rw` de DB_HANDOFF (n=10 y n=12); y el REVOKE EXECUTE FROM PUBLIC de las funciones SECURITY DEFINER.
 9. Logging JSON a stdout y sin IP completas. gunicorn corre sin access log (lo emite el proxy).
+   Desde TKT-OPS-001, las líneas propias de gunicorn usan el formatter `apps.core.observabilidad.formateador_json` (referenciado desde `infra/docker/gunicorn-logging.json`): si se renombra o se mueve, hay que avisar a DevOps (DEC-AUTO-153).
 10. `pytest` con `--cov-fail-under` según Skill_Backend y `drf-spectacular` con el comando `spectacular` disponible (el CI lo compara con `contracts/openapi.yaml` usando oasdiff).
 
 **frontend/**
@@ -165,11 +167,13 @@ Si hace falta un paquete de sistema en las imágenes (p. ej. `libmagic1`), se em
 La referencia completa, con comentarios y valores ficticios, está en `/.env.example`. Grupos:
 - Compose: `COMPOSE_PROJECT_NAME`, `PROXY_HOST_PORT`, `DB_DEBUG_HOST_PORT`, `APP_VERSION`.
 - PostgreSQL: `POSTGRES_SUPERUSER_PASSWORD` (solo el init), `DB_NAME`, `APP_MIGRATOR_PASSWORD`, `APP_RW_PASSWORD`, `READONLY_PASSWORD`, `APP_BACKUP_PASSWORD`.
-- Django: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SESSION_COOKIE_SECURE`, `DJANGO_CSRF_COOKIE_SECURE`, `DJANGO_SECURE_SSL_REDIRECT`, `DJANGO_SECURE_HSTS_SECONDS`, `DJANGO_NUM_PROXIES`, `DJANGO_LOG_LEVEL`, `THROTTLE_HMAC_KEY`, `MFA_FERNET_KEY`, `MEDIA_PUBLIC_URL`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Django: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SESSION_COOKIE_SECURE`, `DJANGO_CSRF_COOKIE_SECURE`, `DJANGO_SECURE_SSL_REDIRECT`, `DJANGO_SECURE_HSTS_SECONDS`, `DJANGO_NUM_PROXIES`, `DJANGO_LOG_LEVEL`, `THROTTLE_HMAC_KEY`, `MFA_FERNET_KEY`, `MEDIA_PUBLIC_URL`, `PROBLEM_TYPE_BASE_URL`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Compose las inyecta por servicio: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `MEDIA_ROOT`, `LIBRO_ANONIMIZACIONES_PATH`, `OTEL_SERVICE_NAME`, `TZ=UTC`.
 - SSR: `NG_ALLOWED_HOSTS`, `API_INTERNAL_URL`.
 - Copias: `BACKUP_AGE_RECIPIENT`, `BACKUP_RETENTION_DAYS`.
 - Solo CI: `DB_BOOTSTRAP_TEST_TEMPLATE`, `DB_CI_HOST_PORT`.
+
+`PROBLEM_TYPE_BASE_URL` (TKT-OPS-001, DEC-AUTO-103) es la base de las URI `type` de los errores `application/problem+json` (RFC 9457). Su valor es ficticio: `https://brujulasalvaje.example` (dominio reservado `.example`). compose la inyecta en backend, migrate y scheduler con ese mismo valor por defecto. En producción se sustituye por el dominio real (no es secreto).
 
 Todas las variables secretas usan `${VAR:?}` en compose: sin `.env`, `docker compose config` falla. Esto está verificado.
 
@@ -225,11 +229,11 @@ Todas las variables secretas usan `${VAR:?}` en compose: sin `.env`, `docker com
 ## 9. Seguridad
 
 - Sin secretos en el repositorio: `.env.example` solo contiene `CHANGE_ME`, gitleaks no encontró nada y `.env`, `*.key` y `*.pem` ya están en `.gitignore`. En el CI, `.env` se genera con valores aleatorios en cada ejecución.
-- Ningún contenedor de la aplicación corre como root. `init-volumes` es la única excepción: one-shot, sin red, con solo CHOWN y FOWNER, y justificado (DEC-AUTO-149).
+- Ningún contenedor de la aplicación corre como root. `init-volumes` es la única excepción: one-shot, sin red, con solo CHOWN y FOWNER, y justificado (DEC-AUTO-149). TKT-OPS-001 corrige su fallo sin añadir capacidades (DEC-AUTO-151; se descartó DAC_OVERRIDE).
 - Privacidad de los logs (REQ-057, THREAT-020):
   - nginx: IP truncada y sin query string; `error_log crit`.
   - PostgreSQL: `log_connections=off`, `log_min_duration_statement=-1`, `log_min_error_statement=panic` y `log_parameter_max_length*=0` (DEC-AUTO-145).
-  - gunicorn: sin access log.
+  - gunicorn: sin access log (`gunicorn.access` sin handlers ni propagación, verificado en TKT-OPS-001) y sin socket de control (DEC-AUTO-152).
 - **trivy 0.74.0 (CRITICAL/HIGH)**:
   | Imagen | Total | Con corrección disponible | Detalle |
   |---|---|---|---|
@@ -251,6 +255,10 @@ Todas las variables secretas usan `${VAR:?}` en compose: sin `.env`, `docker com
 | RSK-OPS-005 | `error_log crit` en nginx reduce el diagnóstico de fallos de upstream | LOW | El access log JSON registra estado y upstream_s; se puede bajar a `error` temporalmente en local | ACEPTADO (local) |
 | RSK-OPS-006 | Rotación de logs por tamaño (10 MB × 5), no por días (FEAT-048 ≤30 días) | LOW | En producción, logs centralizados con TTL de 30 días (§23.5) | ABIERTO |
 | RSK-OPS-007 | Algunas opciones del CI dependen del código real (nombre de `api:generate`, `--include-path-regex` y nombres de checks de schemathesis 4.28, `tsconfig.app.json`) | LOW | Verificar en la primera ejecución del CI y ajustarlas mediante un ticket a DevOps | NOT_RUN |
+| RSK-TKT001-01 | `init-volumes` fallaba (`mkdir /vol/media/publico: Permission denied`) cuando el volumen de medios vacío se poblaba desde la imagen del backend (propietario 10001) | MEDIUM | DEC-AUTO-151: chown 0:0 del raíz del volumen antes de `mkdir` (TKT-OPS-001) | CERRADO (validado) |
+| RSK-TKT001-02 | gunicorn 26: `Control server error: Read-only file system: /app/.gunicorn` y líneas propias que no son JSON | LOW | DEC-AUTO-152 (`--no-control-socket`) + DEC-AUTO-153 (`--log-config-json`) (TKT-OPS-001) | CERRADO (validado) |
+| RSK-OPS-009 | gunicorn ignora en silencio un `--log-config-json` inexistente o ilegible y vuelve al formato de texto | LOW | La prueba de §13.8 comprueba 0 líneas no JSON; añadir esa comprobación al smoke del CI | ABIERTO |
+| RSK-OPS-010 | Las etiquetas `brujula/*:0.0.0-dev` son comunes a todos los proyectos Compose del host (p. ej. `brujula-qa001`): el build de un proyecto sustituye la imagen de otro | LOW | Usar un `APP_VERSION` distinto en cada proyecto de validación | ABIERTO |
 | RSK-OPS-008 | Las reglas de semgrep del registro (`p/django`…) no están fijadas por versión | LOW | Vendorizar las reglas en F9 si se requiere reproducibilidad estricta | ABIERTO |
 
 Pendientes que no son de DevOps: el CHG-API-001 (TKT-F4-005) sigue en curso, así que el contrato puede cambiar antes de F7; y RSK-DB-011.
@@ -274,3 +282,95 @@ Pendientes que no son de DevOps: el CHG-API-001 (TKT-F4-005) sigue en curso, as�
 1. Registrar DEC-AUTO-140 a DEC-AUTO-150 y RSK-OPS-001 (Puerta Humana antes de F9).
 2. Inyectar el §6 de este documento en los Micro-Tickets de F7 (bootstrap de backend/ y frontend/).
 3. Después, **Skill_Developer** (F7).
+
+## 13. TKT-OPS-001 — correcciones de infraestructura (F7, soporte)
+
+### 13.1 Estado
+**COMPLETADO.** Rama `tkt-ops-001-infra-fixes`, sin merge: la integra el Orquestador.
+
+### 13.2 Objetivo
+Corregir los defectos de infraestructura que informó el Developer de TKT-001 (RSK-TKT001-01 y RSK-TKT001-02) y exponer `PROBLEM_TYPE_BASE_URL` (DEC-AUTO-103).
+
+### 13.3 Cambios realizados
+- **RSK-TKT001-01 → DEC-AUTO-151** (`compose.yaml`, servicio `init-volumes`):
+  - Cambio: el script hace `chown 0:0 /vol/media` y `chmod 0755 /vol/media` antes de `mkdir -p publico privado`. Al final devuelve la propiedad a 10001, igual que antes.
+  - Causa: al crear un contenedor, Docker copia el propietario y los permisos del directorio de la imagen a un volumen vacío. Si el último contenedor creado que monta `media` es el backend (`/var/lib/brujula/media`, 10001, 0755), el raíz del volumen queda como 10001. Entonces root sin `CAP_DAC_OVERRIDE` no puede escribir en él.
+  - Por eso el resultado depende del orden de creación: `docker compose up backend` falla siempre en un volumen limpio, mientras que el stack completo pasa si el proxy se crea después (su `/srv/media` es de root).
+  - Alternativas:
+    - (a) `cap_add: DAC_OVERRIDE`. Descartada: root podría saltarse todos los permisos del volumen, incluida la lectura de `privado/`.
+    - (b) Quitar `/var/lib/brujula/media` de la imagen. Descartada como única medida: no repara los volúmenes ya poblados y cambia el comportamiento de la imagen fuera de compose.
+    - (c) **Elegida**: tomar la propiedad con la capacidad CHOWN que el servicio ya tenía. No añade privilegios, no depende del orden y repara los volúmenes existentes. Es reversible (una línea).
+- **RSK-TKT001-02 → DEC-AUTO-152 y DEC-AUTO-153** (`infra/docker/backend.Dockerfile` y el nuevo `infra/docker/gunicorn-logging.json`):
+  - `--no-control-socket`: desde la 25.1, gunicorn abre un socket de control en `$HOME/.gunicorn`, que aquí es `/app` (solo lectura). En el contenedor no se usa `gunicornc`, porque la gestión se hace con señales y compose. Por eso se desactiva en lugar de moverlo a `/tmp`: así hay menos superficie.
+  - `--log-config-json /etc/brujula/gunicorn-logging.json` sustituye a `--error-logfile -`:
+    - `gunicorn.error` escribe en stdout con el formatter JSON del backend (`apps.core.observabilidad.formateador_json`), con las mismas claves `event`, `level`, `logger` y `timestamp` y el mismo filtro de claves sensibles.
+    - `gunicorn.access` queda sin handlers, a nivel CRITICAL y sin propagar. Con un logconfig, gunicorn emitiría el access log con la IP completa (REQ-057).
+  - `/etc/brujula` se crea con 0755 en el `RUN` que crea el usuario, porque `COPY --chmod=0444` aplica ese modo también al directorio padre que crea. La primera prueba lo mostró con un `Permission denied`.
+  - **No hizo falta ningún archivo en backend/** (tampoco `gunicorn.conf.py`), así que no hay ticket al Developer. El único requisito es que la ruta del formatter no cambie (§6, punto 9).
+- **DEC-AUTO-103**: `PROBLEM_TYPE_BASE_URL=https://brujulasalvaje.example` en `.env.example` y en `x-backend-env` de `compose.yaml` (antes el backend solo usaba su valor por defecto interno) (§7).
+
+### 13.4 Versiones aprobadas
+No cambian las versiones ni las imágenes base. Validado con el backend real de TKT-001 (rama `tkt-001-backend-base` @ 7e84ed0): Django 5.2.17, gunicorn 26.2.0, psycopg 3.3.6 y structlog 26.1.0, sobre `python:3.13.15-slim-trixie` fijado por digest.
+
+### 13.5 Infraestructura
+Sin cambios de topología, redes, puertos, límites ni healthchecks.
+
+### 13.6 Dependencias
+No se modificó ninguna dependencia ni ningún lockfile.
+
+### 13.7 Variables de entorno
+Nueva: `PROBLEM_TYPE_BASE_URL` (§7). Valor ficticio; no es un secreto.
+
+### 13.8 Validaciones ejecutadas (2026-09-25, Docker Engine 29.6.1, Compose v5.2.0)
+Entorno de validación montado **fuera del repositorio**, en el scratchpad:
+- Copia de `compose.yaml`, `infra/`, `scripts/ops/` y `.env.example` de la rama.
+- `backend/` copiado del worktree de TKT-001, sin `.venv`.
+- `.env` generado con `scripts/ops/init-env.sh` (valores aleatorios locales).
+- Proyecto `-p brujula-ops001` con `PROXY_HOST_PORT=18081`.
+
+**El frontend todavía no existe.** Se sustituyó por un stub: un override `compose.stub.yaml` no versionado que usa python:3.13.15-slim fijado, corre con uid 65534 y responde 200 en el puerto 4000. La validación cubre db, init-volumes, migrate, backend y proxy; el frontend real queda NOT_RUN.
+
+| Check | Resultado |
+|---|---|
+| Reproducción con la infra de `main`: `up --wait backend` en volúmenes limpios | FALLA como se informó: `mkdir: cannot create directory '/vol/media/publico': Permission denied` (exit 1). Aislado con `docker run`: con CapEff=CHOWN+FOWNER sobre un raíz 10001 0755, el acceso se deniega |
+| Reproducción con la infra de `main`: logs del backend | `[ERROR] Control server error: [Errno 30] Read-only file system: '/app/.gunicorn'` y 6 líneas de gunicorn que no son JSON |
+| `docker compose config --quiet`: base, `--profile ops`, +ci y +debug | VALIDADO: 4/4 |
+| `up -d --build --wait` del stack completo en volúmenes limpios (db, init-volumes, migrate, backend, proxy y el stub del frontend) | VALIDADO: rc=0. db, backend, frontend (stub) y proxy healthy; init-volumes y migrate terminan con exit 0 |
+| `up --wait backend` en volúmenes limpios (el caso que fallaba) | VALIDADO: rc=0 |
+| Volumen `media` poblado antes desde la imagen del backend (raíz 10001) y después `up --wait backend` | VALIDADO: rc=0. También repara un volumen existente |
+| Permisos finales: media 10001 0755, publico 0755, privado 0750, ops 0750 | VALIDADO |
+| Segunda ejecución de init-volumes (`--force-recreate`) | VALIDADO (idempotente) |
+| Peticiones a través del proxy: `/health/ready` → 200; `/api/v1/no-existe-ops001` → 404 con `type` `https://brujulasalvaje.example/errors/no_encontrado`; `/` → 200 (stub) | VALIDADO |
+| Logs del backend: 11/11 líneas JSON (arranque, peticiones y `stop`, de `Handling signal: term` a `Shutting down: Master`) | VALIDADO: 0 líneas no JSON, ninguna con "Control server" ni "Read-only" y ninguna de access log |
+| `PROBLEM_TYPE_BASE_URL` presente en el entorno del contenedor backend | VALIDADO |
+| Build del target `scheduler` | VALIDADO (el perfil ops completo no se ejecutó) |
+| JSON de `gunicorn-logging.json` | VALIDADO |
+| gitleaks 8.30.1 sobre compose.yaml, .env.example e infra/ | VALIDADO: no leaks found |
+| Limpieza con `--profile ops down -v` | VALIDADO: no queda ningún volumen ni red `brujula-ops001`. No se tocaron los contenedores `backend`, `frontend` y `db` (PROYECTO1) ni los de `brujula-qa001` |
+
+NOT_RUN y por qué:
+- Frontend real: todavía no existe.
+- Perfil `ops` en ejecución (scheduler y backup).
+- trivy y syft sobre la imagen reconstruida: la base no cambió; quedan para CI/F9 (RSK-OPS-001).
+- CI en GitHub: no hay remoto.
+
+### 13.9 Seguridad
+No se añaden capacidades ni privilegios, y se quita un socket de control que no se usaba. El access log de gunicorn sigue anulado. No hay secretos: solo un dominio `.example`.
+
+### 13.10 Riesgos / pendientes
+- RSK-TKT001-01 y RSK-TKT001-02: CERRADOS.
+- Nuevos: RSK-OPS-009 y RSK-OPS-010 (§10).
+- Las imágenes `brujula/backend:0.0.0-dev` y `brujula/scheduler:0.0.0-dev` del host se reconstruyeron durante la validación (RSK-OPS-010). No se borraron, para no afectar a otros proyectos.
+
+### 13.11 Archivos modificados
+- `compose.yaml`
+- `.env.example`
+- `infra/docker/backend.Dockerfile`
+- `infra/docker/gunicorn-logging.json` (nuevo)
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 13.12 Próximo agente
+**Orquestador**, que debe:
+1. Registrar DEC-AUTO-151, DEC-AUTO-152 y DEC-AUTO-153, y cerrar RSK-TKT001-01 y RSK-TKT001-02.
+2. Integrar esta rama en `main`.
+3. Después, el Developer de TKT-001 hace rebase o merge de `main` y repite su `docker compose up --wait`.

@@ -50,6 +50,8 @@ x-backend-env: &backend-env
   MEDIA_ROOT: /var/lib/brujula/media
   MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-/media/publico/}
   LIBRO_ANONIMIZACIONES_PATH: /var/lib/brujula/ops/libro_anonimizaciones.log
+  # Base de los "type" de application/problem+json (RFC 9457, DEC-AUTO-103)
+  PROBLEM_TYPE_BASE_URL: ${PROBLEM_TYPE_BASE_URL:-https://brujulasalvaje.example}
   DB_HOST: db
   DB_PORT: "5432"
   DB_NAME: ${DB_NAME:-brujula}
@@ -76,6 +78,11 @@ services:
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
+        # DEC-AUTO-151 (RSK-TKT001-01): si el volumen vacío se pobló desde la imagen del backend
+        # (/var/lib/brujula/media, propietario 10001), root sin DAC_OVERRIDE no puede crear
+        # subdirectorios. Se toma la propiedad primero (CAP_CHOWN) y se devuelve al final.
+        chown 0:0 /vol/media
+        chmod 0755 /vol/media
         mkdir -p /vol/media/publico /vol/media/privado
         chmod 0755 /vol/media /vol/media/publico
         chmod 0750 /vol/media/privado
