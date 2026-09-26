@@ -127,6 +127,17 @@ jobs:
         with: {python-version: "${{ env.PYTHON_VERSION }}"}
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with: {version: "${{ env.UV_VERSION }}", enable-cache: true, cache-dependency-glob: "backend/uv.lock"}
+      # TKT-OPS-003: el .env efímero y las variables se preparan ANTES del typecheck. El plugin de
+      # django-stubs de mypy carga los settings, que fallan cerrados (ImproperlyConfigured) si falta
+      # DB_PASSWORD; y "parar BD" necesita el .env para interpolar compose.yaml aunque falle antes.
+      - name: entorno efímero (.env + variables, valores aleatorios por ejecución)
+        working-directory: .
+        run: |
+          bash scripts/ops/init-env.sh .env
+          {
+            grep -E '^(DJANGO_SECRET_KEY|THROTTLE_HMAC_KEY|MFA_FERNET_KEY)=' .env
+            echo "DB_PASSWORD=$(grep '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
+          } >> "$GITHUB_ENV"
       - name: install (lockfile)
         run: uv sync --frozen
       - name: lint / format
@@ -137,13 +148,7 @@ jobs:
         run: uv run --frozen mypy .
       - name: PostgreSQL efímero (INFRA-DB-000 + plantilla de test)
         working-directory: .
-        run: |
-          bash scripts/ops/init-env.sh .env
-          docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
-          {
-            grep -E '^(DJANGO_SECRET_KEY|THROTTLE_HMAC_KEY|MFA_FERNET_KEY)=' .env
-            echo "DB_PASSWORD=$(grep '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
-          } >> "$GITHUB_ENV"
+        run: docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
       - name: migraciones (makemigrations --check + migrate)
         run: |
           uv run --frozen python manage.py makemigrations --check --dry-run
