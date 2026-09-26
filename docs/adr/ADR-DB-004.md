@@ -4,8 +4,8 @@
 |---|---|
 | Estado | PROPOSED |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-002 |
-| Trazabilidad | REQ-054 (RPO ≤24 h / RTO ≤4 h, AC-054), REQ-057 (AC-058), REQ-070, THREAT-012, THREAT-013, THREAT-020, THREAT-025, AC-030, AC-107; BLUEPRINT §39.2, §39.6; DEC-AUTO-027, 034, 052; DEC-AUTO-091..094, 096 |
+| Ticket | TKT-F4-002; revisado en TKT-F4-004 (CHG-DB-001) y TKT-F4-006 (CHG-DB-002, 2026-09-26) |
+| Trazabilidad | REQ-054 (RPO ≤24 h / RTO ≤4 h, AC-054), REQ-055, REQ-057 (AC-058), REQ-070, RULE-015, RULE-017, AC-108, THREAT-012, THREAT-013, THREAT-020, THREAT-025, AC-030, AC-107; BLUEPRINT §39.2, §39.6; DEC-AUTO-027, 034, 052; DEC-AUTO-091..094, 096; DEC-AUTO-190, DEC-AUTO-200..204; OBS-QA003-01, OBS-QA003-05 |
 
 ## Contexto
 - [OBSERVADO] DATA-025 es de solo inserción: ningún rol puede modificar ni borrar eventos, con dos excepciones. La primera es la purga automática de los eventos con más de 365 días; la segunda, la sustitución de `actor_etiqueta` por un seudónimo al anonimizar una cuenta (§18.4, THREAT-013).
@@ -20,7 +20,7 @@
    - UPDATE: solo se permite si únicamente cambian `actor_etiqueta` (hacia un valor con el prefijo `Cuenta anonimizada #`) e `ip_truncada` (hacia NULL). Cualquier otro cambio → EXCEPTION.
    - DELETE: solo se permite si `OLD.ocurrido_en < now() - interval '365 days'`.
    - TRUNCATE: siempre EXCEPTION.
-3. **Funciones SECURITY DEFINER** (propietario `app_migrator`, `SET search_path = pg_catalog, app`, EXECUTE solo para `app_rw`):
+3. **Funciones SECURITY DEFINER** (propietario `app_migrator`, `SET search_path = pg_catalog, app, pg_temp` desde CHG-DB-002 —en la v1.1 era `pg_catalog, app`—, EXECUTE solo para `app_rw`). `pg_temp` se lista explícitamente y al final porque, si no aparece, PostgreSQL lo busca **el primero** para relaciones, y un llamante con privilegio TEMP podría suplantar una tabla no cualificada ([OBSERVADO] documentación de PostgreSQL, *CREATE FUNCTION — Writing SECURITY DEFINER Functions Safely*). Se aplica con `ALTER FUNCTION ... SET search_path` en la migración nueva `auditoria.0003_endurecimiento`, que conserva propietario, SECURITY DEFINER y GRANT. `DEC-AUTO-201`.
    - `app.fn_auditoria_purgar() RETURNS integer`: borra los eventos con `ocurrido_en < now() - interval '365 days'` (el corte está fijado en el cuerpo de la función; el llamante no lo decide).
    - `app.fn_auditoria_seudonimizar(p_cuenta_id bigint) RETURNS integer`: pone `actor_etiqueta = 'Cuenta anonimizada #' || p_cuenta_id` e `ip_truncada = NULL` en los eventos de esa cuenta, **solo si** la cuenta está en estado ANONIMIZADA (se comprueba dentro de la función).
 4. `ip_truncada` es de tipo `cidr`, con `CHECK ((family(ip_truncada)=4 AND masklen(ip_truncada)=24) OR (family(ip_truncada)=6 AND masklen(ip_truncada)=48))`. El tipo `cidr` rechaza los bits de host distintos de cero, así que la base de datos **no puede** almacenar una IP completa. Solo se admite en las acciones de autenticación (CHECK). `DEC-AUTO-092`.
@@ -56,7 +56,26 @@
 7. Verificación: conteos por tipo y estado frente a la copia, invariante de búsqueda y `/health/ready`.
 - **Prueba de restauración**: el simulacro de AC-054 en F8 (evidencia: registro con tiempos y resultados de la verificación del manifiesto) y después **mensual**. Un backup no restaurado se considera no válido (Skill_Base_datos §2).
 
+### 5. Prohibición de borrado físico defendida en la base de datos (CHG-DB-002, 2026-09-26)
+Contexto: [OBSERVADO en el QA de TKT-003, OBS-QA003-01] `trg_cuenta_admin_minimo` solo vigila UPDATE y `app_rw` tenía DELETE en `cuenta_staff`: un `DELETE` SQL del único administrador sin referencias confirmaba y dejaba 0 administradores, pese a que la regla es "una cuenta nunca se borra; se anonimiza". Decisión del Orquestador: `DEC-AUTO-190`. [OBSERVADO BLUEPRINT §39.2] "Borrado físico solo en: borradores nunca publicados, medios RECHAZADOS (nunca se persisten), eventos de auditoría con más de 365 días, registros técnicos con más de 30 días y sesiones expiradas. Todo lo demás se retira o se anonimiza."
+
+| Tabla | Privilegio de `app_rw` | Trigger (aplica también al propietario) | Migración | DEC |
+|---|---|---|---|---|
+| `cuenta_staff` | sin DELETE ni TRUNCATE | `trg_cuenta_sin_borrado` BEFORE DELETE por fila: rechaza siempre | `cuentas.0002_sin_borrado` | 200 |
+| `revision_contenido` | sin UPDATE, DELETE ni TRUNCATE (ya en v1.1) | `trg_revision_inmutable` BEFORE UPDATE OR DELETE por fila: rechaza siempre | `auditoria.0003_endurecimiento` | 202 |
+| `medio` | sin DELETE ni TRUNCATE | `trg_medio_sin_borrado` BEFORE DELETE por fila: rechaza siempre | `medios.0002_sin_borrado` | 203 |
+| 7 subtipos de `contenido` | conserva DELETE (borradores) | `trg_subtipo_guarda_borrado` BEFORE DELETE por fila: rechaza si el contenido padre existe y se publicó alguna vez o es PAGINA | `contenido.0003_guardas_subtipos` | 203 |
+| `region`, `pais`, `categoria_guia`, `licencia`, `nivel_escala`, `config_inicio`, `config_sitio` | sin DELETE ni TRUNCATE | ninguno (el reverso de las migraciones de semilla borra con `app_migrator`) | `catalogos.0003_sin_borrado`, `inicio.0002_sin_borrado` | 204 |
+
+Reglas comunes:
+- Errores con `ERRCODE 'restrict_violation'` (23001; `check_violation` en el UPDATE de revisiones) y `CONSTRAINT = '<nombre del trigger>'`, que Django convierte en `IntegrityError`. Funciones de trigger `SECURITY INVOKER` con `SET search_path = pg_catalog, app, pg_temp`.
+- **Sin triggers de TRUNCATE nuevos.** En `cuenta_staff`, TRUNCATE exige incluir `evento_auditoria` (FK `actor_id`), cuyo trigger de TRUNCATE ya lo rechaza siempre. En el resto, `app_rw` no tiene TRUNCATE y el propietario ya puede hacer DROP. Así el backend de pruebas `apps/ops/bd_pruebas` (vaciado con TRUNCATE, que no dispara triggers de fila) no cambia.
+- `trg_cuenta_admin_minimo` no se amplía a DELETE: con el borrado prohibido, el único camino a 0 administradores operativos es el UPDATE de rol o estado, que ya vigila.
+- **Flujos que no cambian**: `anonimizar_cuentas`, "Anonimizar ahora" y `reaplicar_anonimizaciones` hacen UPDATE de la cuenta y DELETE solo de sus hijos (`cuenta_codigo_recuperacion`, `sesion_panel`, `idempotencia_peticion`). El borrado de borradores nunca publicados (FEAT-038) es de contenido: el Collector de Django borra el subtipo antes que el supertipo (el padre sigue en BORRADOR, así que se permite), y en la cascada SQL el padre ya no es visible (se permite). `pg_restore` solo inserta.
+- **Reversibilidad**: las seis migraciones son EXPAND y su `reverse_sql` elimina triggers y funciones y devuelve los privilegios de la v1.1. `migrate <app> zero` sigue funcionando porque DROP TABLE no dispara triggers de DELETE. Cualquier migración futura que necesite borrar filas de estas tablas es destructiva y requiere Puerta Humana (CLAUDE.md §0.5). `ALTER TABLE ... DISABLE TRIGGER` queda prohibido en migraciones de avance y en el código.
+
 ## Trade-offs y riesgos
+- CHG-DB-002: el propietario `app_migrator` puede sortear los triggers con DDL, igual que en `evento_auditoria` (RSK-DB-014, aceptado: solo lo usa el job de migración). Las pruebas que borren cuentas o medios por ORM deben reescribirse.
 - El libro de anonimizaciones es un segundo artefacto que proteger. No contiene PII (solo ids), pero su pérdida impediría re-aplicar un "Anonimizar ahora" posterior a la copia. Mitigación: se almacena en el volumen de operación y se incluye en la copia de ese volumen, que es independiente de la rotación del dump.
 - `pg_dump` lógico de una instancia única: en el peor caso se pierden 24 h de edición (aceptado en DEC-AUTO-027).
 - El trigger de inmutabilidad no protege frente a un superusuario, que no se usa en la aplicación (§7.4).
@@ -65,3 +84,5 @@
 - RPO < 24 h → archivado de WAL (pgBackRest o WAL-G) + PITR.
 - La normativa exige conservar la auditoría más de 365 días o conservar la copia más de 30 días (conflicto con REQ-057: revisión con el Arquitecto Funcional).
 - Los medios dejan de ser inmutables (edición in-place): la copia de medios tendría que hacerse con snapshot.
+- (§5) Aparece un requisito legal o de producto de **supresión física** de una cuenta o de un medio (p. ej., un derecho de supresión que la anonimización no satisfaga, o la retirada de un medio por infracción de derechos que exija borrar la fila): se sustituiría el trigger por una función SECURITY DEFINER de borrado controlado y auditado, con su propia Puerta Humana.
+- (§5) El diseño de subida de medios pasa a asíncrono y necesita borrar filas: revisar `DEC-AUTO-203`.

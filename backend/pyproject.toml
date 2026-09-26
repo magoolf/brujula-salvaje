@@ -1,0 +1,76 @@
+[project]
+name = "brujula-backend"
+version = "0.1.0"
+description = "Backend Django/DRF del portal Brujula Salvaje (TKT-001)"
+requires-python = "==3.13.*"
+dependencies = [
+    "django==5.2.17",
+    "djangorestframework==3.18.1",
+    "drf-spectacular==0.30.0",
+    "gunicorn==26.2.0",
+    "opentelemetry-api==1.45.0",
+    "opentelemetry-exporter-otlp-proto-http==1.45.0",
+    "opentelemetry-instrumentation-django==0.66b0",
+    "opentelemetry-instrumentation-psycopg==0.66b0",
+    "opentelemetry-sdk==1.45.0",
+    "psycopg[binary]==3.3.6",
+    "structlog==26.1.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "django-stubs==5.2.9",
+    "djangorestframework-stubs==3.16.9",
+    "mypy==1.19.1",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pytest-django==4.14.0",
+    "ruff==0.16.9",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "S", "DJ", "N", "SIM", "RUF", "PT", "T20", "LOG", "G"]
+ignore = ["RUF001", "RUF002", "RUF003", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106", "N802", "PT018", "SIM300"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+exclude = ["^\\.venv/", "/migrations/"]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[[tool.mypy.overrides]]
+# Las pruebas usan dobles (SimpleNamespace, listas como queryset): no se tipan en estricto.
+module = ["apps.*.tests.*", "conftest"]
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--ds=config.settings.test",
+    "--strict-markers",
+    "--cov=apps",
+    "--cov=config",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
+testpaths = ["apps"]
+python_files = ["test_*.py"]
+
+[tool.coverage.run]
+branch = true
+# Mide también los subprocesos (manage.py check --deploy, arranque WSGI con settings prod).
+patch = ["subprocess"]
+omit = ["**/migrations/**", "**/tests/**", "config/asgi.py"]
