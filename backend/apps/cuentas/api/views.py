@@ -18,7 +18,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import idempotencia
-from apps.core.api.serializers import ProblemaValidacionSerializer, ProblemSerializer
+from apps.core.api.serializers import (
+    ProblemaConUsosSerializer,
+    ProblemaValidacionSerializer,
+    ProblemSerializer,
+)
 from apps.core.exceptions import NoEncontrado
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import errores_de_parametros, validar_parametros
@@ -51,8 +55,13 @@ TRAS_MFA = frozenset(TODOS_LOS_PASOS - {Paso.MFA})
 # ---------------------------------------------------------------------------
 # Documentación de errores (components.responses del contrato)
 # ---------------------------------------------------------------------------
-def _problema(descripcion: str, *, con_errores: bool = False) -> OpenApiResponse:
-    esquema = ProblemaValidacionSerializer if con_errores else ProblemSerializer
+def _problema(descripcion: str, codigo: int) -> OpenApiResponse:
+    """Esquema de error del contrato: ProblemaValidacion (400/422), ProblemaConUsos (409)."""
+    esquema: type[ProblemSerializer] = ProblemSerializer
+    if codigo in (400, 422):
+        esquema = ProblemaValidacionSerializer
+    elif codigo == 409:
+        esquema = ProblemaConUsosSerializer
     return OpenApiResponse(esquema, description=descripcion)
 
 
@@ -68,9 +77,7 @@ def _errores(*codigos: int) -> dict[Any, OpenApiResponse]:
         500: "500 error_interno.",
     }
     return {
-        (codigo, MEDIA_TYPE_PROBLEMA): _problema(
-            descripciones[codigo], con_errores=codigo in (400, 422)
-        )
+        (codigo, MEDIA_TYPE_PROBLEMA): _problema(descripciones[codigo], codigo)
         for codigo in codigos
     }
 

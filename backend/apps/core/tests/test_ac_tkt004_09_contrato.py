@@ -14,7 +14,7 @@ import pytest
 import yaml
 from django.conf import settings
 
-from apps.core.esquema import GeneradorContrato, _sin_envoltorio_readonly
+from apps.core.esquema import GeneradorContrato, _sin_envoltorio_readonly, alinear_con_contrato
 
 METODOS = {"get", "put", "post", "delete", "patch"}
 OPERACIONES_TKT004 = {
@@ -88,6 +88,30 @@ def test_AC_TKT004_09_convenciones_estructurales_del_contrato(esquemas):
     assert conflicto["content"]["application/problem+json"]["schema"] == {
         "$ref": "#/components/schemas/ProblemaConUsos"
     }
+
+
+def test_OBS_QA004_09_el_hook_no_reasigna_respuestas_por_codigo():
+    problema = {"$ref": "#/components/schemas/Problem"}
+    resultado = {
+        "paths": {
+            "/x": {
+                "post": {
+                    "responses": {
+                        "400": {"content": {"application/problem+json": {"schema": problema}}},
+                        "409": {"content": {"application/problem+json": {"schema": problema}}},
+                    }
+                }
+            }
+        },
+        "components": {"schemas": {"Problem": {"type": "object"}}},
+    }
+    salida = alinear_con_contrato(resultado, None, None, True)
+    respuestas = salida["paths"]["/x"]["post"]["responses"]
+    # Una vista que documenta Problem en 400/409 sigue documentando Problem: el gate la verá.
+    assert respuestas["400"]["content"]["application/problem+json"]["schema"] == problema
+    assert respuestas["409"]["content"]["application/problem+json"]["schema"] == problema
+    assert "ProblemaValidacion" not in salida["components"]["schemas"]
+    assert "ProblemaConUsos" not in salida["components"]["schemas"]
 
 
 def test_sin_envoltorio_readonly_conserva_otras_composiciones():

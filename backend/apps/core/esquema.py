@@ -9,7 +9,9 @@ DEC-AUTO-196) compare significado y no forma:
    Se hace en `GeneradorContrato`, después del saneado propio de spectacular (que no admite la
    clave `parameters` a nivel de ruta).
 2. `{allOf: [$ref], readOnly}` que spectacular usa para enums de solo lectura → `$ref`.
-3. Errores: ProblemaValidacion (400/422) y ProblemaConUsos (409) como `allOf` sobre Problem.
+3. Errores: los componentes ProblemaValidacion y ProblemaConUsos, cuando una vista los declara
+   explícitamente (serializers de apps/core/api), se emiten como `allOf` sobre Problem. Las
+   respuestas NO se reasignan por código de estado (OBS-QA004-09).
 4. Páginas: `allOf` de PaginaMeta + `resultados` (DEC-AUTO-104).
 Es infraestructura (Skill_Backend Regla 10): no importa ninguna app.
 """
@@ -23,7 +25,6 @@ from drf_spectacular.generators import SchemaGenerator
 METODOS = frozenset({"get", "put", "post", "delete", "patch", "head", "options", "trace"})
 _CAMPOS_META = ("total", "pagina", "tamano_pagina", "total_paginas", "siguiente", "anterior")
 _REF = "#/components/schemas/"
-MEDIA_TYPE_PROBLEMA = "application/problem+json"
 
 PAGINA_META: dict[str, Any] = {
     "type": "object",
@@ -110,21 +111,6 @@ def _sin_envoltorio_readonly(nodo: Any) -> Any:
     return {clave: _sin_envoltorio_readonly(valor) for clave, valor in nodo.items()}
 
 
-def _respuestas_de_error(rutas: dict[str, Any]) -> None:
-    for item in rutas.values():
-        for metodo, op in item.items():
-            if metodo not in METODOS:
-                continue
-            for codigo, respuesta in (op.get("responses") or {}).items():
-                contenido = (respuesta.get("content") or {}).get(MEDIA_TYPE_PROBLEMA)
-                if contenido is None:
-                    continue
-                if str(codigo) in ("400", "422"):
-                    contenido["schema"] = {"$ref": f"{_REF}ProblemaValidacion"}
-                elif str(codigo) == "409":
-                    contenido["schema"] = {"$ref": f"{_REF}ProblemaConUsos"}
-
-
 def _paginas(esquemas: dict[str, Any]) -> None:
     for nombre, esquema in list(esquemas.items()):
         propiedades = esquema.get("properties") or {}
@@ -149,10 +135,12 @@ def alinear_con_contrato(
     """POSTPROCESSING_HOOK de drf-spectacular (se ejecuta tras el de enums)."""
     rutas = result.get("paths") or {}
     esquemas = result.setdefault("components", {}).setdefault("schemas", {})
-    _respuestas_de_error(rutas)
     _paginas(esquemas)
-    if "Problem" in esquemas:
+    # Solo se reescribe la DEFINICIÓN de los componentes que las vistas declaran explícitamente
+    # (OBS-QA004-09): una respuesta documentada con otro esquema no se toca y el gate la compara.
+    if "ProblemaValidacion" in esquemas:
         esquemas["ProblemaValidacion"] = PROBLEMA_VALIDACION
+    if "ProblemaConUsos" in esquemas:
         esquemas["ProblemaConUsos"] = PROBLEMA_CON_USOS
         esquemas["ReferenciaUso"] = REFERENCIA_USO
         esquemas.setdefault("EstadoEditorial", ESTADO_EDITORIAL)

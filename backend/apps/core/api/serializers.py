@@ -42,6 +42,22 @@ class ProblemaValidacionSerializer(ProblemSerializer):
     )
 
 
+class ReferenciaUsoSerializer(serializers.Serializer[dict[str, Any]]):
+    """components.schemas.ReferenciaUso: elemento que usa un recurso (p. ej. un medio)."""
+
+    tipo_entidad = serializers.CharField(max_length=40)
+    id = serializers.IntegerField(min_value=1, max_value=2**63 - 1)
+    titulo = serializers.CharField(max_length=150)
+    estado_editorial = serializers.CharField(allow_null=True, required=False)
+
+
+class ProblemaConUsosSerializer(ProblemSerializer):
+    """components.schemas.ProblemaConUsos: Problem de los 409 (Conflicto del contrato)."""
+
+    usos = ReferenciaUsoSerializer(many=True, required=False, max_length=100)  # type: ignore[call-arg]
+    total_usos = serializers.IntegerField(min_value=0, required=False)
+
+
 class IdSerializerField(serializers.IntegerField):
     """components.schemas.Id: bigint identity (int64, >= 1)."""
 
