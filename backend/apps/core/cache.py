@@ -23,7 +23,8 @@ class CacheSinDesalojo(DatabaseCache):
     def _cull(self, db: str, cursor: Any, now: Any, num: int) -> None:
         conexion = connections[db]
         tabla = conexion.ops.quote_name(self._table)  # type: ignore[attr-defined]
-        cursor.execute(
-            f"DELETE FROM {tabla} WHERE {conexion.ops.quote_name('expires')} < %s",  # noqa: S608
-            [conexion.ops.adapt_datetimefield_value(now)],
-        )
+        columna = conexion.ops.quote_name("expires")
+        # Identificadores de la configuración (LOCATION) citados por quote_name; el valor va
+        # parametrizado. Misma sentencia que DatabaseCache._cull de Django.
+        sentencia = f"DELETE FROM {tabla} WHERE {columna} < %s"  # noqa: S608  # nosec B608
+        cursor.execute(sentencia, [conexion.ops.adapt_datetimefield_value(now)])
