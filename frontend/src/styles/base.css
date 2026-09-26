@@ -1,0 +1,158 @@
+/* Estilos base del sitio (HANDOFF_UI_UX: tipografía, foco, movimiento reducido, forced-colors). */
+@layer base {
+  html {
+    scroll-padding-top: 80px; /* 2.4.11: la cabecera fija no tapa el foco (DEC-AUTO-073) */
+    scroll-padding-bottom: 72px; /* barra fija inferior (OfflineBanner) */
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bs-color-bg-canvas);
+    color: var(--bs-color-text-default);
+    font-family: var(--bs-typography-body-font-family);
+    font-size: var(--bs-typography-body-font-size);
+    font-weight: var(--bs-typography-body-font-weight);
+    line-height: var(--bs-typography-body-line-height);
+    overflow-wrap: anywhere;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-family: var(--bs-typography-h1-font-family);
+    font-size: var(--bs-typography-h1-font-size);
+    font-weight: var(--bs-typography-h1-font-weight);
+    line-height: var(--bs-typography-h1-line-height);
+    letter-spacing: var(--bs-typography-h1-letter-spacing);
+  }
+
+  h2 {
+    font-family: var(--bs-typography-h2-font-family);
+    font-size: var(--bs-typography-h2-font-size);
+    font-weight: var(--bs-typography-h2-font-weight);
+    line-height: var(--bs-typography-h2-line-height);
+    letter-spacing: var(--bs-typography-h2-letter-spacing);
+  }
+
+  h3 {
+    font-family: var(--bs-typography-h3-font-family);
+    font-size: var(--bs-typography-h3-font-size);
+    font-weight: var(--bs-typography-h3-font-weight);
+    line-height: var(--bs-typography-h3-line-height);
+  }
+
+  h4 {
+    font-family: var(--bs-typography-h4-font-family);
+    font-size: var(--bs-typography-h4-font-size);
+    font-weight: var(--bs-typography-h4-font-weight);
+    line-height: var(--bs-typography-h4-line-height);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  a {
+    color: var(--bs-color-text-link);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  a:hover {
+    color: var(--bs-color-text-link-hover);
+    text-decoration-thickness: 2px;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Anillo de foco de 3 px con separación de 2 px (≥3:1). */
+  :focus-visible {
+    outline: var(--bs-border-width-focus) solid var(--bs-color-focus-ring);
+    outline-offset: var(--bs-border-width-focus-offset);
+  }
+
+  [tabindex='-1']:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  :target {
+    background-color: var(--bs-color-bg-highlight);
+  }
+}
+
+@layer components {
+  .bs-contenedor {
+    width: 100%;
+    max-width: var(--bs-size-container);
+    margin-inline: auto;
+    padding-inline: var(--bs-grid-margin-xs);
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 48rem) {
+    .bs-contenedor {
+      padding-inline: var(--bs-grid-margin-md);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .bs-contenedor {
+      padding-inline: var(--bs-grid-margin-lg);
+    }
+  }
+
+  .bs-solo-lectores {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .bs-overline {
+    font-family: var(--bs-typography-overline-font-family);
+    font-size: var(--bs-typography-overline-font-size);
+    font-weight: var(--bs-typography-overline-font-weight);
+    line-height: var(--bs-typography-overline-line-height);
+    letter-spacing: var(--bs-typography-overline-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .bs-texto-atenuado {
+    color: var(--bs-color-text-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText;
+  }
+}
