@@ -57,10 +57,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
  && mkdir -p /app /var/lib/brujula/media /var/lib/brujula/ops \
- && chown -R app:app /var/lib/brujula
+ && chown -R app:app /var/lib/brujula \
+ && install -d -m 0755 /etc/brujula
 
 COPY --from=builder --chown=root:root /opt/venv /opt/venv
 COPY --from=builder --chown=root:root /src /app
+# Logging JSON de gunicorn (DEC-AUTO-153): reutiliza el formatter JSON del backend.
+# /etc/brujula se crea antes con 0755: COPY --chmod aplicaría 0444 también al directorio padre.
+COPY --from=infra --chown=root:root --chmod=0444 docker/gunicorn-logging.json /etc/brujula/gunicorn-logging.json
 WORKDIR /app
 USER 10001:10001
 
@@ -71,8 +75,11 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=30s --retries=3 \
 
 # gunicorn: workers síncronos; timeout 120 s por la subida síncrona de medios (ADR-API-002 §8).
 # Sin access log (la IP completa no debe llegar a los logs, REQ-057): el access log lo emite
-# el proxy con IP truncada.
-CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --graceful-timeout 30 --max-requests 2000 --max-requests-jitter 200 --worker-tmp-dir /tmp --forwarded-allow-ips='*' --error-logfile - --log-level ${GUNICORN_LOG_LEVEL:-info}"]
+# el proxy con IP truncada; gunicorn.access queda sin handlers en gunicorn-logging.json.
+# --no-control-socket (DEC-AUTO-152): gunicorn 26 abre por defecto un socket de control en
+# $HOME/.gunicorn, imposible con la raíz de solo lectura; no se usa (gunicornc) en contenedor.
+# --log-config-json (DEC-AUTO-153): las líneas propias de gunicorn salen en JSON a stdout.
+CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --graceful-timeout 30 --max-requests 2000 --max-requests-jitter 200 --worker-tmp-dir /tmp --forwarded-allow-ips='*' --no-control-socket --log-config-json /etc/brujula/gunicorn-logging.json --log-level ${GUNICORN_LOG_LEVEL:-info}"]
 
 # ---------------------------------------------------------------------------
 # scheduler: runtime + supercronic 0.2.49 (verificado por sha256) + crontab versionado
