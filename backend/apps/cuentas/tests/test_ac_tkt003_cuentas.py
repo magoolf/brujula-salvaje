@@ -191,9 +191,7 @@ def test_AC_TKT003_04_sesiones_en_sesion_panel_e_invalidacion_por_cuenta():
     ),
 )
 def test_AC_TKT003_07_integrity_error_no_registra_pii(cliente, logs_json):
-    respuesta = cliente.post(
-        "/prueba/cuenta-duplicada", data="{}", content_type="application/json"
-    )
+    respuesta = cliente.post("/prueba/cuenta-duplicada", data="{}", content_type="application/json")
     assert respuesta.status_code == 500
     texto_log = logs_json.texto()
     assert "excepcion_no_controlada" in texto_log
@@ -202,8 +200,6 @@ def test_AC_TKT003_07_integrity_error_no_registra_pii(cliente, logs_json):
 
 @pytest.mark.urls("apps.cuentas.tests.urls_prueba")
 def test_AC_TKT003_07_respuesta_http_no_expone_pii(cliente):
-    respuesta = cliente.post(
-        "/prueba/cuenta-duplicada", data="{}", content_type="application/json"
-    )
+    respuesta = cliente.post("/prueba/cuenta-duplicada", data="{}", content_type="application/json")
     assert respuesta.status_code == 500
     assert USUARIO_PII not in respuesta.content.decode()

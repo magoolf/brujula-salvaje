@@ -13,12 +13,13 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.backends.postgresql import base
+from django.db.backends.postgresql.operations import DatabaseOperations as OperacionesPostgres
 
 TABLA_AUDITORIA = "evento_auditoria"
 TRIGGER_TRUNCATE = "trg_auditoria_inmutable_truncate"
 
 
-class DatabaseOperations(base.DatabaseOperations):
+class DatabaseOperations(OperacionesPostgres):
     def sql_flush(
         self,
         style: Any,

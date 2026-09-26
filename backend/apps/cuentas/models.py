@@ -113,7 +113,7 @@ class CuentaStaff(AbstractBaseUser):
                     last_login__isnull=True,
                     anonimizado_en__isnull=False,
                     mfa_activo=False,
-                    password__startswith="!",  # noqa: S106 (prefijo de hash inutilizable)
+                    password__startswith="!",  # noqa: S106  # nosec B106 (prefijo "!" = hash inutilizable)
                 ),
                 name="ck_cuenta_staff_anonimizada",
             ),

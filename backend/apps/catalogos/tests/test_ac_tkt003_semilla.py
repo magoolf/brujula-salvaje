@@ -88,12 +88,17 @@ def test_AC_TKT003_04_catalogos_rechazan_valores_fuera_de_dominio():
         NivelEscala.objects.create(escala="DIFICULTAD", nivel=1, etiqueta="x", descripcion="x")
     with _falla():
         Licencia.objects.create(
-            codigo="cc minúscula", nombre="x", requiere_atribucion=True,
+            codigo="cc minúscula",
+            nombre="x",
+            requiere_atribucion=True,
             compatible_publicacion=True,
         )
     with _falla():
         Licencia.objects.create(
-            codigo="URL-MALA", nombre="x", url_texto_legal="ftp://x", requiere_atribucion=True,
+            codigo="URL-MALA",
+            nombre="x",
+            url_texto_legal="ftp://x",
+            requiere_atribucion=True,
             compatible_publicacion=True,
         )
     with _falla():

@@ -475,7 +475,9 @@ def test_AC_TKT003_04_medio_disponible_exige_metadatos_y_limites():
 
 def test_AC_TKT003_04_singletons_de_inicio_y_sitio():
     assert ConfigSitio.objects.get().nombre_marca == "Brújula Salvaje"
-    ConfigInicio.objects.create(hero_titular="Explora", hero_subtitulo="x", hero_medio=crear_medio())
+    ConfigInicio.objects.create(
+        hero_titular="Explora", hero_subtitulo="x", hero_medio=crear_medio()
+    )
     with _falla():
         ConfigInicio.objects.create(
             id=2, hero_titular="Otro", hero_subtitulo="x", hero_medio=crear_medio()

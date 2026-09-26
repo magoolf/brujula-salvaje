@@ -88,3 +88,9 @@ def forzar_diferidas(*nombres: str) -> None:
     """Evalúa ya las constraints/triggers diferidos indicados (por defecto, al hacer commit)."""
     with connection.cursor() as cursor:
         cursor.execute(f"SET CONSTRAINTS {', '.join(nombres)} IMMEDIATE")
+
+
+def restaurar_diferidas(*nombres: str) -> None:
+    """Vuelve a diferir hasta el commit las constraints/triggers indicados."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SET CONSTRAINTS {', '.join(nombres)} DEFERRED")

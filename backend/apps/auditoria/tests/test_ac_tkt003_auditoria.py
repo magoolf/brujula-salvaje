@@ -96,7 +96,9 @@ def test_AC_TKT003_04_funciones_security_definer_de_purga_y_seudonimizacion():
     reciente = _evento()
     cuenta = crear_cuenta("persona.auditada")
     evento_cuenta = _evento(
-        actor=cuenta, actor_etiqueta="persona.auditada", accion="LOGIN_OK",
+        actor=cuenta,
+        actor_etiqueta="persona.auditada",
+        accion="LOGIN_OK",
         ip_truncada="198.51.100.0/24",
     )
     with como_rol("app_rw") as cursor:

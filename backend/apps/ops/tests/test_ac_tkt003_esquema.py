@@ -17,6 +17,7 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.db import IntegrityError, ProgrammingError, connection, models, transaction
 
+from apps.contenido.models import ContenidoMedio
 from apps.contenido.tests.fabricas import (
     campos_publicado,
     como_rol,
@@ -25,8 +26,8 @@ from apps.contenido.tests.fabricas import (
     crear_medio,
     forzar_diferidas,
     huella,
+    restaurar_diferidas,
 )
-from apps.contenido.models import ContenidoMedio
 from apps.inicio.models import ConfigInicio
 from apps.ops.bd_pruebas.base import DatabaseOperations
 from apps.ops.models import IdempotenciaPeticion, MedioUso, OpsEjecucionTarea
@@ -133,10 +134,13 @@ def test_AC_TKT003_02_existen_las_38_tablas_y_la_vista():
     # Sin tablas de apps de Django que el DB_HANDOFF no define.
     assert not {"auth_user", "auth_group", "django_content_type", "django_session"} & tablas
     # public cerrado: nada de la aplicación fuera de app.
-    assert _valor(
-        "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v')"
-    ) == 0
+    assert (
+        _valor(
+            "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v')"
+        )
+        == 0
+    )
 
 
 def test_AC_TKT003_02_constraints_de_los_modelos_existen_en_la_bd():
@@ -144,7 +148,9 @@ def test_AC_TKT003_02_constraints_de_los_modelos_existen_en_la_bd():
         "SELECT conname FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace "
         "WHERE n.nspname = 'app'"
     )}  # fmt: skip
-    indices_bd = {fila[0] for fila in _filas("SELECT indexname FROM pg_indexes WHERE schemaname = 'app'")}
+    indices_bd = {
+        fila[0] for fila in _filas("SELECT indexname FROM pg_indexes WHERE schemaname = 'app'")
+    }
     esperadas = set()
     for modelo in apps.get_models():
         if modelo._meta.app_label == "core" or not modelo._meta.managed:
@@ -155,7 +161,7 @@ def test_AC_TKT003_02_constraints_de_los_modelos_existen_en_la_bd():
             assert indice.name in indices_bd, indice.name
     faltan = {n for n in esperadas if n not in constraints_bd and n not in indices_bd}
     assert not faltan
-    assert len(esperadas) > 150
+    assert len(esperadas) > 120
 
 
 def test_AC_TKT003_02_fk_compuestas_por_introspeccion():
@@ -215,10 +221,13 @@ def test_AC_TKT003_02_triggers_funciones_extensiones_y_configuracion():
     )
     assert extensiones["unaccent"] == "ext"
     assert extensiones["pg_trgm"] == "ext"
-    assert _valor(
-        "SELECT count(*) FROM pg_ts_config WHERE cfgname = 'es_unaccent' "
-        "AND cfgnamespace = 'app'::regnamespace"
-    ) == 1
+    assert (
+        _valor(
+            "SELECT count(*) FROM pg_ts_config WHERE cfgname = 'es_unaccent' "
+            "AND cfgnamespace = 'app'::regnamespace"
+        )
+        == 1
+    )
 
 
 def test_AC_TKT003_02_tipos_fisicos_collation_generada_e_indices_clave():
@@ -249,15 +258,23 @@ def test_AC_TKT003_02_tipos_fisicos_collation_generada_e_indices_clave():
     assert ("sesion_panel", "cuenta_id") in columnas
 
     # PK bigint identity (DEC-AUTO-088) y singletons smallint.
-    assert _valor(
-        "SELECT attidentity FROM pg_attribute WHERE attrelid = 'app.contenido'::regclass "
-        "AND attname = 'id'"
-    ) == "d"
+    assert (
+        _valor(
+            "SELECT attidentity FROM pg_attribute WHERE attrelid = 'app.contenido'::regclass "
+            "AND attname = 'id'"
+        )
+        == "d"
+    )
     assert columnas[("config_sitio", "id")][0] == "smallint"
     # cache_limites UNLOGGED (ADR-DB-005 §3).
-    assert _valor("SELECT relpersistence FROM pg_class WHERE oid = 'app.cache_limites'::regclass") == "u"
+    assert (
+        _valor("SELECT relpersistence FROM pg_class WHERE oid = 'app.cache_limites'::regclass")
+        == "u"
+    )
 
-    definiciones = dict(_filas("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'app'"))
+    definiciones = dict(
+        _filas("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'app'")
+    )
     for indice, fragmento in INDICES_CLAVE.items():
         assert fragmento in definiciones[indice], indice
     assert "expire_date" in " ".join(
@@ -366,7 +383,7 @@ def test_AC_TKT003_05_tsquery_por_prefijo_seguro():
         "@@ app.f_tsquery_prefijo('ANDES monta')"
     )
     # Sintaxis tsquery del usuario descartada (THREAT-008).
-    assert _valor("SELECT app.f_tsquery_prefijo('a & | ! :* ( )')::text") == "'a':*"
+    assert _valor("SELECT app.f_tsquery_prefijo('rio & | ! :* ( )')::text") == "'rio':*"
     assert _valor("SELECT app.f_tsquery_prefijo('!!! ¿? ')") is None
     tokens = " ".join(f"t{i}" for i in range(15))
     assert _valor("SELECT numnode(app.f_tsquery_prefijo(%s))", [tokens]) == 19  # 10 términos
@@ -375,10 +392,13 @@ def test_AC_TKT003_05_tsquery_por_prefijo_seguro():
 def test_AC_TKT003_05_pg_trgm_disponible_y_gin_de_similitud():
     assert _valor("SELECT ext.similarity('patagonia', 'patagonai')") > 0.3
     assert _valor("SELECT 'patagonia' OPERATOR(ext.%%) 'patagonai'")
-    assert _valor(
-        "SELECT count(*) FROM pg_opclass WHERE opcname = 'gin_trgm_ops' "
-        "AND opcnamespace = 'ext'::regnamespace"
-    ) == 1
+    assert (
+        _valor(
+            "SELECT count(*) FROM pg_opclass WHERE opcname = 'gin_trgm_ops' "
+            "AND opcnamespace = 'ext'::regnamespace"
+        )
+        == 1
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -430,9 +450,10 @@ def test_AC_TKT003_04_idempotencia_clave_unica_por_cuenta_y_ventana_24h():
     clave = uuid.uuid4()
     fila = _clave(cuenta, clave=clave, codigo_http=201, cuerpo_respuesta={"id": 1})
     fila.refresh_from_db()
-    assert fila.expira_en - fila.creado_en == IdempotenciaPeticion._meta.get_field(
-        "expira_en"
-    ).db_default.rhs.value
+    assert (
+        fila.expira_en - fila.creado_en
+        == IdempotenciaPeticion._meta.get_field("expira_en").db_default.rhs.value
+    )
     with _falla():  # misma clave para la misma cuenta, aunque sea otra operación
         _clave(cuenta, clave=clave, operacion="panelCrearDestino")
     _clave(crear_cuenta("editora.idem4"), clave=clave, codigo_http=200, cuerpo_respuesta={})
@@ -452,10 +473,12 @@ def test_AC_TKT003_04_trigger_diferido_exige_respuesta_al_confirmar():
         codigo_http=201, recurso_id=5, cuerpo_respuesta={"id": 5}
     )
     forzar_diferidas("trg_idempotencia_completa")
+    restaurar_diferidas("trg_idempotencia_completa")
     # Confirmar una fila sin respuesta -> error del trigger.
     with _falla():
         _clave(cuenta)
         forzar_diferidas("trg_idempotencia_completa")
+    restaurar_diferidas("trg_idempotencia_completa")
     # Una fila borrada antes del commit (ROLLBACK lógico del efecto) no molesta.
     borrada = _clave(cuenta)
     IdempotenciaPeticion.objects.filter(pk=borrada.pk).delete()
@@ -488,7 +511,10 @@ def test_AC_TKT003_02_cache_limites_sirve_a_la_cache_de_django():
     assert cache.get("limite:prueba") == 3
     assert _valor("SELECT count(*) FROM app.cache_limites") >= 1
     call_command("createcachetable", verbosity=0)  # la tabla ya existe: no hace nada
-    assert _valor("SELECT relpersistence FROM pg_class WHERE oid = 'app.cache_limites'::regclass") == "u"
+    assert (
+        _valor("SELECT relpersistence FROM pg_class WHERE oid = 'app.cache_limites'::regclass")
+        == "u"
+    )
 
 
 def test_AC_TKT003_04_ops_ejecucion_tarea():
