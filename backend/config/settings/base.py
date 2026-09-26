@@ -95,9 +95,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------------
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        # HALLAZGO-QA004-01: sin desalojo de entradas vigentes (apps/core/cache.py). Al superar
+        # MAX_ENTRIES solo se purgan las caducadas: los estados de seguridad no se desalojan.
+        "BACKEND": "apps.core.cache.CacheSinDesalojo",
         "LOCATION": "cache_limites",
         "TIMEOUT": 3600,  # TTL <= 1 h
+        "OPTIONS": {"MAX_ENTRIES": 5000},
     }
 }
 
