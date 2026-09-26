@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.core.exceptions import ErrorApi
@@ -30,6 +31,31 @@ class ProblemSerializer(serializers.Serializer[dict[str, object]]):
     trace_id = serializers.RegexField(r"^[0-9a-f]{32}$")
 
 
+ID_MAXIMO = 2**63 - 1
+
+
+class ProblemaValidacionSerializer(ProblemSerializer):
+    """components.schemas.ProblemaValidacion: Problem con `errors` obligatorio (400/422)."""
+
+    errors = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField(max_length=500))
+    )
+
+
+class IdSerializerField(serializers.IntegerField):
+    """components.schemas.Id: bigint identity (int64, >= 1)."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("min_value", 1)
+        kwargs.setdefault("max_value", ID_MAXIMO)
+        super().__init__(**kwargs)
+
+
+@extend_schema_field({"type": ["string", "null"], "format": "uri-reference"})
+class EnlacePaginaField(serializers.CharField):
+    """Enlace relativo de paginación (uri-reference o null)."""
+
+
 class PaginaMetaSerializer(serializers.Serializer[dict[str, Any]]):
     """components.schemas.PaginaMeta (DEC-AUTO-104); cada página añade `resultados`."""
 
@@ -37,8 +63,8 @@ class PaginaMetaSerializer(serializers.Serializer[dict[str, Any]]):
     pagina = serializers.IntegerField(min_value=1)
     tamano_pagina = serializers.IntegerField(min_value=1)
     total_paginas = serializers.IntegerField(min_value=0)
-    siguiente = serializers.CharField(allow_null=True)
-    anterior = serializers.CharField(allow_null=True)
+    siguiente = EnlacePaginaField(allow_null=True)
+    anterior = EnlacePaginaField(allow_null=True)
 
 
 class EntradaEstricta(serializers.Serializer[Any]):

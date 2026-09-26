@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.core.api.serializers import EntradaEstricta, PaginaMetaSerializer
+from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
 from apps.cuentas.models import CuentaStaff, EstadoCuenta, RolCuenta
 from apps.cuentas.services import Paso
 
@@ -28,18 +29,18 @@ class LoginEntradaSerializer(EntradaEstricta):
 
 
 class MfaVerificacionEntradaSerializer(EntradaEstricta):
-    codigo = serializers.RegexField(PATRON_CODIGO_MFA, write_only=True)
+    codigo = serializers.RegexField(PATRON_CODIGO_MFA, write_only=True, allow_blank=True)
 
 
 class MfaCodigoEntradaSerializer(EntradaEstricta):
-    codigo = serializers.RegexField(PATRON_TOTP, write_only=True)
+    codigo = serializers.RegexField(PATRON_TOTP, write_only=True, allow_blank=True)
 
 
 class MfaDesactivacionEntradaSerializer(EntradaEstricta):
     contrasena = serializers.CharField(
         min_length=1, max_length=128, write_only=True, trim_whitespace=False
     )
-    codigo = serializers.RegexField(PATRON_CODIGO_MFA, write_only=True)
+    codigo = serializers.RegexField(PATRON_CODIGO_MFA, write_only=True, allow_blank=True)
 
 
 class CambioContrasenaEntradaSerializer(EntradaEstricta):
@@ -53,7 +54,7 @@ class CambioContrasenaEntradaSerializer(EntradaEstricta):
 
 class AutorizacionEntradaSerializer(EntradaEstricta):
     decision = serializers.ChoiceField(choices=["AUTORIZO", "NO_AUTORIZO"])
-    version_politica = serializers.CharField(max_length=20)
+    version_politica = serializers.CharField(max_length=20, allow_blank=True)
 
 
 # ------------------------------------------------------------------ Salidas (panel-auth)
@@ -91,8 +92,14 @@ class AutorizacionVigenteSerializer(serializers.Serializer[dict[str, Any]]):
 
 # ------------------------------------------------------------------ Cuentas (panel-cuentas)
 class CuentaSerializer(serializers.ModelSerializer[CuentaStaff]):
+    id = IdSerializerField(read_only=True)
+    usuario = serializers.CharField(max_length=40, allow_null=True, read_only=True)
+    nombre_visible = serializers.CharField(max_length=100, allow_null=True, read_only=True)
     etiqueta = serializers.SerializerMethodField()
     ultimo_acceso_en = serializers.DateTimeField(source="last_login", allow_null=True)
+    autorizacion_version_politica = serializers.CharField(
+        max_length=20, allow_null=True, read_only=True
+    )
 
     class Meta:
         model = CuentaStaff
@@ -114,12 +121,13 @@ class CuentaSerializer(serializers.ModelSerializer[CuentaStaff]):
         ]
         read_only_fields = fields
 
+    @extend_schema_field({"type": "string", "maxLength": 60})
     def get_etiqueta(self, cuenta: CuentaStaff) -> str:
         return cuenta.usuario or f"Cuenta anonimizada #{cuenta.pk}"
 
 
 class CuentaCreacionEntradaSerializer(EntradaEstricta):
-    usuario = serializers.RegexField(PATRON_USUARIO_ALTA)
+    usuario = serializers.RegexField(PATRON_USUARIO_ALTA, allow_blank=True)
     nombre_visible = serializers.CharField(min_length=1, max_length=100)
     rol = serializers.ChoiceField(choices=RolCuenta.choices)
 
@@ -134,9 +142,14 @@ class CuentaActualizacionEntradaSerializer(EntradaEstricta):
         return attrs
 
 
+@extend_schema_field({"type": "string", "minLength": 16, "maxLength": 64, "format": "password"})
+class ContrasenaTemporalField(serializers.CharField):
+    """Contraseña temporal: solo en la respuesta de alta o restablecimiento (AC-106)."""
+
+
 class CuentaConCredencialTemporalSerializer(serializers.Serializer[dict[str, Any]]):
     cuenta = CuentaSerializer()
-    contrasena_temporal = serializers.CharField(min_length=16, max_length=64)
+    contrasena_temporal = ContrasenaTemporalField(min_length=16, max_length=64)
 
 
 class PaginaCuentaSerializer(PaginaMetaSerializer):

@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import idempotencia
-from apps.core.api.serializers import ProblemSerializer
+from apps.core.api.serializers import ProblemaValidacionSerializer, ProblemSerializer
 from apps.core.exceptions import NoEncontrado
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import errores_de_parametros, validar_parametros
@@ -51,8 +51,9 @@ TRAS_MFA = frozenset(TODOS_LOS_PASOS - {Paso.MFA})
 # ---------------------------------------------------------------------------
 # Documentación de errores (components.responses del contrato)
 # ---------------------------------------------------------------------------
-def _problema(descripcion: str) -> OpenApiResponse:
-    return OpenApiResponse(ProblemSerializer, description=descripcion)
+def _problema(descripcion: str, *, con_errores: bool = False) -> OpenApiResponse:
+    esquema = ProblemaValidacionSerializer if con_errores else ProblemSerializer
+    return OpenApiResponse(esquema, description=descripcion)
 
 
 def _errores(*codigos: int) -> dict[Any, OpenApiResponse]:
@@ -66,7 +67,12 @@ def _errores(*codigos: int) -> dict[Any, OpenApiResponse]:
         429: "429 limite_tasa / acceso_bloqueado_temporalmente (Retry-After).",
         500: "500 error_interno.",
     }
-    return {(codigo, MEDIA_TYPE_PROBLEMA): _problema(descripciones[codigo]) for codigo in codigos}
+    return {
+        (codigo, MEDIA_TYPE_PROBLEMA): _problema(
+            descripciones[codigo], con_errores=codigo in (400, 422)
+        )
+        for codigo in codigos
+    }
 
 
 def _ip(request: Request) -> str | None:

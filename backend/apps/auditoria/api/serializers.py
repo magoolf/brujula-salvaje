@@ -4,19 +4,27 @@ from __future__ import annotations
 
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.auditoria.models import AccionAuditoria, EventoAuditoria, ResultadoAuditoria
-from apps.core.api.serializers import PaginaMetaSerializer
+from apps.core.api.serializers import IdSerializerField, PaginaMetaSerializer
 
 
 class ActorRefSerializer(serializers.Serializer[dict[str, Any]]):
-    id = serializers.IntegerField(allow_null=True)
+    id = serializers.IntegerField(allow_null=True, max_value=2**63 - 1)
     etiqueta = serializers.CharField(max_length=60)
 
 
 class EventoAuditoriaSerializer(serializers.ModelSerializer[EventoAuditoria]):
+    id = IdSerializerField(read_only=True)
     actor = serializers.SerializerMethodField()
+    tipo_entidad = serializers.CharField(max_length=40, allow_null=True, read_only=True)
+    entidad_id = serializers.IntegerField(allow_null=True, max_value=2**63 - 1, read_only=True)
+    entidad_titulo = serializers.CharField(max_length=150, allow_null=True, read_only=True)
+    campos_cambiados = serializers.ListField(
+        child=serializers.CharField(max_length=100), max_length=100, read_only=True
+    )
     ip_truncada = serializers.CharField(max_length=45, allow_null=True, read_only=True)
 
     class Meta:
@@ -35,12 +43,14 @@ class EventoAuditoriaSerializer(serializers.ModelSerializer[EventoAuditoria]):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(ActorRefSerializer)
     def get_actor(self, evento: EventoAuditoria) -> dict[str, Any]:
         return {"id": evento.actor_id, "etiqueta": evento.actor_etiqueta}
 
     def to_representation(self, instance: EventoAuditoria) -> dict[str, Any]:
+        if instance.campos_cambiados is None:
+            instance.campos_cambiados = []
         datos: dict[str, Any] = super().to_representation(instance)
-        datos["campos_cambiados"] = datos.get("campos_cambiados") or []
         return datos
 
 

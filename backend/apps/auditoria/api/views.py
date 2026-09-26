@@ -21,7 +21,7 @@ from apps.auditoria.api.serializers import (
     PaginaEventoAuditoriaSerializer,
 )
 from apps.auditoria.models import AccionAuditoria, ResultadoAuditoria
-from apps.core.api.serializers import ProblemSerializer
+from apps.core.api.serializers import ProblemaValidacionSerializer, ProblemSerializer
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import errores_de_parametros, validar_parametros
 from apps.core.problemas import MEDIA_TYPE_PROBLEMA
@@ -54,7 +54,9 @@ class ListaAuditoria(APIView):
         ],
         responses={
             200: PaginaEventoAuditoriaSerializer,
-            (400, MEDIA_TYPE_PROBLEMA): _error("400 validacion / parametro_invalido."),
+            (400, MEDIA_TYPE_PROBLEMA): OpenApiResponse(
+                ProblemaValidacionSerializer, description="400 validacion / parametro_invalido."
+            ),
             (401, MEDIA_TYPE_PROBLEMA): _error("401 no_autenticado / sesion_expirada."),
             (403, MEDIA_TYPE_PROBLEMA): _error("403 permiso_denegado / paso pendiente."),
             (404, MEDIA_TYPE_PROBLEMA): _error("404 pagina_fuera_de_rango."),
