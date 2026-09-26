@@ -29,7 +29,9 @@ describe('EstadoError (ST-ERROR)', () => {
     await fixture.whenStable();
     const raiz = fixture.nativeElement as HTMLElement;
     expect(raiz.querySelector('[data-testid="estado-error"]')?.getAttribute('role')).toBe('alert');
-    const boton = raiz.querySelector('[data-testid="estado-error-reintentar"]') as HTMLButtonElement;
+    const boton = raiz.querySelector(
+      '[data-testid="estado-error-reintentar"]',
+    ) as HTMLButtonElement;
     expect(boton.textContent).toContain('Reintentando…');
     expect(boton.getAttribute('aria-busy')).toBe('true');
     expect(raiz.querySelector('a')?.textContent).toBe('Ir al tablero');

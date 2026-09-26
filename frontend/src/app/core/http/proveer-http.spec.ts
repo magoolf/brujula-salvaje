@@ -34,7 +34,9 @@ describe('proveerHttp (XSRF, cliente generado)', () => {
     http.post('/api/v1/panel/auth/logout', {}).subscribe();
     const peticion = controlador.expectOne('/api/v1/panel/auth/logout');
     expect(peticion.request.headers.get('X-CSRFToken')).toBe('token-de-prueba-123');
-    expect(peticion.request.headers.get('traceparent')).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
+    expect(peticion.request.headers.get('traceparent')).toMatch(
+      /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/,
+    );
     peticion.flush(null);
   });
 

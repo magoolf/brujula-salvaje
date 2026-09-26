@@ -1,6 +1,7 @@
 import { DestroyRef, Directive, ElementRef, computed, inject, input } from '@angular/core';
 
-export type VarianteBoton = 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger' | 'ghost-inverse';
+export type VarianteBoton =
+  'primary' | 'accent' | 'secondary' | 'ghost' | 'danger' | 'ghost-inverse';
 export type TamanoBoton = 'sm' | 'md' | 'lg';
 
 /**
@@ -42,6 +43,8 @@ export class Boton {
       }
     };
     elemento.addEventListener('click', alPulsar, { capture: true });
-    inject(DestroyRef).onDestroy(() => elemento.removeEventListener('click', alPulsar, { capture: true }));
+    inject(DestroyRef).onDestroy(() =>
+      elemento.removeEventListener('click', alPulsar, { capture: true }),
+    );
   }
 }

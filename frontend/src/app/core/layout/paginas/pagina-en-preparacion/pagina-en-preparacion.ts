@@ -23,14 +23,42 @@ import { sitioWebJsonLd } from '../../../seo/datos-estructurados';
       <p class="bs-overline marca">{{ marca }}</p>
       <h1>Contenido en preparación</h1>
       <p class="texto">Mientras tanto, conoce cómo trabajamos.</p>
-      <a appBoton variante="accent" tamano="lg" routerLink="/destinos" data-testid="preparacion-explorar">Explorar destinos</a>
+      <a
+        appBoton
+        variante="accent"
+        tamano="lg"
+        routerLink="/destinos"
+        data-testid="preparacion-explorar"
+        >Explorar destinos</a
+      >
       <div class="busqueda">
-        <app-campo-busqueda variante="grande" idCampo="busqueda-inicio" testId="preparacion-busqueda" [soloIcono]="false" />
+        <app-campo-busqueda
+          variante="grande"
+          idCampo="busqueda-inicio"
+          testId="preparacion-busqueda"
+          [soloIcono]="false"
+        />
       </div>
       <nav aria-label="Institucional">
         <ul class="salidas">
-          <li><a appEnlace variante="standalone" routerLink="/acerca-de" data-testid="preparacion-acerca-de">Acerca de y metodología</a></li>
-          <li><a appEnlace variante="standalone" routerLink="/mapa-del-sitio" data-testid="preparacion-mapa-del-sitio">Mapa del sitio</a></li>
+          <li>
+            <a
+              appEnlace
+              variante="standalone"
+              routerLink="/acerca-de"
+              data-testid="preparacion-acerca-de"
+              >Acerca de y metodología</a
+            >
+          </li>
+          <li>
+            <a
+              appEnlace
+              variante="standalone"
+              routerLink="/mapa-del-sitio"
+              data-testid="preparacion-mapa-del-sitio"
+              >Mapa del sitio</a
+            >
+          </li>
         </ul>
       </nav>
     </section>
@@ -43,7 +71,9 @@ import { sitioWebJsonLd } from '../../../seo/datos-estructurados';
       padding-block: var(--bs-space-section);
       text-align: center;
     }
-    .marca { color: var(--bs-color-text-accent); }
+    .marca {
+      color: var(--bs-color-text-accent);
+    }
     .texto {
       max-width: var(--bs-size-measure-prose);
       font-size: var(--bs-typography-body-lg-font-size);

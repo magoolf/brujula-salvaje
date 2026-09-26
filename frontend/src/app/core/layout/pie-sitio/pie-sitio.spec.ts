@@ -15,9 +15,9 @@ describe('PieSitio (GI-02)', () => {
     const explorar = raiz.querySelector('nav[aria-labelledby="pie-explorar"]') as HTMLElement;
     expect(explorar.querySelectorAll('a')).toHaveLength(NAVEGACION_PRINCIPAL.length);
 
-    const institucional = Array.from(raiz.querySelectorAll('nav[aria-labelledby="pie-institucional"] a')).map((a) =>
-      a.getAttribute('href'),
-    );
+    const institucional = Array.from(
+      raiz.querySelectorAll('nav[aria-labelledby="pie-institucional"] a'),
+    ).map((a) => a.getAttribute('href'));
     expect(institucional).toEqual(NAVEGACION_INSTITUCIONAL.map((e) => e.ruta));
     expect(institucional).not.toContain('/glosario');
 

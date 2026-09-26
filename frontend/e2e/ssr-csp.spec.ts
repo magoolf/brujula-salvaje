@@ -12,7 +12,12 @@ const CSP = `default-src 'self'; script-src 'self' 'nonce-${NONCE}'; style-src '
 
 /** Tipos de <script> que el navegador ejecuta (sin type, JS clásico o módulo). */
 function esEjecutable(tipo: string | null): boolean {
-  return tipo === null || tipo === '' || tipo === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/i.test(tipo);
+  return (
+    tipo === null ||
+    tipo === '' ||
+    tipo === 'module' ||
+    /^(text|application)\/(x-)?(java|ecma)script$/i.test(tipo)
+  );
 }
 
 test.describe('SSR, CSP con nonce y healthz', () => {
@@ -23,7 +28,10 @@ test.describe('SSR, CSP con nonce y healthz', () => {
     expect(respuesta.headers()['cache-control']).toBe('no-store');
   });
 
-  test('AC_TKT002_03 / se sirve renderizado con el shell y todo script en línea ejecutable lleva el nonce', async ({ request, page }) => {
+  test('AC_TKT002_03 / se sirve renderizado con el shell y todo script en línea ejecutable lleva el nonce', async ({
+    request,
+    page,
+  }) => {
     const respuesta = await request.get('/', { headers: { 'x-csp-nonce': NONCE } });
     expect(respuesta.status()).toBe(200);
     expect(respuesta.headers()['x-powered-by']).toBeUndefined();
@@ -31,39 +39,68 @@ test.describe('SSR, CSP con nonce y healthz', () => {
 
     // Contenido principal en la respuesta inicial (CON-007) con el shell completo.
     expect(html).toContain('<html lang="es"');
-    for (const marca of ['data-testid="skip-link"', 'data-testid="cabecera-sitio"', 'id="contenido-principal"', 'data-testid="pie-sitio"', 'Contenido en preparación']) {
+    for (const marca of [
+      'data-testid="skip-link"',
+      'data-testid="cabecera-sitio"',
+      'id="contenido-principal"',
+      'data-testid="pie-sitio"',
+      'Contenido en preparación',
+    ]) {
       expect(html).toContain(marca);
     }
 
     await page.setContent(html);
-    const scripts = await page.locator('script').evaluateAll((nodos) =>
-      nodos.map((s) => ({ tipo: s.getAttribute('type'), src: s.getAttribute('src'), nonce: s.getAttribute('nonce') ?? (s as HTMLScriptElement).nonce })),
-    );
+    const scripts = await page
+      .locator('script')
+      .evaluateAll((nodos) =>
+        nodos.map((s) => ({
+          tipo: s.getAttribute('type'),
+          src: s.getAttribute('src'),
+          nonce: s.getAttribute('nonce') ?? (s as HTMLScriptElement).nonce,
+        })),
+      );
     const enLineaEjecutables = scripts.filter((s) => s.src === null && esEjecutable(s.tipo));
     expect(enLineaEjecutables.filter((s) => s.nonce !== NONCE)).toEqual([]);
-    const estilosEnLinea = await page.locator('style').evaluateAll((nodos) => nodos.map((s) => s.getAttribute('nonce') ?? (s as HTMLStyleElement).nonce));
+    const estilosEnLinea = await page
+      .locator('style')
+      .evaluateAll((nodos) =>
+        nodos.map((s) => s.getAttribute('nonce') ?? (s as HTMLStyleElement).nonce),
+      );
     expect(estilosEnLinea.every((n) => n === NONCE)).toBe(true);
     // Sin manejadores de eventos en línea (on*=) en el HTML servido.
     expect(html).not.toMatch(/<[^>]+\son[a-z]+\s*=/i);
   });
 
-  test('AC_TKT002_03 un nonce con formato inválido no se refleja en el HTML', async ({ request }) => {
-    const html = await (await request.get('/', { headers: { 'x-csp-nonce': '"><script>alert(1)</script>' } })).text();
+  test('AC_TKT002_03 un nonce con formato inválido no se refleja en el HTML', async ({
+    request,
+  }) => {
+    const html = await (
+      await request.get('/', { headers: { 'x-csp-nonce': '"><script>alert(1)</script>' } })
+    ).text();
     expect(html).not.toContain('alert(1)');
   });
 
-  test('AC_TKT002_03 con la CSP estricta del proxy la app hidrata sin violaciones y es interactiva', async ({ page }) => {
+  test('AC_TKT002_03 con la CSP estricta del proxy la app hidrata sin violaciones y es interactiva', async ({
+    page,
+  }) => {
     // Simula el proxy: añade x-csp-nonce a la petición del documento y la CSP a su respuesta.
     await page.route('**/*', async (ruta) => {
       if (ruta.request().resourceType() !== 'document') return ruta.continue();
-      const respuesta = await ruta.fetch({ headers: { ...ruta.request().headers(), 'x-csp-nonce': NONCE } });
-      await ruta.fulfill({ response: respuesta, headers: { ...respuesta.headers(), 'content-security-policy': CSP } });
+      const respuesta = await ruta.fetch({
+        headers: { ...ruta.request().headers(), 'x-csp-nonce': NONCE },
+      });
+      await ruta.fulfill({
+        response: respuesta,
+        headers: { ...respuesta.headers(), 'content-security-policy': CSP },
+      });
     });
     const violaciones: string[] = [];
     await page.exposeFunction('registrarViolacionCsp', (texto: string) => violaciones.push(texto));
     await page.addInitScript(() => {
       document.addEventListener('securitypolicyviolation', (e) => {
-        (window as unknown as { registrarViolacionCsp: (t: string) => void }).registrarViolacionCsp(`${e.violatedDirective} ${e.blockedURI}`);
+        (window as unknown as { registrarViolacionCsp: (t: string) => void }).registrarViolacionCsp(
+          `${e.violatedDirective} ${e.blockedURI}`,
+        );
       });
     });
 
@@ -73,7 +110,9 @@ test.describe('SSR, CSP con nonce y healthz', () => {
     const campo = page.getByTestId('cabecera-busqueda').getByRole('searchbox');
     await campo.fill('x');
     await campo.press('Enter');
-    await expect(page.getByTestId('cabecera-busqueda').getByTestId('campo-busqueda-error')).toBeVisible();
+    await expect(
+      page.getByTestId('cabecera-busqueda').getByTestId('campo-busqueda-error'),
+    ).toBeVisible();
     expect(violaciones).toEqual([]);
   });
 });

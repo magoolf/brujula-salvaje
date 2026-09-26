@@ -57,7 +57,9 @@ describe('BannerSinConexion (GI-04)', () => {
     await fixture.whenStable();
     expect(region.textContent).toContain('Sin conexión. Lo que ya cargaste sigue disponible.');
 
-    const comprobar = vi.spyOn(TestBed.inject(Conectividad), 'comprobar').mockImplementation(() => undefined);
+    const comprobar = vi
+      .spyOn(TestBed.inject(Conectividad), 'comprobar')
+      .mockImplementation(() => undefined);
     (region.querySelector('button') as HTMLButtonElement).click();
     expect(comprobar).toHaveBeenCalled();
 

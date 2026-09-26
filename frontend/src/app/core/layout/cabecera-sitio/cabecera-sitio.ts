@@ -1,6 +1,14 @@
 import { Dialog } from '@angular/cdk/dialog';
 import { Overlay } from '@angular/cdk/overlay';
-import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
 import { CampoBusqueda } from '../../../shared/ui/campo-busqueda/campo-busqueda';
@@ -24,9 +32,19 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
     <header class="cabecera" data-testid="cabecera-sitio">
       <div class="fila bs-contenedor">
         <a routerLink="/" class="logo" data-testid="cabecera-logo">
-          <svg class="logo-icono" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+          <svg
+            class="logo-icono"
+            viewBox="0 0 24 24"
+            width="28"
+            height="28"
+            aria-hidden="true"
+            focusable="false"
+          >
             <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
-            <path d="m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27l-5.41 1.8 1.8-5.41a2 2 0 0 1 1.27-1.27z" fill="currentColor" />
+            <path
+              d="m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27l-5.41 1.8 1.8-5.41a2 2 0 0 1 1.27-1.27z"
+              fill="currentColor"
+            />
           </svg>
           <span>{{ marca }}</span>
         </a>
@@ -35,8 +53,15 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
           <ul>
             @for (enlace of navegacion; track enlace.id) {
               <li>
-                <a appEnlace variante="nav" [routerLink]="enlace.ruta" routerLinkActive
-                   ariaCurrentWhenActive="page" [attr.data-testid]="'nav-' + enlace.id">{{ enlace.etiqueta }}</a>
+                <a
+                  appEnlace
+                  variante="nav"
+                  [routerLink]="enlace.ruta"
+                  routerLinkActive
+                  ariaCurrentWhenActive="page"
+                  [attr.data-testid]="'nav-' + enlace.id"
+                  >{{ enlace.etiqueta }}</a
+                >
               </li>
             }
           </ul>
@@ -75,7 +100,11 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
 
       @if (busquedaAbierta()) {
         <div id="busqueda-desplegable" class="busqueda-desplegable bs-contenedor">
-          <app-campo-busqueda #busquedaDesplegable idCampo="busqueda-desplegable-campo" testId="cabecera-busqueda-desplegable" />
+          <app-campo-busqueda
+            #busquedaDesplegable
+            idCampo="busqueda-desplegable-campo"
+            testId="cabecera-busqueda-desplegable"
+          />
         </div>
       }
     </header>
@@ -148,11 +177,17 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
       border-top: 1px solid var(--bs-color-border-subtle);
     }
     @media (min-width: 80rem) {
-      .fila { min-height: var(--bs-size-header-xl); }
+      .fila {
+        min-height: var(--bs-size-header-xl);
+      }
       .navegacion,
-      .busqueda-en-linea { display: block; }
+      .busqueda-en-linea {
+        display: block;
+      }
       .acciones-compactas,
-      .busqueda-desplegable { display: none; }
+      .busqueda-desplegable {
+        display: none;
+      }
     }
   `,
 })

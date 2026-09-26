@@ -4,13 +4,21 @@ import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 
-import { migasDePanJsonLd, serializarJsonLd, sitioWebJsonLd, urlAbsoluta } from './datos-estructurados';
+import {
+  migasDePanJsonLd,
+  serializarJsonLd,
+  sitioWebJsonLd,
+  urlAbsoluta,
+} from './datos-estructurados';
 import { EstadoHttp } from './estado-http';
 import { EstrategiaTitulo } from './estrategia-titulo';
 import { Seo, tituloConMarca } from './seo';
 
 describe('Seo (FEAT-027)', () => {
-  function configurar(peticion: Request | null = null, nonce: string | null = null): { seo: Seo; doc: Document } {
+  function configurar(
+    peticion: Request | null = null,
+    nonce: string | null = null,
+  ): { seo: Seo; doc: Document } {
     TestBed.configureTestingModule({
       providers: [
         { provide: REQUEST, useValue: peticion },
@@ -22,27 +30,49 @@ describe('Seo (FEAT-027)', () => {
 
   afterEach(() => {
     const doc = TestBed.inject(DOCUMENT);
-    doc.head.querySelectorAll('#bs-canonica, #bs-json-ld, meta[name], meta[property]').forEach((n) => n.remove());
+    doc.head
+      .querySelectorAll('#bs-canonica, #bs-json-ld, meta[name], meta[property]')
+      .forEach((n) => n.remove());
   });
 
   it('fija title, description, canónica absoluta, Open Graph y JSON-LD con nonce', () => {
-    const { seo, doc } = configurar(new Request('http://127.0.0.1:8080/destinos/patagonia?x=1'), 'abcdef0123456789abcdef');
+    const { seo, doc } = configurar(
+      new Request('http://127.0.0.1:8080/destinos/patagonia?x=1'),
+      'abcdef0123456789abcdef',
+    );
     seo.establecer({
       titulo: 'Patagonia',
       descripcion: 'Glaciares y montañas.',
       imagen: { url: '/media/publico/p.webp', alt: 'Torres del Paine' },
       tipoOg: 'article',
-      datosEstructurados: { '@type': 'TouristDestination', name: 'Patagonia </script><script>alert(1)</script>' },
+      datosEstructurados: {
+        '@type': 'TouristDestination',
+        name: 'Patagonia </script><script>alert(1)</script>',
+      },
     });
 
     expect(doc.title).toBe('Patagonia — Brújula Salvaje');
-    expect(doc.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe('Glaciares y montañas.');
-    expect(doc.head.querySelector('#bs-canonica')?.getAttribute('href')).toBe('http://127.0.0.1:8080/destinos/patagonia');
-    expect(doc.head.querySelector('meta[property="og:url"]')?.getAttribute('content')).toBe('http://127.0.0.1:8080/destinos/patagonia');
-    expect(doc.head.querySelector('meta[property="og:type"]')?.getAttribute('content')).toBe('article');
-    expect(doc.head.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('es_CO');
-    expect(doc.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe('http://127.0.0.1:8080/media/publico/p.webp');
-    expect(doc.head.querySelector('meta[name="twitter:card"]')?.getAttribute('content')).toBe('summary_large_image');
+    expect(doc.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
+      'Glaciares y montañas.',
+    );
+    expect(doc.head.querySelector('#bs-canonica')?.getAttribute('href')).toBe(
+      'http://127.0.0.1:8080/destinos/patagonia',
+    );
+    expect(doc.head.querySelector('meta[property="og:url"]')?.getAttribute('content')).toBe(
+      'http://127.0.0.1:8080/destinos/patagonia',
+    );
+    expect(doc.head.querySelector('meta[property="og:type"]')?.getAttribute('content')).toBe(
+      'article',
+    );
+    expect(doc.head.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe(
+      'es_CO',
+    );
+    expect(doc.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
+      'http://127.0.0.1:8080/media/publico/p.webp',
+    );
+    expect(doc.head.querySelector('meta[name="twitter:card"]')?.getAttribute('content')).toBe(
+      'summary_large_image',
+    );
     expect(doc.head.querySelector('meta[name="robots"]')).toBeNull();
 
     const jsonLd = doc.head.querySelector('#bs-json-ld');
@@ -59,11 +89,15 @@ describe('Seo (FEAT-027)', () => {
     expect(doc.head.querySelector('#bs-canonica')).not.toBeNull();
 
     seo.establecer({ titulo: 'Página no encontrada', indexable: false });
-    expect(doc.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, nofollow');
+    expect(doc.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex, nofollow',
+    );
     expect(doc.head.querySelector('#bs-canonica')).toBeNull();
     expect(doc.head.querySelector('#bs-json-ld')).toBeNull();
     expect(doc.head.querySelector('meta[name="description"]')).toBeNull();
-    expect(doc.head.querySelector('meta[name="twitter:card"]')?.getAttribute('content')).toBe('summary');
+    expect(doc.head.querySelector('meta[name="twitter:card"]')?.getAttribute('content')).toBe(
+      'summary',
+    );
   });
 
   it('en el navegador usa el origen y la ruta del documento', () => {
@@ -82,7 +116,9 @@ describe('Seo (FEAT-027)', () => {
 describe('EstadoHttp', () => {
   it('fija el código de la respuesta del SSR', () => {
     const respuesta: { status?: number } = {};
-    TestBed.configureTestingModule({ providers: [{ provide: RESPONSE_INIT, useValue: respuesta }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: RESPONSE_INIT, useValue: respuesta }],
+    });
     TestBed.inject(EstadoHttp).establecer(410);
     expect(respuesta.status).toBe(410);
   });

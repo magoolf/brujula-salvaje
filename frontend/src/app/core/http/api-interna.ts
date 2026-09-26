@@ -31,6 +31,7 @@ export function validarUrlInterna(valor: string | undefined | null): string | nu
     return null;
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') return null;
+  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '')
+    return null;
   return url.origin + url.pathname.replace(/\/+$/, '');
 }

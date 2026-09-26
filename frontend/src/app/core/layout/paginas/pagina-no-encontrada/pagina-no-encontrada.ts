@@ -8,7 +8,6 @@ import { EstadoHttp } from '../../../seo/estado-http';
 import { Seo } from '../../../seo/seo';
 import { TITULO_NO_ENCONTRADA } from '../titulos';
 
-
 /**
  * SCR-023 Error 404 (FEAT-026, FLOW-017; TPL-PUB-ERROR). Responde HTTP 404 real en el SSR y
  * `noindex`. Muestra búsqueda y rutas de salida (Inicio / Destinos / Guías).
@@ -23,17 +22,39 @@ import { TITULO_NO_ENCONTRADA } from '../titulos';
       <app-ilustracion-brujula [tamano]="120" />
       <h1>No encontramos esta página</h1>
       <p class="texto">
-        Puede que el enlace esté mal escrito o que la página nunca haya existido. Sigue explorando desde aquí:
+        Puede que el enlace esté mal escrito o que la página nunca haya existido. Sigue explorando
+        desde aquí:
       </p>
       <div class="busqueda">
-        <app-campo-busqueda variante="pagina-error" idCampo="busqueda-404" testId="no-encontrada-busqueda"
-                            [etiquetaOculta]="false" [soloIcono]="false" />
+        <app-campo-busqueda
+          variante="pagina-error"
+          idCampo="busqueda-404"
+          testId="no-encontrada-busqueda"
+          [etiquetaOculta]="false"
+          [soloIcono]="false"
+        />
       </div>
       <nav aria-label="Rutas de salida">
         <ul class="salidas">
-          <li><a appEnlace variante="standalone" routerLink="/" data-testid="no-encontrada-inicio">Ir al inicio</a></li>
-          <li><a appEnlace variante="standalone" routerLink="/destinos" data-testid="no-encontrada-destinos">Explorar destinos</a></li>
-          <li><a appEnlace variante="standalone" routerLink="/guias" data-testid="no-encontrada-guias">Ver las guías</a></li>
+          <li>
+            <a appEnlace variante="standalone" routerLink="/" data-testid="no-encontrada-inicio"
+              >Ir al inicio</a
+            >
+          </li>
+          <li>
+            <a
+              appEnlace
+              variante="standalone"
+              routerLink="/destinos"
+              data-testid="no-encontrada-destinos"
+              >Explorar destinos</a
+            >
+          </li>
+          <li>
+            <a appEnlace variante="standalone" routerLink="/guias" data-testid="no-encontrada-guias"
+              >Ver las guías</a
+            >
+          </li>
         </ul>
       </nav>
     </section>
@@ -71,7 +92,8 @@ export class PaginaNoEncontrada {
     inject(EstadoHttp).establecer(404);
     inject(Seo).establecer({
       titulo: TITULO_NO_ENCONTRADA,
-      descripcion: 'La página que buscas no existe. Sigue explorando destinos, itinerarios y guías.',
+      descripcion:
+        'La página que buscas no existe. Sigue explorando destinos, itinerarios y guías.',
       indexable: false,
     });
   }

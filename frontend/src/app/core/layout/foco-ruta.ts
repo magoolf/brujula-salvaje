@@ -1,5 +1,12 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { DestroyRef, Injectable, Injector, PLATFORM_ID, afterNextRender, inject } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  Injector,
+  PLATFORM_ID,
+  afterNextRender,
+  inject,
+} from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 

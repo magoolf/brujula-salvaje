@@ -19,7 +19,16 @@ export function normalizarError(error: unknown): ErrorApi {
   return crearError('desconocido', null, null, MENSAJE_ERROR_GENERICO, {}, null, {});
 }
 
-const MIEMBROS_ESTANDAR = new Set(['type', 'title', 'status', 'detail', 'instance', 'code', 'errors', 'trace_id']);
+const MIEMBROS_ESTANDAR = new Set([
+  'type',
+  'title',
+  'status',
+  'detail',
+  'instance',
+  'code',
+  'errors',
+  'trace_id',
+]);
 const TRACE_ID = /^[0-9a-f]{32}$/;
 
 /** Función pura (sin Angular) para normalizar un estado HTTP y su cuerpo. */

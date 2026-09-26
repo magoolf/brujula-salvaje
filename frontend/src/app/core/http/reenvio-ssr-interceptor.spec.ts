@@ -6,7 +6,10 @@ import { TestBed } from '@angular/core/testing';
 import { API_INTERNAL_URL, esRutaApi, validarUrlInterna } from './api-interna';
 import { reenvioSsrInterceptor } from './reenvio-ssr-interceptor';
 
-function configurar(peticion: Request | null, base: string | null): { http: HttpClient; ctrl: HttpTestingController } {
+function configurar(
+  peticion: Request | null,
+  base: string | null,
+): { http: HttpClient; ctrl: HttpTestingController } {
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(withInterceptors([reenvioSsrInterceptor])),
@@ -34,7 +37,9 @@ describe('reenvioSsrInterceptor', () => {
 
     const peticion = ctrl.expectOne('http://backend:8000/api/v1/publico/inicio');
     expect(peticion.request.headers.get('x-forwarded-for')).toBe('203.0.113.7');
-    expect(peticion.request.headers.get('traceparent')).toBe('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01');
+    expect(peticion.request.headers.get('traceparent')).toBe(
+      '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+    );
     expect(peticion.request.headers.get('x-request-id')).toBe('abc123');
     expect(peticion.request.headers.has('cookie')).toBe(false);
     peticion.flush({});

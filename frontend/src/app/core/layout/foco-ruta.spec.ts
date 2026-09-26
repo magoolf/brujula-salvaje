@@ -54,7 +54,9 @@ describe('FocoRuta', () => {
   });
 
   it('no hace nada en el servidor ni sin contenido principal', () => {
-    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: PLATFORM_ID, useValue: 'server' }] });
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: PLATFORM_ID, useValue: 'server' }],
+    });
     const foco = TestBed.inject(FocoRuta);
     expect(() => foco.iniciar()).not.toThrow();
     expect(() => foco.enfocarVista()).not.toThrow();

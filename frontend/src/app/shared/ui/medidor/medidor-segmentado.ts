@@ -26,7 +26,9 @@ import { normalizarNivel, segmentos, textoAccesible } from './medidor';
         }
       </span>
       @if (!compacto() && enlaceEscala()) {
-        <a class="explicacion" [routerLink]="rutaEscala()" [fragment]="fragmentoEscala()">¿Qué significa?</a>
+        <a class="explicacion" [routerLink]="rutaEscala()" [fragment]="fragmentoEscala()"
+          >¿Qué significa?</a
+        >
       }
     </span>
   `,
@@ -68,7 +70,9 @@ import { normalizarNivel, segmentos, textoAccesible } from './medidor';
       min-height: var(--bs-size-target-min);
     }
     @media (forced-colors: active) {
-      .segmento--lleno { background: CanvasText; }
+      .segmento--lleno {
+        background: CanvasText;
+      }
     }
   `,
 })

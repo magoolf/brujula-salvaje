@@ -28,7 +28,9 @@ export const RUTA_BUSCAR = '/buscar';
       (submit)="enviar($event)"
       novalidate
     >
-      <label class="etiqueta" [class.bs-solo-lectores]="etiquetaOculta()" [for]="idCampo()">{{ etiqueta() }}</label>
+      <label class="etiqueta" [class.bs-solo-lectores]="etiquetaOculta()" [for]="idCampo()">{{
+        etiqueta()
+      }}</label>
       <div class="fila">
         <input
           #campo

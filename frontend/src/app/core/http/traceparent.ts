@@ -9,7 +9,8 @@ const PATRON_TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
 
 export type FuenteAleatoria = (bytes: Uint8Array<ArrayBuffer>) => Uint8Array<ArrayBuffer>;
 
-export const aleatorioCriptografico: FuenteAleatoria = (bytes) => globalThis.crypto.getRandomValues(bytes);
+export const aleatorioCriptografico: FuenteAleatoria = (bytes) =>
+  globalThis.crypto.getRandomValues(bytes);
 
 export function generarTraceparent(aleatorio: FuenteAleatoria = aleatorioCriptografico): string {
   const traceId = hexNoNulo(16, aleatorio);

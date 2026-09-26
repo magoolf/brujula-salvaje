@@ -31,6 +31,8 @@ describe('MigasDePan (GI-03)', () => {
     const fixture = TestBed.createComponent(MigasDePan);
     fixture.componentRef.setInput('migas', [{ etiqueta: 'Inicio' }]);
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="migas-de-pan-padre"]')).toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="migas-de-pan-padre"]'),
+    ).toBeNull();
   });
 });

@@ -13,7 +13,10 @@ describe('traceparentInterceptor', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(withInterceptors([traceparentInterceptor])), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withInterceptors([traceparentInterceptor])),
+        provideHttpClientTesting(),
+      ],
     });
     http = TestBed.inject(HttpClient);
     controlador = TestBed.inject(HttpTestingController);
@@ -60,11 +63,21 @@ describe('traceparent (funciones puras)', () => {
   });
 
   it('valida el formato y rechaza ids todo ceros, versiones u otros tipos', () => {
-    expect(esTraceparentValido('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')).toBe(true);
-    expect(esTraceparentValido('00-00000000000000000000000000000000-00f067aa0ba902b7-01')).toBe(false);
-    expect(esTraceparentValido('00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01')).toBe(false);
-    expect(esTraceparentValido('01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')).toBe(false);
-    expect(esTraceparentValido('00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01')).toBe(false);
+    expect(esTraceparentValido('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')).toBe(
+      true,
+    );
+    expect(esTraceparentValido('00-00000000000000000000000000000000-00f067aa0ba902b7-01')).toBe(
+      false,
+    );
+    expect(esTraceparentValido('00-4bf92f3577b34da6a3ce929d0e0e4736-0000000000000000-01')).toBe(
+      false,
+    );
+    expect(esTraceparentValido('01-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')).toBe(
+      false,
+    );
+    expect(esTraceparentValido('00-4BF92F3577B34DA6A3CE929D0E0E4736-00f067aa0ba902b7-01')).toBe(
+      false,
+    );
     expect(esTraceparentValido(null)).toBe(false);
     expect(esTraceparentValido(undefined)).toBe(false);
   });

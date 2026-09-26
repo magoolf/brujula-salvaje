@@ -7,15 +7,25 @@ import { ImagenTarjeta, TarjetaContenido } from './tarjeta-contenido';
 @Component({
   imports: [TarjetaContenido],
   template: `
-    <app-tarjeta-contenido titulo="Patagonia" ruta="/destinos/patagonia" overline="Destino"
-                           [imagen]="imagen()" [nivelTitulo]="nivel()" testId="tarjeta-destino-patagonia">
+    <app-tarjeta-contenido
+      titulo="Patagonia"
+      ruta="/destinos/patagonia"
+      overline="Destino"
+      [imagen]="imagen()"
+      [nivelTitulo]="nivel()"
+      testId="tarjeta-destino-patagonia"
+    >
       <p>Argentina · Chile</p>
       <button tarjeta-accion type="button" aria-label="Guardar Patagonia">Guardar</button>
     </app-tarjeta-contenido>
   `,
 })
 class Anfitrion {
-  readonly imagen = signal<ImagenTarjeta | null>({ src: '/media/publico/p-640.webp', ancho: 640, alto: 480 });
+  readonly imagen = signal<ImagenTarjeta | null>({
+    src: '/media/publico/p-640.webp',
+    ancho: 640,
+    alto: 480,
+  });
   readonly nivel = signal<2 | 3 | 4>(3);
 }
 
@@ -25,7 +35,9 @@ describe('TarjetaContenido', () => {
   it('un único enlace principal en el título, imagen decorativa y acción fuera del enlace', async () => {
     const fixture = TestBed.createComponent(Anfitrion);
     await fixture.whenStable();
-    const tarjeta = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="tarjeta-destino-patagonia"]') as HTMLElement;
+    const tarjeta = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="tarjeta-destino-patagonia"]',
+    ) as HTMLElement;
     const enlaces = tarjeta.querySelectorAll('a');
     expect(enlaces).toHaveLength(1);
     expect(enlaces[0].getAttribute('href')).toBe('/destinos/patagonia');
@@ -33,7 +45,9 @@ describe('TarjetaContenido', () => {
     expect(tarjeta.querySelector('img')?.getAttribute('alt')).toBe('');
     expect(tarjeta.querySelector('.bs-overline')?.textContent).toBe('Destino');
     expect(tarjeta.querySelector('a button')).toBeNull();
-    expect(tarjeta.querySelector('.accion button')?.getAttribute('aria-label')).toBe('Guardar Patagonia');
+    expect(tarjeta.querySelector('.accion button')?.getAttribute('aria-label')).toBe(
+      'Guardar Patagonia',
+    );
     expect(tarjeta.querySelector('.metadatos')?.textContent).toContain('Argentina');
   });
 

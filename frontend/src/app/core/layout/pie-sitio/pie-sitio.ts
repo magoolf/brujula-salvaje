@@ -20,7 +20,11 @@ import { NAVEGACION_INSTITUCIONAL, NAVEGACION_PRINCIPAL } from '../navegacion';
           <h2 id="pie-explorar" class="titulo">Explorar</h2>
           <ul>
             @for (enlace of explorar; track enlace.id) {
-              <li><a [routerLink]="enlace.ruta" [attr.data-testid]="'pie-' + enlace.id">{{ enlace.etiqueta }}</a></li>
+              <li>
+                <a [routerLink]="enlace.ruta" [attr.data-testid]="'pie-' + enlace.id">{{
+                  enlace.etiqueta
+                }}</a>
+              </li>
             }
           </ul>
         </nav>
@@ -28,14 +32,20 @@ import { NAVEGACION_INSTITUCIONAL, NAVEGACION_PRINCIPAL } from '../navegacion';
           <h2 id="pie-institucional" class="titulo">Institucional</h2>
           <ul>
             @for (enlace of institucional; track enlace.id) {
-              <li><a [routerLink]="enlace.ruta" [attr.data-testid]="'pie-' + enlace.id">{{ enlace.etiqueta }}</a></li>
+              <li>
+                <a [routerLink]="enlace.ruta" [attr.data-testid]="'pie-' + enlace.id">{{
+                  enlace.etiqueta
+                }}</a>
+              </li>
             }
           </ul>
         </nav>
         <div class="marca">
           <p class="nombre">{{ marca }}</p>
           <p>
-            <a routerLink="/politica-de-cookies" data-testid="pie-sin-cookies">Sin cookies ni rastreadores en el sitio público</a>
+            <a routerLink="/politica-de-cookies" data-testid="pie-sin-cookies"
+              >Sin cookies ni rastreadores en el sitio público</a
+            >
           </p>
         </div>
       </div>
@@ -86,7 +96,9 @@ import { NAVEGACION_INSTITUCIONAL, NAVEGACION_PRINCIPAL } from '../navegacion';
       margin-bottom: var(--bs-space-2);
     }
     @media (min-width: 48rem) {
-      .columnas { grid-template-columns: repeat(3, 1fr); }
+      .columnas {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
   `,
 })

@@ -25,11 +25,15 @@ describe('ManejadorErroresGlobal (§27.5)', () => {
       ],
     });
     manejador = TestBed.inject(ManejadorErroresGlobal);
-    vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue('/buscar?q=juan.perez@correo.co#r');
+    vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue(
+      '/buscar?q=juan.perez@correo.co#r',
+    );
   });
 
   it('registra traceId, ruta sin parámetros y versión, sin PII', () => {
-    manejador.handleError(new Error('Fallo al cargar /buscar?q=juan.perez@correo.co con tel 3001234567'));
+    manejador.handleError(
+      new Error('Fallo al cargar /buscar?q=juan.perez@correo.co con tel 3001234567'),
+    );
     expect(registros).toEqual([
       {
         evento: 'error_no_controlado',
@@ -45,7 +49,10 @@ describe('ManejadorErroresGlobal (§27.5)', () => {
 
   it('extrae el trace_id de un error HTTP con Problem Details', () => {
     manejador.handleError(
-      new HttpErrorResponse({ status: 500, error: { code: 'error_interno', trace_id: '4bf92f3577b34da6a3ce929d0e0e4736' } }),
+      new HttpErrorResponse({
+        status: 500,
+        error: { code: 'error_interno', trace_id: '4bf92f3577b34da6a3ce929d0e0e4736' },
+      }),
     );
     expect(registros[0].traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
   });

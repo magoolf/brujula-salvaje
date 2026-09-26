@@ -17,7 +17,12 @@ export const RETARDO_ESQUELETO_MS = 300;
     <div class="cargando" aria-busy="true" [attr.data-testid]="testId()">
       <span class="bs-solo-lectores" role="status">{{ etiqueta() }}</span>
       @for (i of elementos(); track i) {
-        <div class="esqueleto" aria-hidden="true" [attr.data-forma]="forma()" [class.esqueleto--visible]="visible()"></div>
+        <div
+          class="esqueleto"
+          aria-hidden="true"
+          [attr.data-forma]="forma()"
+          [class.esqueleto--visible]="visible()"
+        ></div>
       }
     </div>
   `,
@@ -35,15 +40,29 @@ export const RETARDO_ESQUELETO_MS = 300;
       opacity: 1;
       animation: pulso 1.6s var(--bs-motion-easing-standard) infinite;
     }
-    [data-forma='linea'] { height: 1rem; }
-    [data-forma='fila'] { height: 3rem; }
-    [data-forma='tarjeta'] { aspect-ratio: var(--bs-aspect-card); border-radius: var(--bs-radius-lg); }
-    [data-forma='imagen'] { aspect-ratio: var(--bs-aspect-gallery); border-radius: var(--bs-radius-lg); }
+    [data-forma='linea'] {
+      height: 1rem;
+    }
+    [data-forma='fila'] {
+      height: 3rem;
+    }
+    [data-forma='tarjeta'] {
+      aspect-ratio: var(--bs-aspect-card);
+      border-radius: var(--bs-radius-lg);
+    }
+    [data-forma='imagen'] {
+      aspect-ratio: var(--bs-aspect-gallery);
+      border-radius: var(--bs-radius-lg);
+    }
     @keyframes pulso {
-      50% { opacity: 0.55; }
+      50% {
+        opacity: 0.55;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
-      .esqueleto--visible { animation: none; }
+      .esqueleto--visible {
+        animation: none;
+      }
     }
   `,
 })

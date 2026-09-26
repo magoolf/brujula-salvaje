@@ -25,16 +25,45 @@ import { Component, input } from '@angular/core';
     </svg>
   `,
   styles: `
-    :host { display: inline-block; }
-    .aro { fill: var(--bs-color-bg-brand-subtle); stroke: var(--bs-color-border-brand); stroke-width: 3; }
-    .esfera { fill: var(--bs-color-bg-surface); stroke: var(--bs-color-border-subtle); stroke-width: 2; }
-    .aguja-base { fill: var(--bs-color-text-muted); }
-    .aguja-norte { fill: var(--bs-color-action-accent-bg); }
-    .eje { fill: var(--bs-color-text-default); }
-    .marcas { stroke: var(--bs-color-border-brand); stroke-width: 3; stroke-linecap: round; }
+    :host {
+      display: inline-block;
+    }
+    .aro {
+      fill: var(--bs-color-bg-brand-subtle);
+      stroke: var(--bs-color-border-brand);
+      stroke-width: 3;
+    }
+    .esfera {
+      fill: var(--bs-color-bg-surface);
+      stroke: var(--bs-color-border-subtle);
+      stroke-width: 2;
+    }
+    .aguja-base {
+      fill: var(--bs-color-text-muted);
+    }
+    .aguja-norte {
+      fill: var(--bs-color-action-accent-bg);
+    }
+    .eje {
+      fill: var(--bs-color-text-default);
+    }
+    .marcas {
+      stroke: var(--bs-color-border-brand);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
     @media (forced-colors: active) {
-      .aro, .esfera, .aguja-base, .aguja-norte, .eje { fill: CanvasText; stroke: CanvasText; }
-      .esfera { fill: Canvas; }
+      .aro,
+      .esfera,
+      .aguja-base,
+      .aguja-norte,
+      .eje {
+        fill: CanvasText;
+        stroke: CanvasText;
+      }
+      .esfera {
+        fill: Canvas;
+      }
     }
   `,
 })

@@ -1,7 +1,12 @@
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 
 import { MENSAJE_ERROR_GENERICO, MENSAJE_SIN_CONEXION } from './error-api.model';
-import { categoriaPorEstado, normalizarError, normalizarRespuesta, tipoDesdeUri } from './normalizar-error';
+import {
+  categoriaPorEstado,
+  normalizarError,
+  normalizarRespuesta,
+  tipoDesdeUri,
+} from './normalizar-error';
 
 /** Ejemplo literal de contracts/openapi.yaml → components.responses.Validacion (400). */
 const PROBLEMA_VALIDACION = {
@@ -83,7 +88,10 @@ describe('normalizarError (RFC 9457 → ErrorApi)', () => {
       listado_padre: '/destinos',
     });
     expect(error.categoria).toBe('retirado');
-    expect(error.extra).toEqual({ alternativas: [{ slug: 'patagonia' }], listado_padre: '/destinos' });
+    expect(error.extra).toEqual({
+      alternativas: [{ slug: 'patagonia' }],
+      listado_padre: '/destinos',
+    });
   });
 
   it('nunca muestra el detalle de un 5xx (sin datos técnicos)', () => {
@@ -101,14 +109,20 @@ describe('normalizarError (RFC 9457 → ErrorApi)', () => {
   });
 
   it('status 0 → sin_conexion con mensaje de GI-04', () => {
-    const error = normalizarError(new HttpErrorResponse({ status: 0, error: new ProgressEvent('error') }));
+    const error = normalizarError(
+      new HttpErrorResponse({ status: 0, error: new ProgressEvent('error') }),
+    );
     expect(error.categoria).toBe('sin_conexion');
     expect(error.tipo).toBe('sin_conexion');
     expect(error.mensaje).toBe(MENSAJE_SIN_CONEXION);
   });
 
   it('normaliza el formato por defecto de DRF ({campo: [mensajes]} y {detail})', () => {
-    const porCampo = normalizarRespuesta(400, { nombre: ['Obligatorio.'], slug: 'Inválido.', vacio: [] });
+    const porCampo = normalizarRespuesta(400, {
+      nombre: ['Obligatorio.'],
+      slug: 'Inválido.',
+      vacio: [],
+    });
     expect(porCampo.campos).toEqual({ nombre: ['Obligatorio.'], slug: ['Inválido.'] });
     expect(porCampo.tipo).toBe('validacion');
 
@@ -119,12 +133,18 @@ describe('normalizarError (RFC 9457 → ErrorApi)', () => {
   });
 
   it('descarta un trace_id con formato inválido', () => {
-    expect(normalizarRespuesta(404, { code: 'no_encontrado', trace_id: 'no-es-hex' }).traceId).toBeNull();
+    expect(
+      normalizarRespuesta(404, { code: 'no_encontrado', trace_id: 'no-es-hex' }).traceId,
+    ).toBeNull();
   });
 
   it('errores que no son HTTP → desconocido con mensaje genérico', () => {
     const error = normalizarError(new Error('fallo'));
-    expect(error).toMatchObject({ categoria: 'desconocido', tipo: 'desconocido', mensaje: MENSAJE_ERROR_GENERICO });
+    expect(error).toMatchObject({
+      categoria: 'desconocido',
+      tipo: 'desconocido',
+      mensaje: MENSAJE_ERROR_GENERICO,
+    });
   });
 
   it('cuerpos no objeto o JSON inválido no rompen la normalización', () => {
@@ -153,6 +173,8 @@ describe('normalizarError (RFC 9457 → ErrorApi)', () => {
     expect(tipoDesdeUri('https://x.example/errors/duplicado#frag')).toBe('duplicado');
     expect(tipoDesdeUri('about:blank')).toBeNull();
     expect(tipoDesdeUri(null)).toBeNull();
-    expect(normalizarRespuesta(409, { type: 'about:blank', code: 'duplicado' }).tipo).toBe('duplicado');
+    expect(normalizarRespuesta(409, { type: 'about:blank', code: 'duplicado' }).tipo).toBe(
+      'duplicado',
+    );
   });
 });

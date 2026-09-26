@@ -18,12 +18,21 @@ import { Conectividad } from '../conectividad';
         <div class="barra">
           <app-icono nombre="wifi-off" [tamano]="20" />
           <p>Sin conexión. Lo que ya cargaste sigue disponible.</p>
-          <button type="button" appBoton variante="ghost-inverse" tamano="sm" (click)="reintentar()">
+          <button
+            type="button"
+            appBoton
+            variante="ghost-inverse"
+            tamano="sm"
+            (click)="reintentar()"
+          >
             Reintentar
           </button>
         </div>
       } @else if (conectividad.restablecida()) {
-        <div class="barra"><app-icono nombre="circle-check" [tamano]="20" /><p>Conexión restablecida.</p></div>
+        <div class="barra">
+          <app-icono nombre="circle-check" [tamano]="20" />
+          <p>Conexión restablecida.</p>
+        </div>
       }
     </div>
   `,

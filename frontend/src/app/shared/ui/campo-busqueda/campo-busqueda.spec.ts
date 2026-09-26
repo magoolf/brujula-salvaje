@@ -6,14 +6,23 @@ import { MAX_CONSULTA, validarConsulta } from './validar-consulta';
 
 describe('validarConsulta (AC-020)', () => {
   it('acepta 2..100 caracteres tras recortar y normalizar espacios', () => {
-    expect(validarConsulta('  Patagonia   sur ')).toEqual({ valida: true, consulta: 'Patagonia sur' });
+    expect(validarConsulta('  Patagonia   sur ')).toEqual({
+      valida: true,
+      consulta: 'Patagonia sur',
+    });
     expect(validarConsulta('ñu')).toEqual({ valida: true, consulta: 'ñu' });
   });
 
   it('rechaza consultas cortas o largas con mensaje de qué hacer', () => {
-    expect(validarConsulta(' a ')).toEqual({ valida: false, mensaje: 'Escribe al menos 2 caracteres.' });
+    expect(validarConsulta(' a ')).toEqual({
+      valida: false,
+      mensaje: 'Escribe al menos 2 caracteres.',
+    });
     expect(validarConsulta(null)).toMatchObject({ valida: false });
-    expect(validarConsulta('x'.repeat(MAX_CONSULTA + 1))).toEqual({ valida: false, mensaje: 'Escribe como máximo 100 caracteres.' });
+    expect(validarConsulta('x'.repeat(MAX_CONSULTA + 1))).toEqual({
+      valida: false,
+      mensaje: 'Escribe como máximo 100 caracteres.',
+    });
   });
 });
 
@@ -51,7 +60,9 @@ describe('CampoBusqueda (SearchField)', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     await fixture.whenStable();
     expect(navegar).not.toHaveBeenCalled();
-    expect(raiz.querySelector('[data-testid="campo-busqueda-error"]')?.textContent).toBe('Escribe al menos 2 caracteres.');
+    expect(raiz.querySelector('[data-testid="campo-busqueda-error"]')?.textContent).toBe(
+      'Escribe al menos 2 caracteres.',
+    );
     expect(campo.getAttribute('aria-invalid')).toBe('true');
     expect(campo.getAttribute('aria-describedby')).toBe('busqueda-prueba-error');
 

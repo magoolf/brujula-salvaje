@@ -22,7 +22,12 @@ const ICONOS: Record<VarianteBanner, NombreIcono> = {
   imports: [Icono],
   template: `
     @if (visible()) {
-      <div class="banner" [attr.data-variante]="variante()" [attr.role]="rol()" [attr.data-testid]="testId()">
+      <div
+        class="banner"
+        [attr.data-variante]="variante()"
+        [attr.role]="rol()"
+        [attr.data-testid]="testId()"
+      >
         <app-icono class="icono" [nombre]="icono()" [tamano]="24" />
         <div class="cuerpo">
           @if (titulo()) {
@@ -60,10 +65,22 @@ const ICONOS: Record<VarianteBanner, NombreIcono> = {
     .acciones:empty {
       display: none;
     }
-    [data-variante='info'] { color: var(--bs-color-status-info-fg); background: var(--bs-color-status-info-bg); }
-    [data-variante='success'] { color: var(--bs-color-status-success-fg); background: var(--bs-color-status-success-bg); }
-    [data-variante='warning'] { color: var(--bs-color-status-warning-fg); background: var(--bs-color-status-warning-bg); }
-    [data-variante='error'] { color: var(--bs-color-status-error-fg); background: var(--bs-color-status-error-bg); }
+    [data-variante='info'] {
+      color: var(--bs-color-status-info-fg);
+      background: var(--bs-color-status-info-bg);
+    }
+    [data-variante='success'] {
+      color: var(--bs-color-status-success-fg);
+      background: var(--bs-color-status-success-bg);
+    }
+    [data-variante='warning'] {
+      color: var(--bs-color-status-warning-fg);
+      background: var(--bs-color-status-warning-bg);
+    }
+    [data-variante='error'] {
+      color: var(--bs-color-status-error-fg);
+      background: var(--bs-color-status-error-bg);
+    }
     .cerrar {
       display: inline-flex;
       align-items: center;
@@ -78,7 +95,9 @@ const ICONOS: Record<VarianteBanner, NombreIcono> = {
       cursor: pointer;
     }
     @media (forced-colors: active) {
-      .banner { border: 1px solid CanvasText; }
+      .banner {
+        border: 1px solid CanvasText;
+      }
     }
   `,
 })

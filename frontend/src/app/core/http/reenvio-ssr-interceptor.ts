@@ -9,7 +9,11 @@ import { API_INTERNAL_URL, esRutaApi } from './api-interna';
  * correlación de trazas. El proxy ya las saneó (sobrescribe X-Forwarded-For y regenera
  * un traceparent inválido).
  */
-export const CABECERAS_REENVIADAS: readonly string[] = ['x-forwarded-for', 'traceparent', 'x-request-id'];
+export const CABECERAS_REENVIADAS: readonly string[] = [
+  'x-forwarded-for',
+  'traceparent',
+  'x-request-id',
+];
 
 /**
  * Solo actúa durante el renderizado en servidor: reescribe las rutas relativas de la API

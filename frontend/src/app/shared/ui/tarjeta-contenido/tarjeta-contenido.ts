@@ -11,7 +11,8 @@ export interface ImagenTarjeta {
 }
 
 /** sizes de tarjeta en rejilla (PERFORMANCE_SPEC.Sizes_Recomendados.tarjeta_rejilla). */
-export const SIZES_TARJETA = '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw, (min-width: 480px) 50vw, 100vw';
+export const SIZES_TARJETA =
+  '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw, (min-width: 480px) 50vw, 100vw';
 
 /**
  * Tarjeta de contenido base (CardDestino / CardItinerario / CardGuia / CardTipo…, HANDOFF_UI_UX):
@@ -44,13 +45,19 @@ export const SIZES_TARJETA = '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw
         }
         @switch (nivelTitulo()) {
           @case (2) {
-            <h2 class="titulo"><a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a></h2>
+            <h2 class="titulo">
+              <a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a>
+            </h2>
           }
           @case (4) {
-            <h4 class="titulo"><a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a></h4>
+            <h4 class="titulo">
+              <a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a>
+            </h4>
           }
           @default {
-            <h3 class="titulo"><a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a></h3>
+            <h3 class="titulo">
+              <a class="enlace" [routerLink]="ruta()">{{ titulo() }}</a>
+            </h3>
           }
         }
         <div class="metadatos"><ng-content /></div>
@@ -59,7 +66,10 @@ export const SIZES_TARJETA = '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw
     </article>
   `,
   styles: `
-    :host { display: block; container-type: inline-size; }
+    :host {
+      display: block;
+      container-type: inline-size;
+    }
     .tarjeta {
       position: relative;
       display: flex;
@@ -71,13 +81,17 @@ export const SIZES_TARJETA = '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw
       box-shadow: var(--bs-shadow-1);
       transition: box-shadow var(--bs-motion-duration-slow) var(--bs-motion-easing-standard);
     }
-    .imagen { border-radius: var(--bs-radius-lg) var(--bs-radius-lg) 0 0; }
+    .imagen {
+      border-radius: var(--bs-radius-lg) var(--bs-radius-lg) 0 0;
+    }
     .cuerpo {
       display: grid;
       gap: var(--bs-space-2);
       padding: var(--bs-space-4);
     }
-    .tipo { color: var(--bs-color-text-accent); }
+    .tipo {
+      color: var(--bs-color-text-accent);
+    }
     .titulo {
       font-family: var(--bs-typography-h3-font-family);
       font-size: var(--bs-typography-h3-font-size);
@@ -117,11 +131,17 @@ export const SIZES_TARJETA = '(min-width: 1536px) 25vw, (min-width: 1024px) 33vw
       z-index: var(--bs-z-raised);
     }
     @media (hover: hover) and (pointer: fine) {
-      .tarjeta:hover { box-shadow: var(--bs-shadow-2); }
-      .tarjeta:hover .enlace { text-decoration: underline; }
+      .tarjeta:hover {
+        box-shadow: var(--bs-shadow-2);
+      }
+      .tarjeta:hover .enlace {
+        text-decoration: underline;
+      }
     }
     @media (forced-colors: active) {
-      .tarjeta { border: 1px solid CanvasText; }
+      .tarjeta {
+        border: 1px solid CanvasText;
+      }
     }
   `,
 })

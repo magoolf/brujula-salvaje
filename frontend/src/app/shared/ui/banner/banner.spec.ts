@@ -6,7 +6,12 @@ import { Banner, VarianteBanner } from './banner';
 @Component({
   imports: [Banner],
   template: `
-    <app-banner [variante]="variante()" titulo="Guardado" [permitirCerrar]="cerrable()" (cerrado)="cierres = cierres + 1">
+    <app-banner
+      [variante]="variante()"
+      titulo="Guardado"
+      [permitirCerrar]="cerrable()"
+      (cerrado)="cierres = cierres + 1"
+    >
       Guardaste el borrador.
       <a banner-accion href="/panel">Ver en el sitio</a>
     </app-banner>

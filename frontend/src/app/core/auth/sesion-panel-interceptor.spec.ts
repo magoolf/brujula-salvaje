@@ -31,10 +31,16 @@ describe('sesionPanelInterceptor (401 global)', () => {
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const errores: unknown[] = [];
 
-    http.get('/api/v1/panel/contenidos/destinos').subscribe({ error: (e: unknown) => errores.push(e) });
-    ctrl.expectOne('/api/v1/panel/contenidos/destinos').flush({ code: 'sesion_expirada' }, { status: 401, statusText: 'Unauthorized' });
+    http
+      .get('/api/v1/panel/contenidos/destinos')
+      .subscribe({ error: (e: unknown) => errores.push(e) });
+    ctrl
+      .expectOne('/api/v1/panel/contenidos/destinos')
+      .flush({ code: 'sesion_expirada' }, { status: 401, statusText: 'Unauthorized' });
 
-    expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], { queryParams: { siguiente: '/panel/contenido/destinos?pagina=2' } });
+    expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], {
+      queryParams: { siguiente: '/panel/contenido/destinos?pagina=2' },
+    });
     expect(errores).toHaveLength(1);
   });
 
@@ -42,18 +48,24 @@ describe('sesionPanelInterceptor (401 global)', () => {
     vi.spyOn(router, 'url', 'get').mockReturnValue('/destinos');
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     http.get('/api/v1/panel/cuentas').subscribe({ error: () => undefined });
-    ctrl.expectOne('/api/v1/panel/cuentas').flush(null, { status: 401, statusText: 'Unauthorized' });
+    ctrl
+      .expectOne('/api/v1/panel/cuentas')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
     expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], { queryParams: {} });
   });
 
   it('no actúa en los endpoints de autenticación ni en otros códigos', () => {
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     http.post('/api/v1/panel/auth/login', {}).subscribe({ error: () => undefined });
-    ctrl.expectOne('/api/v1/panel/auth/login').flush(null, { status: 401, statusText: 'Unauthorized' });
+    ctrl
+      .expectOne('/api/v1/panel/auth/login')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
     http.get('/api/v1/panel/cuentas').subscribe({ error: () => undefined });
     ctrl.expectOne('/api/v1/panel/cuentas').flush(null, { status: 403, statusText: 'Forbidden' });
     http.get('/api/v1/publico/inicio').subscribe({ error: () => undefined });
-    ctrl.expectOne('/api/v1/publico/inicio').flush(null, { status: 401, statusText: 'Unauthorized' });
+    ctrl
+      .expectOne('/api/v1/publico/inicio')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
     expect(navegar).not.toHaveBeenCalled();
   });
 });

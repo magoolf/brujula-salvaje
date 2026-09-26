@@ -21,10 +21,15 @@ describe('CabeceraSitio (GI-01)', () => {
     expect(raiz.querySelector('header')).not.toBeNull();
     expect(raiz.querySelector('[data-testid="cabecera-logo"]')?.getAttribute('href')).toBe('/');
     const nav = raiz.querySelector('nav[aria-label="Principal"]') as HTMLElement;
-    const enlaces = Array.from(nav.querySelectorAll('a')).map((a) => [a.textContent?.trim(), a.getAttribute('href')]);
+    const enlaces = Array.from(nav.querySelectorAll('a')).map((a) => [
+      a.textContent?.trim(),
+      a.getAttribute('href'),
+    ]);
     expect(enlaces).toEqual(NAVEGACION_PRINCIPAL.map((e) => [e.etiqueta, e.ruta]));
     expect(raiz.textContent).not.toMatch(/Colecciones|Cuándo ir|Guardados/);
-    expect(raiz.querySelector('form[role="search"][data-testid="cabecera-busqueda"]')).not.toBeNull();
+    expect(
+      raiz.querySelector('form[role="search"][data-testid="cabecera-busqueda"]'),
+    ).not.toBeNull();
     fixture.nativeElement.remove();
   });
 
@@ -59,7 +64,10 @@ describe('CabeceraSitio (GI-01)', () => {
     (raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement).click();
     expect(abrir).toHaveBeenCalledWith(
       MenuMovil,
-      expect.objectContaining({ ariaLabelledBy: 'menu-movil-titulo', restoreFocus: raiz.querySelector('[data-testid="cabecera-boton-menu"]') }),
+      expect.objectContaining({
+        ariaLabelledBy: 'menu-movil-titulo',
+        restoreFocus: raiz.querySelector('[data-testid="cabecera-boton-menu"]'),
+      }),
     );
     TestBed.inject(Dialog).closeAll();
     fixture.nativeElement.remove();
@@ -67,7 +75,9 @@ describe('CabeceraSitio (GI-01)', () => {
 });
 
 describe('MenuMovil', () => {
-  beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter([{ path: '**', children: [] }])] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({ providers: [provideRouter([{ path: '**', children: [] }])] }),
+  );
 
   it('muestra búsqueda y navegación principal y se cierra al navegar', async () => {
     const dialogo = TestBed.inject(Dialog);

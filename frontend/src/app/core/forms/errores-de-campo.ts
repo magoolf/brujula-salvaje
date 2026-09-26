@@ -13,7 +13,10 @@ export interface ErroresDeFormulario {
 
 export const CLAVE_ERROR_GENERAL = '_general';
 
-export function aErroresDeCampo(error: ErrorApi, camposFormulario: readonly string[]): ErroresDeFormulario {
+export function aErroresDeCampo(
+  error: ErrorApi,
+  camposFormulario: readonly string[],
+): ErroresDeFormulario {
   const conocidos = new Set(camposFormulario);
   const porCampo: Record<string, readonly string[]> = {};
   const generales: string[] = [];

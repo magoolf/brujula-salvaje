@@ -9,7 +9,9 @@ import { Component, inject, input } from '@angular/core';
 @Component({
   selector: 'app-skip-link',
   template: `
-    <a class="salto" [href]="'#' + destino()" data-testid="skip-link" (click)="saltar($event)">{{ texto() }}</a>
+    <a class="salto" [href]="'#' + destino()" data-testid="skip-link" (click)="saltar($event)">{{
+      texto()
+    }}</a>
   `,
   styles: `
     .salto {

@@ -19,8 +19,14 @@ import { Icono } from '../icono/icono';
         <p class="titulo">{{ titulo() }}</p>
         <p>{{ mensaje() }}</p>
         <div class="acciones">
-          <button type="button" appBoton variante="secondary" [cargando]="reintentando()"
-                  data-testid="estado-error-reintentar" (click)="reintentar.emit()">
+          <button
+            type="button"
+            appBoton
+            variante="secondary"
+            [cargando]="reintentando()"
+            data-testid="estado-error-reintentar"
+            (click)="reintentar.emit()"
+          >
             <app-icono nombre="refresh-cw" [tamano]="20" />
             {{ reintentando() ? 'Reintentando…' : 'Reintentar' }}
           </button>

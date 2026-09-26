@@ -74,8 +74,12 @@ export interface Miga {
       min-height: var(--bs-size-target);
     }
     @media (min-width: 48rem) {
-      ol { display: flex; }
-      .compacta { display: none; }
+      ol {
+        display: flex;
+      }
+      .compacta {
+        display: none;
+      }
     }
   `,
 })

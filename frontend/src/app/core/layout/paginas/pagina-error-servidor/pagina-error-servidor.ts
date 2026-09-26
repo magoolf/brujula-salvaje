@@ -8,7 +8,6 @@ import { EstadoHttp } from '../../../seo/estado-http';
 import { Seo } from '../../../seo/seo';
 import { TITULO_ERROR_SERVIDOR } from '../titulos';
 
-
 /**
  * SCR-025 Error 500 (FEAT-026; TPL-PUB-ERROR). Sin dependencias de datos: solo texto, CSS y SVG.
  * Fija HTTP 500 en el SSR. «Reintentar» recarga la URL actual; «Ir al inicio» es un enlace real.
@@ -23,8 +22,17 @@ import { TITULO_ERROR_SERVIDOR } from '../titulos';
       <h1>Tuvimos un problema de nuestro lado</h1>
       <p class="texto">No es tu culpa. Vuelve a intentarlo en unos segundos.</p>
       <div class="acciones">
-        <button type="button" appBoton data-testid="error-servidor-reintentar" (click)="reintentar()">Reintentar</button>
-        <a appBoton variante="secondary" routerLink="/" data-testid="error-servidor-inicio">Ir al inicio</a>
+        <button
+          type="button"
+          appBoton
+          data-testid="error-servidor-reintentar"
+          (click)="reintentar()"
+        >
+          Reintentar
+        </button>
+        <a appBoton variante="secondary" routerLink="/" data-testid="error-servidor-inicio"
+          >Ir al inicio</a
+        >
       </div>
     </section>
   `,

@@ -39,7 +39,9 @@ describe('MedidorDificultad / MedidorPresupuesto', () => {
     expect(raiz.querySelector('[data-testid="medidor-dificultad"]')).not.toBeNull();
     expect(raiz.querySelectorAll('.segmento')).toHaveLength(5);
     expect(raiz.querySelectorAll('.segmento--lleno')).toHaveLength(3);
-    expect(raiz.querySelector('.bs-solo-lectores')?.textContent).toBe('Dificultad 3 de 5: Exigente');
+    expect(raiz.querySelector('.bs-solo-lectores')?.textContent).toBe(
+      'Dificultad 3 de 5: Exigente',
+    );
     expect(raiz.querySelector('.segmentos')?.getAttribute('aria-hidden')).toBe('true');
     expect(raiz.querySelector('a')?.getAttribute('href')).toBe('/acerca-de#escala-de-dificultad');
   });

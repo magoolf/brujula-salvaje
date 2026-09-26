@@ -6,8 +6,17 @@ import { Boton, VarianteBoton } from './boton';
 @Component({
   imports: [Boton],
   template: `
-    <button type="button" appBoton [variante]="variante()" [tamano]="tamano()" [cargando]="cargando()"
-            [deshabilitadoEnfocable]="bloqueado()" (click)="clics = clics + 1">Publicar</button>
+    <button
+      type="button"
+      appBoton
+      [variante]="variante()"
+      [tamano]="tamano()"
+      [cargando]="cargando()"
+      [deshabilitadoEnfocable]="bloqueado()"
+      (click)="clics = clics + 1"
+    >
+      Publicar
+    </button>
   `,
 })
 class Anfitrion {

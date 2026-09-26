@@ -2,7 +2,9 @@
  * Cálculo puro de los elementos de la paginación numerada con elipsis
  * (HANDOFF_UI_UX COMPONENTES.Pagination: «Anterior / 1 … 4 5 6 … 12 / Siguiente»).
  */
-export type ElementoPagina = { readonly tipo: 'pagina'; readonly numero: number } | { readonly tipo: 'elipsis'; readonly clave: string };
+export type ElementoPagina =
+  | { readonly tipo: 'pagina'; readonly numero: number }
+  | { readonly tipo: 'elipsis'; readonly clave: string };
 
 export function normalizarTotal(total: number): number {
   return Number.isFinite(total) && total >= 1 ? Math.floor(total) : 1;
@@ -18,7 +20,11 @@ export function normalizarPagina(pagina: number, total: number): number {
  * @param vecinas cuántas páginas se muestran a cada lado de la actual (por defecto 1).
  * Siempre incluye la primera y la última; una elipsis sustituye solo huecos de 2 o más páginas.
  */
-export function calcularPaginas(actual: number, total: number, vecinas = 1): readonly ElementoPagina[] {
+export function calcularPaginas(
+  actual: number,
+  total: number,
+  vecinas = 1,
+): readonly ElementoPagina[] {
   const t = normalizarTotal(total);
   const a = normalizarPagina(actual, t);
   const visibles = new Set<number>([1, t]);

@@ -20,7 +20,11 @@ export const NAVEGACION_PRINCIPAL: readonly EnlaceNavegacion[] = [
 
 export const NAVEGACION_INSTITUCIONAL: readonly EnlaceNavegacion[] = [
   { etiqueta: 'Acerca de y metodología', ruta: '/acerca-de', id: 'acerca-de' },
-  { etiqueta: 'Política de tratamiento de datos', ruta: '/politica-de-tratamiento-de-datos', id: 'tratamiento-de-datos' },
+  {
+    etiqueta: 'Política de tratamiento de datos',
+    ruta: '/politica-de-tratamiento-de-datos',
+    id: 'tratamiento-de-datos',
+  },
   { etiqueta: 'Política de cookies', ruta: '/politica-de-cookies', id: 'cookies' },
   { etiqueta: 'Aviso legal', ruta: '/aviso-legal', id: 'aviso-legal' },
   { etiqueta: 'Créditos de imágenes', ruta: '/creditos', id: 'creditos' },

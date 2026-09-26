@@ -1,9 +1,18 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page, expect } from '@playwright/test';
 
-/** WebKit no enfoca enlaces con Tab por defecto (preferencia del sistema); Alt+Tab sí. */
-export function teclaTab(browserName: string): string {
-  return browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+/** Tecla de avance de foco. */
+export function teclaTab(_browserName: string): string {
+  return 'Tab';
+}
+
+/**
+ * WebKit (motor de Playwright) no incluye los enlaces en el orden de tabulación por defecto
+ * (preferencia «tabs to links» desactivada; en Windows ni Tab ni Alt+Tab los enfocan). En ese
+ * motor las pruebas enfocan el enlace con focus() y verifican su activación por teclado (Enter).
+ */
+export function enlacesTabulables(browserName: string): boolean {
+  return browserName !== 'webkit';
 }
 
 /** Atributo data-testid (o id) del elemento con foco. */
@@ -15,7 +24,12 @@ export async function focoActual(page: Page): Promise<string | null> {
 }
 
 /** Tabula hasta que el foco llegue al data-testid indicado (máximo `limite` pulsaciones). */
-export async function tabularHasta(page: Page, browserName: string, testId: string, limite = 25): Promise<void> {
+export async function tabularHasta(
+  page: Page,
+  browserName: string,
+  testId: string,
+  limite = 25,
+): Promise<void> {
   for (let i = 0; i < limite; i++) {
     await page.keyboard.press(teclaTab(browserName));
     if ((await focoActual(page)) === testId) return;
@@ -28,8 +42,14 @@ export async function sinViolacionesGraves(page: Page): Promise<void> {
   const resultado = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
-  const graves = resultado.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-  expect(graves.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+  const graves = resultado.violations.filter(
+    (v) => v.impact === 'serious' || v.impact === 'critical',
+  );
+  expect(
+    graves.map(
+      (v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
+    ),
+  ).toEqual([]);
 }
 
 /** Espera a que la aplicación esté hidratada e interactiva (App marca html[data-app-lista]). */

@@ -8,7 +8,6 @@ import { NOMBRE_MARCA } from '../../../seo/marca';
 import { Seo } from '../../../seo/seo';
 import { TITULO_CONTENIDO_RETIRADO } from '../titulos';
 
-
 /**
  * SCR-024 Contenido retirado, genérica (FEAT-026, DEC-AUTO-040; TPL-PUB-ERROR). Fija HTTP 410 en
  * el SSR y `noindex`. La feature de detalle la renderiza cuando la API responde 410
@@ -31,11 +30,20 @@ import { TITULO_CONTENIDO_RETIRADO } from '../titulos';
       <nav aria-label="Rutas de salida">
         <ul class="salidas">
           <li>
-            <a appEnlace variante="standalone" [routerLink]="rutaListadoPadre()" data-testid="retirado-listado-padre">
+            <a
+              appEnlace
+              variante="standalone"
+              [routerLink]="rutaListadoPadre()"
+              data-testid="retirado-listado-padre"
+            >
               {{ etiquetaListadoPadre() }}
             </a>
           </li>
-          <li><a appEnlace variante="standalone" routerLink="/" data-testid="retirado-inicio">Ir al inicio</a></li>
+          <li>
+            <a appEnlace variante="standalone" routerLink="/" data-testid="retirado-inicio"
+              >Ir al inicio</a
+            >
+          </li>
         </ul>
       </nav>
     </section>

@@ -16,8 +16,14 @@ import { calcularPaginas, normalizarPagina, normalizarTotal } from './paginas';
     @if (total() > 1) {
       <nav aria-label="Paginación" class="paginacion" data-testid="paginacion">
         @if (actual() > 1) {
-          <a class="control" [routerLink]="[]" [queryParams]="parametros(actual() - 1)" queryParamsHandling="merge"
-             rel="prev" data-testid="paginacion-anterior">
+          <a
+            class="control"
+            [routerLink]="[]"
+            [queryParams]="parametros(actual() - 1)"
+            queryParamsHandling="merge"
+            rel="prev"
+            data-testid="paginacion-anterior"
+          >
             <app-icono nombre="chevron-left" [tamano]="16" /><span>Anterior</span>
           </a>
         } @else {
@@ -31,12 +37,24 @@ import { calcularPaginas, normalizarPagina, normalizarTotal } from './paginas';
             <li>
               @if (el.tipo === 'pagina') {
                 @if (el.numero === actual()) {
-                  <a class="numero numero--actual" aria-current="page" [routerLink]="[]"
-                     [queryParams]="parametros(el.numero)" queryParamsHandling="merge"
-                     [attr.aria-label]="'Página ' + el.numero">{{ el.numero }}</a>
+                  <a
+                    class="numero numero--actual"
+                    aria-current="page"
+                    [routerLink]="[]"
+                    [queryParams]="parametros(el.numero)"
+                    queryParamsHandling="merge"
+                    [attr.aria-label]="'Página ' + el.numero"
+                    >{{ el.numero }}</a
+                  >
                 } @else {
-                  <a class="numero" [routerLink]="[]" [queryParams]="parametros(el.numero)" queryParamsHandling="merge"
-                     [attr.aria-label]="'Página ' + el.numero">{{ el.numero }}</a>
+                  <a
+                    class="numero"
+                    [routerLink]="[]"
+                    [queryParams]="parametros(el.numero)"
+                    queryParamsHandling="merge"
+                    [attr.aria-label]="'Página ' + el.numero"
+                    >{{ el.numero }}</a
+                  >
                 }
               } @else {
                 <span class="elipsis" aria-hidden="true">…</span>
@@ -47,8 +65,14 @@ import { calcularPaginas, normalizarPagina, normalizarTotal } from './paginas';
         <span class="resumen">Página {{ actual() }} de {{ total() }}</span>
 
         @if (actual() < total()) {
-          <a class="control" [routerLink]="[]" [queryParams]="parametros(actual() + 1)" queryParamsHandling="merge"
-             rel="next" data-testid="paginacion-siguiente">
+          <a
+            class="control"
+            [routerLink]="[]"
+            [queryParams]="parametros(actual() + 1)"
+            queryParamsHandling="merge"
+            rel="next"
+            data-testid="paginacion-siguiente"
+          >
             <span>Siguiente</span><app-icono nombre="chevron-right" [tamano]="16" />
           </a>
         } @else {
@@ -101,8 +125,12 @@ import { calcularPaginas, normalizarPagina, normalizarTotal } from './paginas';
       font-variant-numeric: tabular-nums;
     }
     @media (min-width: 30rem) {
-      .numeros { display: flex; }
-      .resumen { display: none; }
+      .numeros {
+        display: flex;
+      }
+      .resumen {
+        display: none;
+      }
     }
   `,
 })

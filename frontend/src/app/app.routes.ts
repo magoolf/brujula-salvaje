@@ -12,12 +12,16 @@ export const routes: Routes = [
     pathMatch: 'full',
     title: 'Inicio',
     loadComponent: () =>
-      import('./core/layout/paginas/pagina-en-preparacion/pagina-en-preparacion').then((m) => m.PaginaEnPreparacion),
+      import('./core/layout/paginas/pagina-en-preparacion/pagina-en-preparacion').then(
+        (m) => m.PaginaEnPreparacion,
+      ),
   },
   {
     path: '**',
     title: TITULO_NO_ENCONTRADA,
     loadComponent: () =>
-      import('./core/layout/paginas/pagina-no-encontrada/pagina-no-encontrada').then((m) => m.PaginaNoEncontrada),
+      import('./core/layout/paginas/pagina-no-encontrada/pagina-no-encontrada').then(
+        (m) => m.PaginaNoEncontrada,
+      ),
   },
 ];

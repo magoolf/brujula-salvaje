@@ -15,7 +15,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: EN_CI,
   retries: EN_CI ? 1 : 0,
-  workers: EN_CI ? 2 : undefined,
+  workers: EN_CI ? 2 : 4,
   reporter: EN_CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: URL_BASE,
@@ -24,9 +24,18 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } },
+    },
   ],
   webServer: process.env['E2E_BASE_URL']
     ? undefined

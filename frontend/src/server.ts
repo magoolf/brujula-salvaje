@@ -38,7 +38,10 @@ app.use(
     dotfiles: 'ignore',
     setHeaders: (res, ruta) => {
       const conHash = /[.-][A-Z0-9]{8,}\.(?:js|css|woff2)$/i.test(ruta);
-      res.setHeader('Cache-Control', conHash ? 'public, max-age=31536000, immutable' : 'public, max-age=3600');
+      res.setHeader(
+        'Cache-Control',
+        conHash ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
+      );
       res.setHeader('X-Content-Type-Options', 'nosniff');
     },
   }),
@@ -57,7 +60,8 @@ function paginaErrorEstatica(): string {
     try {
       paginaError = readFileSync(join(browserDistFolder, '500.html'), 'utf8');
     } catch {
-      paginaError = '<!doctype html><html lang="es"><meta charset="utf-8"><title>Error del servidor</title><h1>Tuvimos un problema de nuestro lado</h1><p><a href="/">Ir al inicio</a></p></html>';
+      paginaError =
+        '<!doctype html><html lang="es"><meta charset="utf-8"><title>Error del servidor</title><h1>Tuvimos un problema de nuestro lado</h1><p><a href="/">Ir al inicio</a></p></html>';
     }
   }
   return paginaError;
@@ -70,11 +74,15 @@ app.use((error: unknown, req: Request, res: Response, _next: NextFunction) => {
       evento: 'error_ssr',
       nombre: error instanceof Error ? error.name : typeof error,
       ruta: req.path,
-      traceparent: typeof req.headers['traceparent'] === 'string' ? req.headers['traceparent'] : null,
+      traceparent:
+        typeof req.headers['traceparent'] === 'string' ? req.headers['traceparent'] : null,
     }),
   );
   if (res.headersSent) return;
-  res.status(500).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }).send(paginaErrorEstatica());
+  res
+    .status(500)
+    .set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+    .send(paginaErrorEstatica());
 });
 
 /**

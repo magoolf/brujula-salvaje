@@ -11,28 +11,41 @@ const angular = require('angular-eslint');
 const EN_COMPONENTE = "ClassDeclaration:has(Decorator[expression.callee.name='Component'])";
 
 const SEGURIDAD = [
-  { selector: "MemberExpression[property.name=/^bypassSecurityTrust/]", message: '§27.4: prohibido bypassSecurityTrust*.' },
+  {
+    selector: 'MemberExpression[property.name=/^bypassSecurityTrust/]',
+    message: '§27.4: prohibido bypassSecurityTrust*.',
+  },
   { selector: "CallExpression[callee.name='eval']", message: '§27.4: prohibido eval.' },
   { selector: "NewExpression[callee.name='Function']", message: '§27.4: prohibido new Function.' },
-  { selector: "AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]", message: '§27.4: prohibido innerHTML/outerHTML.' },
-  { selector: "CallExpression[callee.property.name='insertAdjacentHTML']", message: '§27.4: prohibido insertAdjacentHTML.' },
-  { selector: "CallExpression[callee.object.name='document'][callee.property.name='write']", message: '§27.4: prohibido document.write.' },
+  {
+    selector: 'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]',
+    message: '§27.4: prohibido innerHTML/outerHTML.',
+  },
+  {
+    selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
+    message: '§27.4: prohibido insertAdjacentHTML.',
+  },
+  {
+    selector: "CallExpression[callee.object.name='document'][callee.property.name='write']",
+    message: '§27.4: prohibido document.write.',
+  },
 ];
 
 const REGLA_06 = {
   selector: `${EN_COMPONENTE} CallExpression[callee.property.name='subscribe']`,
-  message: 'Regla 06: no uses subscribe() en componentes; usa signals (toSignal/httpResource) o el store.',
+  message:
+    'Regla 06: no uses subscribe() en componentes; usa signals (toSignal/httpResource) o el store.',
 };
 const REGLA_13 = {
   selector: `${EN_COMPONENTE} MemberExpression[property.name='status']`,
   message: 'Regla 13: los componentes no dependen de códigos HTTP; usa ErrorApi.categoria.',
 };
 const REGLA_02 = {
-  selector: "Literal[value=/^\\/(api|health)\\//]",
+  selector: 'Literal[value=/^\\/(api|health)\\//]',
   message: 'Regla 02: las URL del backend solo viven en data/ (y en el cliente generado).',
 };
 const REGLA_02_PLANTILLA = {
-  selector: "TemplateElement[value.raw=/^\\/(api|health)\\//]",
+  selector: 'TemplateElement[value.raw=/^\\/(api|health)\\//]',
   message: 'Regla 02: las URL del backend solo viven en data/ (y en el cliente generado).',
 };
 
@@ -47,10 +60,21 @@ const IMPORT_HTTP_CLIENT = {
   message: 'Regla 01: HttpClient/httpResource solo en data/ y core/http.',
 };
 const IMPORT_CATCH = [
-  { name: 'rxjs', importNames: ['catchError'], message: 'Regla 10: sin catchError en state/ ni ui/; usa ejecutar().' },
-  { name: 'rxjs/operators', importNames: ['catchError'], message: 'Regla 10: sin catchError en state/ ni ui/.' },
+  {
+    name: 'rxjs',
+    importNames: ['catchError'],
+    message: 'Regla 10: sin catchError en state/ ni ui/; usa ejecutar().',
+  },
+  {
+    name: 'rxjs/operators',
+    importNames: ['catchError'],
+    message: 'Regla 10: sin catchError en state/ ni ui/.',
+  },
 ];
-const PATRON_DTO = { group: ['**/api', '**/api/**'], message: 'Regla 04: los DTO generados solo se importan en data/.' };
+const PATRON_DTO = {
+  group: ['**/api', '**/api/**'],
+  message: 'Regla 04: los DTO generados solo se importan en data/.',
+};
 // Desde features/<f>/<capa>/archivo.ts, «../../<otra>» llega a otra feature (aproximación para
 // archivos en la raíz de cada capa; «../../../» sale a app/ y está permitido para shared/ y core/).
 const PATRON_FEATURES = {
@@ -64,7 +88,15 @@ const PATRON_FEATURES_DESDE_CORE = {
 
 module.exports = defineConfig([
   {
-    ignores: ['dist/**', 'coverage/**', '.angular/**', 'node_modules/**', 'src/app/api/**', 'playwright-report/**', 'test-results/**'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      '.angular/**',
+      'node_modules/**',
+      'src/app/api/**',
+      'playwright-report/**',
+      'test-results/**',
+    ],
   },
   {
     files: ['**/*.ts'],
@@ -76,10 +108,19 @@ module.exports = defineConfig([
     ],
     processor: angular.processInlineTemplates,
     rules: {
-      '@angular-eslint/directive-selector': ['error', { type: 'attribute', prefix: 'app', style: 'camelCase' }],
-      '@angular-eslint/component-selector': ['error', { type: 'element', prefix: 'app', style: 'kebab-case' }],
+      '@angular-eslint/directive-selector': [
+        'error',
+        { type: 'attribute', prefix: 'app', style: 'camelCase' },
+      ],
+      '@angular-eslint/component-selector': [
+        'error',
+        { type: 'element', prefix: 'app', style: 'kebab-case' },
+      ],
       '@angular-eslint/prefer-on-push-component-change-detection': 'off', // OnPush es el valor por defecto en Angular 22
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' },
+      ],
       'no-restricted-syntax': ['error', ...SEGURIDAD, REGLA_06, REGLA_13],
       'no-restricted-imports': ['error', { paths: [IMPORT_HTTP_ERROR, IMPORT_HTTP_CLIENT] }],
     },
@@ -87,9 +128,21 @@ module.exports = defineConfig([
   // Código de aplicación fuera de data/ y de la infraestructura HTTP: Regla 02 (URL del backend).
   {
     files: ['src/app/**/*.ts'],
-    ignores: ['src/app/features/*/data/**', 'src/app/core/http/**', 'src/app/core/auth/**', 'src/app/**/*.spec.ts'],
+    ignores: [
+      'src/app/features/*/data/**',
+      'src/app/core/http/**',
+      'src/app/core/auth/**',
+      'src/app/**/*.spec.ts',
+    ],
     rules: {
-      'no-restricted-syntax': ['error', ...SEGURIDAD, REGLA_06, REGLA_13, REGLA_02, REGLA_02_PLANTILLA],
+      'no-restricted-syntax': [
+        'error',
+        ...SEGURIDAD,
+        REGLA_06,
+        REGLA_13,
+        REGLA_02,
+        REGLA_02_PLANTILLA,
+      ],
     },
   },
   // core/http: única ubicación de HttpErrorResponse (09) y, con data/, de HttpClient (01).
@@ -101,7 +154,10 @@ module.exports = defineConfig([
   {
     files: ['src/app/features/*/data/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', { paths: [IMPORT_HTTP_ERROR], patterns: [PATRON_FEATURES] }],
+      'no-restricted-imports': [
+        'error',
+        { paths: [IMPORT_HTTP_ERROR], patterns: [PATRON_FEATURES] },
+      ],
     },
   },
   // state/ y ui/ de las features: 01, 04, 05, 09 y 10.
@@ -110,7 +166,10 @@ module.exports = defineConfig([
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: [IMPORT_HTTP_ERROR, IMPORT_HTTP_CLIENT, ...IMPORT_CATCH], patterns: [PATRON_DTO, PATRON_FEATURES] },
+        {
+          paths: [IMPORT_HTTP_ERROR, IMPORT_HTTP_CLIENT, ...IMPORT_CATCH],
+          patterns: [PATRON_DTO, PATRON_FEATURES],
+        },
       ],
     },
   },
@@ -125,7 +184,8 @@ module.exports = defineConfig([
         {
           selector:
             "PropertyDefinition:not([accessibility='private']):not([key.type='PrivateIdentifier']) > CallExpression[callee.name=/^(signal|linkedSignal)$/]",
-          message: 'Regla 03: las señales escribibles del store deben ser privadas; expón computed()/asReadonly().',
+          message:
+            'Regla 03: las señales escribibles del store deben ser privadas; expón computed()/asReadonly().',
         },
       ],
     },
@@ -136,17 +196,34 @@ module.exports = defineConfig([
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: [{ group: ['@angular/*', 'rxjs', 'rxjs/*'], message: 'Regla 08: domain/ no depende de Angular ni RxJS.' }, PATRON_DTO, PATRON_FEATURES] },
+        {
+          patterns: [
+            {
+              group: ['@angular/*', 'rxjs', 'rxjs/*'],
+              message: 'Regla 08: domain/ no depende de Angular ni RxJS.',
+            },
+            PATRON_DTO,
+            PATRON_FEATURES,
+          ],
+        },
       ],
     },
   },
   // shared/ y core/layout|seo|forms: presentación e infraestructura sin DTO ni catchError.
   {
-    files: ['src/app/shared/**/*.ts', 'src/app/core/layout/**/*.ts', 'src/app/core/seo/**/*.ts', 'src/app/core/forms/**/*.ts'],
+    files: [
+      'src/app/shared/**/*.ts',
+      'src/app/core/layout/**/*.ts',
+      'src/app/core/seo/**/*.ts',
+      'src/app/core/forms/**/*.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
-        { paths: [IMPORT_HTTP_ERROR, IMPORT_HTTP_CLIENT, ...IMPORT_CATCH], patterns: [PATRON_DTO, PATRON_FEATURES_DESDE_CORE] },
+        {
+          paths: [IMPORT_HTTP_ERROR, IMPORT_HTTP_CLIENT, ...IMPORT_CATCH],
+          patterns: [PATRON_DTO, PATRON_FEATURES_DESDE_CORE],
+        },
       ],
     },
   },

@@ -5,7 +5,8 @@ import { SkipLink } from './skip-link';
 
 @Component({
   imports: [SkipLink],
-  template: `<app-skip-link destino="principal-prueba" /><main id="principal-prueba"><h1>Título</h1></main>`,
+  template: `<app-skip-link destino="principal-prueba" />
+    <main id="principal-prueba"><h1>Título</h1></main>`,
 })
 class Anfitrion {}
 
@@ -14,7 +15,9 @@ describe('SkipLink', () => {
     const fixture = TestBed.createComponent(Anfitrion);
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
-    const enlace = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="skip-link"]') as HTMLAnchorElement;
+    const enlace = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="skip-link"]',
+    ) as HTMLAnchorElement;
     const principal = (fixture.nativeElement as HTMLElement).querySelector('main') as HTMLElement;
     principal.scrollIntoView = vi.fn();
 

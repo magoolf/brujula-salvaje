@@ -1,4 +1,10 @@
-import { ApplicationConfig, CSP_NONCE, REQUEST, inject, mergeApplicationConfig } from '@angular/core';
+import {
+  ApplicationConfig,
+  CSP_NONCE,
+  REQUEST,
+  inject,
+  mergeApplicationConfig,
+} from '@angular/core';
 import { provideServerRendering, withRoutes } from '@angular/ssr';
 
 import { appConfig } from './app.config';
@@ -16,7 +22,8 @@ const serverConfig: ApplicationConfig = {
     provideServerRendering(withRoutes(serverRoutes)),
     {
       provide: CSP_NONCE,
-      useFactory: () => nonceDesdePeticion(inject(REQUEST, { optional: true })?.headers.get(CABECERA_NONCE_CSP)),
+      useFactory: () =>
+        nonceDesdePeticion(inject(REQUEST, { optional: true })?.headers.get(CABECERA_NONCE_CSP)),
     },
     {
       provide: API_INTERNAL_URL,

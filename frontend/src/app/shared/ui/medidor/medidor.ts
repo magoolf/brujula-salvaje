@@ -14,7 +14,10 @@ export function normalizarNivel(valor: number | null | undefined, maximo: number
 }
 
 export function segmentos(nivel: number | null, maximo: number): readonly SegmentoMedidor[] {
-  return Array.from({ length: maximo }, (_, i) => ({ indice: i + 1, lleno: nivel !== null && i < nivel }));
+  return Array.from({ length: maximo }, (_, i) => ({
+    indice: i + 1,
+    lleno: nivel !== null && i < nivel,
+  }));
 }
 
 /** «Dificultad 3 de 5: Exigente» / «Presupuesto 2 de 4» / «Dificultad sin dato». */

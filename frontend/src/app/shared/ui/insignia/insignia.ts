@@ -3,7 +3,8 @@ import { Component, computed, input } from '@angular/core';
 import { Icono } from '../icono/icono';
 import { NombreIcono } from '../icono/iconos-lucide';
 
-export type VarianteInsignia = 'borrador' | 'publicado' | 'retirado' | 'pendiente' | 'rechazado' | 'neutral' | 'esencial';
+export type VarianteInsignia =
+  'borrador' | 'publicado' | 'retirado' | 'pendiente' | 'rechazado' | 'neutral' | 'esencial';
 
 const ICONO_POR_VARIANTE: Record<VarianteInsignia, NombreIcono | null> = {
   borrador: 'circle-alert',
@@ -43,20 +44,39 @@ const ICONO_POR_VARIANTE: Record<VarianteInsignia, NombreIcono | null> = {
       line-height: var(--bs-typography-body-sm-line-height);
       border: 1px solid transparent;
     }
-    [data-variante='borrador'] { color: var(--bs-color-badge-borrador-fg); background: var(--bs-color-badge-borrador-bg); }
+    [data-variante='borrador'] {
+      color: var(--bs-color-badge-borrador-fg);
+      background: var(--bs-color-badge-borrador-bg);
+    }
     [data-variante='publicado'],
-    [data-variante='esencial'] { color: var(--bs-color-badge-publicado-fg); background: var(--bs-color-badge-publicado-bg); }
+    [data-variante='esencial'] {
+      color: var(--bs-color-badge-publicado-fg);
+      background: var(--bs-color-badge-publicado-bg);
+    }
     [data-variante='retirado'],
-    [data-variante='neutral'] { color: var(--bs-color-badge-retirado-fg); background: var(--bs-color-badge-retirado-bg); }
-    [data-variante='pendiente'] { color: var(--bs-color-badge-pendiente-fg); background: var(--bs-color-badge-pendiente-bg); }
-    [data-variante='rechazado'] { color: var(--bs-color-badge-rechazado-fg); background: var(--bs-color-badge-rechazado-bg); }
+    [data-variante='neutral'] {
+      color: var(--bs-color-badge-retirado-fg);
+      background: var(--bs-color-badge-retirado-bg);
+    }
+    [data-variante='pendiente'] {
+      color: var(--bs-color-badge-pendiente-fg);
+      background: var(--bs-color-badge-pendiente-bg);
+    }
+    [data-variante='rechazado'] {
+      color: var(--bs-color-badge-rechazado-fg);
+      background: var(--bs-color-badge-rechazado-bg);
+    }
     @media (forced-colors: active) {
-      .insignia { border-color: CanvasText; }
+      .insignia {
+        border-color: CanvasText;
+      }
     }
   `,
 })
 export class Insignia {
   readonly variante = input<VarianteInsignia>('neutral');
 
-  protected readonly icono = computed<NombreIcono | null>(() => ICONO_POR_VARIANTE[this.variante()]);
+  protected readonly icono = computed<NombreIcono | null>(
+    () => ICONO_POR_VARIANTE[this.variante()],
+  );
 }

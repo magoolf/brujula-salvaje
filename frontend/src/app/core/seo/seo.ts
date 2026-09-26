@@ -1,12 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import {
-  CSP_NONCE,
-  Injectable,
-  REQUEST,
-  Renderer2,
-  RendererFactory2,
-  inject,
-} from '@angular/core';
+import { CSP_NONCE, Injectable, REQUEST, Renderer2, RendererFactory2, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 
 import { JsonLd, serializarJsonLd, urlAbsoluta } from './datos-estructurados';
@@ -37,7 +30,9 @@ const ID_CANONICA = 'bs-canonica';
 /** Título completo con la marca. */
 export function tituloConMarca(titulo: string): string {
   const limpio = titulo.trim();
-  return limpio === '' || limpio === NOMBRE_MARCA ? NOMBRE_MARCA : `${limpio}${SEPARADOR_TITULO}${NOMBRE_MARCA}`;
+  return limpio === '' || limpio === NOMBRE_MARCA
+    ? NOMBRE_MARCA
+    : `${limpio}${SEPARADOR_TITULO}${NOMBRE_MARCA}`;
 }
 
 /**

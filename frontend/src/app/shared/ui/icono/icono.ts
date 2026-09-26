@@ -35,7 +35,12 @@ import { ICONOS_LUCIDE, NodoIcono, NombreIcono } from './iconos-lucide';
             <svg:circle [attr.cx]="nodo.cx" [attr.cy]="nodo.cy" [attr.r]="nodo.r" />
           }
           @case ('line') {
-            <svg:line [attr.x1]="nodo.x1" [attr.x2]="nodo.x2" [attr.y1]="nodo.y1" [attr.y2]="nodo.y2" />
+            <svg:line
+              [attr.x1]="nodo.x1"
+              [attr.x2]="nodo.x2"
+              [attr.y1]="nodo.y1"
+              [attr.y2]="nodo.y2"
+            />
           }
         }
       }

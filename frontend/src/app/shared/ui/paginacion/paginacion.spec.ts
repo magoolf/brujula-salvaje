@@ -48,8 +48,12 @@ describe('Paginacion', () => {
     const raiz = await crear(2, 5);
     expect(raiz.querySelector('nav')?.getAttribute('aria-label')).toBe('Paginación');
     expect(raiz.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('2');
-    expect(raiz.querySelector('[data-testid="paginacion-anterior"]')?.getAttribute('href')).toBe('/');
-    expect(raiz.querySelector('[data-testid="paginacion-siguiente"]')?.getAttribute('href')).toBe('/?pagina=3');
+    expect(raiz.querySelector('[data-testid="paginacion-anterior"]')?.getAttribute('href')).toBe(
+      '/',
+    );
+    expect(raiz.querySelector('[data-testid="paginacion-siguiente"]')?.getAttribute('href')).toBe(
+      '/?pagina=3',
+    );
     expect(raiz.querySelector('.resumen')?.textContent).toContain('Página 2 de 5');
   });
 

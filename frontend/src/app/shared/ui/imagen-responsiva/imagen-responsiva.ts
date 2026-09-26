@@ -46,7 +46,9 @@ export function construirSrcset(derivados: readonly DerivadoImagen[]): string {
     </div>
   `,
   styles: `
-    :host { display: block; }
+    :host {
+      display: block;
+    }
     .marco {
       position: relative;
       overflow: hidden;
@@ -85,7 +87,9 @@ export class ImagenResponsiva {
   private readonly _fallida = signal(false);
   protected readonly fallida = this._fallida.asReadonly();
   protected readonly srcset = computed(() => construirSrcset(this.derivados()));
-  protected readonly proporcion = computed(() => this.relacion() ?? `${this.ancho()} / ${this.alto()}`);
+  protected readonly proporcion = computed(
+    () => this.relacion() ?? `${this.ancho()} / ${this.alto()}`,
+  );
 
   protected alFallar(): void {
     this._fallida.set(true);

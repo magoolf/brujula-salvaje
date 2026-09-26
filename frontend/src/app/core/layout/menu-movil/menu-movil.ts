@@ -19,11 +19,21 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
     <div class="cajon" data-testid="menu-movil">
       <div class="encabezado">
         <h2 id="menu-movil-titulo" class="titulo">Menú</h2>
-        <button type="button" class="cerrar" aria-label="Cerrar menú" data-testid="menu-movil-cerrar" (click)="cerrar()">
+        <button
+          type="button"
+          class="cerrar"
+          aria-label="Cerrar menú"
+          data-testid="menu-movil-cerrar"
+          (click)="cerrar()"
+        >
           <app-icono nombre="x" [tamano]="24" />
         </button>
       </div>
-      <app-campo-busqueda idCampo="busqueda-menu" testId="menu-movil-busqueda" [soloIcono]="false" />
+      <app-campo-busqueda
+        idCampo="busqueda-menu"
+        testId="menu-movil-busqueda"
+        [soloIcono]="false"
+      />
       <nav aria-label="Principal">
         <ul>
           @for (enlace of navegacion; track enlace.id) {
@@ -34,7 +44,8 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
                 ariaCurrentWhenActive="page"
                 [attr.data-testid]="'menu-movil-' + enlace.id"
                 (click)="cerrar()"
-              >{{ enlace.etiqueta }}</a>
+                >{{ enlace.etiqueta }}</a
+              >
             </li>
           }
         </ul>
