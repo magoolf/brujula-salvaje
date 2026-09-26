@@ -246,6 +246,13 @@ SPECTACULAR_SETTINGS = {
     "OAS_VERSION": "3.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Nombres de los enums del contrato (components.schemas.Rol, EstadoCuenta, AccionAuditoria).
+    "ENUM_NAME_OVERRIDES": {
+        "Rol": "apps.cuentas.models.RolCuenta",
+        "EstadoCuenta": "apps.cuentas.models.EstadoCuenta",
+        "AccionAuditoria": "apps.auditoria.models.AccionAuditoria",
+        "ResultadoAuditoria": "apps.auditoria.models.ResultadoAuditoria",
+    },
 }
 
 # ---------------------------------------------------------------------------

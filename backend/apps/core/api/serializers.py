@@ -1,8 +1,13 @@
-"""Serializers de salida de core (solo documentación/forma; sin lógica, Regla 02)."""
+"""Serializers de core (solo documentación/forma y validación de entrada; sin lógica, Regla 02)."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from rest_framework import serializers
+
+from apps.core.exceptions import ErrorApi
 
 
 class EstadoSaludSerializer(serializers.Serializer[dict[str, str]]):
@@ -23,3 +28,31 @@ class ProblemSerializer(serializers.Serializer[dict[str, object]]):
         child=serializers.ListField(child=serializers.CharField(max_length=500)), required=False
     )
     trace_id = serializers.RegexField(r"^[0-9a-f]{32}$")
+
+
+class PaginaMetaSerializer(serializers.Serializer[dict[str, Any]]):
+    """components.schemas.PaginaMeta (DEC-AUTO-104); cada página añade `resultados`."""
+
+    total = serializers.IntegerField(min_value=0)
+    pagina = serializers.IntegerField(min_value=1)
+    tamano_pagina = serializers.IntegerField(min_value=1)
+    total_paginas = serializers.IntegerField(min_value=0)
+    siguiente = serializers.CharField(allow_null=True)
+    anterior = serializers.CharField(allow_null=True)
+
+
+class EntradaEstricta(serializers.Serializer[Any]):
+    """Base de las entradas con additionalProperties: false (DEC-AUTO-108, THREAT-024).
+
+    Un campo desconocido o no editable → 400 `campo_no_permitido` con el campo en `errors`.
+    """
+
+    def to_internal_value(self, data: Any) -> Any:
+        if isinstance(data, Mapping):
+            sobrantes = sorted(str(clave) for clave in data if clave not in self.fields)
+            if sobrantes:
+                raise ErrorApi(
+                    codigo="campo_no_permitido",
+                    errors={clave: ["Campo no permitido."] for clave in sobrantes},
+                )
+        return super().to_internal_value(data)

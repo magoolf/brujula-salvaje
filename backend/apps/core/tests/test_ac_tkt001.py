@@ -194,7 +194,9 @@ def test_AC_TKT001_02_ready_aplica_statement_timeout():
         ("get", "/prueba/django-falla", 500, "error_interno"),
         ("get", "/prueba/no-encontrado", 404, "no_encontrado"),
         ("get", "/prueba/permiso", 403, "permiso_denegado"),
-        ("get", "/prueba/denegada", 403, "permiso_denegado"),
+        # Deny-by-default: desde TKT-004 hay autenticación de sesión, así que una petición
+        # anónima a una vista sin permisos declarados es 401 no_autenticado (antes 403).
+        ("get", "/prueba/denegada", 401, "no_autenticado"),
         ("get", "/prueba/carga-grande", 413, "carga_demasiado_grande"),
         ("get", "/prueba/django-prohibida", 403, "permiso_denegado"),
         ("get", "/prueba/django-sospechosa", 400, "validacion"),

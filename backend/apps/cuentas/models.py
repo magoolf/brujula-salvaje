@@ -39,7 +39,7 @@ class EstadoCuenta(models.TextChoices):
 ESTADOS_OPERATIVOS = frozenset({EstadoCuenta.ACTIVA})
 
 
-class BorradoCuentaProhibido(IntegrityError):
+class BorradoCuentaProhibidoError(IntegrityError):
     """Borrado físico de una cuenta del staff (CHG-DB-002): es un error de integridad."""
 
 
@@ -149,7 +149,7 @@ class CuentaStaff(AbstractBaseUser):
 
         El trigger trg_cuenta_sin_borrado lo impide también en la BD (QuerySet.delete incluido).
         """
-        raise BorradoCuentaProhibido(
+        raise BorradoCuentaProhibidoError(
             "Las cuentas del staff no se borran físicamente: se desactivan y se anonimizan."
         )
 

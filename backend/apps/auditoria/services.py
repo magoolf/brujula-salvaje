@@ -40,7 +40,7 @@ def registrar_evento(
     campos_cambiados: Iterable[str] | None = None,
     ip: str | None = None,
 ) -> EventoAuditoria:
-    """Inserta un evento. `ip` es la IP del cliente; se trunca aquí y solo si la acción lo admite."""
+    """Inserta un evento. La IP del cliente se trunca y solo se guarda si la acción lo admite."""
     etiqueta = actor_etiqueta or (ETIQUETA_DESCONOCIDO if actor_id is None else f"#{actor_id}")
     campos = sorted(set(campos_cambiados)) if campos_cambiados is not None else None
     return EventoAuditoria.objects.create(

@@ -55,9 +55,12 @@ def _revision() -> RevisionContenido:
 )
 def test_AC_TKT004_08_revision_inmutable_para_el_propietario(sentencia, sqlstate):
     revision = _revision()
-    with pytest.raises(IntegrityError) as error, transaction.atomic():
-        with connection.cursor() as cursor:
-            cursor.execute(sentencia, [revision.pk])
+    with (
+        pytest.raises(IntegrityError) as error,
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute(sentencia, [revision.pk])
     causa = error.value.__cause__
     assert isinstance(causa, psycopg.Error)
     assert causa.sqlstate == sqlstate

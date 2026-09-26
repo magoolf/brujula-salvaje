@@ -10,7 +10,7 @@ Ambos valores se toman de las claves CLAVE_CUENTA y CLAVE_AUTENTICADO_EN de la s
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.sessions.backends.base import CreateError, UpdateError
 from django.contrib.sessions.backends.db import SessionStore as SessionStoreBD
@@ -40,7 +40,7 @@ class SessionStore(SessionStoreBD):
         return SesionPanel
 
     def create_model_instance(self, data: dict[str, Any]) -> SesionPanel:
-        instancia: SesionPanel = super().create_model_instance(data)
+        instancia = cast("SesionPanel", super().create_model_instance(data))
         instancia.cuenta_id = data.get(CLAVE_CUENTA)
         instancia.autenticado_en = _fecha(data.get(CLAVE_AUTENTICADO_EN))
         return instancia
@@ -49,7 +49,7 @@ class SessionStore(SessionStoreBD):
         if self.session_key is None:
             self.create()
             return
-        datos = self._get_session(no_load=must_create)
+        datos = self._get_session(no_load=must_create)  # type: ignore[attr-defined]
         instancia = self.create_model_instance(datos)
         using = router.db_for_write(self.model, instance=instancia)
         try:

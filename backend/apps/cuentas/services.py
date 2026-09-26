@@ -120,7 +120,7 @@ def _hash_ficticio() -> str:
 
 
 def _duracion_bloqueo(bloqueos_consecutivos: int) -> timedelta:
-    factor = 2 ** max(0, bloqueos_consecutivos - 1)
+    factor: int = 2 ** max(0, bloqueos_consecutivos - 1)
     return min(BLOQUEO_BASE * factor, BLOQUEO_MAXIMO)
 
 
@@ -334,7 +334,7 @@ def _totp_valido(cuenta: CuentaStaff, codigo: str) -> bool:
         return False
     try:
         secreto = mfa.descifrar_secreto(cuenta.secreto_mfa)
-    except mfa.SecretoIlegible:
+    except mfa.SecretoIlegibleError:
         logger.error("mfa_secreto_ilegible", cuenta_id=cuenta.pk)
         return False
     periodo = mfa.verificar_totp(secreto, codigo)
@@ -458,7 +458,10 @@ def registrar_autorizacion(cuenta_id: int, version: str) -> CuentaStaff:
         cuenta = CuentaStaff.objects.select_for_update().get(pk=cuenta_id)
         cuenta.autorizacion_otorgada_en = timezone.now()
         cuenta.autorizacion_version_politica = vigente.version
-        if cuenta.estado == EstadoCuenta.PENDIENTE_ACTIVACION and not cuenta.debe_cambiar_credencial:
+        if (
+            cuenta.estado == EstadoCuenta.PENDIENTE_ACTIVACION
+            and not cuenta.debe_cambiar_credencial
+        ):
             cuenta.estado = EstadoCuenta.ACTIVA
         cuenta.save(
             update_fields=["autorizacion_otorgada_en", "autorizacion_version_politica", "estado"]
@@ -484,7 +487,9 @@ def _reemplazar_codigos(cuenta: CuentaStaff) -> list[str]:
     CuentaCodigoRecuperacion.objects.filter(cuenta=cuenta).delete()
     codigos = mfa.nuevos_codigos_recuperacion()
     CuentaCodigoRecuperacion.objects.bulk_create(
-        CuentaCodigoRecuperacion(cuenta=cuenta, hash_codigo=mfa.hash_codigo_recuperacion(cuenta.pk, c))
+        CuentaCodigoRecuperacion(
+            cuenta=cuenta, hash_codigo=mfa.hash_codigo_recuperacion(cuenta.pk, c)
+        )
         for c in codigos
     )
     return codigos
@@ -505,7 +510,9 @@ def confirmar_activacion_mfa(cuenta_id: int, codigo: str) -> list[str]:
     with transaction.atomic():
         cuenta = CuentaStaff.objects.select_for_update().get(pk=cuenta_id)
         if cuenta.mfa_activo or not cuenta.secreto_mfa:
-            raise TransicionInvalida("Inicia primero la activación de la verificación en dos pasos.")
+            raise TransicionInvalida(
+                "Inicia primero la activación de la verificación en dos pasos."
+            )
         if not _totp_valido(cuenta, codigo):
             raise _validacion("codigo", "El código no es válido.")
         cuenta.mfa_activo = True
@@ -589,7 +596,9 @@ def _anotar_libro(cuenta_id: int, evento: str) -> None:
         with ruta.open("a", encoding="utf-8") as libro:
             libro.write(linea)
     except OSError as exc:
-        logger.error("libro_anonimizaciones_no_escrito", cuenta_id=cuenta_id, tipo=type(exc).__name__)
+        logger.error(
+            "libro_anonimizaciones_no_escrito", cuenta_id=cuenta_id, tipo=type(exc).__name__
+        )
 
 
 def crear_cuenta(

@@ -14,7 +14,7 @@ from django.db import IntegrityError, ProgrammingError, connection, transaction
 
 from apps.contenido.tests.fabricas import como_rol, crear_cuenta
 from apps.cuentas.models import (
-    BorradoCuentaProhibido,
+    BorradoCuentaProhibidoError,
     CuentaCodigoRecuperacion,
     CuentaStaff,
     RolCuenta,
@@ -60,9 +60,12 @@ def test_AC_TKT004_08_app_rw_no_puede_borrar_ni_truncar_cuentas():
 
 def test_AC_TKT004_08_trigger_rechaza_el_borrado_del_propietario():
     admin = _admin_con_dependencias()
-    with pytest.raises(IntegrityError) as error, transaction.atomic():
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM app.cuenta_staff WHERE id = %s", [admin.pk])
+    with (
+        pytest.raises(IntegrityError) as error,
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("DELETE FROM app.cuenta_staff WHERE id = %s", [admin.pk])
     causa = error.value.__cause__
     assert isinstance(causa, psycopg.Error)
     assert causa.sqlstate == "23001"
@@ -73,7 +76,7 @@ def test_AC_TKT004_08_trigger_rechaza_el_borrado_del_propietario():
 def test_AC_TKT004_08_orm_no_borra_y_no_deja_efectos():
     admin = _admin_con_dependencias()
     # Instancia: excepción de dominio (subclase de IntegrityError) antes de tocar la BD.
-    with pytest.raises(BorradoCuentaProhibido):
+    with pytest.raises(BorradoCuentaProhibidoError):
         admin.delete()
     # QuerySet: el colector borra primero sesiones y códigos; el trigger aborta y todo se deshace.
     with pytest.raises(IntegrityError), transaction.atomic():

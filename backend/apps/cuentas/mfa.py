@@ -32,7 +32,7 @@ NUMERO_CODIGOS_RECUPERACION = 10
 _ALFABETO_RECUPERACION = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 
-class SecretoIlegible(Exception):
+class SecretoIlegibleError(Exception):
     """El secreto cifrado no se puede descifrar con la clave actual."""
 
 
@@ -53,7 +53,7 @@ def descifrar_secreto(cifrado: bytes | memoryview) -> str:
     try:
         return _fernet().decrypt(bytes(cifrado)).decode()
     except InvalidToken as exc:
-        raise SecretoIlegible from exc
+        raise SecretoIlegibleError from exc
 
 
 def uri_otpauth(secreto: str, usuario: str) -> str:
