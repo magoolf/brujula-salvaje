@@ -709,7 +709,7 @@ Estado de riesgos anteriores:
 ## 16. TKT-OPS-004 — gate de contrato por operación, límite de /health y errores del proxy (F7, soporte)
 
 ### 16.1 Estado
-**COMPLETADO** en local (§16.8). El resultado en GitHub figura en §16.8.3.
+**COMPLETADO**: validado en local (§16.8) y en GitHub Actions (§16.13).
 Rama: `tkt-ops-004-gate-health`, creada desde `origin/main` (1e597be).
 
 ### 16.2 Objetivo
@@ -857,3 +857,11 @@ Ver §16.13.
 2. Registrar DEC-AUTO-211 a DEC-AUTO-214 y RSK-OPS-020 a RSK-OPS-022.
 3. Emitir el ticket de contrato de RSK-OPS-020 a backend-contrato.
 4. Tras integrar esta rama, TKT-004 (PR #8) ejecutará el gate nuevo al actualizarse con `main`. Su backend ya lo pasa (§16.8.1). Los checks obligatorios son de job, y sus nombres no cambian.
+
+### 16.13 Validación en GitHub Actions
+- Run `workflow_dispatch` sobre `tkt-ops-004-gate-health` en c50a196: https://github.com/magoolf/brujula-salvaje/actions/runs/36253555771. Resultado: **success**.
+  - `infraestructura`: OK (35 s).
+  - `detectar código`: OK.
+  - `backend`: OK (1 min 38 s). El paso de contrato imprime `contrato: 127 operaciones; implementadas: 2; comparadas: 2; no documentadas: 0; errores: 0`, y `oasdiff breaking` sobre el contrato filtrado no encuentra cambios incompatibles.
+  - `frontend`, `images` y `firma`: omitidos (NOT_RUN), porque `frontend/` aún no está en `main` (OBS-OPS004-01). El smoke del proxy y schemathesis se validaron en local (§16.8.2).
+- El run del commit final de la rama figura en el HANDOFF_ENVELOPE de TKT-OPS-004.
