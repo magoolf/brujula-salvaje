@@ -127,29 +127,29 @@ tickets:
     trazabilidad: [REQ-052, REQ-056, REQ-058, FEAT-001, FEAT-002, MOD-001, MOD-008]
     depende_de: [TKT-F6-001]
     archivos_permitidos: ["frontend/*", "frontend/.*", "frontend/public/**", "frontend/e2e/**", "frontend/src/*", "frontend/src/app/*", "frontend/src/app/core/**", "frontend/src/app/shared/**", "frontend/src/app/api/**", "frontend/src/styles/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-002-frontend-base @ cebcfe1", "Developer: lint/typecheck OK, 139 unit tests (cobertura líneas 99.77 %), E2E 36/36 en 3 navegadores, build SSR, npm audit 0, docker healthy (autodeclarado, pendiente QA)"]
+    evidencia: ["rama tkt-002-frontend-base @ a72e30e (en origin)", "Corrección F-02 (ciclo 1): e2e/ssr-csp.spec.ts portable a modo proxy; E2E 39/39 x3 en SSR directo y en modo proxy (backend stub)", "F-01 (gzip) pendiente de TKT-OPS-003; re-QA ciclo 2/3 tras integrar TKT-OPS-003"]
     actualizado: 2026-09-25
   - id: TKT-003
     titulo: "Backend datos: modelos y migraciones de DB_HANDOFF v1.1 (catálogos + semilla de catálogos, cuentas, medios, contenido + integridad SQL, inicio, auditoría inmutable, búsqueda, ops, idempotencia) con pruebas de introspección"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-057, DATA-001..026]
     depende_de: [TKT-001]
     archivos_permitidos: ["backend/config/settings/**", "backend/apps/catalogos/**", "backend/apps/cuentas/**", "backend/apps/medios/**", "backend/apps/contenido/**", "backend/apps/inicio/**", "backend/apps/auditoria/**", "backend/apps/busqueda/**", "backend/apps/ops/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["rama tkt-003-modelo-datos @ 8f1480e; PR #2", "QA_VERDICT PASS 1/3: AC-01..08 PASS, 187 tests + 1 xfail (NV-02), cobertura 97.78 %, esquema verificado contra DB_HANDOFF, privilegios con psql por rol", "Integración pendiente de CI verde (TKT-OPS-003)"]
     actualizado: 2026-09-25
   - id: TKT-004
     titulo: "Backend acceso al panel y cuentas: sesión+CSRF, login por pasos, MFA TOTP, bloqueo progresivo, autorización Ley 1581, cuentas (alta/restablecer/desactivar/anonimizar), auditoría, servicio común de idempotencia"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
-    trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055, REQ-OPS002-01, OBS-01, NV-02]
-    depende_de: [TKT-003]
+    trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055, REQ-OPS002-01, OBS-01, NV-02, OBS-QA003-01, OBS-QA003-05, OBS-QA003-06, CHG-DB-002]
+    depende_de: [TKT-003 (QA PASS; parte de su rama)]
     archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/**", "backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
@@ -160,7 +160,7 @@ tickets:
     fase: F7
     estado: TODO
     owner: Skill_Developer
-    trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052]
+    trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052, CHG-DB-002 (medios.0002, contenido.0003, catalogos.0003, inicio.0002 de DB_HANDOFF v1.2)]
     depende_de: [TKT-004]
     archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**"]
     ciclo_qa: 0/3
@@ -247,9 +247,33 @@ tickets:
     trazabilidad: [REQ-055]
     depende_de: [TKT-OPS-001]
     archivos_permitidos: ["compose*.yaml", "infra/**", "docs/05_operacion/**", ".env.example"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["rama tkt-ops-002-hardening @ 1c6c524; PR #1 abierto", "QA_VERDICT PASS 1/3 (C1-C8 PASS, gitleaks 0, semgrep 0 confirmados)", "Merge bloqueado: CI rojo por defecto previo ci.yaml:83; merge con --admin denegado por el clasificador de permisos -> se integrará junto con TKT-OPS-003 (PR con CI verde)"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-003
+    titulo: "DevOps: CI verde en GitHub (ci.yaml:83 cast ::text), gzip text/javascript en nginx (F-01 de QA TKT-002), 429 del proxy en problem+json (HALLAZGO-QA-OPS002-02), dependabot.yml, runbook de init-volumes abortado (OBS-QA-OPS002-03)"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [REQ-055, RSK-OPS-007]
+    depende_de: [TKT-OPS-002]
+    archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-ops-002-hardening @ 8f6e00a (6 archivos)", "DevOps: stack healthy; imagen sin tests; forwarded-allow-ips = IP fija del proxy; init-volumes aborta ante enlaces; smoke CI de logs JSON"]
+    evidencia: ["https://github.com/magoolf/brujula-salvaje/actions/runs/36218734526"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-006
+    titulo: "CHG-DB-002: impedir borrado físico de cuenta_staff por app_rw (OBS-QA003-01) y pg_temp al final del search_path de funciones SECURITY DEFINER (OBS-QA003-05)"
+    fase: F4
+    estado: DONE
+    owner: base-datos
+    trazabilidad: [REQ-055, RULE-017]
+    depende_de: [TKT-003]
+    archivos_permitidos: ["docs/04_datos/**", "docs/adr/ADR-DB-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DB_HANDOFF v1.2 (YAML válido, js-yaml por el Orquestador), ADR-DB-001/004 actualizados", "para_tkt_004 inyectado en TKT-004; para_otro_ticket (medios/contenido/catalogos/inicio) inyectado en TKT-005"]
     actualizado: 2026-09-25
 ```
 
