@@ -4,6 +4,7 @@ Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
 Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
 Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
 Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
+Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -865,3 +866,126 @@ Ver §16.13.
   - `backend`: OK (1 min 38 s). El paso de contrato imprime `contrato: 127 operaciones; implementadas: 2; comparadas: 2; no documentadas: 0; errores: 0`, y `oasdiff breaking` sobre el contrato filtrado no encuentra cambios incompatibles.
   - `frontend`, `images` y `firma`: omitidos (NOT_RUN), porque `frontend/` aún no está en `main` (OBS-OPS004-01). El smoke del proxy y schemathesis se validaron en local (§16.8.2).
 - El run del commit final de la rama figura en el HANDOFF_ENVELOPE de TKT-OPS-004.
+
+## 17. TKT-OPS-005 — RSK-OPS-001 con lista y caducidad, runtimes mínimos, Cache-Control del SSR y proxies de confianza (F7, soporte)
+
+### 17.1 Estado
+**COMPLETADO** en local. Rama `tkt-ops-005-trivy`, creada desde `tkt-ops-004-gate-health`. En GitHub, el job `images` sigue NOT_RUN en esta rama porque no contiene `frontend/` (§17.13). Se validará en el PR #9, cuando se integre este ticket.
+
+### 17.2 Objetivo
+- Aplicar la **decisión humana sobre RSK-OPS-001** (Puerta Humana §0.5, registrada por el Orquestador en `audit_log.md` el 2026-09-26): "Aceptar con lista y caducidad".
+  - Solo pueden ir a `.trivyignore` las CVE de paquetes del SO Debian 13.7 **sin parche publicado**, cada una con `exp:2026-10-26`.
+  - Las CVE **con parche se eliminan** de las imágenes.
+- OBS-QA002-C2-04: `Cache-Control: no-store` en el HTML SSR.
+- OBS-QA004-03: `DJANGO_TRUSTED_PROXIES` en el backend.
+
+### 17.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Etapa `node-sin-pm`: borra `/usr/local/lib/node_modules` (npm con brace-expansion, ip-address y tar vendorizados), `npx`, `corepack`, `yarn`/`yarnpkg`, `/opt/yarn-v*` y las cabeceras C. Se comprueba que no queda ningún gestor. Después se **aplana** (`FROM scratch` + `COPY / /`), así que esos bytes tampoco quedan en capas inferiores. El runtime usa `node-min` y re-declara `PATH` y `NODE_VERSION`. Usuario `node` (uid 1000) sin cambios. | `infra/docker/frontend.Dockerfile` | DEC-AUTO-220 |
+| Etapa `python-sin-pip`: borra `pip`, `pip-*.dist-info`, los lanzadores `pip*` y `ensurepip/_bundled`. Se comprueba con `importlib` que no quedan `pip`, `setuptools` ni `wheel`. La imagen se aplana en `python-min`, que es la base de `runtime` y, por tanto, también de `scheduler`. `/opt/venv` (uv) no trae pip. | `infra/docker/backend.Dockerfile` | DEC-AUTO-221 |
+| Backup **mínimo**. La etapa `pgclient` (imagen de la BD, mismo digest) extrae `pg_dump`/`pg_restore`/`psql` 18.6 y `libpq.so.5` 18.6 a `/usr/local/{bin,lib}` y deja registradas las versiones en `/usr/local/share/brujula/pgclient.versiones`. Final sobre `debian:13.7-slim@sha256:a99cfc51…` con `age=1.2.1-1+b5`, `libgssapi-krb5-2=1.21.3-5+deb13u1`, `libldap2=2.6.10+dfsg-1` y `libreadline8t64=8.2-6`, que son las dependencias obtenidas con `ldd`. Usuario `backup_app` con uid/gid 999, el mismo que antes, así que el volumen existente sigue siendo compatible. Durante el build se verifica que las tres herramientas son 18.6. Desaparecen el servidor PostgreSQL, libxml2, gnupg/gpg*, perl, libperl y perl-modules. Tamaño: 677 MB → 158 MB. | `infra/backup/Dockerfile` | DEC-AUTO-222 |
+| `map $upstream_http_content_type $cache_control_ssr`: `text/html` → `no-store` siempre, también en las páginas de error HTML del SSR. El resto conserva el `Cache-Control` del upstream. En `location /` se aplican `proxy_hide_header Cache-Control` y `add_header Cache-Control $cache_control_ssr always`. | `infra/proxy/nginx.conf` | DEC-AUTO-223 |
+| `DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32` en el servicio `backend`, que es la IP fija del proxy (DEC-AUTO-155). La consume el backend de TKT-004 (`PROXIES_CONFIANZA`). El backend de `main` la ignora sin efecto. No se añade a `.env.example` como variable (compose la deriva de `APP_NET_PREFIX`): solo queda documentada. | `compose.yaml`, `.env.example` | DEC-AUTO-224 |
+| `.trivyignore` (nuevo): 8 CVE, todas `exp:2026-10-26`, con un comentario por grupo que indica el paquete, las imágenes afectadas, "sin fix en Debian 13.7 a 2026-09-26" y la referencia a la decisión humana. | `.trivyignore` | DEC-AUTO-225 |
+| Job `images`. (1) Paso nuevo de **política**: cada línea no comentada debe ser `CVE-…`/`GHSA-…` + ` exp:AAAA-MM-DD`, sin comodines ni nombres de paquete. Se prohíben `--ignore-unfixed`/`--ignore-policy`/`--skip-*` y las `TRIVY_*` equivalentes en los workflows, y se avisa de las excepciones caducadas. (2) El gate usa `--ignorefile .trivyignore --show-suppressed --exit-code 1`, así que lo suprimido queda visible en el log. El JSON de evidencia se genera **sin** ignorefile, con todos los hallazgos. (3) **Control negativo**: con todas las caducidades puestas en 2000-01-01, trivy sobre `backend` **debe** fallar. Si no falla, el job falla. | `.github/workflows/ci.yaml` | DEC-AUTO-225 |
+
+### 17.4 Versiones aprobadas
+| Componente | Versión | Nota |
+|---|---|---|
+| debian (base del backup) | `13.7-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a` | Mismo Debian 13.7 que las bases python, node y postgres. Dependabot (docker, `/infra/backup`) ya lo vigila |
+| Cliente PostgreSQL | 18.6 (`libpq5=18.6-1.pgdg13+2`, `postgresql-client-18=18.6-1.pgdg13+2`) | Copiado de `postgres:18.6-trixie@sha256:5a5a84b1…`, igual que el servidor |
+| age | 1.2.1-1+b5 | Sin cambios |
+| node / python | 24.21.0 / 3.13.15 | Mismos digests. Solo se retiran npm/corepack/yarn y pip |
+| trivy | 0.74.0 | Admite `exp:` en `.trivyignore` y `--show-suppressed` (verificado en local) |
+
+### 17.5 Infraestructura
+Topología, redes, puertos, límites y usuarios sin cambios. Usuarios: backend y scheduler 10001, frontend 1000, backup 999, proxy 101. Capas: frontend 3, backend 6, scheduler 9, backup 12.
+
+### 17.6 Dependencias
+No cambian manifests ni lockfiles de aplicación.
+
+### 17.7 Variables de entorno
+- `DJANGO_TRUSTED_PROXIES` (backend, derivada de `APP_NET_PREFIX`; CIDR separados por comas). Documentada en `.env.example`.
+- En proyectos paralelos, cada uno recibe su propia `.10/32` porque `APP_NET_PREFIX` es distinto.
+
+### 17.8 Validaciones ejecutadas (2026-09-26, Docker Engine 29.6.1, Compose v5.2.0, trivy 0.74.0, syft 1.51.0)
+Copia temporal fuera del repositorio (scratchpad): `backend/` de `main` (1e597be), `frontend/` de `origin/tkt-002-frontend-base` (cfb98d7), e infraestructura de esta rama. Proyecto `-p brujula-ops005`, `APP_NET_PREFIX=10.231.51`, proxy en `127.0.0.1:18051`. Etiquetas `ops005-antes` (infraestructura de TKT-OPS-004) y `ops005-despues`.
+
+**17.8.1 trivy (CRITICAL,HIGH) por imagen, antes → después (sin ignorefile)**
+
+| Imagen | Antes (hallazgos / CVE únicas) | Después | CVE eliminadas (con parche o por adelgazar) | CVE restantes (todas sin fix, Debian 13.7) |
+|---|---|---|---|---|
+| backend | 46 HIGH / 10 | 44 HIGH / 8 | GHSA-6v7p-g79w-8964 (msgpack de pip, fix 1.2.1), CVE-2025-47273 (setuptools 70.3.0 declarado por pip, fix 78.1.1) | util-linux ×4, libacl1, libsystemd0/libudev1, ncurses, perl-base |
+| scheduler | 46 HIGH / 10 | 44 HIGH / 8 | las mismas que backend | las mismas que backend |
+| frontend | 47 HIGH / 12 | 43 HIGH / 8 | CVE-2026-14257 y CVE-2026-69152 (brace-expansion), CVE-2026-69192 (ip-address), CVE-2026-73566 (tar); todas de npm | las mismas 8 |
+| backup | 61 HIGH + 1 CRITICAL / 17 | 43 HIGH / 8 | CVE-2026-6653 **CRITICAL** + CVE-2026-74860, -86138, -86139, -86140, -86142, -86143, -86144 (libxml2); CVE-2026-24882 (gnupg/gpg*/dirmngr/gpgsm); de CVE-2026-9538 desaparecen perl, libperl5.40 y perl-modules (queda perl-base, Essential) | las mismas 8 |
+| proxy | 0 | 0 | — | — |
+
+Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642, -78408, -78409 y -78410 (util-linux), CVE-2026-54369 (libacl1), CVE-2026-16742 (libsystemd0/libudev1), CVE-2025-69720 (ncurses) y CVE-2026-9538 (perl-base). Todas tienen `Status: affected` y no tienen `FixedVersion`. La lista coincide con la que reportó QA para el SO. De las de backup no persiste ninguna.
+
+**17.8.2 Gate con `.trivyignore`**
+- Positivo: las 5 imágenes `ops005-despues` con `--ignorefile .trivyignore --exit-code 1` dan **exit 0**.
+- Negativo 1 (caducada): `CVE-2026-9538 exp:2026-09-25` → backend **exit 1** (reaparece solo esa CVE).
+- Negativo 2 (no listada): sin la línea de CVE-2026-16742 → frontend **exit 1**.
+- Negativo 3: backup **antes** con el `.trivyignore` final → **exit 1**, con 1 CRITICAL y 14 HIGH no cubiertas (libxml2 y gnupg). Confirma que no se aceptó nada con parche ni ajeno a la lista.
+- Política del paso nuevo: sobre el `.trivyignore` real, 0 entradas fuera de política. Con `CVE-2026-1*`, una CVE sin `exp:` o un nombre de paquete, las rechaza. El grep de opciones prohibidas no coincide consigo mismo.
+- `actionlint` 1.7.7, con shellcheck, sobre `.github/workflows/`: 0 hallazgos. El YAML se parsea con PyYAML 6.0.3.
+
+**17.8.3 Stack (proxy → frontend SSR / backend → db)**
+- `docker compose up -d --no-build --wait`: db, backend, frontend y proxy **healthy**; init-volumes y migrate **exit 0**. Con `--profile ops`, scheduler y backup quedan Up y supercronic lee el crontab.
+- `GET /health/ready` → 200 `{"status":"ok"}`.
+- `GET /` → 200 `text/html`, **`Cache-Control: no-store`**, con CSP y nonce. El SSR no enviaba `Cache-Control` para el HTML (comprobado con `wget -S` directo a `frontend:4000`).
+- `GET /no-existe-xyz` → 404 `text/html` del SSR, con **`Cache-Control: no-store`**.
+- `GET /main-*.js` → 200 `text/javascript`, `Cache-Control: public, max-age=31536000, immutable` (el del SSR, conservado) y `Content-Encoding: gzip`. El CSS responde igual.
+- API: `GET /api/v1/publico/inicio` → 404 `application/problem+json`. Es el backend de `main` (sin cambios de este ticket).
+- Frontend: `npm`, `npx`, `corepack` y `yarn` ausentes; `/usr/local/lib/node_modules` no existe; `node v24.21.0`.
+- Backend: `pip` ausente y `find_spec` de pip/setuptools/wheel → `[]`. Entorno con `DJANGO_TRUSTED_PROXIES=10.231.51.10/32` y `GUNICORN_FORWARDED_ALLOW_IPS=10.231.51.10`.
+- Scheduler: `manage.py check` → 0 issues; sin pip; supercronic v0.2.49.
+- Backup, con una clave age **efímera** generada dentro del contenedor y borrada al terminar (no es un secreto real): `backup.sh` → exit 0, 5 archivos `.age` y `sha256sum -c` OK. Tras descifrar, `pg_restore --list` lee el dump (454 entradas TOC, BD `brujula`). `pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)`. El proceso se ejecuta como uid 999 con el grupo 10001.
+- SBOM (syft): frontend tiene 503 componentes y backup 548. Ambos detectan `debian 13.7` y ninguno contiene npm, pip, libxml2, perl, gnupg ni libpq5 (ver RSK-OPS-023).
+- Limpieza: `down -v --remove-orphans` del proyecto `brujula-ops005`, borrado de las 10 imágenes `ops005-*` y de la copia temporal. No se tocaron `backend`, `frontend` ni `db` (PROYECTO1), ni `brujula-tkt004-*` ni `brujula-qaops004-*`.
+
+**NOT_RUN**:
+- Simulacro de restauración completo (`restore-local.sh` sobre una BD limpia, AC-054). Se comprobó el descifrado y `pg_restore --list`, pero no la restauración.
+- Build arm64: los argumentos de supercronic y la ruta de libpq son independientes de la arquitectura, pero no se ha construido.
+- Job `images` en GitHub (§17.13).
+
+### 17.9 Seguridad
+- Todas las CVE CRITICAL/HIGH **con parche** desaparecen de las 5 imágenes: 6 en total, más la CRITICAL de libxml2 y 8 HIGH de libxml2/gnupg, que se eliminan al adelgazar la imagen.
+- Solo quedan excepciones Debian sin parche, con caducidad a 30 días. Al caducar, el CI vuelve a fallar y hará falta una **nueva decisión humana**.
+- Superficie reducida: sin gestores de paquetes de lenguaje en ningún runtime y sin servidor PostgreSQL, gpg ni perl completo en backup.
+- El HTML con nonce y los posibles datos del panel ya no se pueden almacenar en caché (OBS-QA002-C2-04).
+- `X-Forwarded-For` solo se acepta desde la IP del proxy (OBS-QA004-03).
+- Sin secretos nuevos.
+
+### 17.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-001 | CVE HIGH de Debian 13.7 sin parche en las bases | HIGH | Aceptadas por decisión humana (2026-09-26) con lista cerrada de 8 CVE y `exp:2026-10-26`. El CI falla ante cualquier CVE nueva, no listada o caducada | **ACEPTADO CON CADUCIDAD (vence 2026-10-26)** |
+| RSK-OPS-023 | El cliente PostgreSQL del backup (binarios + `libpq.so.5`) se copia sin registro dpkg: trivy y syft no ven `libpq5` ni `postgresql-client-18` en `brujula/backup` | LOW | Versión fijada por el digest de `postgres:18.6-trixie` (la misma de la BD, que Dependabot vigila) y registrada en `/usr/local/share/brujula/pgclient.versiones`. Acción F9: escanear también la imagen `postgres` de la BD (hoy no está en el bucle de trivy del CI) para cubrir libpq | ABIERTO (F9) |
+| RSK-OPS-024 | Los paquetes Debian del backup están fijados con versión exacta. Si Debian publica una actualización de seguridad y retira la versión anterior del espejo, el build del backup falla | LOW | Es fallo visible, no silencioso. Se corrige actualizando los ARG de versión (Dependabot no los cubre) | ABIERTO |
+| OBS-OPS005-01 | Job `images` NOT_RUN en GitHub en esta rama (sin `frontend/`) | INFO | Se validará en el PR #9 al integrar este ticket | NOT_RUN (GitHub) |
+
+### 17.11 Archivos modificados
+- `.trivyignore` (nuevo)
+- `infra/docker/frontend.Dockerfile`
+- `infra/docker/backend.Dockerfile`
+- `infra/backup/Dockerfile`
+- `infra/proxy/nginx.conf`
+- `compose.yaml`
+- `.env.example`
+- `.github/workflows/ci.yaml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 17.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Registrar DEC-AUTO-220 a DEC-AUTO-225, RSK-OPS-023/024 y el nuevo estado de RSK-OPS-001 (caduca el 2026-10-26: conviene crear un recordatorio de revisión antes de esa fecha).
+3. Tras integrar TKT-OPS-004 y este ticket, actualizar el PR #9 con `main`. Su job `images` es la validación en GitHub del gate con `.trivyignore`.
+
+### 17.13 Validación en GitHub Actions
+- Run `workflow_dispatch` sobre `tkt-ops-005-trivy` en af6ae8f: https://github.com/magoolf/brujula-salvaje/actions/runs/36268658095. Resultado: **success**.
+  - `detectar código`, `infraestructura` y `backend`: OK.
+  - `frontend`, `images` y `firma`: omitidos (**NOT_RUN**), porque esta rama no tiene `frontend/`. Por eso los pasos nuevos del job `images` (política de `.trivyignore`, gate con ignorefile y control negativo) **no se han ejecutado en GitHub**. Se ejecutarán en el PR #9 cuando este ticket esté integrado en `main`. La lógica equivalente se validó en local (§17.8.2).
