@@ -158,13 +158,43 @@ jobs:
       - name: check --deploy
         env: {DJANGO_DEBUG: "false", DJANGO_SECURE_SSL_REDIRECT: "true", DJANGO_SECURE_HSTS_SECONDS: "31536000"}
         run: uv run --frozen python manage.py check --deploy --fail-level WARNING
-      - name: "contrato: oasdiff (esquema generado vs contracts/openapi.yaml)"
+      # DEC-AUTO-196 (TKT-OPS-003): gate de contrato INCREMENTAL. Un "oasdiff diff --fail-on-diff"
+      # literal nunca pasa: el contrato (API-first) tiene todas las operaciones y componentes escritos
+      # a mano, y drf-spectacular solo genera lo implementado, con sus propios nombres de componentes.
+      #   1) Toda operación del esquema generado existe en el contrato (nada sin documentar).
+      #   2) "oasdiff breaking" contrato -> implementación, limitado a las rutas implementadas:
+      #      falla con cualquier ERR o WARN (lo implementado no puede romper a un cliente del contrato).
+      # Lo aún no implementado lo cubre QA (schemathesis) y la trazabilidad de tickets.
+      - name: "contrato: oasdiff (operaciones implementadas vs contracts/openapi.yaml)"
         run: |
           curl -fsSLo /tmp/oasdiff.tgz "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
           echo "${OASDIFF_SHA256}  /tmp/oasdiff.tgz" | sha256sum -c -
           tar -xzf /tmp/oasdiff.tgz -C /usr/local/bin oasdiff
           uv run --frozen python manage.py spectacular --validate --file /tmp/generado.yaml
-          oasdiff diff ../contracts/openapi.yaml /tmp/generado.yaml --fail-on-diff
+          uv run --frozen python - ../contracts/openapi.yaml /tmp/generado.yaml /tmp/rutas.txt <<'PY'
+          import re, sys, yaml
+          contrato, generado, salida = sys.argv[1:4]
+          METODOS = {"get", "put", "post", "delete", "patch", "head", "options", "trace"}
+          def ops(ruta):
+              with open(ruta, encoding="utf-8") as f:
+                  doc = yaml.safe_load(f)
+              norm = lambda p: re.sub(r"\{[^}]+\}", "{}", p)
+              return {(norm(p), m.lower()): p for p, item in (doc.get("paths") or {}).items()
+                      for m in item if m.lower() in METODOS}
+          c, g = ops(contrato), ops(generado)
+          extra = sorted(set(g) - set(c))
+          for p, m in extra:
+              print(f"::error::operación implementada y NO documentada en el contrato: {m.upper()} {g[(p, m)]}")
+          print(f"contrato: {len(c)} operaciones; implementadas: {len(g)}; no documentadas: {len(extra)}")
+          rutas = sorted(set(g.values()))
+          patron = "^(" + "|".join(re.sub(r"\\\{[^}]+\\\}", r"\\{[^}]+\\}", re.escape(p)) for p in rutas) + ")$"
+          with open(salida, "w", encoding="utf-8") as f:
+              f.write(patron if rutas else "")
+          sys.exit(1 if extra else 0)
+          PY
+          if [ ! -s /tmp/rutas.txt ]; then echo "::warning::el esquema generado no tiene operaciones"; exit 0; fi
+          echo "rutas comparadas: $(cat /tmp/rutas.txt)"
+          oasdiff breaking ../contracts/openapi.yaml /tmp/generado.yaml --match-path "$(cat /tmp/rutas.txt)" --fail-on WARN
       - name: SAST (bandit + semgrep)
         run: |
           uvx --from "bandit==${BANDIT_VERSION}" bandit -r . -x ./.venv,./tests -ll
