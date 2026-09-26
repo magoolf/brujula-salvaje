@@ -4,7 +4,7 @@
 |---|---|
 | Estado | PROPOSED (autoridad de aprobación: Orquestador, CLAUDE.md §0.2) |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-002 (F4) |
+| Ticket | TKT-F4-002 (F4); privilegios de `app_rw` revisados en TKT-F4-006 (CHG-DB-002) |
 | Autor | Skill_Base_datos (estándar; implementa Skill_Developer con Django migrations) |
 | Trazabilidad | BLUEPRINT §39 (handoff §55), §18; REQ-050, 051, 053, 054, 055, 057; DEC-AUTO-080, 087, 088, 099 |
 
@@ -37,7 +37,7 @@ Criterios: soporte de Django, ventana de soporte, riesgo de madurez, capacidades
 | Rol | LOGIN | Privilegios | Uso |
 |---|---|---|---|
 | `app_migrator` | Sí | Propietario del esquema `app` y de todos los objetos; DDL; CREATE en la BD (extensiones trusted). No es superusuario ni tiene CREATEROLE ni CREATEDB | Solo el job `manage.py migrate` (F6/F7) |
-| `app_rw` | Sí | USAGE en `app`/`ext`; SELECT/INSERT/UPDATE/DELETE en las tablas de negocio. **Excepciones**: `evento_auditoria` y `revision_contenido` solo SELECT e INSERT; `django_migrations` solo SELECT; EXECUTE solo en las funciones SECURITY DEFINER de ADR-DB-004. Sin DDL | Procesos web y tareas programadas |
+| `app_rw` | Sí | USAGE en `app`/`ext`; SELECT/INSERT/UPDATE/DELETE en las tablas de negocio. **Excepciones**: `evento_auditoria` y `revision_contenido` solo SELECT e INSERT; `django_migrations` solo SELECT; desde CHG-DB-002 (TKT-F4-006, 2026-09-26; ADR-DB-004 §5) **sin DELETE ni TRUNCATE** en `cuenta_staff`, `medio`, `region`, `pais`, `categoria_guia`, `licencia`, `nivel_escala`, `config_inicio` y `config_sitio`; EXECUTE solo en las funciones SECURITY DEFINER de ADR-DB-004 (`search_path = pg_catalog, app, pg_temp`). Sin DDL | Procesos web y tareas programadas |
 | `readonly` | Sí | SELECT en las tablas de negocio, **sin** `sesion_panel`, `cuenta_codigo_recuperacion` ni `cache_limites`; en `cuenta_staff` y `evento_auditoria`, SELECT por columnas que excluye PII y CONFIDENTIAL | Diagnóstico e informes |
 | `app_backup` | Sí | Miembro de `pg_read_all_data` (predefinido) | Solo `pg_dump` (ADR-DB-004) |
 
