@@ -121,8 +121,14 @@ def _decodificar(valor: Any) -> Any:
     return json.loads(valor) if isinstance(valor, str | bytes) else valor
 
 
-def _reservar(cursor: Any, cuenta_id: int, clave: uuid.UUID, operacion: str, huella: str) -> bool:
-    """Pasos 1 y 2 del protocolo. True si la clave queda reservada para esta transacción."""
+def _reservar(
+    cursor: Any, cuenta_id: int, clave: uuid.UUID, operacion: str, huella: str, omitir: bool
+) -> bool:
+    """Pasos 1 y 2 del protocolo. True si la clave queda reservada para esta transacción.
+
+    `omitir` marca desde el INSERT que la respuesta no se guardará (CHECK
+    ck_idempotencia_crear_cuenta exige cuerpo_omitido=true en panelCrearCuenta).
+    """
     cursor.execute(
         "SELECT set_config('lock_timeout', %s, true)",
         [f"{int(settings.IDEMPOTENCIA_LOCK_TIMEOUT_MS)}ms"],
@@ -134,9 +140,10 @@ def _reservar(cursor: Any, cuenta_id: int, clave: uuid.UUID, operacion: str, hue
             [cuenta_id, clave],
         )
         cursor.execute(
-            "INSERT INTO idempotencia_peticion (cuenta_id, clave, operacion, huella_peticion) "
-            "VALUES (%s, %s, %s, %s) ON CONFLICT (cuenta_id, clave) DO NOTHING RETURNING id",
-            [cuenta_id, clave, operacion, huella],
+            "INSERT INTO idempotencia_peticion "
+            "(cuenta_id, clave, operacion, huella_peticion, cuerpo_omitido) "
+            "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (cuenta_id, clave) DO NOTHING RETURNING id",
+            [cuenta_id, clave, operacion, huella, omitir],
         )
     except OperationalError as exc:
         if getattr(exc.__cause__, "sqlstate", None) == SQLSTATE_LOCK_NO_DISPONIBLE:
@@ -207,7 +214,7 @@ def ejecutar(
         if clave is None:
             return efecto()
         with connection.cursor() as cursor:
-            if not _reservar(cursor, cuenta_id, clave, operacion, huella):
+            if not _reservar(cursor, cuenta_id, clave, operacion, huella, not reproducible):
                 return _reproducir(cursor, cuenta_id, clave, operacion, huella, ubicacion)
         resultado = efecto()
         if not 200 <= resultado.codigo_http <= 299:

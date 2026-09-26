@@ -6,6 +6,7 @@ AC-115; THREAT-001, THREAT-017, THREAT-018, THREAT-020, THREAT-027.
 
 from __future__ import annotations
 
+import base64
 import statistics
 import time
 from datetime import date, timedelta
@@ -393,7 +394,7 @@ def test_AC_TKT004_01_administrador_no_puede_desactivar_su_mfa(cliente_admin, ad
 
 def test_AC_TKT004_01_totp_cumple_rfc_6238():
     # RFC 6238, apéndice B: secreto ASCII "12345678901234567890", T=59 s → 94287082 (8 dígitos).
-    secreto = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+    secreto = base64.b32encode(b"12345678901234567890").decode()
     assert mfa.codigo_totp(secreto, 59 // 30) == "287082"
     assert mfa.verificar_totp(secreto, "287082", instante=59) == 1
     assert mfa.verificar_totp(secreto, "287082", instante=59 + 30) == 1  # ventana ±1
