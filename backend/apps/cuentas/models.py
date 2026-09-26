@@ -15,7 +15,7 @@ from typing import Any, ClassVar
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.sessions.base_session import AbstractBaseSession
-from django.db import models
+from django.db import IntegrityError, models
 from django.db.models import Q
 from django.db.models.functions import Now
 
@@ -37,6 +37,10 @@ class EstadoCuenta(models.TextChoices):
 
 # Estados en los que una cuenta puede operar el panel (is_active de Django).
 ESTADOS_OPERATIVOS = frozenset({EstadoCuenta.ACTIVA})
+
+
+class BorradoCuentaProhibido(IntegrityError):
+    """Borrado físico de una cuenta del staff (CHG-DB-002): es un error de integridad."""
 
 
 class GestorCuentas(BaseUserManager["CuentaStaff"]):
@@ -139,6 +143,15 @@ class CuentaStaff(AbstractBaseUser):
     def __str__(self) -> str:
         # Sin PII: el identificador interno basta para trazas y depuración.
         return f"Cuenta #{self.pk}"
+
+    def delete(self, using: Any = None, keep_parents: bool = False) -> tuple[int, dict[str, int]]:
+        """Prohibido (CHG-DB-002): una cuenta se desactiva y se anonimiza, nunca se borra.
+
+        El trigger trg_cuenta_sin_borrado lo impide también en la BD (QuerySet.delete incluido).
+        """
+        raise BorradoCuentaProhibido(
+            "Las cuentas del staff no se borran físicamente: se desactivan y se anonimizan."
+        )
 
     @property
     def is_active(self) -> bool:  # type: ignore[override]
