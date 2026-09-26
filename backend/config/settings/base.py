@@ -20,13 +20,28 @@ SECRET_KEY = _env.texto("DJANGO_SECRET_KEY")
 DEBUG = _env.booleano("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = _env.lista("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend")
 
-# Autenticación/sesiones del panel llegan en TKT-004 (sesion_panel, AUTH_USER_MODEL en TKT-003):
-# aquí no se instala django.contrib.auth para no fijar un modelo de usuario antes de tiempo.
+# Modelo de datos (TKT-003, DB_HANDOFF v1.1). No se instalan django.contrib.auth, contenttypes
+# ni sessions: el DB_HANDOFF no contiene sus tablas (auth_*, django_content_type, django_session).
+# La cuenta del staff es AbstractBaseUser sin PermissionsMixin (roles = campo `rol`) y las
+# sesiones del panel van en `sesion_panel` (DEC-AUTO-089); el flujo de login es de TKT-004.
+# django.contrib.postgres aporta ArrayField, SearchVectorField, GinIndex y OpClass.
 INSTALLED_APPS = [
+    "django.contrib.postgres",
     "rest_framework",
     "drf_spectacular",
     "apps.core",
+    "apps.cuentas",
+    "apps.catalogos",
+    "apps.medios",
+    "apps.contenido",
+    "apps.inicio",
+    "apps.auditoria",
+    "apps.busqueda",
+    "apps.ops",
 ]
+
+# DATA-024: tabla cuenta_staff (DB_HANDOFF: "AUTH_USER_MODEL = modelo de esta tabla").
+AUTH_USER_MODEL = "cuentas.CuentaStaff"
 
 MIDDLEWARE = [
     # Primero: fija trace_id (traceparent W3C) antes de cualquier otro componente.
@@ -71,7 +86,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------------------
 # Caché: solo contadores de limitación de tasa (ADR-DB-005 §3, DB_HANDOFF cache_limites).
-# La tabla UNLOGGED app.cache_limites la crea la migración ops.0001 (TKT-003).
+# La tabla UNLOGGED app.cache_limites la crea la migración ops.0001_inicial (RunSQL, TKT-003);
+# su esquema es el de createcachetable, que así no tiene nada que crear.
 # ---------------------------------------------------------------------------
 CACHES = {
     "default": {
