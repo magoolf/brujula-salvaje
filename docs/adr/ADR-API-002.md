@@ -4,10 +4,10 @@
 |---|---|
 | Estado | PROPOSED (Autoridad Delegada, CLAUDE.md §0.2) |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) |
+| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) y TKT-F4-007 (CHG-API-002, §1, §5, §17, §18) |
 | Contrato | `contracts/openapi.yaml` (OpenAPI 3.1.0, 127 operaciones) |
 | Trazabilidad | Skill_Backend §7 (reglas 11-13), §12.1-§12.6; BLUEPRINT §9, §12, §15, §16, §18, §38, §39.3, §40; DB_HANDOFF (PostgreSQL 18.6, bigint identity, ADR-DB-002/003/005) |
-| DEC-AUTO | 100..119 (tabla final). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles |
+| DEC-AUTO | 100..119 y 216..219 (tablas finales). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles. DEC-AUTO-215 es una decisión del Orquestador (OBS-QA004-06) que este ADR aplica en §17 |
 
 ## Contexto
 El Blueprint §38 enumera las operaciones públicas y del panel. Skill_Backend exige: versión en la URL, paginación en toda colección, errores RFC 9457 con `trace_id`, contrato documentado para cada endpoint, límites de tasa, idempotencia y health checks. El contrato se escribe antes del código (API-first). El pipeline lo compara con el esquema que genera drf-spectacular y ejecuta schemathesis (§12.5).
@@ -18,6 +18,7 @@ El Blueprint §38 enumera las operaciones públicas y del panel. Skill_Backend e
 - `/api/v1/publico/**`: GET anónimo, solo PUBLICADO, acceso por slug y nunca por id, sin datos del staff (RULE-001, THREAT-011/019). La consume el SSR de Angular (CON-007).
 - `/api/v1/panel/**`: sesión + CSRF (ADR-API-001).
 - `/health/live` y `/health/ready`: fuera de la versión y con respuesta mínima `{status}` (THREAT-028). Readiness comprueba solo PostgreSQL (no hay broker, ADR-DB-005).
+- **CHG-API-002 (RSK-OPS-020, DEC-AUTO-216):** ambos documentan además **429 `limite_tasa`** (`components.responses.LimiteTasaBorde`: Problem, `X-Trace-Id`, `Retry-After`). Lo emite el **proxy de borde**, no Django, desde una zona de límite propia por IP (50 r/s, burst 200). Un sondeo que reciba 429 debe reintentar y no marcar el proceso como caído. **No se documenta 404**: solo aparecería en rutas inexistentes, que no son operaciones del contrato. Documentarlo añadiría ruido y no aportaría ningún caso comprobable.
 - Un cambio incompatible exige `/api/v2/` con cabecera `Deprecation` y ventana documentada (§12.4).
 
 ### 2. Errores (DEC-AUTO-103, DEC-AUTO-118)
@@ -46,6 +47,7 @@ El Blueprint §38 enumera las operaciones públicas y del panel. Skill_Backend e
   - Misma clave con otra operación u otra huella → **422 `idempotencia_conflicto`**.
   - Petición concurrente con la misma clave aún sin confirmar y espera por encima de `lock_timeout` = 3 s → **409 `idempotencia_en_curso`** con `Retry-After`. Es reintentable con la misma clave.
   - `panelCrearCuenta` **no persiste su respuesta** porque la contraseña temporal nunca se guarda (AC-106, DEC-AUTO-125 de BD). Repetirla con una clave ya completada → **409 `idempotencia_respuesta_no_reproducible`** con cabecera `Location: /api/v1/panel/cuentas/{id}`. El Administrador emite otra contraseña temporal con `POST /cuentas/{id}/restablecer-contrasena` (DEC-AUTO-129, decisión del Orquestador).
+  - **Generalización (CHG-API-002, OBS-QA004-02, DEC-AUTO-219):** **cualquiera** de las 11 operaciones devuelve 409 `idempotencia_respuesta_no_reproducible` si se completó pero su cuerpo de respuesta original superó 64 KB (65 536 bytes) y por eso no se guardó (DEC-AUTO-128, `TAMANO_MAXIMO_RESPUESTA`). El efecto no se repite. La cabecera `Location` **solo** aparece en `panelCrearCuenta`. En las demás operaciones no hay `Location`: el cliente trata la operación como ya realizada y relee el recurso afectado (listado, detalle o resultado de la subida). Las 11 operaciones ya declaraban la respuesta 409 `Conflicto`; ahora sus descripciones (parámetro `IdempotencyKey` y respuesta `Conflicto`) recogen el caso general.
 - El protocolo transaccional exacto está en `DB_HANDOFF.yaml` (`idempotencia_peticion.notas`, DEC-AUTO-123..128). El Developer lo implementa como un servicio o decorador común de las 11 operaciones.
 
 ### 6. Entradas estrictas (DEC-AUTO-108)
@@ -90,6 +92,40 @@ Un detalle público retirado responde 410 con `ProblemaRetirado`: alternativas p
 
 ### 16. Comparación con el esquema generado (§12.5)
 drf-spectacular genera componentes planos (sin `allOf` ni `unevaluatedProperties`), así que el gate `CONTRACT_TESTS` compara **semánticamente** (p. ej. `oasdiff breaking contracts/openapi.yaml generado.yaml`: cero cambios incompatibles en rutas, métodos, parámetros, códigos de estado y propiedades requeridas o tipos) y ejecuta `schemathesis run contracts/openapi.yaml` contra el entorno de test sin respuestas 5xx. Una diferencia real se resuelve con un CHG del contrato, nunca en silencio.
+
+### 17. Reautenticación al iniciar la activación de MFA (CHG-API-002, DEC-AUTO-215 / DEC-AUTO-218). CAMBIO INCOMPATIBLE DELIBERADO
+- **Operación afectada:** solo `panelIniciarActivacionMfa` (`POST /api/v1/panel/auth/mfa/activacion`). `panelConfirmarActivacionMfa`, `panelDesactivarMfa`, `panelRegenerarCodigosRecuperacion` y `panelVerificarMfa` no cambian. `panelDesactivarMfa` ya exigía `contrasena` + `codigo`.
+- **Petición:** antes no tenía cuerpo. Ahora lleva `requestBody` **obligatorio** `MfaActivacionInicioEntrada = {contrasena}`: string de 1 a 128 caracteres, `format: password`, `writeOnly`, sin NUL y con `additionalProperties: false`. Se exige también con el paso pendiente `CONFIGURAR_MFA`.
+- **Errores:**
+  - Cuerpo ausente, `contrasena` vacía o con formato inválido → **400 `validacion`** con `errors.contrasena`. Un campo extra → 400 `campo_no_permitido`. Se añadió la respuesta 400 `Validacion`, que antes no estaba declarada.
+  - Contraseña incorrecta → **401 `credenciales_invalidas`**, un code que ya existía en el catálogo. Tiene el mismo mensaje y un tiempo equivalente al del login (se ejecuta siempre el hash, THREAT-018). **No cierra la sesión.** El cliente distingue este caso por `code` y no lo trata como `no_autenticado` ni como `sesion_expirada`: se queda en la pantalla y marca el campo.
+  - Cada fallo cuenta en el contador de fallos por usuario normalizado de RULE-017 y se audita como `LOGIN_FALLIDO`. Al 5.º fallo → **429 `acceso_bloqueado_temporalmente`** con `Retry-After`.
+  - MFA ya activo → **409 `transicion_invalida`**.
+- **Éxito (200):** solo con la contraseña correcta se genera el secreto provisional (`MfaActivacionInicio`, sin cambios). Cualquier secreto provisional previo de la sesión se descarta. El cuerpo de la petición nunca se registra (THREAT-020).
+- **Por qué:** con una sesión robada (THREAT-002) se podría vincular el TOTP del atacante y bloquear al titular. Reautenticar con la contraseña sigue OWASP ASVS L2 (V6/V7: reautenticación antes de cambiar factores de autenticación).
+- **Compatibilidad:** es un cambio **incompatible** en `/api/v1/`, porque añade un `requestBody` obligatorio. Skill_Backend §12.4 exige una versión nueva para cambios incompatibles. Se acepta como **excepción documentada** porque la operación **aún no está desplegada** en ningún entorno compartido ni tiene clientes: el MFA es SHOULD y lo implementa TKT-004. No se abre `/api/v2/` ni se emite `Deprecation`. Si la operación ya estuviera desplegada, este cambio exigiría v2. En `openapi.yaml` la operación lleva `x-cambio-incompatible`, para que la comparación semántica (`oasdiff breaking`, §16) acepte la ruptura esta única vez, con la referencia a este apartado.
+- **Consecuencia para el Frontend:** el cliente generado cambia la firma del método (`panelIniciarActivacionMfa(body)`). La pantalla SCR-032 pide la contraseña antes de mostrar el QR.
+
+### 18. Texto de entrada sin NUL (CHG-API-002, OBS-QA004-05, DEC-AUTO-217)
+- El backend rechaza U+0000 en cualquier campo de texto con 400 `validacion`, o `parametro_invalido` si llega en la query, porque PostgreSQL no admite NUL en `text`/`varchar`. El contrato lo declara con `pattern: '^[^\u0000]*$'`, una regex ECMA-262 que es compatible con hypothesis-jsonschema/schemathesis. Así ni schemathesis ni los clientes generan NUL.
+- Dónde se aplica el patrón:
+  - credenciales: `LoginEntrada.usuario/contrasena/siguiente`, `CambioContrasenaEntrada.*`, `MfaDesactivacionEntrada.contrasena`, `MfaActivacionInicioEntrada.contrasena`;
+  - cuentas: `CuentaCreacionEntrada.nombre_visible`, `CuentaActualizacionEntrada.nombre_visible`. `usuario` ya tenía un patrón cerrado `^[a-z0-9._-]{3,40}$`;
+  - autorización y fuentes: `AutorizacionEntrada.version_politica`, `FuenteEntrada.*`;
+  - contenido: los textos de `ContenidoComunCampos` y de cada `{T}Campos`, incluido el HTML enriquecido; `DiaEntrada`, `ChecklistEntrada`, `ElementoColeccionEntrada.nota_editorial` y `RetiroEntrada.motivo`;
+  - medios, configuración y catálogos: `MedioCatalogacionEntrada`, `ConfigInicioCampos`, `ConfiguracionSitioCampos`, `RegionCampos`, `PaisCampos`, `CategoriaGuiaCampos`, `LicenciaCampos`, `NivelEscalaEntrada`;
+  - esquemas y parámetros compartidos: `TextoEnriquecido`, `UrlSegura`, y los parámetros `q` (`Q`, `TextoFiltro`).
+- Las URL cambian de `^https?://` a `^https?://[^\u0000]*$`. Los campos que ya tenían un patrón cerrado (slug, códigos, uuid, TOTP) no cambian, porque ya excluyen NUL.
+- La regla también figura como norma general en `info.description`. Si un campo de texto nuevo no lleva el patrón, la norma sigue aplicándose.
+- **Compatible hacia atrás:** esas peticiones ya recibían 400. El contrato solo documenta lo que el servidor ya hace.
+
+## Registro DEC-AUTO-216..219 (CHG-API-002)
+| ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-216 | Documentar 429 `limite_tasa` del proxy de borde en `/health/live` y `/health/ready` con una respuesta propia `LimiteTasaBorde`; no documentar 404 | Reutilizar `LimiteTasa` (descrita como DRF); documentar también 404 | Refleja RSK-OPS-020 (50 r/s, burst 200) sin confundirlo con los perfiles DRF; 404 solo en rutas inexistentes | Un sondeo mal configurado podría tratar el 429 como caída (mitigado: zona holgada y nota en el contrato) | Alta |
+| DEC-AUTO-217 | NUL prohibido: `pattern: '^[^\u0000]*$'` en los textos de entrada + norma general en `info` | Solo una nota normativa; `x-` propio; no documentarlo | schemathesis respeta `pattern` y deja de generar NUL; los clientes generados pueden validar | Olvidar el patrón en campos nuevos (mitigado por la norma general) | Alta |
+| DEC-AUTO-218 | Reautenticación en `panelIniciarActivacionMfa`: fallo → 401 `credenciales_invalidas` (sin cerrar la sesión), cuenta para el bloqueo de RULE-017 y se audita `LOGIN_FALLIDO`; MFA ya activo → 409 `transicion_invalida` | 400 `validacion` para la contraseña errónea; un code nuevo `reautenticacion_fallida`; exigir la contraseña en `confirmar` | Reutiliza el catálogo; la semántica del 401 es "credencial incorrecta"; el contador compartido evita la fuerza bruta por sesión robada | El Frontend podría interpretar el 401 como sesión expirada si no distingue por `code` (documentado) | Alta |
+| DEC-AUTO-219 | 409 `idempotencia_respuesta_no_reproducible` generalizado a las 11 operaciones (respuesta >64 KB no guardada); `Location` solo en `panelCrearCuenta` | Guardar respuestas grandes; devolver 200 sin cuerpo | Alinea el contrato con `apps/core/idempotencia.py` y DEC-AUTO-128 | Los clientes deben releer el recurso tras este 409 | Alta |
 
 ## Registro DEC-AUTO-100..119
 | ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
