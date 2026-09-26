@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from cryptography.fernet import Fernet
 from django.core.exceptions import ImproperlyConfigured
 
 from config.settings.base import *  # noqa: F403
-from config.settings.base import SECRET_KEY, THROTTLE_HMAC_KEY
+from config.settings.base import MFA_FERNET_KEY, SECRET_KEY, THROTTLE_HMAC_KEY
 
 DEBUG = False
 
@@ -23,3 +24,12 @@ for _nombre, _valor in (
             f"{_nombre} no es válida: usa un valor aleatorio de >= 32 caracteres "
             "(scripts/ops/init-env.sh)"
         )
+
+# El secreto TOTP del staff se cifra con esta clave (DB_HANDOFF cuenta_staff.secreto_mfa):
+# debe ser una clave Fernet (32 bytes en base64 urlsafe), nunca el marcador de .env.example.
+try:
+    Fernet(MFA_FERNET_KEY)
+except ValueError as _error:
+    raise ImproperlyConfigured(
+        "MFA_FERNET_KEY no es una clave Fernet válida (scripts/ops/init-env.sh)"
+    ) from _error

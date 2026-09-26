@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 import subprocess
@@ -24,6 +25,10 @@ CAMPOS_PROBLEMA = {"type", "title", "status", "detail", "code", "errors", "trace
 TRACEPARENT_VALIDO = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 
+# Clave Fernet bien formada (32 bytes) pero ficticia: prod.py valida su formato.
+_FERNET_FICTICIA = base64.urlsafe_b64encode(b"ficticia-fernet-no-real-" + b"0" * 8).decode()
+
+
 def _entorno_prod(**extra: str) -> dict[str, str]:
     """Variables ficticias de producción (nunca reales) para arrancar config.settings (prod)."""
     entorno = {k: v for k, v in os.environ.items() if not k.startswith(("DJANGO_", "DB_"))}
@@ -32,7 +37,7 @@ def _entorno_prod(**extra: str) -> dict[str, str]:
             "DJANGO_SETTINGS_MODULE": "config.settings",
             "DJANGO_SECRET_KEY": "ficticia-" + "a1b2c3d4" * 8,
             "THROTTLE_HMAC_KEY": "ficticia-" + "e5f6a7b8" * 8,
-            "MFA_FERNET_KEY": "ficticia-fernet",
+            "MFA_FERNET_KEY": _FERNET_FICTICIA,
             "DB_PASSWORD": "ficticia",
             "DJANGO_SECURE_SSL_REDIRECT": "true",
             "DJANGO_SECURE_HSTS_SECONDS": "31536000",
