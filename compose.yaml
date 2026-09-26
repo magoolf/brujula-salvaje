@@ -10,8 +10,12 @@
 #
 # Topología (Skill_devops §8):  navegador -> proxy(127.0.0.1:8080) -> frontend SSR / backend -> db
 #   red "publica": solo proxy (única red con puertos publicados)
-#   red "app"   (internal): proxy, frontend, backend
+#   red "app"   (internal): proxy, frontend, backend. Subred fija ${APP_NET_PREFIX}.0/24: el proxy tiene
+#               la IP fija .10 y es el ÚNICO emisor de X-Forwarded-* en quien confía gunicorn (DEC-AUTO-155)
 #   red "datos" (internal): backend, migrate, scheduler, backup, db
+# Etiquetas de imagen: APP_VERSION o, si está vacío, 0.0.0-dev-<proyecto compose>, para que los
+# proyectos paralelos (-p brujula-qa001, ...) no se pisen las imágenes (RSK-OPS-010, DEC-AUTO-156).
+# Proyectos en paralelo: APP_NET_PREFIX distinto en cada uno (la subred de "app" es fija).
 # =============================================================================
 name: ${COMPOSE_PROJECT_NAME:-brujula}
 
@@ -30,7 +34,7 @@ x-backend-build: &backend-build
   additional_contexts:
     infra: ./infra
   args:
-    APP_VERSION: ${APP_VERSION:-0.0.0-dev}
+    APP_VERSION: ${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
 
 # Variables comunes del backend (web, migrate, scheduler). DB_USER/DB_PASSWORD por servicio.
 x-backend-env: &backend-env
@@ -50,6 +54,8 @@ x-backend-env: &backend-env
   MEDIA_ROOT: /var/lib/brujula/media
   MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-/media/publico/}
   LIBRO_ANONIMIZACIONES_PATH: /var/lib/brujula/ops/libro_anonimizaciones.log
+  # Base de los "type" de application/problem+json (RFC 9457, DEC-AUTO-103)
+  PROBLEM_TYPE_BASE_URL: ${PROBLEM_TYPE_BASE_URL:-https://brujulasalvaje.example}
   DB_HOST: db
   DB_PORT: "5432"
   DB_NAME: ${DB_NAME:-brujula}
@@ -76,13 +82,27 @@ services:
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
+        # DEC-AUTO-151 (RSK-TKT001-01): si el volumen vacío se pobló desde la imagen del backend
+        # (/var/lib/brujula/media, propietario 10001), root sin DAC_OVERRIDE no puede crear
+        # subdirectorios. Se toma la propiedad primero (CAP_CHOWN) y se devuelve al final.
+        chown 0:0 /vol/media
+        chmod 0755 /vol/media
+        # DEC-AUTO-157 (NV-QAOPS-02): nunca se siguen enlaces simbólicos. /vol/* son puntos de
+        # montaje (no pueden ser enlaces); publico/privado sí podrían serlo si el backend (uid 10001,
+        # propietario de /vol/media) los sustituyó. Tras el chown de arriba solo root puede cambiar
+        # las entradas de /vol/media, así que la comprobación no tiene carrera (TOCTOU) con otros
+        # contenedores. Un enlace aborta (exit 1) en lugar de repararse en silencio.
+        for d in /vol/media/publico /vol/media/privado; do
+          if [ -L "$$d" ]; then echo "ABORTA: $$d es un enlace simbólico (revisar el volumen media)" >&2; exit 1; fi
+          if [ -e "$$d" ] && [ ! -d "$$d" ]; then echo "ABORTA: $$d existe y no es un directorio" >&2; exit 1; fi
+        done
         mkdir -p /vol/media/publico /vol/media/privado
         chmod 0755 /vol/media /vol/media/publico
         chmod 0750 /vol/media/privado
         chmod 0750 /vol/ops
         chmod 0700 /vol/backups
-        chown 10001:10001 /vol/media /vol/media/publico /vol/media/privado /vol/ops
-        chown 999:999 /vol/backups
+        chown -h 10001:10001 /vol/media /vol/media/publico /vol/media/privado /vol/ops
+        chown -h 999:999 /vol/backups
         echo "volúmenes preparados"
     volumes:
       - media:/vol/media
@@ -176,7 +196,7 @@ services:
     build:
       <<: *backend-build
       target: runtime
-    image: brujula/backend:${APP_VERSION:-0.0.0-dev}
+    image: brujula/backend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     restart: "no"
     command: ["python", "manage.py", "migrate", "--noinput"]
@@ -200,13 +220,15 @@ services:
     build:
       <<: *backend-build
       target: runtime
-    image: brujula/backend:${APP_VERSION:-0.0.0-dev}
+    image: brujula/backend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     environment:
       <<: *backend-env
       DB_USER: app_rw
       DB_PASSWORD: ${APP_RW_PASSWORD:?definir en .env}
       OTEL_SERVICE_NAME: brujula-backend
+      # Único emisor de X-Forwarded-* de confianza para gunicorn: la IP fija del proxy (DEC-AUTO-155)
+      GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10
     volumes:
       - media:/var/lib/brujula/media
       - ops_libro:/var/lib/brujula/ops
@@ -236,9 +258,9 @@ services:
       dockerfile: ../infra/docker/frontend.Dockerfile
       target: runtime
       args:
-        APP_VERSION: ${APP_VERSION:-0.0.0-dev}
+        APP_VERSION: ${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
         ANGULAR_PROJECT: brujula-salvaje
-    image: brujula/frontend:${APP_VERSION:-0.0.0-dev}
+    image: brujula/frontend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     environment:
       NODE_ENV: production
@@ -263,14 +285,18 @@ services:
     build:
       context: ./infra/proxy
       dockerfile: Dockerfile
-    image: brujula/proxy:${APP_VERSION:-0.0.0-dev}
+    image: brujula/proxy:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     ports:
       - "127.0.0.1:${PROXY_HOST_PORT:-8080}:8080"
     volumes:
       - media:/srv/media:ro
     tmpfs: ["/tmp:uid=101,gid=101,mode=0755"]
-    networks: [publica, app]
+    networks:
+      publica: {}
+      app:
+        # IP fija fuera del rango dinámico (.128/25): ningún otro contenedor puede recibirla
+        ipv4_address: ${APP_NET_PREFIX:-10.231.40}.10
     depends_on:
       init-volumes: {condition: service_completed_successfully}
       frontend: {condition: service_healthy}
@@ -287,7 +313,7 @@ services:
     build:
       <<: *backend-build
       target: scheduler
-    image: brujula/scheduler:${APP_VERSION:-0.0.0-dev}
+    image: brujula/scheduler:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     environment:
       <<: *backend-env
@@ -315,7 +341,7 @@ services:
       dockerfile: Dockerfile
       additional_contexts:
         ops: ./scripts/ops
-    image: brujula/backup:${APP_VERSION:-0.0.0-dev}
+    image: brujula/backup:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     group_add: ["10001"]                # lee medios privados y el libro (dirs 0750, archivos 0640 del grupo app)
     environment:
@@ -347,6 +373,12 @@ networks:
   publica: {}
   app:
     internal: true
+    # Subred fija para poder fijar la IP del proxy (DEC-AUTO-155). Fuera de los pools por defecto
+    # de Docker (172.17-31.x, 192.168.x). Los contenedores sin IP fija reciben una de .128-.255.
+    ipam:
+      config:
+        - subnet: ${APP_NET_PREFIX:-10.231.40}.0/24
+          ip_range: ${APP_NET_PREFIX:-10.231.40}.128/25
   datos:
     internal: true
 

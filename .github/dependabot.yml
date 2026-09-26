@@ -1,0 +1,53 @@
+# =============================================================================
+# Dependabot — Brújula Salvaje (DEC-AUTO-180, TKT-OPS-003)
+# Actualizaciones semanales (lunes 06:00 Europe/Madrid) con pocos PR abiertos a la vez.
+# Cada PR de Dependabot pasa por el pipeline completo (main protegida: PR + CI verde) y por QA
+# como cualquier otro cambio: un PR de Dependabot NO se integra sin revisión (Skill_devops §5).
+# Los cambios de manifest (package.json, pyproject.toml) siguen siendo competencia del Developer
+# (CLAUDE.md §0.3): el Orquestador los asigna como ticket; Dependabot solo los propone.
+# =============================================================================
+version: 2
+
+updates:
+  # Frontend Angular (npm + package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
+    open-pull-requests-limit: 3
+    versioning-strategy: "increase"
+    commit-message: {prefix: "chore(deps-frontend)"}
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "@schematics/angular"]
+        update-types: ["minor", "patch"]
+
+  # Backend Django (uv + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/backend"
+    schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
+    open-pull-requests-limit: 3
+    commit-message: {prefix: "chore(deps-backend)"}
+
+  # Imágenes base de los Dockerfile
+  - package-ecosystem: "docker"
+    directories: ["/infra/docker", "/infra/proxy", "/infra/backup"]
+    schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
+    open-pull-requests-limit: 2
+    commit-message: {prefix: "chore(deps-docker)"}
+
+  # Imágenes fijadas en compose.yaml (postgres para db / init-volumes)
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
+    open-pull-requests-limit: 1
+    commit-message: {prefix: "chore(deps-compose)"}
+
+  # Acciones de GitHub (fijadas por SHA; Dependabot actualiza SHA + comentario de versión)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
+    open-pull-requests-limit: 2
+    commit-message: {prefix: "chore(deps-ci)"}
+    groups:
+      acciones:
+        patterns: ["*"]
