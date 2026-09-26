@@ -1,0 +1,37 @@
+# =============================================================================
+# Excepciones de trivy — Brújula Salvaje (TKT-OPS-005, RSK-OPS-001)
+# DECISIÓN HUMANA (Puerta Humana CLAUDE.md §0.5, registrada en audit_log.md el 2026-09-26):
+#   RSK-OPS-001 -> "Aceptar con lista y caducidad".
+# Reglas: SOLO CVE de paquetes del SO Debian 13.7 SIN parche publicado; cada una con caducidad
+# exp:2026-10-26 (al caducar, trivy vuelve a fallar y la excepción debe revisarse o renovarse
+# con una NUEVA decisión humana). Sin comodines, sin --ignore-unfixed, sin ignorar por paquete.
+# Lista obtenida del escaneo con trivy 0.74.0 de las 5 imágenes finales del ticket
+# (backend, scheduler, frontend, backup; proxy = 0 hallazgos) — DEVOPS_HANDOFF §17.
+# Las CVE CON parche no se aceptan aquí: se eliminan de las imágenes.
+# =============================================================================
+
+# util-linux 2.41.5-0+deb13u1 (util-linux, bsdutils, mount, login, libblkid1, libmount1,
+# libsmartcols1, libuuid1, liblastlog2-2) — imágenes: backend, scheduler, frontend, backup.
+# Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
+CVE-2026-76642 exp:2026-10-26
+CVE-2026-78408 exp:2026-10-26
+CVE-2026-78409 exp:2026-10-26
+CVE-2026-78410 exp:2026-10-26
+
+# acl 2.3.2-2+b1 (libacl1) — imágenes: backend, scheduler, frontend, backup.
+# Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
+CVE-2026-54369 exp:2026-10-26
+
+# systemd (libsystemd0, libudev1) — imágenes: backend, scheduler, frontend, backup.
+# Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
+CVE-2026-16742 exp:2026-10-26
+
+# ncurses (ncurses-base, ncurses-bin, libtinfo6; libncursesw6 en backend/scheduler)
+# — imágenes: backend, scheduler, frontend, backup.
+# Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
+CVE-2025-69720 exp:2026-10-26
+
+# perl-base (paquete Essential de Debian; el perl completo ya no está en ninguna imagen)
+# — imágenes: backend, scheduler, frontend, backup.
+# Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
+CVE-2026-9538 exp:2026-10-26
