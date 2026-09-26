@@ -110,31 +110,31 @@ tickets:
   - id: TKT-001
     titulo: "Backend base: startproject, uv/pyproject, settings por entorno, apps/core (RFC 9457 + trace_id, logging JSON, health live/ready, cabeceras, throttling base, confianza en proxy), pytest"
     fase: F7
-    estado: TODO
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [REQ-050, REQ-055, REQ-057, FEAT-048, MOD-014]
     depende_de: [TKT-F6-001]
     archivos_permitidos: ["backend/*", "backend/config/**", "backend/apps/__init__.py", "backend/apps/core/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["rama tkt-001-backend-base @ 7e84ed0 integrada en main @ 5d4ac9c (merge --no-ff)", "QA_VERDICT PASS ciclo 1/3: 79/79 tests, cobertura 98.96 %, schemathesis /health 18/18, semgrep/bandit/pip-audit/gitleaks 0", "OBS-01..08 y NV-01/02 trasladados a TKT-003/004/OPS"]
     actualizado: 2026-09-25
   - id: TKT-002
     titulo: "Frontend base: ng new SSR, versiones exactas, CSP nonce, tokens+Tailwind+fuentes+Lucide, core/http (traceparent, XSRF, ErrorApi), cliente generado del OpenAPI, shared/ui, shell de layout y páginas de error, Playwright+axe"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [REQ-052, REQ-056, REQ-058, FEAT-001, FEAT-002, MOD-001, MOD-008]
     depende_de: [TKT-F6-001]
     archivos_permitidos: ["frontend/*", "frontend/.*", "frontend/public/**", "frontend/e2e/**", "frontend/src/*", "frontend/src/app/*", "frontend/src/app/core/**", "frontend/src/app/shared/**", "frontend/src/app/api/**", "frontend/src/styles/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["rama tkt-002-frontend-base @ cebcfe1", "Developer: lint/typecheck OK, 139 unit tests (cobertura líneas 99.77 %), E2E 36/36 en 3 navegadores, build SSR, npm audit 0, docker healthy (autodeclarado, pendiente QA)"]
     actualizado: 2026-09-25
   - id: TKT-003
     titulo: "Backend datos: modelos y migraciones de DB_HANDOFF v1.1 (catálogos + semilla de catálogos, cuentas, medios, contenido + integridad SQL, inicio, auditoría inmutable, búsqueda, ops, idempotencia) con pruebas de introspección"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-057, DATA-001..026]
     depende_de: [TKT-001]
@@ -148,7 +148,7 @@ tickets:
     fase: F7
     estado: TODO
     owner: Skill_Developer
-    trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055]
+    trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055, REQ-OPS002-01, OBS-01, NV-02]
     depende_de: [TKT-003]
     archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/**", "backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**"]
     ciclo_qa: 0/3
@@ -198,7 +198,7 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, MOD-003, MOD-006, MOD-008]
     depende_de: [TKT-002, TKT-007]
-    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/guardados/**", "frontend/e2e/**"]
+    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/guardados/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
@@ -222,10 +222,34 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-009..013, FEAT-029..050]
     depende_de: [TKT-009, TKT-006]
-    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/panel/**", "frontend/e2e/**"]
+    archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/app.routes.server.ts", "frontend/src/app/features/panel/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
+    actualizado: 2026-09-25
+  - id: TKT-OPS-001
+    titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
+    fase: F7
+    estado: DONE
+    owner: devops
+    trazabilidad: [REQ-050, REQ-057, FEAT-048]
+    depende_de: [TKT-F6-001]
+    archivos_permitidos: ["compose*.yaml", "infra/**", "docs/05_operacion/**"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["rama tkt-ops-001-infra-fixes @ 3d67163 integrada en main @ 0151a4b", "QA_VERDICT PASS 1/3: stack completo healthy en volúmenes limpios y poblados; control negativo reproduce el fallo en main; logs 25/25 JSON; NV-01 validado (nginx sobrescribe XFF y X-Forwarded-Proto)"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-002
+    titulo: "DevOps: excluir tests/conftest de la imagen (OBS-06); acotar --forwarded-allow-ips (OBS-08/NV-QAOPS-01); APP_VERSION por proyecto (RSK-OPS-010); chown -h en init-volumes (NV-QAOPS-02); smoke CI 0 líneas no JSON (RSK-OPS-009)"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: devops
+    trazabilidad: [REQ-055]
+    depende_de: [TKT-OPS-001]
+    archivos_permitidos: ["compose*.yaml", "infra/**", "docs/05_operacion/**", ".env.example"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["rama tkt-ops-002-hardening @ 8f6e00a (6 archivos)", "DevOps: stack healthy; imagen sin tests; forwarded-allow-ips = IP fija del proxy; init-volumes aborta ante enlaces; smoke CI de logs JSON"]
     actualizado: 2026-09-25
 ```
 
