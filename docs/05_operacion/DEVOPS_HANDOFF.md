@@ -689,3 +689,18 @@ Estado de riesgos anteriores:
 2. Integrarla mediante un PR a `main`. La rama incluye TKT-OPS-002, así que este PR sustituye al de `tkt-ops-002-hardening`.
 3. Registrar DEC-AUTO-190 a DEC-AUTO-199 y RSK-OPS-015 a RSK-OPS-019.
 4. Tras integrar TKT-002 (frontend), comprobar que el job `images` llega a ejecutarse. Si trivy falla solo por las imágenes base, aplicar RSK-OPS-001 como Puerta Humana.
+
+### 15.13 Corrección antes del merge: gitleaks en el PR #4 (DEC-AUTO-207)
+- **Causa:** `actions/checkout` con `fetch-depth: 0` trae todas las ramas publicadas, y `gitleaks git` (por defecto `--all`) las escanea todas. Encontró un falso positivo `generic-api-key` en la rama `tkt-004-acceso-panel`: el vector público de TOTP del RFC 6238 apéndice B, verificado por el Orquestador.
+- **Cambio en el workflow:** el paso de gitleaks usa `--log-opts="--full-history HEAD"`. Escanea todo el historial alcanzable desde el commit que se prueba: el merge de prueba en un PR, o `main` en un push.
+- **`.gitleaksignore`** (raíz, nuevo, DEC-AUTO-207): contiene una única huella exacta, `b9f1a34…:backend/apps/cuentas/tests/test_ac_tkt004_01_login.py:generic-api-key:396`. Sin reglas ni rutas genéricas.
+- **Validado en un clon del scratchpad**, con el merge de prueba `main` + esta rama y `tkt-004` presente:
+
+  | Caso | Resultado |
+  |---|---|
+  | `--all` sin cambios | 1 hallazgo (reproduce el fallo del CI) |
+  | Paso nuevo | 0 hallazgos |
+  | `--all` con `.gitleaksignore` | 0 hallazgos |
+  | `tkt-004` integrado en HEAD, con `.gitleaksignore` | 0 hallazgos |
+  | `tkt-004` integrado en HEAD, sin `.gitleaksignore` | 1 hallazgo (la huella es lo que lo suprime) |
+  | Control negativo: commit con una clave AWS y una API key falsas | 2 hallazgos, rc=1 |

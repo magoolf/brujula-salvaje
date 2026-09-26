@@ -105,7 +105,11 @@ jobs:
           curl -fsSLo /tmp/gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
           tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
-          gitleaks git --redact --no-banner --exit-code 1 .
+          # DEC-AUTO-207: se escanea TODO el historial alcanzable desde el commit probado (HEAD: en un
+          # PR, el merge de prueba base+rama; en push a main, main), no "--all": fetch-depth 0 trae
+          # todas las ramas publicadas y una rama ajena en curso no debe romper este pipeline (su
+          # propio PR la escanea al integrarse). Excepciones: solo huellas exactas en .gitleaksignore.
+          gitleaks git --redact --no-banner --exit-code 1 --log-opts="--full-history HEAD" .
 
   # ---------------------------------------------------------------------------
   backend:
