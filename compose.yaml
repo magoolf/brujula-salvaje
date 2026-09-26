@@ -229,6 +229,9 @@ services:
       OTEL_SERVICE_NAME: brujula-backend
       # Único emisor de X-Forwarded-* de confianza para gunicorn: la IP fija del proxy (DEC-AUTO-155)
       GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10
+      # Redes de proxy de confianza para la IP del cliente en Django (X-Forwarded-For solo si
+      # REMOTE_ADDR pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224): solo el proxy (.10/32)
+      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32
     volumes:
       - media:/var/lib/brujula/media
       - ops_libro:/var/lib/brujula/ops
