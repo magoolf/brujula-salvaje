@@ -84,6 +84,7 @@ navegador ──127.0.0.1:8080──▶ proxy (nginx, uid 101) ──┬─▶ f
                              red "publica" + "app"    └─▶ backend (gunicorn, uid 10001) ──▶ db (postgres, uid 999)
 redes: publica (bridge; solo proxy) · app (internal) · datos (internal: db, backend, migrate, scheduler, backup)
 ```
+- Red `app` (TKT-OPS-002, DEC-AUTO-155): subred fija `${APP_NET_PREFIX}.0/24` (por defecto `10.231.40.0/24`). El proxy tiene la IP fija `.10`; el resto de contenedores reciben una IP dinámica de `.128/25`. gunicorn solo confía en las cabeceras `X-Forwarded-*` que llegan desde `.10` (§14).
 - La BD no publica puertos. Con `compose.debug.yaml` se publica en 127.0.0.1:55432, y con `compose.ci.yaml` en 127.0.0.1:${DB_CI_HOST_PORT:-5432}. Ambos overrides añaden una red puente propia, porque una red `internal` no admite publicar puertos.
 - Endurecimiento por defecto: `read_only`, `cap_drop: ALL`, `no-new-privileges`, tmpfs en /tmp, límites de CPU y memoria en todos los servicios y logs json-file (10 MB × 5).
 - La BD corre con `user: 999` (sin fase root ni gosu). `init-volumes` es un one-shot root con solo CHOWN y FOWNER y sin red: fija los propietarios de los volúmenes independientemente del orden en que se creen (DEC-AUTO-149).
@@ -106,6 +107,8 @@ docker compose --profile ops run --rm scheduler python manage.py purgar_ops   # 
 docker compose -f compose.yaml -f compose.debug.yaml up -d db                 # BD en 127.0.0.1:55432
 docker compose exec db bash /docker-entrypoint-initdb.d/10-bootstrap.sh      # re-ejecutar el bootstrap (idempotente)
 docker compose --profile ops down -v                 # borrar TODO, datos incluidos (solo local)
+# Proyecto paralelo (QA, tickets): -p propio, puerto propio y prefijo de red propio (§14)
+APP_NET_PREFIX=10.231.41 PROXY_HOST_PORT=18081 docker compose -p brujula-qa002 up -d --build --wait
 ```
 En Git Bash, anteponer `MSYS_NO_PATHCONV=1` a los comandos que pasan rutas absolutas del contenedor.
 
@@ -122,7 +125,7 @@ Las rutas con nonce deben ser `RenderMode.Server` o `Client`: una página preren
 ### 5.4 Clave de copias local (desechable)
 ```bash
 docker compose --profile ops build backup
-MSYS_NO_PATHCONV=1 docker run --rm --entrypoint age-keygen brujula/backup:0.0.0-dev > ~/.brujula/age-local.key   # FUERA del repo
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint age-keygen brujula/backup:0.0.0-dev-brujula > ~/.brujula/age-local.key   # FUERA del repo; etiqueta = APP_VERSION o 0.0.0-dev-<proyecto> (§14)
 # copiar la línea "# public key: age1..." en BACKUP_AGE_RECIPIENT del .env
 ```
 La clave real de copias es una Puerta Humana (§0.5). Sin una clave `age1…` válida, backup.sh termina con exit 2.
@@ -139,6 +142,7 @@ Archivos que DevOps **no** puede crear (CLAUDE.md §0.3) y que el entorno espera
    - La IP del cliente se toma de `X-Forwarded-For` con `NUM_PROXIES = DJANGO_NUM_PROXIES` (= 1).
    - `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`.
    - `USE_X_FORWARDED_HOST = False`: el proxy ya envía `Host` con el puerto.
+   - **Pendiente desde TKT-OPS-002 (REQ-OPS002-01, §14.3)**: `SECURE_PROXY_SSL_HEADER = None`, para que el esquema lo decida gunicorn, que solo confía en la IP del proxy. Con la tupla actual, cualquier contenedor de la red `app` puede hacerse pasar por HTTPS.
 5. `GET /health/live` (sin BD) y `GET /health/ready` (`SELECT 1` con timeout de 1 s), ambos accesibles con `Host: 127.0.0.1:8000`.
 6. Medios:
    - Los derivados de medios DISPONIBLES se escriben en `MEDIA_ROOT/publico/…`, con URL `MEDIA_PUBLIC_URL`, nombres `[A-Za-z0-9/_-]+` y extensión `.avif`, `.webp` o `.jpg`.
@@ -165,10 +169,10 @@ Si hace falta un paquete de sistema en las imágenes (p. ej. `libmagic1`), se em
 ## 7. Variables de entorno
 
 La referencia completa, con comentarios y valores ficticios, está en `/.env.example`. Grupos:
-- Compose: `COMPOSE_PROJECT_NAME`, `PROXY_HOST_PORT`, `DB_DEBUG_HOST_PORT`, `APP_VERSION`.
+- Compose: `COMPOSE_PROJECT_NAME`, `PROXY_HOST_PORT`, `DB_DEBUG_HOST_PORT`, `APP_VERSION` (vacío en local: `0.0.0-dev-<proyecto>`), `APP_NET_PREFIX` (TKT-OPS-002, §14).
 - PostgreSQL: `POSTGRES_SUPERUSER_PASSWORD` (solo el init), `DB_NAME`, `APP_MIGRATOR_PASSWORD`, `APP_RW_PASSWORD`, `READONLY_PASSWORD`, `APP_BACKUP_PASSWORD`.
 - Django: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SESSION_COOKIE_SECURE`, `DJANGO_CSRF_COOKIE_SECURE`, `DJANGO_SECURE_SSL_REDIRECT`, `DJANGO_SECURE_HSTS_SECONDS`, `DJANGO_NUM_PROXIES`, `DJANGO_LOG_LEVEL`, `THROTTLE_HMAC_KEY`, `MFA_FERNET_KEY`, `MEDIA_PUBLIC_URL`, `PROBLEM_TYPE_BASE_URL`, `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`.
-- Compose las inyecta por servicio: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `MEDIA_ROOT`, `LIBRO_ANONIMIZACIONES_PATH`, `OTEL_SERVICE_NAME`, `TZ=UTC`.
+- Compose las inyecta por servicio: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `MEDIA_ROOT`, `LIBRO_ANONIMIZACIONES_PATH`, `OTEL_SERVICE_NAME`, `TZ=UTC` y, solo en backend, `GUNICORN_FORWARDED_ALLOW_IPS` (= `${APP_NET_PREFIX}.10`, la IP del proxy).
 - SSR: `NG_ALLOWED_HOSTS`, `API_INTERNAL_URL`.
 - Copias: `BACKUP_AGE_RECIPIENT`, `BACKUP_RETENTION_DAYS`.
 - Solo CI: `DB_BOOTSTRAP_TEST_TEMPLATE`, `DB_CI_HOST_PORT`.
@@ -257,8 +261,12 @@ Todas las variables secretas usan `${VAR:?}` en compose: sin `.env`, `docker com
 | RSK-OPS-007 | Algunas opciones del CI dependen del código real (nombre de `api:generate`, `--include-path-regex` y nombres de checks de schemathesis 4.28, `tsconfig.app.json`) | LOW | Verificar en la primera ejecución del CI y ajustarlas mediante un ticket a DevOps | NOT_RUN |
 | RSK-TKT001-01 | `init-volumes` fallaba (`mkdir /vol/media/publico: Permission denied`) cuando el volumen de medios vacío se poblaba desde la imagen del backend (propietario 10001) | MEDIUM | DEC-AUTO-151: chown 0:0 del raíz del volumen antes de `mkdir` (TKT-OPS-001) | CERRADO (validado) |
 | RSK-TKT001-02 | gunicorn 26: `Control server error: Read-only file system: /app/.gunicorn` y líneas propias que no son JSON | LOW | DEC-AUTO-152 (`--no-control-socket`) + DEC-AUTO-153 (`--log-config-json`) (TKT-OPS-001) | CERRADO (validado) |
-| RSK-OPS-009 | gunicorn ignora en silencio un `--log-config-json` inexistente o ilegible y vuelve al formato de texto | LOW | La prueba de §13.8 comprueba 0 líneas no JSON; añadir esa comprobación al smoke del CI | ABIERTO |
-| RSK-OPS-010 | Las etiquetas `brujula/*:0.0.0-dev` son comunes a todos los proyectos Compose del host (p. ej. `brujula-qa001`): el build de un proyecto sustituye la imagen de otro | LOW | Usar un `APP_VERSION` distinto en cada proyecto de validación | ABIERTO |
+| RSK-OPS-009 | gunicorn ignora en silencio un `--log-config-json` inexistente o ilegible y vuelve al formato de texto | LOW | Paso del smoke del CI: para el backend y falla si hay alguna línea no JSON o ninguna línea (DEC-AUTO-158, TKT-OPS-002) | CERRADO (validado en local; CI NOT_RUN) |
+| RSK-OPS-010 | Las etiquetas `brujula/*:0.0.0-dev` son comunes a todos los proyectos Compose del host (p. ej. `brujula-qa001`): el build de un proyecto sustituye la imagen de otro | LOW | Etiqueta por defecto `0.0.0-dev-<proyecto compose>` (DEC-AUTO-156, TKT-OPS-002). Los `.env` locales antiguos con `APP_VERSION=0.0.0-dev` deben vaciar esa línea | CERRADO (validado) |
+| RSK-OPS-011 | Django confía en `X-Forwarded-Proto` venga de donde venga (`SECURE_PROXY_SSL_HEADER`): un contenedor de la red `app` puede hacerse pasar por HTTPS aunque gunicorn ya no confíe en él | MEDIUM | Ticket al Developer: REQ-OPS002-01 (§14.3). Validado con un fixture | ABIERTO (requiere ticket) |
+| RSK-OPS-012 | DRF toma la IP de `X-Forwarded-For` con `NUM_PROXIES` sin mirar quién la envía: un contenedor de la red `app` puede falsificarla para eludir el throttling por IP | LOW | Propuesta REQ-OPS002-02 (§14.3). Hoy la red `app` solo tiene proxy, frontend y backend | ABIERTO |
+| RSK-OPS-013 | La subred de `app` es fija: dos proyectos compose simultáneos con el mismo `APP_NET_PREFIX` chocan (`Pool overlaps`) | LOW | Usar `APP_NET_PREFIX` distinto en cada proyecto paralelo (§5.2). El error es explícito y no afecta al otro proyecto | ACEPTADO (local) |
+| RSK-OPS-014 | Con `DJANGO_SECURE_SSL_REDIRECT=true` (producción), las llamadas directas del SSR al backend (`API_INTERNAL_URL`, http) reciben 301, porque el SSR no reenvía `X-Forwarded-Proto` (§6 frontend, punto 4). Esto ya ocurre sin TKT-OPS-002 | MEDIUM | Decidir en el ADR de plataforma de producción (§23.5): IP fija del frontend + incluirla en `GUNICORN_FORWARDED_ALLOW_IPS` + reenviar `X-Forwarded-Proto`, o bien TLS interno | ABIERTO (F9) |
 | RSK-OPS-008 | Las reglas de semgrep del registro (`p/django`…) no están fijadas por versión | LOW | Vendorizar las reglas en F9 si se requiere reproducibilidad estricta | ABIERTO |
 
 Pendientes que no son de DevOps: el CHG-API-001 (TKT-F4-005) sigue en curso, así que el contrato puede cambiar antes de F7; y RSK-DB-011.
@@ -374,3 +382,125 @@ No se añaden capacidades ni privilegios, y se quita un socket de control que no
 1. Registrar DEC-AUTO-151, DEC-AUTO-152 y DEC-AUTO-153, y cerrar RSK-TKT001-01 y RSK-TKT001-02.
 2. Integrar esta rama en `main`.
 3. Después, el Developer de TKT-001 hace rebase o merge de `main` y repite su `docker compose up --wait`.
+
+## 14. TKT-OPS-002 — endurecimiento tras QA (F7, soporte)
+
+### 14.1 Estado
+**COMPLETADO**, con un requisito para el Developer (REQ-OPS002-01, §14.3). Sin ese cambio, la protección frente a `X-Forwarded-Proto` falsificado queda a medias. Rama `tkt-ops-002-hardening`, sin merge: la integra el Orquestador tras QA.
+
+### 14.2 Objetivo
+Cerrar las observaciones de QA de TKT-001 y TKT-OPS-001: OBS-06, OBS-08/NV-QAOPS-01, RSK-OPS-010, NV-QAOPS-02 y RSK-OPS-009.
+
+### 14.3 Cambios realizados
+- **OBS-06 → DEC-AUTO-154** (`infra/docker/backend.Dockerfile.dockerignore`): se excluyen `**/tests`, `**/conftest.py` y `**/urls_prueba.py` del contexto de build.
+  - Así no llegan a las imágenes `runtime` ni `scheduler`.
+  - Nada del runtime los importa: pytest es dependencia `dev` y `uv sync --no-dev` no la instala.
+  - Alternativa descartada: filtrar en el `COPY` del stage runtime. Es más frágil, y el `.dockerignore` además acelera el build.
+- **OBS-08 / NV-QAOPS-01 → DEC-AUTO-155** (`compose.yaml`, `infra/docker/backend.Dockerfile`, `.env.example`):
+  - La red `app` tiene una subred fija `${APP_NET_PREFIX:-10.231.40}.0/24`, con `ip_range` `.128/25` para las IP dinámicas.
+  - El proxy tiene `ipv4_address` `.10`, fuera del rango dinámico, así que ningún otro contenedor puede recibir esa IP. Con `cap_drop: ALL` (sin NET_ADMIN), un contenedor tampoco puede cambiar su propia IP.
+  - El backend recibe `GUNICORN_FORWARDED_ALLOW_IPS=${APP_NET_PREFIX}.10`. El `CMD` usa `--forwarded-allow-ips="${GUNICORN_FORWARDED_ALLOW_IPS:-127.0.0.1}"`: entrecomillado, para que un `*` no se expanda como glob, y con `127.0.0.1` por defecto (el de gunicorn), nunca `'*'`.
+  - Alternativas descartadas:
+    - (a) Confiar en toda la subred de `app`. No protege frente al frontend ni frente a servicios futuros.
+    - (b) Resolver `proxy` por DNS al arrancar. Hay un ciclo: el proxy depende de que el backend esté healthy.
+    - (c) Una red propia proxy-backend. También necesita una subred fija, y no aporta nada frente a una IP fija.
+  - **Límite de la medida (demostrado, §14.8)**: gunicorn solo decide `wsgi.url_scheme` a partir de la cabecera. No la elimina: Django sigue recibiendo `HTTP_X_FORWARDED_PROTO`, y con `SECURE_PROXY_SSL_HEADER` la acepta venga de quien venga. La protección completa requiere un cambio en `backend/`, que DevOps no puede hacer (CLAUDE.md §0.3):
+    - **REQ-OPS002-01 (ticket al Developer, `backend/config/settings/base.py`)**: `SECURE_PROXY_SSL_HEADER = None`. Con eso, `request.is_secure()` usa `wsgi.url_scheme`, que gunicorn solo toma de `X-Forwarded-Proto` si la petición viene de `GUNICORN_FORWARDED_ALLOW_IPS`.
+      - Validado con un fixture de settings no versionado (§14.8, caso B).
+      - Con este cambio, `check --deploy` no debería generar avisos nuevos: `security.W008` depende de `SECURE_SSL_REDIRECT`, no de `SECURE_PROXY_SSL_HEADER`. Debe confirmarlo el CI del Developer.
+      - Afecta a RSK-OPS-014.
+    - **REQ-OPS002-02 (propuesta, prioridad baja)**: la IP del cliente para el throttling (DRF `NUM_PROXIES`) se sigue tomando de `X-Forwarded-For` sin comprobar quién la envía (RSK-OPS-012).
+      - Propuesta: usar `X-Forwarded-For` solo si `REMOTE_ADDR` está en una lista de emisores de confianza (proxy y frontend SSR, que la reenvía) inyectada por entorno.
+      - Si no, usar `REMOTE_ADDR`.
+- **RSK-OPS-010 → DEC-AUTO-156** (`compose.yaml`, `.env.example`): la etiqueta de todas las imágenes `brujula/*` y el ARG `APP_VERSION` usan `${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}`.
+  - Compose v5 expone el `-p` como `COMPOSE_PROJECT_NAME` en la interpolación (verificado), así que `-p brujula-qa002` genera `brujula/backend:0.0.0-dev-brujula-qa002`.
+  - `.env.example` deja `APP_VERSION=` vacío. El CI y las releases siguen fijando `APP_VERSION` explícito (`ci-<sha>`), por lo que los nombres que usa trivy/syft no cambian.
+  - **Acción local**: los `.env` creados antes contienen `APP_VERSION=0.0.0-dev`. Hay que vaciar esa línea para obtener la etiqueta por proyecto.
+- **NV-QAOPS-02 → DEC-AUTO-157** (`compose.yaml`, `init-volumes`):
+  - Antes de `mkdir` y `chmod`, el script aborta con exit 1 si `/vol/media/publico` o `/vol/media/privado` son un enlace simbólico, o si existen y no son un directorio.
+  - Los `chown` usan `-h`, así que nunca siguen enlaces.
+  - **No hay carrera TOCTOU**: la comprobación se hace después de `chown 0:0 /vol/media`, así que en ese momento solo root puede crear, renombrar o sustituir entradas en `/vol/media`. `/vol/*` son puntos de montaje y no pueden ser enlaces.
+  - Si aborta, `/vol/media` queda `root:root` y el backend no arranca, porque depende de `init-volumes` completado. La reparación es manual y como root (`rm` del enlace) y después se vuelve a ejecutar `up`. Es intencionado: un enlace ahí indica que se ha manipulado el volumen.
+- **RSK-OPS-009 → DEC-AUTO-158** (`.github/workflows/ci.yaml`, job `images`): nuevo paso tras el smoke, "smoke: logs del backend 100 % JSON (arranque + parada)".
+  - Ejecuta `docker compose stop backend`, guarda `reports/backend.log` (se publica como artefacto) y un script python3 falla si alguna línea no vacía no es un objeto JSON, o si no hay ninguna línea.
+- **DEC-AUTO-159**: `APP_NET_PREFIX` es un único prefijo /24 (`10.231.40`) en lugar de tres variables (subred, rango, IP).
+  - Está fuera de los pools por defecto de Docker (172.17-31.x, 192.168.x), para no chocar con las redes creadas automáticamente.
+  - Coste: los proyectos simultáneos necesitan prefijos distintos (RSK-OPS-013; el error `Pool overlaps` es inmediato y no afecta al otro proyecto).
+
+### 14.4 Versiones aprobadas
+No cambia ninguna versión, imagen base ni acción. Validado con el backend de `main` @ 0151a4b (TKT-001): Django 5.2.17 y gunicorn 26.2.0.
+
+### 14.5 Infraestructura
+- Cambio de topología: la red `app` pasa a tener subred fija, y el proxy, IP fija.
+- No cambian los puertos, límites, healthchecks ni capacidades.
+
+### 14.6 Dependencias
+No se modificó ninguna dependencia ni ningún lockfile.
+
+### 14.7 Variables de entorno
+- Nueva: `APP_NET_PREFIX` (Compose).
+- Nueva e inyectada por compose: `GUNICORN_FORWARDED_ALLOW_IPS` (solo backend).
+- `APP_VERSION` pasa a ser vacío por defecto en `.env.example`.
+- Ninguna es un secreto.
+
+### 14.8 Validaciones ejecutadas (2026-09-25, Docker Engine 29.6.1, Compose v5.2.0)
+Entorno:
+- Worktree de la rama.
+- `.env` generado con `scripts/ops/init-env.sh` (valores aleatorios locales) y borrado al terminar.
+- `-p brujula-ops002`, `APP_VERSION=ops002`, `PROXY_HOST_PORT=18082`, `APP_NET_PREFIX` por defecto.
+- Frontend sustituido por un stub no versionado (python:3.13.15-slim fijado, uid 65534, 200 en :4000). Los fixtures están en el scratchpad, fuera del repo.
+
+| Check | Resultado |
+|---|---|
+| `docker compose config --quiet`: base, `--profile ops`, +ci y +debug | VALIDADO: 4/4 |
+| Etiquetas: sin `-p` → `0.0.0-dev-brujula`; con `-p brujula-ops002` → `0.0.0-dev-brujula-ops002`; con `APP_VERSION=ops002` → `ops002` | VALIDADO (`docker compose config`) |
+| `up -d --build --wait` en volúmenes limpios: db, init-volumes, migrate, backend, proxy y el stub del frontend | VALIDADO: rc=0 en 48 s. Servicios de larga duración healthy; init-volumes y migrate con exit 0 |
+| IPs: proxy `10.231.40.10`; backend `.129`, frontend `.130` y un contenedor efímero `.131` (rango dinámico) | VALIDADO |
+| Proceso 1 del backend: `--forwarded-allow-ips=10.231.40.10` | VALIDADO (`/proc/1/cmdline`) |
+| OBS-06: `find /app -name tests -o -name conftest.py -o -name urls_prueba.py` en `brujula/backend:ops002` y en `brujula/scheduler:ops002` | VALIDADO: 0 resultados en ambas. Contraste: la imagen anterior del host (`brujula/backend:0.0.0-dev`) contiene los 3. `manage.py`, `apps/` y `config/` presentes; migrate exit 0; `supercronic -test` del crontab: válido |
+| **Falsificación de X-Forwarded-Proto** con `DJANGO_SECURE_SSL_REDIRECT=true`, `GET /api/v1/no-existe-ops002` directo a `backend:8000` | Ver las 3 filas siguientes |
+| A) Settings actuales + gunicorn restringido | Contenedor efímero en `app`: sin XFP → **301**; con `XFP: https` → **404** (Django la trata como https: **la protección de infra sola NO basta**). Desde la IP del proxy: sin XFP → 301; con https → 404 |
+| B) Fixture `SECURE_PROXY_SSL_HEADER = None` (REQ-OPS002-01) + gunicorn restringido | Contenedor efímero: sin XFP → **301**; con `XFP: https` → **301** (no se trata como https). Desde la IP del proxy (de confianza): con https → **404** (sí se trata como https). **Protección completa** |
+| C) Control: fixture + `GUNICORN_FORWARDED_ALLOW_IPS="*"` | Contenedor efímero con `XFP: https` → 404: la restricción de gunicorn también es necesaria. El `*` llegó literal al proceso (sin expandirse como glob) |
+| A través del proxy (config normal): `/health/ready` → 200 `{"status":"ok"}`; `/api/v1/no-existe-ops002` → 404; `/` → 200 (stub). Con `SSL_REDIRECT=true`: `/api/...` → 301 a https (el proxy envía `X-Forwarded-Proto: http`, correcto sin TLS) y `/health/ready` → 200 (exento) | VALIDADO |
+| NV-QAOPS-02: `publico` sustituido (uid 10001) por un enlace a `/vol/backups` → init-volumes | VALIDADO: exit 1 "ABORTA: … es un enlace simbólico"; `/vol/backups` sigue 999:999 0700 (no se siguió el enlace) |
+| NV-QAOPS-02: `publico` como archivo regular | VALIDADO: exit 1 "existe y no es un directorio" |
+| Tras la reparación manual: init-volumes ×2 | VALIDADO: exit 0 las dos veces (idempotente). media 10001 0755, publico 0755, privado 0750, ops 0750, backups 999 0700 |
+| RSK-OPS-009: script del paso nuevo del CI, extraído del YAML parseado, sobre el log real del backend tras `stop` | VALIDADO: 20/20 líneas JSON (rc=0, incluye `Shutting down: Master`). Con una línea de texto de gunicorn añadida → rc=1 con `::error::`. Con un log vacío → rc=1 |
+| ci.yaml: YAML válido (js-yaml 4.1.0) y esquema de GitHub Actions (`@action-validator/cli` 0.6.0) | VALIDADO: rc=0 |
+| gitleaks 8.30.1 (`dir`) sobre compose.yaml, .env.example, infra/, .github/ y docs/05_operacion/ | VALIDADO: no leaks found |
+| Choque de subredes: segunda red `10.231.40.0/24` → `Pool overlaps`; `10.231.41.0/24` → OK | VALIDADO (RSK-OPS-013) |
+| Limpieza: `--profile ops down -v` + `docker rmi` de `brujula/{backend,proxy,scheduler}:ops002` | VALIDADO: no queda ningún contenedor, volumen, red ni imagen `ops002`. No se tocaron `backend`, `frontend` y `db` (PROYECTO1) ni `brujula-tkt003-db-1`. El contenedor `backend` de PROYECTO1 ya estaba en `Restarting` antes de empezar: es ajeno a este ticket |
+
+NOT_RUN y por qué:
+- Frontend real: todavía no está en `main` (TKT-002 en curso).
+- Perfil `ops` en ejecución: solo se construyó y probó el crontab del `scheduler`.
+- trivy y syft: la imagen base no cambió (RSK-OPS-001, CI/F9).
+- CI en GitHub: no hay remoto. El paso nuevo solo se validó en local, extraído del YAML.
+- Un `check --deploy` con el fixture de REQ-OPS002-01: le corresponde al Developer en su ticket.
+
+### 14.9 Seguridad
+- Se reduce la superficie: gunicorn ya no acepta `X-Forwarded-*` de cualquier IP.
+- init-volumes no sigue enlaces.
+- La imagen runtime ya no incluye código de pruebas (rutas `urls_prueba`).
+- No se añaden capacidades ni privilegios, y no hay secretos.
+- Riesgo residual: RSK-OPS-011 hasta que se implemente REQ-OPS002-01, y RSK-OPS-012 y RSK-OPS-014 (§10).
+
+### 14.10 Riesgos / pendientes
+- Cerrados: RSK-OPS-009 y RSK-OPS-010.
+- Nuevos: RSK-OPS-011 a RSK-OPS-014 (§10).
+
+### 14.11 Archivos modificados
+- `compose.yaml`
+- `.env.example`
+- `infra/docker/backend.Dockerfile`
+- `infra/docker/backend.Dockerfile.dockerignore`
+- `.github/workflows/ci.yaml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 14.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Registrar DEC-AUTO-154 a DEC-AUTO-159, cerrar RSK-OPS-009 y RSK-OPS-010 y abrir RSK-OPS-011 a RSK-OPS-014.
+3. Emitir un Micro-Ticket al Developer para REQ-OPS002-01 (`backend/config/settings/base.py`; AC: con `DJANGO_SECURE_SSL_REDIRECT=true`, una petición directa a `backend:8000` desde una IP distinta de `${APP_NET_PREFIX}.10` con `X-Forwarded-Proto: https` → 301; desde el proxy → no redirige; `check --deploy` sin avisos). REQ-OPS002-02 es opcional.
+4. Tras el merge, avisar a quien use un `.env` local antiguo de que vacíe `APP_VERSION`, y a los proyectos paralelos de que usen su propio `APP_NET_PREFIX`.
