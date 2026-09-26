@@ -135,7 +135,7 @@ def test_AC_TKT004_01_flujo_completo_administrador_con_mfa_obligatorio(cliente_a
         "configuracion_mfa_requerida",
     )
 
-    inicio = post(nueva, "/auth/mfa/activacion").json()
+    inicio = post(nueva, "/auth/mfa/activacion", {"contrasena": NUEVA}).json()
     assert inicio["otpauth_uri"].startswith("otpauth://totp/")
     secreto = inicio["clave_secreta"]
     problema(post(nueva, "/auth/mfa/activacion/confirmar", {"codigo": "000000"}), 400, "validacion")
@@ -463,7 +463,9 @@ def test_AC_TKT004_01_mfa_opcional_del_editor_activar_regenerar_y_desactivar(
         409,
         "transicion_invalida",
     )
-    secreto = post(cliente_editora, "/auth/mfa/activacion").json()["clave_secreta"]
+    secreto = post(cliente_editora, "/auth/mfa/activacion", {"contrasena": CONTRASENA}).json()[
+        "clave_secreta"
+    ]
     assert (
         post(
             cliente_editora,
@@ -472,7 +474,11 @@ def test_AC_TKT004_01_mfa_opcional_del_editor_activar_regenerar_y_desactivar(
         ).status_code
         == 200
     )
-    problema(post(cliente_editora, "/auth/mfa/activacion"), 409, "transicion_invalida")
+    problema(
+        post(cliente_editora, "/auth/mfa/activacion", {"contrasena": CONTRASENA}),
+        409,
+        "transicion_invalida",
+    )
     problema(
         post(cliente_editora, "/auth/mfa/codigos-recuperacion", {"codigo": "000000"}),
         400,

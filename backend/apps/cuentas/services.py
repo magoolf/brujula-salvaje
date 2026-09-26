@@ -495,15 +495,37 @@ def _reemplazar_codigos(cuenta: CuentaStaff) -> list[str]:
     return codigos
 
 
-def iniciar_activacion_mfa(cuenta_id: int) -> ActivacionMfa:
+def iniciar_activacion_mfa(cuenta_id: int, contrasena: str, ip: str | None) -> ActivacionMfa:
+    """Inicio de la activación TOTP con reautenticación (CHG-API-002, DEC-AUTO-215/218).
+
+    Una sesión robada no puede vincular un segundo factor del atacante. La contraseña se
+    comprueba como en el login: un fallo suma al contador de RULE-017 (5 → bloqueo progresivo) y
+    se audita como LOGIN_FALLIDO; la sesión no se cierra ni se rota. Solo con la contraseña
+    correcta se genera el secreto provisional, que sustituye a cualquier otro previo.
+    """
+    ahora = timezone.now()
+    bloqueo: datetime | None = None
+    secreto: str | None = None
     with transaction.atomic():
         cuenta = CuentaStaff.objects.select_for_update().get(pk=cuenta_id)
         if cuenta.mfa_activo:
             raise TransicionInvalida("La verificación en dos pasos ya está activa.")
-        secreto = mfa.nuevo_secreto()
-        cuenta.secreto_mfa = mfa.cifrar_secreto(secreto)
-        cuenta.save(update_fields=["secreto_mfa"])
-    return ActivacionMfa(secreto=secreto, uri=mfa.uri_otpauth(secreto, cuenta.usuario or ""))
+        _liberar_bloqueo_cumplido(cuenta, ahora)
+        campos = ["estado", "intentos_fallidos", "bloqueos_consecutivos", "bloqueado_hasta"]
+        if cuenta.bloqueado_hasta is not None:
+            bloqueo = cuenta.bloqueado_hasta
+            cuenta.save(update_fields=campos)
+        elif cuenta.check_password(contrasena):
+            secreto = mfa.nuevo_secreto()
+            cuenta.secreto_mfa = mfa.cifrar_secreto(secreto)
+            cuenta.save(update_fields=[*campos, "secreto_mfa"])
+        else:
+            bloqueo = _registrar_fallo(cuenta, ahora, ip)
+    if secreto is not None:
+        return ActivacionMfa(secreto=secreto, uri=mfa.uri_otpauth(secreto, cuenta.usuario or ""))
+    if bloqueo is not None:
+        raise AccesoBloqueado(bloqueo)
+    raise CredencialesInvalidas()
 
 
 def confirmar_activacion_mfa(cuenta_id: int, codigo: str) -> list[str]:

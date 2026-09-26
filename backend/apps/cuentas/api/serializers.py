@@ -32,6 +32,14 @@ class MfaVerificacionEntradaSerializer(EntradaEstricta):
     codigo = serializers.RegexField(PATRON_CODIGO_MFA, write_only=True, allow_blank=True)
 
 
+class MfaActivacionInicioEntradaSerializer(EntradaEstricta):
+    """Reautenticación para iniciar la activación de MFA (CHG-API-002, DEC-AUTO-215)."""
+
+    contrasena = serializers.CharField(
+        min_length=1, max_length=128, write_only=True, trim_whitespace=False
+    )
+
+
 class MfaCodigoEntradaSerializer(EntradaEstricta):
     codigo = serializers.RegexField(PATRON_TOTP, write_only=True, allow_blank=True)
 

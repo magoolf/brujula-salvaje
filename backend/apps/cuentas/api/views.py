@@ -342,13 +342,20 @@ class IniciarActivacionMfa(_VistaPanel):
 
     @extend_schema(
         operation_id="panelIniciarActivacionMfa",
-        summary="Iniciar activación TOTP (devuelve URI otpauth; el QR se genera en el cliente)",
+        summary="Iniciar activación TOTP con reautenticación (URI otpauth; QR en el cliente)",
         tags=["panel-auth"],
-        request=None,
-        responses={200: s.MfaActivacionInicioSerializer, **_errores(401, 403, 409, 429, 500)},
+        request=s.MfaActivacionInicioEntradaSerializer,
+        responses={
+            200: s.MfaActivacionInicioSerializer,
+            **_errores(400, 401, 403, 409, 429, 500),
+        },
     )
     def post(self, request: Request) -> Response:
-        activacion = services.iniciar_activacion_mfa(cuenta_de(request).pk)
+        entrada = s.MfaActivacionInicioEntradaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        activacion = services.iniciar_activacion_mfa(
+            cuenta_de(request).pk, entrada.validated_data["contrasena"], _ip(request)
+        )
         return Response(
             s.MfaActivacionInicioSerializer(
                 {"otpauth_uri": activacion.uri, "clave_secreta": activacion.secreto}
