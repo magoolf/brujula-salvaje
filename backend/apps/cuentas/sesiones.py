@@ -41,7 +41,8 @@ class SessionStore(SessionStoreBD):
 
     def create_model_instance(self, data: dict[str, Any]) -> SesionPanel:
         instancia = cast("SesionPanel", super().create_model_instance(data))
-        instancia.cuenta_id = data.get(CLAVE_CUENTA)
+        cuenta_id = data.get(CLAVE_CUENTA)
+        instancia.cuenta_id = cuenta_id if isinstance(cuenta_id, int) else None
         instancia.autenticado_en = _fecha(data.get(CLAVE_AUTENTICADO_EN))
         return instancia
 
