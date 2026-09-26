@@ -3,6 +3,7 @@
 Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
 Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
 Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
+Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -704,3 +705,155 @@ Estado de riesgos anteriores:
   | `tkt-004` integrado en HEAD, con `.gitleaksignore` | 0 hallazgos |
   | `tkt-004` integrado en HEAD, sin `.gitleaksignore` | 1 hallazgo (la huella es lo que lo suprime) |
   | Control negativo: commit con una clave AWS y una API key falsas | 2 hallazgos, rc=1 |
+
+## 16. TKT-OPS-004 — gate de contrato por operación, límite de /health y errores del proxy (F7, soporte)
+
+### 16.1 Estado
+**COMPLETADO** en local (§16.8). El resultado en GitHub figura en §16.8.3.
+Rama: `tkt-ops-004-gate-health`, creada desde `origin/main` (1e597be).
+
+### 16.2 Objetivo
+Cerrar los hallazgos de la QA de TKT-OPS-003:
+- HALLAZGO-QA-OPS003-01 (MEDIUM): el gate no detectaba N9 (código de estado no documentado) ni N10 (propiedad de respuesta extra).
+- HALLAZGO-QA-OPS003-02 (LOW): el gate daba un falso positivo con una ruta implementada solo en parte (N11).
+- RSK-OPS-016: `/health/live|ready` no tenía límite de borde.
+- OBS-QA-OPS003-03 y OBS-QA-OPS003-04: cabeceras de seguridad en los errores del proxy, y 403/404 del proxy como Problem Details.
+- DEC-AUTO-210: Dependabot sin actualizaciones semver-major.
+
+### 16.3 Cambios realizados
+- **`infra/ci/gate_contrato.py`** (nuevo, DEC-AUTO-211). Sustituye al script en línea del paso de contrato del job `backend`. Solo depende de PyYAML.
+  1. Operaciones (método + ruta, con los parámetros de ruta normalizados) generadas ⊆ contrato. Detecta N1 y N2.
+  2. Por operación, cada código de estado generado debe estar en el contrato: exacto, rango `NXX` o `default`. Detecta N3 y N9.
+  3. Por operación y código, cada media type generado debe estar en el contrato. Detecta N8.
+  4. Por operación, código y media type, las propiedades de respuesta generadas ⊆ las del contrato. Es recursivo (propiedades, `items`, `$ref`), fusiona `allOf` y trata `oneOf`/`anyOf` como unión. Detecta N10.
+     - Un objeto del contrato solo admite propiedades nuevas si declara `additionalProperties: true` o un esquema, como el mapa `errors`.
+     - Sin `additionalProperties`, el objeto se trata como cerrado: exponer un campo no documentado es un riesgo de fuga de datos.
+  5. Escribe el **contrato filtrado por operación**: solo las operaciones implementadas, con la ruta tal como está en el contrato y los parámetros y claves comunes del path item.
+     - `oasdiff breaking contrato-filtrado generado --fail-on WARN` compara el resto (N4-N7, N12).
+     - Ya no se usa `--match-path` por ruta, que era la causa del falso positivo `api-removed-without-deprecation` de N11.
+- **`.github/workflows/ci.yaml`, job `backend`:** el paso "contrato" invoca `../infra/ci/gate_contrato.py` y después `oasdiff breaking` sobre el contrato filtrado. oasdiff sigue en la versión 1.32.1, verificado con sha256.
+- **`infra/proxy/nginx.conf`:**
+  - **Zona `salud`** (DEC-AUTO-214, sustituye a DEC-AUTO-193): `limit_req_zone $binary_remote_addr zone=salud:1m rate=50r/s` con `limit_req zone=salud burst=200 nodelay` en `= /health/live` y `= /health/ready`.
+    - Un `limit_req` en la location anula el heredado del servidor, así que `/health` solo cuenta contra `salud` y no compite con el cupo de `/api`.
+    - Se elimina el `map $clave_limite`: `por_ip` vuelve a usar `$binary_remote_addr`.
+    - El 429 sale por la misma location interna Problem Details, con `Retry-After: 1`.
+  - **403/404 del proxy como Problem Details** (DEC-AUTO-213):
+    - `error_page 403 =403 /_errores_proxy/403`: `permiso_denegado`, para `limit_except ... deny all` en el SSR y en los medios.
+    - `error_page 404 =404 /_errores_proxy/404`: `no_encontrado`, para `return 404`, `/health/*` desconocido, `/media/**` no público y medios inexistentes.
+    - Se mantiene el estado 403, sin cambiarlo a 405, para no alterar el comportamiento. Los 403/404 del SSR y de Django no pasan por aquí (`proxy_intercept_errors off`).
+- **`infra/proxy/snippets/security-headers-error.conf`** (nuevo, DEC-AUTO-212). Se incluye en todas las `/_errores_proxy/*` (400, 403, 404, 413, 429, 503). Contiene:
+  - `X-Trace-Id`, `Cache-Control: no-store` y `nosniff`.
+  - La CSP de API del contrato, igual que `API_CONTENT_SECURITY_POLICY` de Django.
+  - `Referrer-Policy`, `Permissions-Policy`, COOP, CORP, `X-Frame-Options: DENY` y `X-Robots-Tag: noindex, nofollow`.
+  - El Dockerfile del proxy ya copia `snippets/*.conf`, así que no cambia.
+- **Smoke del proxy en el CI (job `images`):** comprueba los 404 (`/health/otra`, `/media/privado/x.jpg`), el 403 (`POST /`) y el 400 (URI larga). Para cada uno exige Problem Details, `status` y `trace_id` en el cuerpo, y 6 cabeceras de seguridad. Además:
+  - 120 sondeos secuenciales a `/health/live`, todos con 200.
+  - Una ráfaga keep-alive de 1000 peticiones (20×50), con Python y no con `curl`/`xargs`, que es lento en runners o hosts Windows. Debe producir `429 application/problem+json`, y solo 200 o 429.
+  - Tras 5 s, `/health/ready` devuelve 200.
+- **`.github/dependabot.yml`** (DEC-AUTO-210): `ignore: [{dependency-name: "*", update-types: ["version-update:semver-major"]}]` en los 5 ecosistemas (npm, uv, docker, docker-compose, github-actions).
+  - Parches y menores se mantienen.
+  - Según la documentación de GitHub, `ignore` afecta a las actualizaciones de versión. Las de seguridad dependen del ajuste del repositorio (ver RSK-OPS-021).
+  - Sin anclas YAML, por compatibilidad con el parser de Dependabot.
+
+### 16.4 Versiones aprobadas
+Sin cambios: nginx-unprivileged 1.30.5-alpine con digest, oasdiff 1.32.1, schemathesis 4.28.0 y PyYAML del lock del backend.
+
+### 16.5 Infraestructura
+- Topología sin cambios.
+- Límites de borde:
+  - `por_ip`: 20 r/s, burst 60, todo el servidor salvo `/health/live|ready`.
+  - `salud`: 50 r/s, burst 200, solo `/health/live|ready`.
+
+### 16.6 Dependencias
+Ninguna.
+
+### 16.7 Variables de entorno
+Ninguna nueva.
+
+### 16.8 Validaciones ejecutadas (2026-09-26, Docker Engine 29.6.1, Compose v5.2.0)
+
+#### 16.8.1 Gate de contrato
+Réplica exacta del paso de CI: `gate_contrato.py` y `oasdiff 1.32.1` linux_amd64, con sha256 verificado. Los controles N1-N12 son los de la QA de TKT-OPS-003.
+
+| Control | Contrato | Esperado | rc | Detectado por |
+|---|---|---|---|---|
+| Base (esquema generado de `main`) | main | 0 | 0 | — |
+| N1 ruta no documentada | main | 1 | 1 | gate: operación no documentada |
+| N2 método no documentado | main | 1 | 1 | gate: operación no documentada |
+| N3 200 → 201 | main | 1 | 1 | gate: código no documentado |
+| N4 parámetro requerido nuevo | main | 1 | 1 | oasdiff `new-required-request-parameter` |
+| N5 tipo de respuesta cambia | main | 1 | 1 | oasdiff `response-property-type-changed` |
+| N6 enum de respuesta ampliado | main | 1 | 1 | oasdiff `response-property-enum-value-added` |
+| N7 propiedad pasa a opcional | main | 1 | 1 | oasdiff `response-property-became-optional` |
+| N8 media type cambia | main | 1 | 1 | gate: media type no documentado |
+| **N9** 500 text/html nuevo | main | 1 | **1** | gate: código no documentado (antes rc=0) |
+| **N10** propiedad extra (`additionalProperties: false`) | main | 1 | **1** | gate: propiedad no documentada (antes rc=0) |
+| N11 (fixture de QA: GET *stub* sin POST) | main | 1 | 1 | oasdiff `api-security-removed`, `response-media-type-removed`, `request-parameter-removed` (nota 1) |
+| N12 parámetro de ruta renombrado | main | 1 | 1 | oasdiff `new-request-path-parameter`, … |
+| **P1** (N11 fiel: GET copiado del contrato, sin POST) | main | 0 | **0** | — (antes rc=1 por `api-removed-without-deprecation`) |
+| P2 esquema real de TKT-004 sin el PATCH de `/cuentas/{id}` | main | 0 | 0 | — |
+| Esquema real de TKT-004 (`origin/tkt-004-acceso-panel` 9c63bec, con `apps/core/esquema.py`) | tkt-004 | 0 | 0 | 25 operaciones comparadas, 0 errores |
+| T1 TKT-004 + propiedad extra en `SesionEstado` | tkt-004 | 1 | 1 | gate: propiedad no documentada |
+| T2 TKT-004 + `500 text/html` en login | tkt-004 | 1 | 1 | gate: media type no documentado |
+| T3 TKT-004 + propiedad extra en `Cuenta` (dentro de `resultados[]`) | tkt-004 | 1 | 1 | gate: propiedad no documentada (anidada) |
+| T4 TKT-004 + propiedad extra en `Problem` | tkt-004 | 1 | 1 | gate: propiedad no documentada |
+
+Nota 1: el fixture N11 de QA define el GET como *stub*, sin `security`, parámetros ni `content`, así que sigue fallando por esas diferencias reales. El falso positivo de la operación POST "eliminada" desaparece (0 apariciones de `api-removed`). P1 es el control fiel y pasa.
+
+El gate anterior, sobre los mismos ficheros, da P1 rc=1 (`api-removed-without-deprecation`), N9 rc=0 y N10 rc=0. Reproduce los hallazgos.
+
+`ruff check` y `ruff format --check` (ruff 0.16.9 y configuración del backend) pasan sobre `infra/ci/gate_contrato.py`.
+
+#### 16.8.2 Proxy
+Stack local `-p brujula-ops004`, `APP_NET_PREFIX=10.231.49`, puerto 18494 e imágenes con `APP_VERSION=ops004`, para no pisar `brujula/*:0.0.0-dev` de las QA. Árbol temporal fuera del repositorio: esta rama más `frontend/` de `origin/tkt-002-frontend-base`.
+
+| Comprobación | Resultado |
+|---|---|
+| `docker compose config -q`, build y `up --wait` | OK. proxy, backend, frontend y db en estado healthy; migrate terminó (Exited) |
+| `nginx -t` | OK |
+| Paso "smoke: errores del proxy…" del CI, extraído literalmente (solo cambian el puerto y `/tmp`) | rc=0 |
+| Ráfaga a `/api` (250 × P50) | 217 × 404 y 33 × 429, todas `application/problem+json`. El 404 es del backend: `publico/inicio` aún no está implementado (DEV-OPS003-01) |
+| 120 sondeos secuenciales a `/health/live` | 120 × 200 |
+| Ráfaga keep-alive a `/health/live` (1000) | 222 × 200 y 778 × `429 application/problem+json` |
+| Cabeceras de 429 (`/health/ready`), 404 (`/media/publico/no/existe.webp`) y 503 (backend parado) | Las 11 cabeceras de `security-headers-error.conf`. `Retry-After` 1 en el 429 y 5 en el 503 |
+| 403 en `POST /` y 404 en `/health/otra` | Problem Details con `permiso_denegado` / `no_encontrado` y `trace_id` de 32 hex |
+| HTML del SSR | CSP con nonce y `X-Frame-Options` sin cambios |
+| schemathesis 4.28.0 sobre `/health/live|ready` a través del proxy (checks del CI) | 9 generados, 9 pasados |
+
+- **Dependabot:** `.github/dependabot.yml` valida contra el JSON Schema `dependabot-2.0` (el mismo de la QA de TKT-OPS-003) con 0 errores. Los 5 ecosistemas tienen `ignore` semver-major.
+- **Limpieza:** `docker compose -p brujula-ops004 --profile ops down -v`, imágenes `brujula/*:ops004` eliminadas y árbol temporal borrado. No se tocaron `backend`, `frontend`, `db` (PROYECTO1), `brujula-qa004` ni `brujula-qa002b`.
+
+#### 16.8.3 GitHub Actions
+Ver §16.13.
+
+### 16.9 Seguridad
+- Los errores del borde llevan la misma política de cabeceras que la API, lo que cierra OBS-QA-OPS003-03.
+- `/health/ready` deja de ser un amplificador sin límite hacia la BD (RSK-OPS-016).
+- El gate impide exponer campos de respuesta no documentados.
+- Sin secretos nuevos; el `.env` es efímero y local.
+
+### 16.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-016 | `/health` sin límite de borde | LOW-MEDIUM | Zona `salud` de 50 r/s con burst 200 (DEC-AUTO-214) | **MITIGADO** |
+| RSK-OPS-020 | El contrato documenta solo 200/503 para `/health/*`, pero el borde puede responder 429 (ráfaga de más de 200 por encima de 50 r/s desde una IP) y 404 Problem Details | LOW | Ticket a **backend-contrato**: añadir `429: LimiteTasa` a `saludLive`/`saludReady`, o documentarlo como respuesta del borde. schemathesis a ritmo normal no lo alcanza (9/9) | ABIERTO |
+| RSK-OPS-021 | Dependabot: `ignore` con `update-types` se aplica a las actualizaciones de versión. Las de seguridad dependen de que "Dependabot security updates" esté activado en el repositorio, un ajuste fuera del alcance del fichero | LOW | Verificar en Settings → Code security (Orquestador) | NOT_VALIDATED |
+| RSK-OPS-022 | Detrás de un balanceador o CDN sin `real_ip`, todas las peticiones comparten IP y las zonas `por_ip`/`salud` se vuelven globales | MEDIUM (prod) | En el ADR de producción (F9): `set_real_ip_from` + `real_ip_header`, o sondeos por la red interna | ABIERTO (F9) |
+| RSK-OPS-019 | El gate no exige cobertura total del contrato | LOW | Sin cambios: intencionado en F7 | ABIERTO |
+| OBS-OPS004-01 | El job `images` (smoke y schemathesis del CI) sigue NOT_RUN en GitHub mientras `frontend/` no esté en `main` | INFO | Validado en local (§16.8.2). Se ejecutará automáticamente cuando TKT-002 se integre | NOT_RUN (GitHub) |
+
+### 16.11 Archivos modificados
+- `infra/ci/gate_contrato.py` (nuevo)
+- `infra/proxy/snippets/security-headers-error.conf` (nuevo)
+- `infra/proxy/nginx.conf`
+- `.github/workflows/ci.yaml`
+- `.github/dependabot.yml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 16.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Registrar DEC-AUTO-211 a DEC-AUTO-214 y RSK-OPS-020 a RSK-OPS-022.
+3. Emitir el ticket de contrato de RSK-OPS-020 a backend-contrato.
+4. Tras integrar esta rama, TKT-004 (PR #8) ejecutará el gate nuevo al actualizarse con `main`. Su backend ya lo pasa (§16.8.1). Los checks obligatorios son de job, y sus nombres no cambian.
