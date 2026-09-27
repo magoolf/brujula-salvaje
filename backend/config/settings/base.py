@@ -23,7 +23,8 @@ ALLOWED_HOSTS = _env.lista("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend"
 # Modelo de datos (TKT-003, DB_HANDOFF v1.1). No se instalan django.contrib.auth, contenttypes
 # ni sessions: el DB_HANDOFF no contiene sus tablas (auth_*, django_content_type, django_session).
 # La cuenta del staff es AbstractBaseUser sin PermissionsMixin (roles = campo `rol`) y las
-# sesiones del panel van en `sesion_panel` (DEC-AUTO-089); el flujo de login es de TKT-004.
+# sesiones del panel van en `sesion_panel` (DEC-AUTO-089). La autenticación del panel es propia
+# (apps.cuentas.autenticacion, TKT-004, OBS-QA003-06): no usa ModelBackend ni auth_*.
 # django.contrib.postgres aporta ArrayField, SearchVectorField, GinIndex y OpClass.
 INSTALLED_APPS = [
     "django.contrib.postgres",
@@ -49,6 +50,9 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.CabecerasSeguridadMiddleware",
     "apps.core.middleware.RegistroPeticionMiddleware",
+    # Sesiones del panel sobre sesion_panel (SESSION_ENGINE). Perezoso: solo toca la BD y fija la
+    # cookie si una vista del panel usa la sesión (las rutas públicas nunca la usan, RULE-029).
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -91,9 +95,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------------
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        # HALLAZGO-QA004-01: sin desalojo de entradas vigentes (apps/core/cache.py). Al superar
+        # MAX_ENTRIES solo se purgan las caducadas: los estados de seguridad no se desalojan.
+        "BACKEND": "apps.core.cache.CacheSinDesalojo",
         "LOCATION": "cache_limites",
         "TIMEOUT": 3600,  # TTL <= 1 h
+        "OPTIONS": {"MAX_ENTRIES": 5000},
     }
 }
 
@@ -126,8 +133,34 @@ MFA_FERNET_KEY = _env.texto("MFA_FERNET_KEY")
 # Proxy de confianza (DEVOPS_HANDOFF §6.4, ADR-API-002 §9, DEC-AUTO-111)
 # ---------------------------------------------------------------------------
 NUM_PROXIES = _env.entero("DJANGO_NUM_PROXIES", 1)
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# REQ-OPS002-01 (RSK-OPS-011): Django no confía en X-Forwarded-Proto de ningún emisor. El esquema
+# lo fija gunicorn en wsgi.url_scheme solo para la IP del proxy (--forwarded-allow-ips).
+SECURE_PROXY_SSL_HEADER = None
 USE_X_FORWARDED_HOST = False
+# RSK-OPS-012: redes de los proxies de confianza. X-Forwarded-For solo se usa para la IP del
+# cliente (throttling, IP truncada de auditoría) si REMOTE_ADDR pertenece a una de ellas.
+# Vacía = comportamiento de DRF con NUM_PROXIES (la red interna "app" solo expone el proxy).
+PROXIES_CONFIANZA = _env.lista("DJANGO_TRUSTED_PROXIES", "")
+
+# ---------------------------------------------------------------------------
+# Sesión del panel (ADR-API-001 §5, DEC-AUTO-049/089): 30 min de inactividad, 12 h absolutas.
+# ---------------------------------------------------------------------------
+SESSION_ENGINE = "apps.cuentas.sesiones"
+SESSION_COOKIE_AGE = 30 * 60
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+PANEL_INACTIVIDAD_SEGUNDOS = 30 * 60
+PANEL_SESION_MAXIMA_SEGUNDOS = 12 * 60 * 60
+
+# Política de tratamiento vigente (FEAT-032, DEC-AUTO-038): se lee de la página institucional
+# POLITICA_DATOS. Solo si aún no existe (antes de la carga semilla) se usan estos valores.
+POLITICA_TRATAMIENTO_VERSION_RESPALDO = _env.texto("POLITICA_TRATAMIENTO_VERSION", "1.0")
+POLITICA_TRATAMIENTO_VIGENTE_DESDE_RESPALDO = _env.texto(
+    "POLITICA_TRATAMIENTO_VIGENTE_DESDE", "2026-09-25"
+)
+
+# Idempotency-Key (ADR-API-002 §5): espera máxima de un duplicado concurrente (lock_timeout).
+IDEMPOTENCIA_LOCK_TIMEOUT_MS = _env.entero("IDEMPOTENCIA_LOCK_TIMEOUT_MS", 3000)
 
 # ---------------------------------------------------------------------------
 # Cookies, CSRF y cabeceras (ADR-API-001, DEC-AUTO-101; REQ-055)
@@ -183,8 +216,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "DEFAULT_CONTENT_NEGOTIATION_CLASS": "apps.core.negociacion.NegociacionSoloJson",
     "DEFAULT_PAGINATION_CLASS": "apps.core.paginacion.PaginacionNumerada",
-    # Autenticación del panel: TKT-004 (sesión Django, ADR-API-001).
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    # Autenticación del panel (ADR-API-001): sesión sobre sesion_panel + CSRF en métodos no
+    # seguros. Las vistas públicas y de salud la desactivan (authentication_classes = []).
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.cuentas.autenticacion.AutenticacionSesionPanel"],
     "UNAUTHENTICATED_USER": None,
     # Deny-by-default (Blueprint §12): cada vista declara sus permisos explícitamente.
     "DEFAULT_PERMISSION_CLASSES": ["apps.core.permisos.DenegarPorDefecto"],
@@ -215,6 +249,19 @@ SPECTACULAR_SETTINGS = {
     "OAS_VERSION": "3.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Convenciones estructurales del contrato (apps/core/esquema.py, DEC-AUTO-196).
+    "DEFAULT_GENERATOR_CLASS": "apps.core.esquema.GeneradorContrato",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "apps.core.esquema.alinear_con_contrato",
+    ],
+    # Nombres de los enums del contrato (components.schemas.Rol, EstadoCuenta, AccionAuditoria).
+    "ENUM_NAME_OVERRIDES": {
+        "Rol": "apps.cuentas.models.RolCuenta",
+        "EstadoCuenta": "apps.cuentas.models.EstadoCuenta",
+        "AccionAuditoria": "apps.auditoria.models.AccionAuditoria",
+        "ResultadoAuditoria": "apps.auditoria.models.ResultadoAuditoria",
+    },
 }
 
 # ---------------------------------------------------------------------------
