@@ -34,10 +34,33 @@ RUN npx --no-install ng build --configuration production \
  && test -d "dist/${ANGULAR_PROJECT}/browser"
 
 # ---------------------------------------------------------------------------
+# node-min (TKT-OPS-005, DEC-AUTO-220): la imagen oficial de Node sin gestores de paquetes.
+# npm (con sus dependencias vendorizadas: brace-expansion, ip-address, tar -> 4 HIGH con parche),
+# npx, corepack y yarn no se usan en ejecución (solo `node dist/server/server.mjs`). Se borran y
+# el sistema de archivos se APLANA en una sola capa (FROM scratch + COPY /) para que sus bytes
+# tampoco queden en capas inferiores de la imagen. Se re-declaran las ENV de la imagen base.
+# ---------------------------------------------------------------------------
+FROM ${NODE_IMAGE} AS node-sin-pm
+RUN set -eu; \
+    rm -rf /usr/local/lib/node_modules \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-v* \
+           /usr/local/include/node /root/.npm /tmp/*; \
+    for pm in npm npx corepack yarn yarnpkg; do \
+      if command -v "$pm" >/dev/null 2>&1; then echo "queda $pm en el runtime" >&2; exit 1; fi; \
+    done; \
+    node --version
+
+FROM scratch AS node-min
+COPY --from=node-sin-pm / /
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    NODE_VERSION=24.21.0
+
+# ---------------------------------------------------------------------------
 # runtime: solo el resultado del build (el bundle de servidor de Angular incluye sus
 # dependencias); usuario no root "node" (uid 1000) de la imagen oficial.
 # ---------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS runtime
+FROM node-min AS runtime
 ARG ANGULAR_PROJECT=brujula-salvaje
 ARG APP_VERSION=0.0.0-dev
 ARG VCS_REF=unknown

@@ -3,6 +3,8 @@
 Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
 Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
 Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
+Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
+Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10). Ciclo 2 (imagen de la BD derivada y en el gate): §17.14.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -704,3 +706,393 @@ Estado de riesgos anteriores:
   | `tkt-004` integrado en HEAD, con `.gitleaksignore` | 0 hallazgos |
   | `tkt-004` integrado en HEAD, sin `.gitleaksignore` | 1 hallazgo (la huella es lo que lo suprime) |
   | Control negativo: commit con una clave AWS y una API key falsas | 2 hallazgos, rc=1 |
+
+## 16. TKT-OPS-004 — gate de contrato por operación, límite de /health y errores del proxy (F7, soporte)
+
+### 16.1 Estado
+**COMPLETADO**: validado en local (§16.8) y en GitHub Actions (§16.13).
+Rama: `tkt-ops-004-gate-health`, creada desde `origin/main` (1e597be).
+
+### 16.2 Objetivo
+Cerrar los hallazgos de la QA de TKT-OPS-003:
+- HALLAZGO-QA-OPS003-01 (MEDIUM): el gate no detectaba N9 (código de estado no documentado) ni N10 (propiedad de respuesta extra).
+- HALLAZGO-QA-OPS003-02 (LOW): el gate daba un falso positivo con una ruta implementada solo en parte (N11).
+- RSK-OPS-016: `/health/live|ready` no tenía límite de borde.
+- OBS-QA-OPS003-03 y OBS-QA-OPS003-04: cabeceras de seguridad en los errores del proxy, y 403/404 del proxy como Problem Details.
+- DEC-AUTO-210: Dependabot sin actualizaciones semver-major.
+
+### 16.3 Cambios realizados
+- **`infra/ci/gate_contrato.py`** (nuevo, DEC-AUTO-211). Sustituye al script en línea del paso de contrato del job `backend`. Solo depende de PyYAML.
+  1. Operaciones (método + ruta, con los parámetros de ruta normalizados) generadas ⊆ contrato. Detecta N1 y N2.
+  2. Por operación, cada código de estado generado debe estar en el contrato: exacto, rango `NXX` o `default`. Detecta N3 y N9.
+  3. Por operación y código, cada media type generado debe estar en el contrato. Detecta N8.
+  4. Por operación, código y media type, las propiedades de respuesta generadas ⊆ las del contrato. Es recursivo (propiedades, `items`, `$ref`), fusiona `allOf` y trata `oneOf`/`anyOf` como unión. Detecta N10.
+     - Un objeto del contrato solo admite propiedades nuevas si declara `additionalProperties: true` o un esquema, como el mapa `errors`.
+     - Sin `additionalProperties`, el objeto se trata como cerrado: exponer un campo no documentado es un riesgo de fuga de datos.
+  5. Escribe el **contrato filtrado por operación**: solo las operaciones implementadas, con la ruta tal como está en el contrato y los parámetros y claves comunes del path item.
+     - `oasdiff breaking contrato-filtrado generado --fail-on WARN` compara el resto (N4-N7, N12).
+     - Ya no se usa `--match-path` por ruta, que era la causa del falso positivo `api-removed-without-deprecation` de N11.
+- **`.github/workflows/ci.yaml`, job `backend`:** el paso "contrato" invoca `../infra/ci/gate_contrato.py` y después `oasdiff breaking` sobre el contrato filtrado. oasdiff sigue en la versión 1.32.1, verificado con sha256.
+- **`infra/proxy/nginx.conf`:**
+  - **Zona `salud`** (DEC-AUTO-214, sustituye a DEC-AUTO-193): `limit_req_zone $binary_remote_addr zone=salud:1m rate=50r/s` con `limit_req zone=salud burst=200 nodelay` en `= /health/live` y `= /health/ready`.
+    - Un `limit_req` en la location anula el heredado del servidor, así que `/health` solo cuenta contra `salud` y no compite con el cupo de `/api`.
+    - Se elimina el `map $clave_limite`: `por_ip` vuelve a usar `$binary_remote_addr`.
+    - El 429 sale por la misma location interna Problem Details, con `Retry-After: 1`.
+  - **403/404 del proxy como Problem Details** (DEC-AUTO-213):
+    - `error_page 403 =403 /_errores_proxy/403`: `permiso_denegado`, para `limit_except ... deny all` en el SSR y en los medios.
+    - `error_page 404 =404 /_errores_proxy/404`: `no_encontrado`, para `return 404`, `/health/*` desconocido, `/media/**` no público y medios inexistentes.
+    - Se mantiene el estado 403, sin cambiarlo a 405, para no alterar el comportamiento. Los 403/404 del SSR y de Django no pasan por aquí (`proxy_intercept_errors off`).
+- **`infra/proxy/snippets/security-headers-error.conf`** (nuevo, DEC-AUTO-212). Se incluye en todas las `/_errores_proxy/*` (400, 403, 404, 413, 429, 503). Contiene:
+  - `X-Trace-Id`, `Cache-Control: no-store` y `nosniff`.
+  - La CSP de API del contrato, igual que `API_CONTENT_SECURITY_POLICY` de Django.
+  - `Referrer-Policy`, `Permissions-Policy`, COOP, CORP, `X-Frame-Options: DENY` y `X-Robots-Tag: noindex, nofollow`.
+  - El Dockerfile del proxy ya copia `snippets/*.conf`, así que no cambia.
+- **Smoke del proxy en el CI (job `images`):** comprueba los 404 (`/health/otra`, `/media/privado/x.jpg`), el 403 (`POST /`) y el 400 (URI larga). Para cada uno exige Problem Details, `status` y `trace_id` en el cuerpo, y 6 cabeceras de seguridad. Además:
+  - 120 sondeos secuenciales a `/health/live`, todos con 200.
+  - Una ráfaga keep-alive de 1000 peticiones (20×50), con Python y no con `curl`/`xargs`, que es lento en runners o hosts Windows. Debe producir `429 application/problem+json`, y solo 200 o 429.
+  - Tras 5 s, `/health/ready` devuelve 200.
+- **`.github/dependabot.yml`** (DEC-AUTO-210): `ignore: [{dependency-name: "*", update-types: ["version-update:semver-major"]}]` en los 5 ecosistemas (npm, uv, docker, docker-compose, github-actions).
+  - Parches y menores se mantienen.
+  - Según la documentación de GitHub, `ignore` afecta a las actualizaciones de versión. Las de seguridad dependen del ajuste del repositorio (ver RSK-OPS-021).
+  - Sin anclas YAML, por compatibilidad con el parser de Dependabot.
+
+### 16.4 Versiones aprobadas
+Sin cambios: nginx-unprivileged 1.30.5-alpine con digest, oasdiff 1.32.1, schemathesis 4.28.0 y PyYAML del lock del backend.
+
+### 16.5 Infraestructura
+- Topología sin cambios.
+- Límites de borde:
+  - `por_ip`: 20 r/s, burst 60, todo el servidor salvo `/health/live|ready`.
+  - `salud`: 50 r/s, burst 200, solo `/health/live|ready`.
+
+### 16.6 Dependencias
+Ninguna.
+
+### 16.7 Variables de entorno
+Ninguna nueva.
+
+### 16.8 Validaciones ejecutadas (2026-09-26, Docker Engine 29.6.1, Compose v5.2.0)
+
+#### 16.8.1 Gate de contrato
+Réplica exacta del paso de CI: `gate_contrato.py` y `oasdiff 1.32.1` linux_amd64, con sha256 verificado. Los controles N1-N12 son los de la QA de TKT-OPS-003.
+
+| Control | Contrato | Esperado | rc | Detectado por |
+|---|---|---|---|---|
+| Base (esquema generado de `main`) | main | 0 | 0 | — |
+| N1 ruta no documentada | main | 1 | 1 | gate: operación no documentada |
+| N2 método no documentado | main | 1 | 1 | gate: operación no documentada |
+| N3 200 → 201 | main | 1 | 1 | gate: código no documentado |
+| N4 parámetro requerido nuevo | main | 1 | 1 | oasdiff `new-required-request-parameter` |
+| N5 tipo de respuesta cambia | main | 1 | 1 | oasdiff `response-property-type-changed` |
+| N6 enum de respuesta ampliado | main | 1 | 1 | oasdiff `response-property-enum-value-added` |
+| N7 propiedad pasa a opcional | main | 1 | 1 | oasdiff `response-property-became-optional` |
+| N8 media type cambia | main | 1 | 1 | gate: media type no documentado |
+| **N9** 500 text/html nuevo | main | 1 | **1** | gate: código no documentado (antes rc=0) |
+| **N10** propiedad extra (`additionalProperties: false`) | main | 1 | **1** | gate: propiedad no documentada (antes rc=0) |
+| N11 (fixture de QA: GET *stub* sin POST) | main | 1 | 1 | oasdiff `api-security-removed`, `response-media-type-removed`, `request-parameter-removed` (nota 1) |
+| N12 parámetro de ruta renombrado | main | 1 | 1 | oasdiff `new-request-path-parameter`, … |
+| **P1** (N11 fiel: GET copiado del contrato, sin POST) | main | 0 | **0** | — (antes rc=1 por `api-removed-without-deprecation`) |
+| P2 esquema real de TKT-004 sin el PATCH de `/cuentas/{id}` | main | 0 | 0 | — |
+| Esquema real de TKT-004 (`origin/tkt-004-acceso-panel` 9c63bec, con `apps/core/esquema.py`) | tkt-004 | 0 | 0 | 25 operaciones comparadas, 0 errores |
+| T1 TKT-004 + propiedad extra en `SesionEstado` | tkt-004 | 1 | 1 | gate: propiedad no documentada |
+| T2 TKT-004 + `500 text/html` en login | tkt-004 | 1 | 1 | gate: media type no documentado |
+| T3 TKT-004 + propiedad extra en `Cuenta` (dentro de `resultados[]`) | tkt-004 | 1 | 1 | gate: propiedad no documentada (anidada) |
+| T4 TKT-004 + propiedad extra en `Problem` | tkt-004 | 1 | 1 | gate: propiedad no documentada |
+
+Nota 1: el fixture N11 de QA define el GET como *stub*, sin `security`, parámetros ni `content`, así que sigue fallando por esas diferencias reales. El falso positivo de la operación POST "eliminada" desaparece (0 apariciones de `api-removed`). P1 es el control fiel y pasa.
+
+El gate anterior, sobre los mismos ficheros, da P1 rc=1 (`api-removed-without-deprecation`), N9 rc=0 y N10 rc=0. Reproduce los hallazgos.
+
+`ruff check` y `ruff format --check` (ruff 0.16.9 y configuración del backend) pasan sobre `infra/ci/gate_contrato.py`.
+
+#### 16.8.2 Proxy
+Stack local `-p brujula-ops004`, `APP_NET_PREFIX=10.231.49`, puerto 18494 e imágenes con `APP_VERSION=ops004`, para no pisar `brujula/*:0.0.0-dev` de las QA. Árbol temporal fuera del repositorio: esta rama más `frontend/` de `origin/tkt-002-frontend-base`.
+
+| Comprobación | Resultado |
+|---|---|
+| `docker compose config -q`, build y `up --wait` | OK. proxy, backend, frontend y db en estado healthy; migrate terminó (Exited) |
+| `nginx -t` | OK |
+| Paso "smoke: errores del proxy…" del CI, extraído literalmente (solo cambian el puerto y `/tmp`) | rc=0 |
+| Ráfaga a `/api` (250 × P50) | 217 × 404 y 33 × 429, todas `application/problem+json`. El 404 es del backend: `publico/inicio` aún no está implementado (DEV-OPS003-01) |
+| 120 sondeos secuenciales a `/health/live` | 120 × 200 |
+| Ráfaga keep-alive a `/health/live` (1000) | 222 × 200 y 778 × `429 application/problem+json` |
+| Cabeceras de 429 (`/health/ready`), 404 (`/media/publico/no/existe.webp`) y 503 (backend parado) | Las 11 cabeceras de `security-headers-error.conf`. `Retry-After` 1 en el 429 y 5 en el 503 |
+| 403 en `POST /` y 404 en `/health/otra` | Problem Details con `permiso_denegado` / `no_encontrado` y `trace_id` de 32 hex |
+| HTML del SSR | CSP con nonce y `X-Frame-Options` sin cambios |
+| schemathesis 4.28.0 sobre `/health/live|ready` a través del proxy (checks del CI) | 9 generados, 9 pasados |
+
+- **Dependabot:** `.github/dependabot.yml` valida contra el JSON Schema `dependabot-2.0` (el mismo de la QA de TKT-OPS-003) con 0 errores. Los 5 ecosistemas tienen `ignore` semver-major.
+- **Limpieza:** `docker compose -p brujula-ops004 --profile ops down -v`, imágenes `brujula/*:ops004` eliminadas y árbol temporal borrado. No se tocaron `backend`, `frontend`, `db` (PROYECTO1), `brujula-qa004` ni `brujula-qa002b`.
+
+#### 16.8.3 GitHub Actions
+Ver §16.13.
+
+### 16.9 Seguridad
+- Los errores del borde llevan la misma política de cabeceras que la API, lo que cierra OBS-QA-OPS003-03.
+- `/health/ready` deja de ser un amplificador sin límite hacia la BD (RSK-OPS-016).
+- El gate impide exponer campos de respuesta no documentados.
+- Sin secretos nuevos; el `.env` es efímero y local.
+
+### 16.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-016 | `/health` sin límite de borde | LOW-MEDIUM | Zona `salud` de 50 r/s con burst 200 (DEC-AUTO-214) | **MITIGADO** |
+| RSK-OPS-020 | El contrato documenta solo 200/503 para `/health/*`, pero el borde puede responder 429 (ráfaga de más de 200 por encima de 50 r/s desde una IP) y 404 Problem Details | LOW | Ticket a **backend-contrato**: añadir `429: LimiteTasa` a `saludLive`/`saludReady`, o documentarlo como respuesta del borde. schemathesis a ritmo normal no lo alcanza (9/9) | ABIERTO |
+| RSK-OPS-021 | Dependabot: `ignore` con `update-types` se aplica a las actualizaciones de versión. Las de seguridad dependen de que "Dependabot security updates" esté activado en el repositorio, un ajuste fuera del alcance del fichero | LOW | Verificar en Settings → Code security (Orquestador) | NOT_VALIDATED |
+| RSK-OPS-022 | Detrás de un balanceador o CDN sin `real_ip`, todas las peticiones comparten IP y las zonas `por_ip`/`salud` se vuelven globales | MEDIUM (prod) | En el ADR de producción (F9): `set_real_ip_from` + `real_ip_header`, o sondeos por la red interna | ABIERTO (F9) |
+| RSK-OPS-019 | El gate no exige cobertura total del contrato | LOW | Sin cambios: intencionado en F7 | ABIERTO |
+| OBS-OPS004-01 | El job `images` (smoke y schemathesis del CI) sigue NOT_RUN en GitHub mientras `frontend/` no esté en `main` | INFO | Validado en local (§16.8.2). Se ejecutará automáticamente cuando TKT-002 se integre | NOT_RUN (GitHub) |
+
+### 16.11 Archivos modificados
+- `infra/ci/gate_contrato.py` (nuevo)
+- `infra/proxy/snippets/security-headers-error.conf` (nuevo)
+- `infra/proxy/nginx.conf`
+- `.github/workflows/ci.yaml`
+- `.github/dependabot.yml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 16.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Registrar DEC-AUTO-211 a DEC-AUTO-214 y RSK-OPS-020 a RSK-OPS-022.
+3. Emitir el ticket de contrato de RSK-OPS-020 a backend-contrato.
+4. Tras integrar esta rama, TKT-004 (PR #8) ejecutará el gate nuevo al actualizarse con `main`. Su backend ya lo pasa (§16.8.1). Los checks obligatorios son de job, y sus nombres no cambian.
+
+### 16.13 Validación en GitHub Actions
+- Run `workflow_dispatch` sobre `tkt-ops-004-gate-health` en c50a196: https://github.com/magoolf/brujula-salvaje/actions/runs/36253555771. Resultado: **success**.
+  - `infraestructura`: OK (35 s).
+  - `detectar código`: OK.
+  - `backend`: OK (1 min 38 s). El paso de contrato imprime `contrato: 127 operaciones; implementadas: 2; comparadas: 2; no documentadas: 0; errores: 0`, y `oasdiff breaking` sobre el contrato filtrado no encuentra cambios incompatibles.
+  - `frontend`, `images` y `firma`: omitidos (NOT_RUN), porque `frontend/` aún no está en `main` (OBS-OPS004-01). El smoke del proxy y schemathesis se validaron en local (§16.8.2).
+- El run del commit final de la rama figura en el HANDOFF_ENVELOPE de TKT-OPS-004.
+
+## 17. TKT-OPS-005 — RSK-OPS-001 con lista y caducidad, runtimes mínimos, Cache-Control del SSR y proxies de confianza (F7, soporte)
+
+### 17.1 Estado
+**COMPLETADO** en local. Rama `tkt-ops-005-trivy`, creada desde `tkt-ops-004-gate-health`. En GitHub, el job `images` sigue NOT_RUN en esta rama porque no contiene `frontend/` (§17.13). Se validará en el PR #9, cuando se integre este ticket.
+
+### 17.2 Objetivo
+- Aplicar la **decisión humana sobre RSK-OPS-001** (Puerta Humana §0.5, registrada por el Orquestador en `audit_log.md` el 2026-09-26): "Aceptar con lista y caducidad".
+  - Solo pueden ir a `.trivyignore` las CVE de paquetes del SO Debian 13.7 **sin parche publicado**, cada una con `exp:2026-10-26`.
+  - Las CVE **con parche se eliminan** de las imágenes.
+- OBS-QA002-C2-04: `Cache-Control: no-store` en el HTML SSR.
+- OBS-QA004-03: `DJANGO_TRUSTED_PROXIES` en el backend.
+
+### 17.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Etapa `node-sin-pm`: borra `/usr/local/lib/node_modules` (npm con brace-expansion, ip-address y tar vendorizados), `npx`, `corepack`, `yarn`/`yarnpkg`, `/opt/yarn-v*` y las cabeceras C. Se comprueba que no queda ningún gestor. Después se **aplana** (`FROM scratch` + `COPY / /`), así que esos bytes tampoco quedan en capas inferiores. El runtime usa `node-min` y re-declara `PATH` y `NODE_VERSION`. Usuario `node` (uid 1000) sin cambios. | `infra/docker/frontend.Dockerfile` | DEC-AUTO-220 |
+| Etapa `python-sin-pip`: borra `pip`, `pip-*.dist-info`, los lanzadores `pip*` y `ensurepip/_bundled`. Se comprueba con `importlib` que no quedan `pip`, `setuptools` ni `wheel`. La imagen se aplana en `python-min`, que es la base de `runtime` y, por tanto, también de `scheduler`. `/opt/venv` (uv) no trae pip. | `infra/docker/backend.Dockerfile` | DEC-AUTO-221 |
+| Backup **mínimo**. La etapa `pgclient` (imagen de la BD, mismo digest) extrae `pg_dump`/`pg_restore`/`psql` 18.6 y `libpq.so.5` 18.6 a `/usr/local/{bin,lib}` y deja registradas las versiones en `/usr/local/share/brujula/pgclient.versiones`. Final sobre `debian:13.7-slim@sha256:a99cfc51…` con `age=1.2.1-1+b5`, `libgssapi-krb5-2=1.21.3-5+deb13u1`, `libldap2=2.6.10+dfsg-1` y `libreadline8t64=8.2-6`, que son las dependencias obtenidas con `ldd`. Usuario `backup_app` con uid/gid 999, el mismo que antes, así que el volumen existente sigue siendo compatible. Durante el build se verifica que las tres herramientas son 18.6. Desaparecen el servidor PostgreSQL, libxml2, gnupg/gpg*, perl, libperl y perl-modules. Tamaño: 677 MB → 158 MB. | `infra/backup/Dockerfile` | DEC-AUTO-222 |
+| `map $upstream_http_content_type $cache_control_ssr`: `text/html` → `no-store` siempre, también en las páginas de error HTML del SSR. El resto conserva el `Cache-Control` del upstream. En `location /` se aplican `proxy_hide_header Cache-Control` y `add_header Cache-Control $cache_control_ssr always`. | `infra/proxy/nginx.conf` | DEC-AUTO-223 |
+| `DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32` en el servicio `backend`, que es la IP fija del proxy (DEC-AUTO-155). La consume el backend de TKT-004 (`PROXIES_CONFIANZA`). El backend de `main` la ignora sin efecto. No se añade a `.env.example` como variable (compose la deriva de `APP_NET_PREFIX`): solo queda documentada. | `compose.yaml`, `.env.example` | DEC-AUTO-224 |
+| `.trivyignore` (nuevo): 8 CVE, todas `exp:2026-10-26`, con un comentario por grupo que indica el paquete, las imágenes afectadas, "sin fix en Debian 13.7 a 2026-09-26" y la referencia a la decisión humana. | `.trivyignore` | DEC-AUTO-225 |
+| Job `images`. (1) Paso nuevo de **política**: cada línea no comentada debe ser `CVE-…`/`GHSA-…` + ` exp:AAAA-MM-DD`, sin comodines ni nombres de paquete. Se prohíben `--ignore-unfixed`/`--ignore-policy`/`--skip-*` y las `TRIVY_*` equivalentes en los workflows, y se avisa de las excepciones caducadas. (2) El gate usa `--ignorefile .trivyignore --show-suppressed --exit-code 1`, así que lo suprimido queda visible en el log. El JSON de evidencia se genera **sin** ignorefile, con todos los hallazgos. (3) **Control negativo**: con todas las caducidades puestas en 2000-01-01, trivy sobre `backend` **debe** fallar. Si no falla, el job falla. | `.github/workflows/ci.yaml` | DEC-AUTO-225 |
+
+### 17.4 Versiones aprobadas
+| Componente | Versión | Nota |
+|---|---|---|
+| debian (base del backup) | `13.7-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a` | Mismo Debian 13.7 que las bases python, node y postgres. Dependabot (docker, `/infra/backup`) ya lo vigila |
+| Cliente PostgreSQL | 18.6 (`libpq5=18.6-1.pgdg13+2`, `postgresql-client-18=18.6-1.pgdg13+2`) | Copiado de `postgres:18.6-trixie@sha256:5a5a84b1…`, igual que el servidor |
+| age | 1.2.1-1+b5 | Sin cambios |
+| node / python | 24.21.0 / 3.13.15 | Mismos digests. Solo se retiran npm/corepack/yarn y pip |
+| trivy | 0.74.0 | Admite `exp:` en `.trivyignore` y `--show-suppressed` (verificado en local) |
+
+### 17.5 Infraestructura
+Topología, redes, puertos, límites y usuarios sin cambios. Usuarios: backend y scheduler 10001, frontend 1000, backup 999, proxy 101. Capas: frontend 3, backend 6, scheduler 9, backup 12.
+
+### 17.6 Dependencias
+No cambian manifests ni lockfiles de aplicación.
+
+### 17.7 Variables de entorno
+- `DJANGO_TRUSTED_PROXIES` (backend, derivada de `APP_NET_PREFIX`; CIDR separados por comas). Documentada en `.env.example`.
+- En proyectos paralelos, cada uno recibe su propia `.10/32` porque `APP_NET_PREFIX` es distinto.
+
+### 17.8 Validaciones ejecutadas (2026-09-26, Docker Engine 29.6.1, Compose v5.2.0, trivy 0.74.0, syft 1.51.0)
+Copia temporal fuera del repositorio (scratchpad): `backend/` de `main` (1e597be), `frontend/` de `origin/tkt-002-frontend-base` (cfb98d7), e infraestructura de esta rama. Proyecto `-p brujula-ops005`, `APP_NET_PREFIX=10.231.51`, proxy en `127.0.0.1:18051`. Etiquetas `ops005-antes` (infraestructura de TKT-OPS-004) y `ops005-despues`.
+
+**17.8.1 trivy (CRITICAL,HIGH) por imagen, antes → después (sin ignorefile)**
+
+| Imagen | Antes (hallazgos / CVE únicas) | Después | CVE eliminadas (con parche o por adelgazar) | CVE restantes (todas sin fix, Debian 13.7) |
+|---|---|---|---|---|
+| backend | 46 HIGH / 10 | 44 HIGH / 8 | GHSA-6v7p-g79w-8964 (msgpack de pip, fix 1.2.1), CVE-2025-47273 (setuptools 70.3.0 declarado por pip, fix 78.1.1) | util-linux ×4, libacl1, libsystemd0/libudev1, ncurses, perl-base |
+| scheduler | 46 HIGH / 10 | 44 HIGH / 8 | las mismas que backend | las mismas que backend |
+| frontend | 47 HIGH / 12 | 43 HIGH / 8 | CVE-2026-14257 y CVE-2026-69152 (brace-expansion), CVE-2026-69192 (ip-address), CVE-2026-73566 (tar); todas de npm | las mismas 8 |
+| backup | 61 HIGH + 1 CRITICAL / 17 | 43 HIGH / 8 | CVE-2026-6653 **CRITICAL** + CVE-2026-74860, -86138, -86139, -86140, -86142, -86143, -86144 (libxml2); CVE-2026-24882 (gnupg/gpg*/dirmngr/gpgsm); de CVE-2026-9538 desaparecen perl, libperl5.40 y perl-modules (queda perl-base, Essential) | las mismas 8 |
+| proxy | 0 | 0 | — | — |
+
+Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642, -78408, -78409 y -78410 (util-linux), CVE-2026-54369 (libacl1), CVE-2026-16742 (libsystemd0/libudev1), CVE-2025-69720 (ncurses) y CVE-2026-9538 (perl-base). Ninguna tiene `FixedVersion`. Siete tienen `Status: affected`; **CVE-2026-9538 (perl-base) está en `fix_deferred`** (Debian aplaza el parche), no en `affected` (corrección OBS-DOC, ciclo 2). La lista coincide con la que reportó QA para el SO. De las de backup no persiste ninguna.
+
+**17.8.2 Gate con `.trivyignore`**
+- Positivo: las 5 imágenes `ops005-despues` con `--ignorefile .trivyignore --exit-code 1` dan **exit 0**.
+- Negativo 1 (caducada): `CVE-2026-9538 exp:2026-09-25` → backend **exit 1** (reaparece solo esa CVE).
+- Negativo 2 (no listada): sin la línea de CVE-2026-16742 → frontend **exit 1**.
+- Negativo 3: backup **antes** con el `.trivyignore` final → **exit 1**, con 1 CRITICAL y 14 HIGH no cubiertas (libxml2 y gnupg). Confirma que no se aceptó nada con parche ni ajeno a la lista.
+- Política del paso nuevo: sobre el `.trivyignore` real, 0 entradas fuera de política. Con `CVE-2026-1*`, una CVE sin `exp:` o un nombre de paquete, las rechaza. El grep de opciones prohibidas no coincide consigo mismo.
+- `actionlint` 1.7.7, con shellcheck, sobre `.github/workflows/`: 0 hallazgos. El YAML se parsea con PyYAML 6.0.3.
+
+**17.8.3 Stack (proxy → frontend SSR / backend → db)**
+- `docker compose up -d --no-build --wait`: db, backend, frontend y proxy **healthy**; init-volumes y migrate **exit 0**. Con `--profile ops`, scheduler y backup quedan Up y supercronic lee el crontab.
+- `GET /health/ready` → 200 `{"status":"ok"}`.
+- `GET /` → 200 `text/html`, **`Cache-Control: no-store`**, con CSP y nonce. El SSR no enviaba `Cache-Control` para el HTML (comprobado con `wget -S` directo a `frontend:4000`).
+- `GET /no-existe-xyz` → 404 `text/html` del SSR, con **`Cache-Control: no-store`**.
+- `GET /main-*.js` → 200 `text/javascript`, `Cache-Control: public, max-age=31536000, immutable` (el del SSR, conservado) y `Content-Encoding: gzip`. El CSS responde igual.
+- API: `GET /api/v1/publico/inicio` → 404 `application/problem+json`. Es el backend de `main` (sin cambios de este ticket).
+- Frontend: `npm`, `npx`, `corepack` y `yarn` ausentes; `/usr/local/lib/node_modules` no existe; `node v24.21.0`.
+- Backend: `pip` ausente y `find_spec` de pip/setuptools/wheel → `[]`. Entorno con `DJANGO_TRUSTED_PROXIES=10.231.51.10/32` y `GUNICORN_FORWARDED_ALLOW_IPS=10.231.51.10`.
+- Scheduler: `manage.py check` → 0 issues; sin pip; supercronic v0.2.49.
+- Backup, con una clave age **efímera** generada dentro del contenedor y borrada al terminar (no es un secreto real): `backup.sh` → exit 0, 5 archivos `.age` y `sha256sum -c` OK. Tras descifrar, `pg_restore --list` lee el dump (454 entradas TOC, BD `brujula`). `pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)`. El proceso se ejecuta como uid 999 con el grupo 10001.
+- SBOM (syft, CycloneDX). Corrección OBS-DOC (ciclo 2): la cifra total incluye entradas de tipo `file`.
+  - frontend: 503 componentes = 84 `library` + 3 `application` + 1 `operating-system` + 415 `file`.
+  - backup: 548 = 116 `library` + 3 `application` + 1 `operating-system` + 428 `file`.
+  - Ambos detectan `debian 13.7`, y ninguno contiene npm, pip, libxml2, perl, gnupg ni libpq5 (ver RSK-OPS-023).
+  - Recuento de todas las imágenes finales: §17.14.6.
+- Limpieza: `down -v --remove-orphans` del proyecto `brujula-ops005`, borrado de las 10 imágenes `ops005-*` y de la copia temporal. No se tocaron `backend`, `frontend` ni `db` (PROYECTO1), ni `brujula-tkt004-*` ni `brujula-qaops004-*`.
+
+**NOT_RUN**:
+- Simulacro de restauración completo (`restore-local.sh` sobre una BD limpia, AC-054). Se comprobó el descifrado y `pg_restore --list`, pero no la restauración.
+- Build arm64: los argumentos de supercronic y la ruta de libpq son independientes de la arquitectura, pero no se ha construido.
+- Job `images` en GitHub (§17.13).
+
+### 17.9 Seguridad
+- Todas las CVE CRITICAL/HIGH **con parche** desaparecen de las 5 imágenes: 6 en total, más la CRITICAL de libxml2 y 8 HIGH de libxml2/gnupg, que se eliminan al adelgazar la imagen.
+- Solo quedan excepciones Debian sin parche, con caducidad a 30 días. Al caducar, el CI vuelve a fallar y hará falta una **nueva decisión humana**.
+- Superficie reducida: sin gestores de paquetes de lenguaje en ningún runtime y sin servidor PostgreSQL, gpg ni perl completo en backup.
+- El HTML con nonce y los posibles datos del panel ya no se pueden almacenar en caché (OBS-QA002-C2-04).
+- `X-Forwarded-For` solo se acepta desde la IP del proxy (OBS-QA004-03).
+- Sin secretos nuevos.
+
+### 17.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-001 | CVE HIGH/CRITICAL de Debian 13.7 sin parche en las bases | HIGH (incluye 1 CRITICAL de libxml2 en db) | Aceptadas por dos decisiones humanas (2026-09-26): primero 8 CVE comunes y después, en el ciclo 2, 8 CVE de libxml2 de la imagen de la BD. Lista cerrada de 16 CVE con `exp:2026-10-26`. El CI falla ante cualquier CVE nueva, no listada o caducada | **ACEPTADO CON CADUCIDAD (vence 2026-10-26)** |
+| RSK-OPS-023 | El cliente PostgreSQL del backup (binarios + `libpq.so.5`) se copia sin registro dpkg: trivy y syft no ven `libpq5` ni `postgresql-client-18` en `brujula/backup` | LOW | Versión fijada por el digest de `postgres:18.6-trixie` (la misma de la BD, que Dependabot vigila) y registrada en `/usr/local/share/brujula/pgclient.versiones`. Ciclo 2: la imagen de la BD (`brujula/db`) entra en el bucle de trivy y SBOM del CI y lleva `libpq5` 18.6-1.pgdg13+2 registrado en dpkg, la misma versión copiada al backup | **MITIGADO** (ciclo 2) |
+| RSK-OPS-024 | Los paquetes Debian del backup están fijados con versión exacta. Si Debian publica una actualización de seguridad y retira la versión anterior del espejo, el build del backup falla | LOW | Es fallo visible, no silencioso. Se corrige actualizando los ARG de versión (Dependabot no los cubre) | ABIERTO |
+| OBS-OPS005-01 | Job `images` NOT_RUN en GitHub en esta rama (sin `frontend/`) | INFO | Se validará en el PR #9 al integrar este ticket | NOT_RUN (GitHub) |
+
+### 17.11 Archivos modificados
+- `.trivyignore` (nuevo)
+- `infra/docker/frontend.Dockerfile`
+- `infra/docker/backend.Dockerfile`
+- `infra/backup/Dockerfile`
+- `infra/proxy/nginx.conf`
+- `compose.yaml`
+- `.env.example`
+- `.github/workflows/ci.yaml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 17.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama a QA.
+2. Registrar DEC-AUTO-220 a DEC-AUTO-225, RSK-OPS-023/024 y el nuevo estado de RSK-OPS-001 (caduca el 2026-10-26: conviene crear un recordatorio de revisión antes de esa fecha).
+3. Tras integrar TKT-OPS-004 y este ticket, actualizar el PR #9 con `main`. Su job `images` es la validación en GitHub del gate con `.trivyignore`.
+
+### 17.13 Validación en GitHub Actions
+- Run `workflow_dispatch` sobre `tkt-ops-005-trivy` en af6ae8f: https://github.com/magoolf/brujula-salvaje/actions/runs/36268658095. Resultado: **success**.
+  - `detectar código`, `infraestructura` y `backend`: OK.
+  - `frontend`, `images` y `firma`: omitidos (**NOT_RUN**), porque esta rama no tiene `frontend/`. Por eso los pasos nuevos del job `images` (política de `.trivyignore`, gate con ignorefile y control negativo) **no se han ejecutado en GitHub**. Se ejecutarán en el PR #9 cuando este ticket esté integrado en `main`. La lógica equivalente se validó en local (§17.8.2).
+
+### 17.14 Ciclo 2 (QA_VERDICT FAIL 1/3): imagen de la BD en el gate, BD derivada mínima y política de trivy ampliada
+
+**17.14.1 Hallazgos atendidos**
+- **QA-OPS005-01 (HIGH)**: la imagen de la BD (`postgres:18.6-trixie@sha256:5a5a84b1…`), que ejecutan `db` e `init-volumes`, no se escaneaba. Mientras backup heredaba de ella, el gate veía libxml2 y gnupg por esa vía. Además, `gosu` traía 22 CVE de la stdlib de Go **con parche** (1 CRITICAL).
+- **QA-OPS005-03 (LOW)**: faltaba cerrar las vías paralelas de configurar trivy.
+- **OBS-DOC**: estado de CVE-2026-9538 y recuento del SBOM (corregido en §17.8).
+- QA-OPS005-02 (simulacro de `restore-local.sh`) queda fuera de este ciclo y pasa a TKT-OPS-007.
+
+**17.14.2 Cambios**
+
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Nueva imagen `brujula/db`: `FROM postgres:18.6-trixie@sha256:5a5a84b1…` (el mismo digest). Retira `gosu`; purga `gnupg`, `dirmngr`, `gnupg-l10n`, `gpg`, `gpg-agent`, `gpgsm` y `gpgconf` con `--auto-remove` (arrastra `pinentry-curses`, `libassuan9`, `libgnutls30t64`, `libksba8`, `libnpth0t64`, `libp11-kit0` y `libtasn1-6`, que nadie más usa; libldap2 usa OpenSSL). Purga `perl`, `libperl5.40` y `perl-modules-5.40` con `dpkg --force-depends`: solo los usa `postgresql-common` (pg_wrapper y pg_ctlcluster), que el entrypoint oficial no llama. Borra los enlaces `/usr/bin/* -> pg_wrapper` y antepone `/usr/lib/postgresql/18/bin` al `PATH`. Al construir comprueba que no queda nada de lo retirado, que postgres, initdb, pg_ctl, psql y pg_isready resuelven a `/usr/lib/postgresql/18/bin`, que la versión es 18.6 y que libxml2 está enlazada. Queda `USER 999:999`. El servidor, las extensiones, `docker-entrypoint.sh` e initdb no cambian. | `infra/db/Dockerfile` (nuevo) | DEC-AUTO-226 |
+| `db` e `init-volumes` usan `build: *db-build` e `image: brujula/db:${APP_VERSION:-0.0.0-dev-<proyecto>}`, en lugar de la imagen oficial | `compose.yaml` | DEC-AUTO-226 |
+| `pull_policy: build` en los 8 servicios con `build`. El primer run de CI del ciclo 2 (36285126112) mostró que, sin esto, `up --wait db` intenta primero un **pull de `brujula/db` desde Docker Hub** ("pull access denied") antes de construir: un tercero que publicara ese nombre haría que se ejecutara su imagen. Con `build` no hay pull nunca, y `up --no-build` sin imagen local falla sin descargar nada (comprobado con un compose de prueba). Tras el cambio, `up --wait db` en modo CI construye sin intentar el pull y llega a healthy con `b:C.UTF-8` | `compose.yaml` | DEC-AUTO-226 |
+| `db` entra en los bucles de trivy (gate y JSON) y de SBOM. El control negativo, con todas las caducidades en el pasado, se ejecuta sobre `backend` **y** `db` | `.github/workflows/ci.yaml` | DEC-AUTO-227 |
+| El paso de política falla si ocurre cualquiera de estas cosas: existe `trivy.yaml`, `trivy.yml`, `.trivyignore.yaml` o `.trivyignore.yml` en el repositorio; aparece `TRIVY_(CONFIG\|VEX\|SEVERITY\|IGNOREFILE\|IGNORE_UNFIXED\|IGNORE_STATUS\|IGNORE_POLICY\|SKIP_*)` asignada en los workflows; alguna invocación real de `trivy image/fs/rootfs` no lleva exactamente `--severity CRITICAL,HIGH` o lleva `--config`, `-c`, `--vex` o `--ignore-status`; o no hay ninguna invocación de trivy | `.github/workflows/ci.yaml` | DEC-AUTO-228 |
+| Se añaden 8 CVE de libxml2 (solo `db`) por la **2.ª decisión humana** (2026-09-26, "Aceptar con caducidad" las CVE sin parche de la imagen derivada de PostgreSQL). Los comentarios de las 8 comunes añaden `db` y las versiones de paquete. Total: 16 entradas, todas `exp:2026-10-26` | `.trivyignore` | DEC-AUTO-229 |
+
+**17.14.3 trivy 0.74.0 (CRITICAL,HIGH) sobre la imagen de la BD, antes → después (sin ignorefile)**
+
+| | Oficial `postgres:18.6-trixie@5a5a84b1…` | Derivada `brujula/db` |
+|---|---|---|
+| Hallazgos | 82 HIGH + 2 CRITICAL | 51 HIGH + 1 CRITICAL |
+| CVE únicas | 39 (22 con fix + 17 sin fix) | 16 (0 con fix) |
+| gosu (Go stdlib, **con fix**) | 22: CVE-2025-68121 CRITICAL; CVE-2025-61726, -61729; CVE-2026-25679, -27145, -32280, -32281, -32283, -33811, -33814, -33818, -39820, -39821, -39822, -39836, -42499, -42504, -56853, -56858, -56859, -56860, -56862 | **0** (se retira el binario) |
+| gnupg/gpg*/dirmngr/gpgsm | CVE-2026-24882 | **0** (paquetes purgados) |
+| CVE-2026-9538 | en perl, libperl5.40, perl-modules-5.40 y perl-base | solo perl-base (Essential) |
+
+CVE sin fix que quedan en `brujula/db` (todas con `FixedVersion` vacío):
+
+| CVE | Sev. | Paquete(s) y versión | Estado Debian | ¿Lo necesita el servidor PostgreSQL? |
+|---|---|---|---|---|
+| CVE-2026-6653 | **CRITICAL** | libxml2 2.12.7+dfsg+really2.9.14-2.1+deb13u3 | affected | **Sí**: el binario `postgres` enlaza `libxml2.so.2` (tipo `xml`, `xmlparse`…); también dependen de ella libxslt1.1 y libllvm19 (JIT) |
+| CVE-2026-74860, -86138, -86139, -86140, -86142, -86143, -86144 | HIGH | libxml2 (misma versión) | affected | Sí (como la anterior) |
+| CVE-2026-76642, -78408, -78409, -78410 | HIGH | util-linux, bsdutils, mount, login, libblkid1, libmount1, libsmartcols1, libuuid1, liblastlog2-2 — 2.41.5-0+deb13u1 | affected | Base del SO (Essential/required); postgres enlaza libuuid1 |
+| CVE-2026-54369 | HIGH | libacl1 2.3.2-2+b1 | affected | Base del SO (coreutils) |
+| CVE-2026-16742 | HIGH | libsystemd0, libudev1 257.13-1~deb13u1 | affected | Sí: postgres enlaza libsystemd0 (dependencia de `postgresql-18`) |
+| CVE-2025-69720 | HIGH | ncurses-base, ncurses-bin, libtinfo6, libncursesw6 — 6.5+20250216-2 | affected | Base del SO (bash) y psql (readline/libtinfo) |
+| CVE-2026-9538 | HIGH | perl-base 5.40.1-6+deb13u1 | **fix_deferred** | No directamente: es paquete Essential de Debian (dpkg, debconf) |
+
+La BD solo está en la red `datos` (`internal: true`), no publica puertos (salvo `compose.debug.yaml` y `compose.ci.yaml`, en 127.0.0.1) y se ejecuta como 999:999 con `cap_drop: ALL`, `no-new-privileges` y raíz de solo lectura.
+
+**17.14.4 Gate y controles (local, trivy 0.74.0, imágenes `ops005-c2`)**
+- Con `--ignorefile .trivyignore --exit-code 1`, backend, frontend, proxy, scheduler, backup y **db** dan **exit 0**.
+- Controles negativos (todos **exit 1**):
+  - db con `CVE-2026-6653 exp:2026-09-25`: reaparece solo la CRITICAL.
+  - db sin la línea de CVE-2026-86144.
+  - backend y db con todas las caducidades en 2000-01-01 (el mismo control que ejecuta el CI).
+  - La imagen **oficial** `postgres:18.6-trixie@5a5a84b1…` con el `.trivyignore` final queda con 1 CRITICAL y 28 HIGH, 23 CVE únicas: las 22 de gosu (con fix) y la de gnupg. Esto demuestra que ninguna CVE con parche está aceptada.
+- Paso de política, simulado con el script extraído del workflow:
+  - Sobre el repositorio real, exit 0 con "excepciones vigentes: 16".
+  - Da exit 1 con cada uno de estos casos: `trivy.yaml` en la raíz, `sub/.trivyignore.yaml`, `--severity CRITICAL`, `--vex x.json`, `--config t.yaml`, `TRIVY_CONFIG:` en `env` y una invocación sin `--severity`.
+- `actionlint` 1.7.7 (con shellcheck): 0 hallazgos.
+
+**17.14.5 BD derivada en funcionamiento (`-p brujula-ops005`, `APP_NET_PREFIX=10.231.51`)**
+- Stack completo con el perfil ops: db, backend, frontend y proxy **healthy**; init-volumes (imagen `brujula/db`, como root, con `chown`/`chmod`) y migrate terminan con exit 0; scheduler y backup Up.
+- Contenedor db:
+  - Se ejecuta como `uid=999(postgres)`. `psql` y `pg_isready` resuelven a `/usr/lib/postgresql/18/bin`; el healthcheck da `accepting connections`.
+  - `PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2)`.
+  - INFRA-DB-000: la BD `brujula` tiene locale `b:C.UTF-8`; existen los roles `app_backup`, `app_migrator`, `app_rw` y `readonly`; `shared_preload_libraries=pg_stat_statements`.
+  - `xmlparse(content '<a>1</a>')` funciona (libxml2 operativa).
+  - `/usr/local/bin/gosu` no existe. Los logs no muestran errores ni referencias a perl.
+- `docker compose restart db`: vuelve a healthy con 0 reinicios (arranque con datos existentes).
+- Modo CI (`-f compose.yaml -f compose.ci.yaml up --wait db`, con tmpfs y `DB_BOOTSTRAP_TEST_TEMPLATE=true`): healthy, `b:C.UTF-8`, BD `brujula`. Es la misma comprobación que el paso INFRA-DB-000 del job `infraestructura`.
+- Backup contra la BD nueva, con una clave age efímera: exit 0; `sha256sum -c` OK; tras descifrar, `pg_restore --list` lee 454 entradas TOC.
+- Proxy: `/health/ready` → 200; `/` → 200 con `Cache-Control: no-store`.
+- Limpieza: `down -v`, 6 imágenes `ops005-c2` borradas y copia temporal eliminada. Quedan 0 contenedores, volúmenes o redes `ops005`; no se tocaron otros proyectos.
+
+**17.14.6 SBOM (syft 1.51.0, CycloneDX) de las imágenes finales**
+
+| Imagen | Total | library | application | operating-system | file |
+|---|---|---|---|---|---|
+| backend | 620 | 129 | 4 | debian 13.7 | 486 |
+| scheduler | 638 | 146 | 4 | debian 13.7 | 487 |
+| frontend | 503 | 84 | 3 | debian 13.7 | 415 |
+| backup | 548 | 116 | 3 | debian 13.7 | 428 |
+| db | 711 | 133 | 6 | debian 13.7 | 571 |
+| proxy | 1281 | 70 | 0 | alpine 3.24.2 | 1210 |
+
+Ninguna imagen contiene npm, pip, setuptools ni msgpack. Solo db contiene gosu, gnupg o perl completo, y ninguno de los tres: se han retirado. db mantiene `libpq5` y `libxml2` porque el servidor los necesita. proxy (alpine) contiene `libxml2` de Alpine, sin CVE CRITICAL/HIGH.
+
+**17.14.7 Riesgos nuevos o cambiados**
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-025 | Dependabot deja de vigilar el digest de PostgreSQL. `compose.yaml` ya no lo contiene (lo tiene `infra/db/Dockerfile`) y `.github/dependabot.yml` no incluye `/infra/db`. Ese archivo está fuera de mis `archivos_permitidos` (`.github/workflows/**`) | MEDIUM | Ticket para el Orquestador: añadir `"/infra/db"` a `directories` del ecosistema `docker` en `.github/dependabot.yml`. Mientras tanto, `/infra/backup` (mismo `ARG POSTGRES_IMAGE`) sigue vigilado y cualquier subida de digest debe replicarse en `infra/db/Dockerfile` | ABIERTO (ticket) |
+| RSK-OPS-026 | `postgresql-common` y `postgresql-client-common` quedan con la dependencia `perl:any` sin satisfacer en dpkg (`--force-depends`). Un `apt-get install` sobre `brujula/db` fallaría | LOW | La imagen es final y no se instala nada encima. Si hiciera falta, se reconstruye desde el `Dockerfile`. `pg_wrapper`, `pg_ctlcluster` y el resto no se usan | ACEPTADO (DEC-AUTO-226) |
+| RSK-OPS-001 | Ver §17.10: ahora 16 CVE (2 decisiones humanas), vencen el 2026-10-26 | HIGH | — | ACEPTADO CON CADUCIDAD |
+
+**17.14.8 Archivos del ciclo 2**
+- `infra/db/Dockerfile` (nuevo)
+- `compose.yaml`
+- `.github/workflows/ci.yaml`
+- `.trivyignore`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+**17.14.9 Próximo agente**: **Orquestador**, que debe:
+1. Reenviar la rama a QA (ciclo 2/3).
+2. Registrar DEC-AUTO-226 a DEC-AUTO-229, RSK-OPS-025/026 y la 2.ª decisión humana aplicada.
+3. Emitir el ticket de Dependabot `/infra/db` (RSK-OPS-025).
+4. La validación del job `images` en GitHub, que ahora incluye db, llegará con el PR #9 una vez integrado este ticket.
