@@ -5,33 +5,48 @@
 # Reglas: SOLO CVE de paquetes del SO Debian 13.7 SIN parche publicado; cada una con caducidad
 # exp:2026-10-26 (al caducar, trivy vuelve a fallar y la excepción debe revisarse o renovarse
 # con una NUEVA decisión humana). Sin comodines, sin --ignore-unfixed, sin ignorar por paquete.
-# Lista obtenida del escaneo con trivy 0.74.0 de las 5 imágenes finales del ticket
-# (backend, scheduler, frontend, backup; proxy = 0 hallazgos) — DEVOPS_HANDOFF §17.
+# Lista obtenida del escaneo con trivy 0.74.0 de las 6 imágenes finales del ticket
+# (backend, scheduler, frontend, backup, db; proxy = 0 hallazgos) — DEVOPS_HANDOFF §17.
+# 2.ª decisión humana (2026-09-26, TKT-OPS-005 ciclo 2): CVE sin parche de la imagen derivada de
+# PostgreSQL (brujula/db), SOLO tras quitarle gosu, gnupg y perl completo (infra/db/Dockerfile).
 # Las CVE CON parche no se aceptan aquí: se eliminan de las imágenes.
 # =============================================================================
 
 # util-linux 2.41.5-0+deb13u1 (util-linux, bsdutils, mount, login, libblkid1, libmount1,
-# libsmartcols1, libuuid1, liblastlog2-2) — imágenes: backend, scheduler, frontend, backup.
+# libsmartcols1, libuuid1, liblastlog2-2) — imágenes: backend, scheduler, frontend, backup, db.
 # Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
 CVE-2026-76642 exp:2026-10-26
 CVE-2026-78408 exp:2026-10-26
 CVE-2026-78409 exp:2026-10-26
 CVE-2026-78410 exp:2026-10-26
 
-# acl 2.3.2-2+b1 (libacl1) — imágenes: backend, scheduler, frontend, backup.
+# acl 2.3.2-2+b1 (libacl1) — imágenes: backend, scheduler, frontend, backup, db.
 # Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
 CVE-2026-54369 exp:2026-10-26
 
-# systemd (libsystemd0, libudev1) — imágenes: backend, scheduler, frontend, backup.
+# systemd 257.13-1~deb13u1 (libsystemd0, libudev1) — imágenes: backend, scheduler, frontend, backup, db.
 # Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
 CVE-2026-16742 exp:2026-10-26
 
-# ncurses (ncurses-base, ncurses-bin, libtinfo6; libncursesw6 en backend/scheduler)
-# — imágenes: backend, scheduler, frontend, backup.
+# ncurses 6.5+20250216-2 (ncurses-base, ncurses-bin, libtinfo6; libncursesw6 en backend/scheduler/db)
+# — imágenes: backend, scheduler, frontend, backup, db.
 # Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
 CVE-2025-69720 exp:2026-10-26
 
-# perl-base (paquete Essential de Debian; el perl completo ya no está en ninguna imagen)
-# — imágenes: backend, scheduler, frontend, backup.
+# perl-base 5.40.1-6+deb13u1 (Essential; estado Debian fix_deferred; el perl completo ya no está en ninguna imagen)
+# — imágenes: backend, scheduler, frontend, backup, db.
 # Sin fix en Debian 13.7 a 2026-09-26. Decisión humana RSK-OPS-001 (2026-09-26).
 CVE-2026-9538 exp:2026-10-26
+
+# libxml2 2.12.7+dfsg+really2.9.14-2.1+deb13u3 — imagen: db (brujula/db, PostgreSQL 18.6).
+# Sin fix en Debian 13.7 a 2026-09-26. Requerida por el servidor PostgreSQL (el binario postgres
+# enlaza libxml2.so.2: tipo xml y funciones XML). BD solo en red interna (datos, internal: true),
+# sin exposición externa. Decisión humana RSK-OPS-001 (2026-09-26, 2.ª).
+CVE-2026-6653 exp:2026-10-26
+CVE-2026-74860 exp:2026-10-26
+CVE-2026-86138 exp:2026-10-26
+CVE-2026-86139 exp:2026-10-26
+CVE-2026-86140 exp:2026-10-26
+CVE-2026-86142 exp:2026-10-26
+CVE-2026-86143 exp:2026-10-26
+CVE-2026-86144 exp:2026-10-26
