@@ -8,6 +8,7 @@ Un parámetro desconocido, repetido, vacío o fuera de dominio responde 400 `par
   ningún parámetro con `allowEmptyValue` y ningún esquema de consulta admite "" (enums, patrones,
   fechas, enteros, `minLength` >= 1). Si un contrato futuro lo declara, la vista lo indica en
   `admite_vacio`.
+- NUL (DEC-AUTO-217, CHG-API-002): un valor con U+0000 se rechaza siempre, antes de parsearlo.
 - Repetido: solo los parámetros de tipo array (`style: form, explode: true`) pueden aparecer
   varias veces; la vista los indica en `multiples`.
 """
@@ -22,6 +23,7 @@ from apps.core.exceptions import ParametroInvalido, normalizar_errores
 MENSAJE_NO_ADMITIDO = "Parámetro no admitido."
 MENSAJE_REPETIDO = "El parámetro solo puede aparecer una vez."
 MENSAJE_VACIO = "El parámetro no puede estar vacío."
+MENSAJE_NUL = "El parámetro contiene caracteres no admitidos."
 
 
 def _valores(query_params: Mapping[str, Any], nombre: str) -> list[Any]:
@@ -45,7 +47,11 @@ def validar_parametros(
             errores[nombre] = [MENSAJE_NO_ADMITIDO]
             continue
         valores = _valores(query_params, nombre)
-        if len(valores) > 1 and nombre not in multiples:
+        if any("\x00" in str(v) for v in valores):
+            # DEC-AUTO-217 (CHG-API-002, QA004-C3-01): NUL nunca se admite, antes de cualquier
+            # parseo (parse_datetime aceptaría lo que precede al NUL).
+            errores[nombre] = [MENSAJE_NUL]
+        elif len(valores) > 1 and nombre not in multiples:
             errores[nombre] = [MENSAJE_REPETIDO]
         elif nombre not in admite_vacio and any(not str(v).strip() for v in valores):
             errores[nombre] = [MENSAJE_VACIO]

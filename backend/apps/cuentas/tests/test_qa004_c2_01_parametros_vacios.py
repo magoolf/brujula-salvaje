@@ -111,6 +111,23 @@ def test_QA004_C2_01_parametro_repetido_es_400(cliente_admin, ruta, nombre, defi
 @pytest.mark.parametrize(
     ("ruta", "nombre", "definicion"), CASOS, ids=[f"{r}?{n}" for r, n, _ in CASOS]
 )
+@pytest.mark.parametrize("posicion", ["inicio", "medio", "final"])
+def test_QA004_C3_01_parametro_con_nul_es_400(cliente_admin, ruta, nombre, definicion, posicion):
+    # DEC-AUTO-217 (CHG-API-002): U+0000 se rechaza en cualquier entrada, antes de parsear
+    # (p. ej. desde=2030-01-01T00:00:00Z%00basura daba 200).
+    valido = VALIDOS[nombre]
+    valor = {
+        "inicio": f"\x00{valido}",
+        "medio": f"{valido[:1]}\x00{valido[1:]}",
+        "final": f"{valido}\x00basura",
+    }[posicion]
+    respuesta = cliente_admin.get(ruta, {nombre: valor})
+    assert nombre in problema(respuesta, 400, "parametro_invalido")["errors"]
+
+
+@pytest.mark.parametrize(
+    ("ruta", "nombre", "definicion"), CASOS, ids=[f"{r}?{n}" for r, n, _ in CASOS]
+)
 def test_QA004_C2_01_parametro_valido_es_200(cliente_admin, ruta, nombre, definicion):
     assert cliente_admin.get(ruta, {nombre: VALIDOS[nombre]}).status_code == 200
 
