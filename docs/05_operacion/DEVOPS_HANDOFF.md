@@ -4,7 +4,7 @@ Proyecto: Brújula Salvaje. Fecha: 2026-09-25. Autor: Skill_devops.
 Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ver §13.
 Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
 Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
-Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10).
+Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10). Ciclo 2 (imagen de la BD derivada y en el gate): §17.14.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -922,7 +922,7 @@ Copia temporal fuera del repositorio (scratchpad): `backend/` de `main` (1e597be
 | backup | 61 HIGH + 1 CRITICAL / 17 | 43 HIGH / 8 | CVE-2026-6653 **CRITICAL** + CVE-2026-74860, -86138, -86139, -86140, -86142, -86143, -86144 (libxml2); CVE-2026-24882 (gnupg/gpg*/dirmngr/gpgsm); de CVE-2026-9538 desaparecen perl, libperl5.40 y perl-modules (queda perl-base, Essential) | las mismas 8 |
 | proxy | 0 | 0 | — | — |
 
-Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642, -78408, -78409 y -78410 (util-linux), CVE-2026-54369 (libacl1), CVE-2026-16742 (libsystemd0/libudev1), CVE-2025-69720 (ncurses) y CVE-2026-9538 (perl-base). Todas tienen `Status: affected` y no tienen `FixedVersion`. La lista coincide con la que reportó QA para el SO. De las de backup no persiste ninguna.
+Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642, -78408, -78409 y -78410 (util-linux), CVE-2026-54369 (libacl1), CVE-2026-16742 (libsystemd0/libudev1), CVE-2025-69720 (ncurses) y CVE-2026-9538 (perl-base). Ninguna tiene `FixedVersion`. Siete tienen `Status: affected`; **CVE-2026-9538 (perl-base) está en `fix_deferred`** (Debian aplaza el parche), no en `affected` (corrección OBS-DOC, ciclo 2). La lista coincide con la que reportó QA para el SO. De las de backup no persiste ninguna.
 
 **17.8.2 Gate con `.trivyignore`**
 - Positivo: las 5 imágenes `ops005-despues` con `--ignorefile .trivyignore --exit-code 1` dan **exit 0**.
@@ -943,7 +943,11 @@ Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642,
 - Backend: `pip` ausente y `find_spec` de pip/setuptools/wheel → `[]`. Entorno con `DJANGO_TRUSTED_PROXIES=10.231.51.10/32` y `GUNICORN_FORWARDED_ALLOW_IPS=10.231.51.10`.
 - Scheduler: `manage.py check` → 0 issues; sin pip; supercronic v0.2.49.
 - Backup, con una clave age **efímera** generada dentro del contenedor y borrada al terminar (no es un secreto real): `backup.sh` → exit 0, 5 archivos `.age` y `sha256sum -c` OK. Tras descifrar, `pg_restore --list` lee el dump (454 entradas TOC, BD `brujula`). `pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)`. El proceso se ejecuta como uid 999 con el grupo 10001.
-- SBOM (syft): frontend tiene 503 componentes y backup 548. Ambos detectan `debian 13.7` y ninguno contiene npm, pip, libxml2, perl, gnupg ni libpq5 (ver RSK-OPS-023).
+- SBOM (syft, CycloneDX). Corrección OBS-DOC (ciclo 2): la cifra total incluye entradas de tipo `file`.
+  - frontend: 503 componentes = 84 `library` + 3 `application` + 1 `operating-system` + 415 `file`.
+  - backup: 548 = 116 `library` + 3 `application` + 1 `operating-system` + 428 `file`.
+  - Ambos detectan `debian 13.7`, y ninguno contiene npm, pip, libxml2, perl, gnupg ni libpq5 (ver RSK-OPS-023).
+  - Recuento de todas las imágenes finales: §17.14.6.
 - Limpieza: `down -v --remove-orphans` del proyecto `brujula-ops005`, borrado de las 10 imágenes `ops005-*` y de la copia temporal. No se tocaron `backend`, `frontend` ni `db` (PROYECTO1), ni `brujula-tkt004-*` ni `brujula-qaops004-*`.
 
 **NOT_RUN**:
@@ -963,8 +967,8 @@ Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642,
 
 | ID | Riesgo | Sev. | Mitigación / acción | Estado |
 |---|---|---|---|---|
-| RSK-OPS-001 | CVE HIGH de Debian 13.7 sin parche en las bases | HIGH | Aceptadas por decisión humana (2026-09-26) con lista cerrada de 8 CVE y `exp:2026-10-26`. El CI falla ante cualquier CVE nueva, no listada o caducada | **ACEPTADO CON CADUCIDAD (vence 2026-10-26)** |
-| RSK-OPS-023 | El cliente PostgreSQL del backup (binarios + `libpq.so.5`) se copia sin registro dpkg: trivy y syft no ven `libpq5` ni `postgresql-client-18` en `brujula/backup` | LOW | Versión fijada por el digest de `postgres:18.6-trixie` (la misma de la BD, que Dependabot vigila) y registrada en `/usr/local/share/brujula/pgclient.versiones`. Acción F9: escanear también la imagen `postgres` de la BD (hoy no está en el bucle de trivy del CI) para cubrir libpq | ABIERTO (F9) |
+| RSK-OPS-001 | CVE HIGH/CRITICAL de Debian 13.7 sin parche en las bases | HIGH (incluye 1 CRITICAL de libxml2 en db) | Aceptadas por dos decisiones humanas (2026-09-26): primero 8 CVE comunes y después, en el ciclo 2, 8 CVE de libxml2 de la imagen de la BD. Lista cerrada de 16 CVE con `exp:2026-10-26`. El CI falla ante cualquier CVE nueva, no listada o caducada | **ACEPTADO CON CADUCIDAD (vence 2026-10-26)** |
+| RSK-OPS-023 | El cliente PostgreSQL del backup (binarios + `libpq.so.5`) se copia sin registro dpkg: trivy y syft no ven `libpq5` ni `postgresql-client-18` en `brujula/backup` | LOW | Versión fijada por el digest de `postgres:18.6-trixie` (la misma de la BD, que Dependabot vigila) y registrada en `/usr/local/share/brujula/pgclient.versiones`. Ciclo 2: la imagen de la BD (`brujula/db`) entra en el bucle de trivy y SBOM del CI y lleva `libpq5` 18.6-1.pgdg13+2 registrado en dpkg, la misma versión copiada al backup | **MITIGADO** (ciclo 2) |
 | RSK-OPS-024 | Los paquetes Debian del backup están fijados con versión exacta. Si Debian publica una actualización de seguridad y retira la versión anterior del espejo, el build del backup falla | LOW | Es fallo visible, no silencioso. Se corrige actualizando los ARG de versión (Dependabot no los cubre) | ABIERTO |
 | OBS-OPS005-01 | Job `images` NOT_RUN en GitHub en esta rama (sin `frontend/`) | INFO | Se validará en el PR #9 al integrar este ticket | NOT_RUN (GitHub) |
 
@@ -989,3 +993,105 @@ Las 8 CVE restantes, que son el contenido de `.trivyignore`, son CVE-2026-76642,
 - Run `workflow_dispatch` sobre `tkt-ops-005-trivy` en af6ae8f: https://github.com/magoolf/brujula-salvaje/actions/runs/36268658095. Resultado: **success**.
   - `detectar código`, `infraestructura` y `backend`: OK.
   - `frontend`, `images` y `firma`: omitidos (**NOT_RUN**), porque esta rama no tiene `frontend/`. Por eso los pasos nuevos del job `images` (política de `.trivyignore`, gate con ignorefile y control negativo) **no se han ejecutado en GitHub**. Se ejecutarán en el PR #9 cuando este ticket esté integrado en `main`. La lógica equivalente se validó en local (§17.8.2).
+
+### 17.14 Ciclo 2 (QA_VERDICT FAIL 1/3): imagen de la BD en el gate, BD derivada mínima y política de trivy ampliada
+
+**17.14.1 Hallazgos atendidos**
+- **QA-OPS005-01 (HIGH)**: la imagen de la BD (`postgres:18.6-trixie@sha256:5a5a84b1…`), que ejecutan `db` e `init-volumes`, no se escaneaba. Mientras backup heredaba de ella, el gate veía libxml2 y gnupg por esa vía. Además, `gosu` traía 22 CVE de la stdlib de Go **con parche** (1 CRITICAL).
+- **QA-OPS005-03 (LOW)**: faltaba cerrar las vías paralelas de configurar trivy.
+- **OBS-DOC**: estado de CVE-2026-9538 y recuento del SBOM (corregido en §17.8).
+- QA-OPS005-02 (simulacro de `restore-local.sh`) queda fuera de este ciclo y pasa a TKT-OPS-007.
+
+**17.14.2 Cambios**
+
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Nueva imagen `brujula/db`: `FROM postgres:18.6-trixie@sha256:5a5a84b1…` (el mismo digest). Retira `gosu`; purga `gnupg`, `dirmngr`, `gnupg-l10n`, `gpg`, `gpg-agent`, `gpgsm` y `gpgconf` con `--auto-remove` (arrastra `pinentry-curses`, `libassuan9`, `libgnutls30t64`, `libksba8`, `libnpth0t64`, `libp11-kit0` y `libtasn1-6`, que nadie más usa; libldap2 usa OpenSSL). Purga `perl`, `libperl5.40` y `perl-modules-5.40` con `dpkg --force-depends`: solo los usa `postgresql-common` (pg_wrapper y pg_ctlcluster), que el entrypoint oficial no llama. Borra los enlaces `/usr/bin/* -> pg_wrapper` y antepone `/usr/lib/postgresql/18/bin` al `PATH`. Al construir comprueba que no queda nada de lo retirado, que postgres, initdb, pg_ctl, psql y pg_isready resuelven a `/usr/lib/postgresql/18/bin`, que la versión es 18.6 y que libxml2 está enlazada. Queda `USER 999:999`. El servidor, las extensiones, `docker-entrypoint.sh` e initdb no cambian. | `infra/db/Dockerfile` (nuevo) | DEC-AUTO-226 |
+| `db` e `init-volumes` usan `build: *db-build` e `image: brujula/db:${APP_VERSION:-0.0.0-dev-<proyecto>}`, en lugar de la imagen oficial | `compose.yaml` | DEC-AUTO-226 |
+| `db` entra en los bucles de trivy (gate y JSON) y de SBOM. El control negativo, con todas las caducidades en el pasado, se ejecuta sobre `backend` **y** `db` | `.github/workflows/ci.yaml` | DEC-AUTO-227 |
+| El paso de política falla si ocurre cualquiera de estas cosas: existe `trivy.yaml`, `trivy.yml`, `.trivyignore.yaml` o `.trivyignore.yml` en el repositorio; aparece `TRIVY_(CONFIG\|VEX\|SEVERITY\|IGNOREFILE\|IGNORE_UNFIXED\|IGNORE_STATUS\|IGNORE_POLICY\|SKIP_*)` asignada en los workflows; alguna invocación real de `trivy image/fs/rootfs` no lleva exactamente `--severity CRITICAL,HIGH` o lleva `--config`, `-c`, `--vex` o `--ignore-status`; o no hay ninguna invocación de trivy | `.github/workflows/ci.yaml` | DEC-AUTO-228 |
+| Se añaden 8 CVE de libxml2 (solo `db`) por la **2.ª decisión humana** (2026-09-26, "Aceptar con caducidad" las CVE sin parche de la imagen derivada de PostgreSQL). Los comentarios de las 8 comunes añaden `db` y las versiones de paquete. Total: 16 entradas, todas `exp:2026-10-26` | `.trivyignore` | DEC-AUTO-229 |
+
+**17.14.3 trivy 0.74.0 (CRITICAL,HIGH) sobre la imagen de la BD, antes → después (sin ignorefile)**
+
+| | Oficial `postgres:18.6-trixie@5a5a84b1…` | Derivada `brujula/db` |
+|---|---|---|
+| Hallazgos | 82 HIGH + 2 CRITICAL | 51 HIGH + 1 CRITICAL |
+| CVE únicas | 39 (22 con fix + 17 sin fix) | 16 (0 con fix) |
+| gosu (Go stdlib, **con fix**) | 22: CVE-2025-68121 CRITICAL; CVE-2025-61726, -61729; CVE-2026-25679, -27145, -32280, -32281, -32283, -33811, -33814, -33818, -39820, -39821, -39822, -39836, -42499, -42504, -56853, -56858, -56859, -56860, -56862 | **0** (se retira el binario) |
+| gnupg/gpg*/dirmngr/gpgsm | CVE-2026-24882 | **0** (paquetes purgados) |
+| CVE-2026-9538 | en perl, libperl5.40, perl-modules-5.40 y perl-base | solo perl-base (Essential) |
+
+CVE sin fix que quedan en `brujula/db` (todas con `FixedVersion` vacío):
+
+| CVE | Sev. | Paquete(s) y versión | Estado Debian | ¿Lo necesita el servidor PostgreSQL? |
+|---|---|---|---|---|
+| CVE-2026-6653 | **CRITICAL** | libxml2 2.12.7+dfsg+really2.9.14-2.1+deb13u3 | affected | **Sí**: el binario `postgres` enlaza `libxml2.so.2` (tipo `xml`, `xmlparse`…); también dependen de ella libxslt1.1 y libllvm19 (JIT) |
+| CVE-2026-74860, -86138, -86139, -86140, -86142, -86143, -86144 | HIGH | libxml2 (misma versión) | affected | Sí (como la anterior) |
+| CVE-2026-76642, -78408, -78409, -78410 | HIGH | util-linux, bsdutils, mount, login, libblkid1, libmount1, libsmartcols1, libuuid1, liblastlog2-2 — 2.41.5-0+deb13u1 | affected | Base del SO (Essential/required); postgres enlaza libuuid1 |
+| CVE-2026-54369 | HIGH | libacl1 2.3.2-2+b1 | affected | Base del SO (coreutils) |
+| CVE-2026-16742 | HIGH | libsystemd0, libudev1 257.13-1~deb13u1 | affected | Sí: postgres enlaza libsystemd0 (dependencia de `postgresql-18`) |
+| CVE-2025-69720 | HIGH | ncurses-base, ncurses-bin, libtinfo6, libncursesw6 — 6.5+20250216-2 | affected | Base del SO (bash) y psql (readline/libtinfo) |
+| CVE-2026-9538 | HIGH | perl-base 5.40.1-6+deb13u1 | **fix_deferred** | No directamente: es paquete Essential de Debian (dpkg, debconf) |
+
+La BD solo está en la red `datos` (`internal: true`), no publica puertos (salvo `compose.debug.yaml` y `compose.ci.yaml`, en 127.0.0.1) y se ejecuta como 999:999 con `cap_drop: ALL`, `no-new-privileges` y raíz de solo lectura.
+
+**17.14.4 Gate y controles (local, trivy 0.74.0, imágenes `ops005-c2`)**
+- Con `--ignorefile .trivyignore --exit-code 1`, backend, frontend, proxy, scheduler, backup y **db** dan **exit 0**.
+- Controles negativos (todos **exit 1**):
+  - db con `CVE-2026-6653 exp:2026-09-25`: reaparece solo la CRITICAL.
+  - db sin la línea de CVE-2026-86144.
+  - backend y db con todas las caducidades en 2000-01-01 (el mismo control que ejecuta el CI).
+  - La imagen **oficial** `postgres:18.6-trixie@5a5a84b1…` con el `.trivyignore` final queda con 1 CRITICAL y 28 HIGH, 23 CVE únicas: las 22 de gosu (con fix) y la de gnupg. Esto demuestra que ninguna CVE con parche está aceptada.
+- Paso de política, simulado con el script extraído del workflow:
+  - Sobre el repositorio real, exit 0 con "excepciones vigentes: 16".
+  - Da exit 1 con cada uno de estos casos: `trivy.yaml` en la raíz, `sub/.trivyignore.yaml`, `--severity CRITICAL`, `--vex x.json`, `--config t.yaml`, `TRIVY_CONFIG:` en `env` y una invocación sin `--severity`.
+- `actionlint` 1.7.7 (con shellcheck): 0 hallazgos.
+
+**17.14.5 BD derivada en funcionamiento (`-p brujula-ops005`, `APP_NET_PREFIX=10.231.51`)**
+- Stack completo con el perfil ops: db, backend, frontend y proxy **healthy**; init-volumes (imagen `brujula/db`, como root, con `chown`/`chmod`) y migrate terminan con exit 0; scheduler y backup Up.
+- Contenedor db:
+  - Se ejecuta como `uid=999(postgres)`. `psql` y `pg_isready` resuelven a `/usr/lib/postgresql/18/bin`; el healthcheck da `accepting connections`.
+  - `PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2)`.
+  - INFRA-DB-000: la BD `brujula` tiene locale `b:C.UTF-8`; existen los roles `app_backup`, `app_migrator`, `app_rw` y `readonly`; `shared_preload_libraries=pg_stat_statements`.
+  - `xmlparse(content '<a>1</a>')` funciona (libxml2 operativa).
+  - `/usr/local/bin/gosu` no existe. Los logs no muestran errores ni referencias a perl.
+- `docker compose restart db`: vuelve a healthy con 0 reinicios (arranque con datos existentes).
+- Modo CI (`-f compose.yaml -f compose.ci.yaml up --wait db`, con tmpfs y `DB_BOOTSTRAP_TEST_TEMPLATE=true`): healthy, `b:C.UTF-8`, BD `brujula`. Es la misma comprobación que el paso INFRA-DB-000 del job `infraestructura`.
+- Backup contra la BD nueva, con una clave age efímera: exit 0; `sha256sum -c` OK; tras descifrar, `pg_restore --list` lee 454 entradas TOC.
+- Proxy: `/health/ready` → 200; `/` → 200 con `Cache-Control: no-store`.
+- Limpieza: `down -v`, 6 imágenes `ops005-c2` borradas y copia temporal eliminada. Quedan 0 contenedores, volúmenes o redes `ops005`; no se tocaron otros proyectos.
+
+**17.14.6 SBOM (syft 1.51.0, CycloneDX) de las imágenes finales**
+
+| Imagen | Total | library | application | operating-system | file |
+|---|---|---|---|---|---|
+| backend | 620 | 129 | 4 | debian 13.7 | 486 |
+| scheduler | 638 | 146 | 4 | debian 13.7 | 487 |
+| frontend | 503 | 84 | 3 | debian 13.7 | 415 |
+| backup | 548 | 116 | 3 | debian 13.7 | 428 |
+| db | 711 | 133 | 6 | debian 13.7 | 571 |
+| proxy | 1281 | 70 | 0 | alpine 3.24.2 | 1210 |
+
+Ninguna imagen contiene npm, pip, setuptools ni msgpack. Solo db contiene gosu, gnupg o perl completo, y ninguno de los tres: se han retirado. db mantiene `libpq5` y `libxml2` porque el servidor los necesita. proxy (alpine) contiene `libxml2` de Alpine, sin CVE CRITICAL/HIGH.
+
+**17.14.7 Riesgos nuevos o cambiados**
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-025 | Dependabot deja de vigilar el digest de PostgreSQL. `compose.yaml` ya no lo contiene (lo tiene `infra/db/Dockerfile`) y `.github/dependabot.yml` no incluye `/infra/db`. Ese archivo está fuera de mis `archivos_permitidos` (`.github/workflows/**`) | MEDIUM | Ticket para el Orquestador: añadir `"/infra/db"` a `directories` del ecosistema `docker` en `.github/dependabot.yml`. Mientras tanto, `/infra/backup` (mismo `ARG POSTGRES_IMAGE`) sigue vigilado y cualquier subida de digest debe replicarse en `infra/db/Dockerfile` | ABIERTO (ticket) |
+| RSK-OPS-026 | `postgresql-common` y `postgresql-client-common` quedan con la dependencia `perl:any` sin satisfacer en dpkg (`--force-depends`). Un `apt-get install` sobre `brujula/db` fallaría | LOW | La imagen es final y no se instala nada encima. Si hiciera falta, se reconstruye desde el `Dockerfile`. `pg_wrapper`, `pg_ctlcluster` y el resto no se usan | ACEPTADO (DEC-AUTO-226) |
+| RSK-OPS-001 | Ver §17.10: ahora 16 CVE (2 decisiones humanas), vencen el 2026-10-26 | HIGH | — | ACEPTADO CON CADUCIDAD |
+
+**17.14.8 Archivos del ciclo 2**
+- `infra/db/Dockerfile` (nuevo)
+- `compose.yaml`
+- `.github/workflows/ci.yaml`
+- `.trivyignore`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+**17.14.9 Próximo agente**: **Orquestador**, que debe:
+1. Reenviar la rama a QA (ciclo 2/3).
+2. Registrar DEC-AUTO-226 a DEC-AUTO-229, RSK-OPS-025/026 y la 2.ª decisión humana aplicada.
+3. Emitir el ticket de Dependabot `/infra/db` (RSK-OPS-025).
+4. La validación del job `images` en GitHub, que ahora incluye db, llegará con el PR #9 una vez integrado este ticket.
