@@ -366,8 +366,8 @@ class DestinoAleatorioSerializer(Salida):
 class _DetalleComun(Salida):
     """Campos comunes de los detalles (galería, fuentes, términos, relacionados, metadatos)."""
 
-    fuentes = lista(FuentePublicaSerializer, source="fuentes_ord", max_length=30)
-    terminos = lista(TerminoRefSerializer, source="terminos_publicos", max_length=50)
+    fuentes = lista(FuentePublicaSerializer, source="contenido.fuentes_ord", max_length=30)
+    terminos = lista(TerminoRefSerializer, source="contenido.terminos_publicos", max_length=50)
     relacionados = lista(ContenidoRelacionadoSerializer, min_length=3, max_length=6)
     metadatos = MetadatosEditorialesSerializer(source="contenido")
 
@@ -398,7 +398,7 @@ class DestinoDetalleSerializer(_DetalleComun):
     longitud = serializers.FloatField(min_value=-180, max_value=180)
     portada = ImagenPublicaSerializer(source="contenido.portada")
     galeria = serializers.SerializerMethodField()
-    itinerarios = lista(ItinerarioTarjetaSerializer, max_length=12)
+    itinerarios = lista(ItinerarioTarjetaSerializer, source="itinerarios_publicos", max_length=12)
     itinerarios_total = serializers.IntegerField(min_value=0)
     itinerarios_afines = lista(ItinerarioTarjetaSerializer, max_length=6)
     guias_relacionadas = lista(GuiaTarjetaSerializer, max_length=6)
@@ -528,7 +528,7 @@ class ColeccionDetalleSerializer(Salida):
     resumen = serializers.CharField(max_length=300)
     descripcion = TextoEnriquecidoField()
     portada = ImagenPublicaSerializer(source="contenido.portada")
-    elementos = lista(ElementoColeccionSerializer, max_length=100)
+    elementos = lista(ElementoColeccionSerializer, source="elementos_publicos", max_length=100)
     metadatos = MetadatosEditorialesSerializer(source="contenido")
 
 

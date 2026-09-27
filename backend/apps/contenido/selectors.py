@@ -838,7 +838,7 @@ def ficha_destino(contenido: Contenido) -> Destino:
     destino = detalle_destino(contenido.pk)
     itinerarios, total = itinerarios_de_destino(destino.pk)
     vars(destino).update(
-        itinerarios=itinerarios,
+        itinerarios_publicos=itinerarios,
         itinerarios_total=total,
         itinerarios_afines=[] if total else itinerarios_afines(destino),
         guias_relacionadas=guias_de_destino(destino.pk),
@@ -883,7 +883,7 @@ def ficha_guia(contenido: Contenido) -> Guia:
 
 def ficha_coleccion(contenido: Contenido) -> Coleccion:
     coleccion = detalle_coleccion(contenido.pk)
-    vars(coleccion).update(elementos=elementos_de_coleccion(coleccion.pk))
+    vars(coleccion).update(elementos_publicos=elementos_de_coleccion(coleccion.pk))
     return coleccion
 
 
