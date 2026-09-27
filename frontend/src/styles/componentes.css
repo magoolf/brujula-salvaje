@@ -1,0 +1,159 @@
+/*
+ * Estilos globales de las primitivas que se aplican como directiva de atributo sobre elementos
+ * nativos (button/a): Button (appBoton) y Link (appEnlace). HANDOFF_UI_UX COMPONENTES.
+ */
+@layer components {
+  .bs-boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--bs-space-2);
+    min-height: var(--bs-size-control-md);
+    min-width: var(--bs-size-target);
+    padding-inline: var(--bs-space-5);
+    box-sizing: border-box;
+    border: var(--bs-border-width-strong) solid transparent;
+    border-radius: var(--bs-radius-md);
+    font-family: var(--bs-typography-button-font-family);
+    font-size: var(--bs-typography-button-font-size);
+    font-weight: var(--bs-typography-button-font-weight);
+    line-height: var(--bs-typography-button-line-height);
+    letter-spacing: var(--bs-typography-button-letter-spacing);
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color var(--bs-motion-duration-fast) var(--bs-motion-easing-standard),
+      transform var(--bs-motion-duration-fast) var(--bs-motion-easing-standard);
+  }
+
+  .bs-boton:hover {
+    text-decoration: none;
+  }
+
+  .bs-boton:active:not([aria-disabled='true']):not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .bs-boton--sm {
+    min-height: var(--bs-size-control-sm);
+    padding-inline: var(--bs-space-3);
+  }
+
+  .bs-boton--lg {
+    min-height: var(--bs-size-control-lg);
+    padding-inline: var(--bs-space-6);
+  }
+
+  .bs-boton--primary {
+    background-color: var(--bs-color-action-primary-bg);
+    color: var(--bs-color-action-primary-fg);
+  }
+
+  .bs-boton--primary:hover {
+    background-color: var(--bs-color-action-primary-bg-hover);
+    color: var(--bs-color-action-primary-fg);
+  }
+
+  .bs-boton--accent {
+    background-color: var(--bs-color-action-accent-bg);
+    color: var(--bs-color-action-accent-fg);
+    border-radius: var(--bs-radius-pill);
+  }
+
+  .bs-boton--accent:hover {
+    background-color: var(--bs-color-action-accent-bg-hover);
+    color: var(--bs-color-action-accent-fg);
+  }
+
+  .bs-boton--secondary {
+    background-color: var(--bs-color-action-secondary-bg);
+    color: var(--bs-color-action-secondary-fg);
+    border-color: var(--bs-color-action-secondary-border);
+  }
+
+  .bs-boton--secondary:hover {
+    background-color: var(--bs-color-action-secondary-bg-hover);
+    color: var(--bs-color-action-secondary-fg);
+  }
+
+  .bs-boton--ghost {
+    background-color: transparent;
+    color: var(--bs-color-text-brand);
+  }
+
+  .bs-boton--ghost:hover {
+    background-color: var(--bs-color-bg-brand-faint);
+    color: var(--bs-color-text-brand);
+  }
+
+  .bs-boton--danger {
+    background-color: var(--bs-color-action-danger-bg);
+    color: var(--bs-color-action-danger-fg);
+  }
+
+  .bs-boton--danger:hover {
+    background-color: var(--bs-color-action-danger-bg-hover);
+    color: var(--bs-color-action-danger-fg);
+  }
+
+  .bs-boton--ghost-inverse {
+    background-color: transparent;
+    color: var(--bs-color-text-on-image);
+    border-color: var(--bs-color-text-on-image);
+  }
+
+  .bs-boton--ghost-inverse:focus-visible {
+    outline-color: var(--bs-color-focus-ring-inverse);
+  }
+
+  .bs-boton:disabled,
+  .bs-boton[aria-disabled='true'] {
+    background-color: var(--bs-color-action-disabled-bg);
+    color: var(--bs-color-action-disabled-fg);
+    border-color: var(--bs-color-action-disabled-border);
+    cursor: not-allowed;
+  }
+
+  .bs-boton[aria-busy='true'] {
+    cursor: progress;
+  }
+
+  .bs-enlace--standalone {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--bs-space-1);
+    min-height: var(--bs-size-target);
+    font-weight: var(--bs-font-weight-semibold);
+  }
+
+  .bs-enlace--nav {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--bs-size-target);
+    color: var(--bs-color-text-default);
+    text-decoration: none;
+    font-weight: var(--bs-font-weight-semibold);
+    border-bottom: var(--bs-border-width-strong) solid transparent;
+  }
+
+  .bs-enlace--nav:hover {
+    color: var(--bs-color-text-brand);
+    text-decoration: none;
+    border-bottom-color: var(--bs-color-border-subtle);
+  }
+
+  .bs-enlace--nav[aria-current='page'] {
+    color: var(--bs-color-text-brand);
+    border-bottom-color: var(--bs-color-border-brand);
+  }
+
+  @media (forced-colors: active) {
+    .bs-boton {
+      border-color: ButtonText;
+    }
+
+    .bs-enlace--nav[aria-current='page'] {
+      border-bottom-color: LinkText;
+    }
+  }
+}

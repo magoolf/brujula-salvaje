@@ -1,0 +1,73 @@
+/*
+ * Tema de Tailwind CSS generado a partir de las variables --bs-* (tokens.css).
+ * Los componentes solo consumen tokens semánticos: ninguna utilidad usa HEX literales.
+ * `inline` hace que las utilidades referencien la variable --bs-* directamente.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-canvas: var(--bs-color-bg-canvas);
+  --color-canvas-panel: var(--bs-color-bg-canvas-panel);
+  --color-surface: var(--bs-color-bg-surface);
+  --color-sunken: var(--bs-color-bg-sunken);
+  --color-inverse: var(--bs-color-bg-inverse);
+  --color-brand-subtle: var(--bs-color-bg-brand-subtle);
+  --color-accent-subtle: var(--bs-color-bg-accent-subtle);
+  --color-text: var(--bs-color-text-default);
+  --color-text-muted: var(--bs-color-text-muted);
+  --color-text-inverse: var(--bs-color-text-inverse);
+  --color-text-inverse-muted: var(--bs-color-text-inverse-muted);
+  --color-text-brand: var(--bs-color-text-brand);
+  --color-text-accent: var(--bs-color-text-accent);
+  --color-link: var(--bs-color-text-link);
+  --color-border-subtle: var(--bs-color-border-subtle);
+  --color-border-control: var(--bs-color-border-control);
+  --color-border-brand: var(--bs-color-border-brand);
+  --color-primary: var(--bs-color-action-primary-bg);
+  --color-primary-hover: var(--bs-color-action-primary-bg-hover);
+  --color-on-primary: var(--bs-color-action-primary-fg);
+  --color-accent: var(--bs-color-action-accent-bg);
+  --color-on-accent: var(--bs-color-action-accent-fg);
+  --color-selected: var(--bs-color-action-selected-bg);
+  --color-success: var(--bs-color-status-success-fg);
+  --color-success-bg: var(--bs-color-status-success-bg);
+  --color-warning: var(--bs-color-status-warning-fg);
+  --color-warning-bg: var(--bs-color-status-warning-bg);
+  --color-error: var(--bs-color-status-error-fg);
+  --color-error-bg: var(--bs-color-status-error-bg);
+  --color-info: var(--bs-color-status-info-fg);
+  --color-info-bg: var(--bs-color-status-info-bg);
+  --color-focus: var(--bs-color-focus-ring);
+
+  --font-display: var(--bs-font-family-display);
+  --font-body: var(--bs-font-family-body);
+  --font-mono: var(--bs-font-family-mono);
+  --font-sans: var(--bs-font-family-body);
+
+  --spacing: 0.25rem;
+  --spacing-section: var(--bs-space-section);
+
+  --radius-sm: var(--bs-radius-sm);
+  --radius-md: var(--bs-radius-md);
+  --radius-lg: var(--bs-radius-lg);
+  --radius-xl: var(--bs-radius-xl);
+  --radius-pill: var(--bs-radius-pill);
+
+  --shadow-1: var(--bs-shadow-1);
+  --shadow-2: var(--bs-shadow-2);
+  --shadow-3: var(--bs-shadow-3);
+  --shadow-4: var(--bs-shadow-4);
+
+  --breakpoint-sm: 30rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
+
+  --container-page: var(--bs-size-container);
+  --container-wide: var(--bs-size-container-wide);
+  --container-prose: var(--bs-size-measure-prose);
+
+  --ease-standard: var(--bs-motion-easing-standard);
+  --ease-enter: var(--bs-motion-easing-enter);
+  --ease-exit: var(--bs-motion-easing-exit);
+}
