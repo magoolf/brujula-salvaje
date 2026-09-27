@@ -122,14 +122,14 @@ tickets:
   - id: TKT-002
     titulo: "Frontend base: ng new SSR, versiones exactas, CSP nonce, tokens+Tailwind+fuentes+Lucide, core/http (traceparent, XSRF, ErrorApi), cliente generado del OpenAPI, shared/ui, shell de layout y páginas de error, Playwright+axe"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [REQ-052, REQ-056, REQ-058, FEAT-001, FEAT-002, MOD-001, MOD-008]
     depende_de: [TKT-F6-001]
     archivos_permitidos: ["frontend/*", "frontend/.*", "frontend/public/**", "frontend/e2e/**", "frontend/src/*", "frontend/src/app/*", "frontend/src/app/core/**", "frontend/src/app/shared/**", "frontend/src/app/api/**", "frontend/src/styles/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-002-frontend-base @ a72e30e (en origin)", "Corrección F-02 (ciclo 1): e2e/ssr-csp.spec.ts portable a modo proxy; E2E 39/39 x3 en SSR directo y en modo proxy (backend stub)", "F-01 (gzip) pendiente de TKT-OPS-003; re-QA ciclo 2/3 tras integrar TKT-OPS-003"]
+    evidencia: ["PR #9 integrado en main", "QA_VERDICT PASS 2/3 @ cfb98d7; regeneración de cliente 0107056 verificada por el CI completo", "Primer job images en GitHub: build 6 imágenes + trivy con .trivyignore + SBOM + smoke + schemathesis = PASS"]
     actualizado: 2026-09-25
   - id: TKT-003
     titulo: "Backend datos: modelos y migraciones de DB_HANDOFF v1.1 (catálogos + semilla de catálogos, cuentas, medios, contenido + integridad SQL, inicio, auditoría inmutable, búsqueda, ops, idempotencia) con pruebas de introspección"
@@ -146,14 +146,14 @@ tickets:
   - id: TKT-004
     titulo: "Backend acceso al panel y cuentas: sesión+CSRF, login por pasos, MFA TOTP, bloqueo progresivo, autorización Ley 1581, cuentas (alta/restablecer/desactivar/anonimizar), auditoría, servicio común de idempotencia"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055, REQ-OPS002-01, OBS-01, NV-02, OBS-QA003-01, OBS-QA003-05, OBS-QA003-06, CHG-DB-002]
     depende_de: [TKT-003 (QA PASS; parte de su rama)]
     archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/**", "backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["PR #8 @ 8570f57", "Ciclo 2 corregido: validar_parametros general (vacío/espacios/repetido -> 400 parametro_invalido); 42 casos desde el contrato; schemathesis Editor 1177, Admin 1151, anónimo 1559 sin 5xx; 376 tests 97.47 %", "Re-QA final ciclo 3/3"]
     actualizado: 2026-09-25
   - id: TKT-005
     titulo: "Backend API pública + búsqueda + comandos de operación: /api/v1/publico/**, filtros/facetas, mapa, aleatorio, 410, búsqueda es_unaccent+pg_trgm, throttling público, comandos programados del crontab"
@@ -162,7 +162,7 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052, CHG-DB-002 (medios.0002, contenido.0003, catalogos.0003, inicio.0002 de DB_HANDOFF v1.2)]
     depende_de: [TKT-004]
-    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**"]
+    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
@@ -174,7 +174,7 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-010, MOD-011, MOD-012, FEAT-033..044, FEAT-047, FEAT-049, FEAT-050]
     depende_de: [TKT-005]
-    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**"]
+    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
@@ -186,7 +186,7 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-043, DEC-AUTO-007, DEC-AUTO-033, PRB-BP-002]
     depende_de: [TKT-006]
-    archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**"]
+    archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
@@ -276,13 +276,61 @@ tickets:
     evidencia: ["DB_HANDOFF v1.2 (YAML válido, js-yaml por el Orquestador), ADR-DB-001/004 actualizados", "para_tkt_004 inyectado en TKT-004; para_otro_ticket (medios/contenido/catalogos/inicio) inyectado en TKT-005"]
     actualizado: 2026-09-25
   - id: TKT-OPS-004
-    titulo: "DevOps: gate de contrato detecta status y propiedades nuevas (N9/N10) y sin falso positivo en rutas parciales (N11); límite de borde propio para /health (RSK-OPS-016); cabeceras de seguridad en errores del proxy (OBS-QA-OPS003-03/04)"
+    titulo: "DevOps: gate de contrato N9/N10/N11; límite de borde para /health (RSK-OPS-016); cabeceras de seguridad en errores del proxy (OBS-QA-OPS003-03/04); Dependabot ignora semver-major (DEC-AUTO-210)"
     fase: F7
-    estado: TODO
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-055, HALLAZGO-QA-OPS003-01, HALLAZGO-QA-OPS003-02, RSK-OPS-016]
     depende_de: [TKT-OPS-003]
-    archivos_permitidos: [".github/workflows/**", "infra/**", "docs/05_operacion/**"]
+    archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #11 integrado en main", "QA_VERDICT PASS 1/3 @ 0210727; CI verde"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-005
+    titulo: "DevOps: RSK-OPS-001 según decisión humana (.trivyignore solo CVE Debian sin parche con exp:2026-10-26); quitar npm del runtime frontend y pip/setuptools del runtime Python; imagen de backup mínima; Cache-Control no-store en HTML SSR (OBS-QA002-C2-04); DJANGO_TRUSTED_PROXIES en compose (OBS-QA004-03)"
+    fase: F7
+    estado: DONE
+    owner: devops
+    trazabilidad: [RSK-OPS-001, REQ-055]
+    depende_de: [TKT-OPS-004 (parte de su rama)]
+    archivos_permitidos: ["infra/**", "compose*.yaml", ".env.example", ".github/workflows/**", ".trivyignore", "docs/05_operacion/**"]
+    ciclo_qa: 2/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #13 integrado en main", "QA_VERDICT PASS 2/3 @ e11745e; CI verde"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-007
+    titulo: "CHG-API-002: 429 LimiteTasa y 404 en saludLive/saludReady (RSK-OPS-020); 409 idempotencia_respuesta_no_reproducible para respuestas > 64 KB en cualquier operación idempotente (OBS-QA004-02); prohibir NUL en campos de texto del panel (OBS-QA004-05)"
+    fase: F4
+    estado: DONE
+    owner: backend-contrato
+    trazabilidad: [REQ-055, RSK-OPS-020, OBS-QA004-02, OBS-QA004-05]
+    depende_de: []
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #10 integrado en main", "CI verde; lint Redocly OK"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-006
+    titulo: "DevOps LOW: gate con memoización y timeout-minutes (OBS-QA-OPS004-01); objeto abierto vs cerrado (OBS-QA-OPS004-02); 405 de medios en Problem Details (OBS-QA-OPS004-03); comentario de dependabot.yml; /infra/db en Dependabot docker (RSK-OPS-025); alerta de tamaño de cache_limites (RSK-QA004-02); política de trivy robusta a líneas de continuación (QA-OPS005-04)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [REQ-055]
+    depende_de: [TKT-OPS-005]
+    archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-26
+  - id: TKT-OPS-007
+    titulo: "DevOps: restore-local.sh falla sobre BD limpia (schema app/ext, COMMENT pg_stat_statements, REVOKE public) — usar lista TOC filtrada; bloquea AC-054 y F9 (QA-OPS005-02, preexistente)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [REQ-054, AC-054]
+    depende_de: [TKT-OPS-005]
+    archivos_permitidos: ["scripts/ops/**", "infra/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
