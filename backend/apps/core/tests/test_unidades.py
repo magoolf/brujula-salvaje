@@ -260,7 +260,10 @@ def test_otel_desactivado_no_instrumenta():
     assert configurar_otel() is False
 
 
-def test_otel_activo_propaga_traza_y_no_guarda_query():
+def test_otel_activo_propaga_traza_y_no_guarda_query(monkeypatch):
+    # OBS-QA004-07: el propio SDK de OpenTelemetry lee OTEL_SDK_DISABLED del entorno (con "true"
+    # crea un proveedor no-op); la prueba no debe depender del entorno en que se ejecuta.
+    monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
     from django.test import Client
     from opentelemetry import trace
     from opentelemetry.instrumentation.django import DjangoInstrumentor

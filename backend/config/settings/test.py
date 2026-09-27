@@ -6,11 +6,15 @@ pruebas es test_brujula. Los secretos tienen valores de prueba solo si el entorn
 
 from __future__ import annotations
 
+import base64
 import os
 
 os.environ.setdefault("DJANGO_SECRET_KEY", "clave-solo-para-pruebas-" + "x" * 40)
 os.environ.setdefault("THROTTLE_HMAC_KEY", "hmac-solo-para-pruebas-" + "y" * 40)
-os.environ.setdefault("MFA_FERNET_KEY", "fernet-solo-para-pruebas")
+# Clave Fernet bien formada (32 bytes en base64 urlsafe) solo para pruebas.
+os.environ.setdefault(
+    "MFA_FERNET_KEY", base64.urlsafe_b64encode(b"fernet-solo-para-pruebas-" + b"z" * 7).decode()
+)
 os.environ.setdefault("DB_HOST", "127.0.0.1")
 os.environ.setdefault("DB_USER", "app_migrator")
 

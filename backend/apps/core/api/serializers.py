@@ -1,8 +1,14 @@
-"""Serializers de salida de core (solo documentación/forma; sin lógica, Regla 02)."""
+"""Serializers de core (solo documentación/forma y validación de entrada; sin lógica, Regla 02)."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from apps.core.exceptions import ErrorApi
 
 
 class EstadoSaludSerializer(serializers.Serializer[dict[str, str]]):
@@ -23,3 +29,72 @@ class ProblemSerializer(serializers.Serializer[dict[str, object]]):
         child=serializers.ListField(child=serializers.CharField(max_length=500)), required=False
     )
     trace_id = serializers.RegexField(r"^[0-9a-f]{32}$")
+
+
+ID_MAXIMO = 2**63 - 1
+
+
+class ProblemaValidacionSerializer(ProblemSerializer):
+    """components.schemas.ProblemaValidacion: Problem con `errors` obligatorio (400/422)."""
+
+    errors = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField(max_length=500))
+    )
+
+
+class ReferenciaUsoSerializer(serializers.Serializer[dict[str, Any]]):
+    """components.schemas.ReferenciaUso: elemento que usa un recurso (p. ej. un medio)."""
+
+    tipo_entidad = serializers.CharField(max_length=40)
+    id = serializers.IntegerField(min_value=1, max_value=2**63 - 1)
+    titulo = serializers.CharField(max_length=150)
+    estado_editorial = serializers.CharField(allow_null=True, required=False)
+
+
+class ProblemaConUsosSerializer(ProblemSerializer):
+    """components.schemas.ProblemaConUsos: Problem de los 409 (Conflicto del contrato)."""
+
+    usos = ReferenciaUsoSerializer(many=True, required=False, max_length=100)  # type: ignore[call-arg]
+    total_usos = serializers.IntegerField(min_value=0, required=False)
+
+
+class IdSerializerField(serializers.IntegerField):
+    """components.schemas.Id: bigint identity (int64, >= 1)."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("min_value", 1)
+        kwargs.setdefault("max_value", ID_MAXIMO)
+        super().__init__(**kwargs)
+
+
+@extend_schema_field({"type": ["string", "null"], "format": "uri-reference"})
+class EnlacePaginaField(serializers.CharField):
+    """Enlace relativo de paginación (uri-reference o null)."""
+
+
+class PaginaMetaSerializer(serializers.Serializer[dict[str, Any]]):
+    """components.schemas.PaginaMeta (DEC-AUTO-104); cada página añade `resultados`."""
+
+    total = serializers.IntegerField(min_value=0)
+    pagina = serializers.IntegerField(min_value=1)
+    tamano_pagina = serializers.IntegerField(min_value=1)
+    total_paginas = serializers.IntegerField(min_value=0)
+    siguiente = EnlacePaginaField(allow_null=True)
+    anterior = EnlacePaginaField(allow_null=True)
+
+
+class EntradaEstricta(serializers.Serializer[Any]):
+    """Base de las entradas con additionalProperties: false (DEC-AUTO-108, THREAT-024).
+
+    Un campo desconocido o no editable → 400 `campo_no_permitido` con el campo en `errors`.
+    """
+
+    def to_internal_value(self, data: Any) -> Any:
+        if isinstance(data, Mapping):
+            sobrantes = sorted(str(clave) for clave in data if clave not in self.fields)
+            if sobrantes:
+                raise ErrorApi(
+                    codigo="campo_no_permitido",
+                    errors={clave: ["Campo no permitido."] for clave in sobrantes},
+                )
+        return super().to_internal_value(data)

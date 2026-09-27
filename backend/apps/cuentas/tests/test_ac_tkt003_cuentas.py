@@ -178,18 +178,10 @@ def test_AC_TKT003_04_sesiones_en_sesion_panel_e_invalidacion_por_cuenta():
 
 
 # ---------------------------------------------------------------------------
-# AC-TKT003-07 (NV-02 de QA TKT-001): un IntegrityError con PII no llega al log
+# AC-TKT003-07 (NV-02 de QA TKT-001, corregido en TKT-004): un IntegrityError con PII no llega
+# al log (apps/core/observabilidad.sanear_excepciones_bd)
 # ---------------------------------------------------------------------------
 @pytest.mark.urls("apps.cuentas.tests.urls_prueba")
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "NV-02 abierto -> TKT-004: el manejador de apps/core registra exc_info y la traza "
-        "incluye el DETAIL de PostgreSQL con el valor PII (usuario). apps/core queda fuera de "
-        "los archivos permitidos de TKT-003. Al corregirlo, esta prueba pasa y el marcador "
-        "strict obliga a retirarlo."
-    ),
-)
 def test_AC_TKT003_07_integrity_error_no_registra_pii(cliente, logs_json):
     respuesta = cliente.post("/prueba/cuenta-duplicada", data="{}", content_type="application/json")
     assert respuesta.status_code == 500
