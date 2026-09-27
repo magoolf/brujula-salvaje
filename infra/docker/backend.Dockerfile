@@ -34,9 +34,36 @@ COPY . .
 RUN find /src -name '__pycache__' -type d -prune -exec rm -rf {} +  && rm -rf /src/.venv
 
 # ---------------------------------------------------------------------------
-# runtime: imagen mínima, uid 10001, sin compiladores ni gestor de paquetes de Python extra
+# python-min (TKT-OPS-005, DEC-AUTO-221): la imagen oficial de Python SIN pip. pip no se usa en
+# ejecución (las dependencias ya están en /opt/venv, resueltas por uv en el builder) y vendoriza
+# msgpack (GHSA-6v7p-g79w-8964) y declara setuptools 70.3.0 (CVE-2025-47273), ambas HIGH con parche.
+# Se borran pip, sus lanzadores y la rueda de ensurepip, y el sistema de archivos se APLANA en una
+# sola capa (FROM scratch + COPY /) para que sus bytes no queden en capas inferiores. La imagen
+# base no trae setuptools ni wheel (Python 3.13); /opt/venv (uv) tampoco trae pip.
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS runtime
+FROM ${PYTHON_IMAGE} AS python-sin-pip
+RUN set -eu; \
+    rm -rf /usr/local/lib/python3.13/site-packages/pip \
+           /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
+           /usr/local/lib/python3.13/ensurepip/_bundled \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.13 \
+           /root/.cache /tmp/*; \
+    for m in pip setuptools wheel; do \
+      if python -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('$m') else 1)"; then \
+        echo "queda $m en el runtime" >&2; exit 1; \
+      fi; \
+    done; \
+    python --version
+
+FROM scratch AS python-min
+COPY --from=python-sin-pip / /
+ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PYTHON_VERSION=3.13.15
+
+# ---------------------------------------------------------------------------
+# runtime: imagen mínima, uid 10001, sin compiladores ni gestor de paquetes de Python
+# ---------------------------------------------------------------------------
+FROM python-min AS runtime
 ARG APP_VERSION=0.0.0-dev
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="brujula-backend" \

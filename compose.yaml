@@ -28,6 +28,15 @@ x-hardening: &hardening
     driver: json-file
     options: {max-size: "10m", max-file: "5"}
 
+# Imagen de la BD (db e init-volumes): postgres:18.6-trixie fijada por digest en infra/db/Dockerfile,
+# sin gosu, gnupg ni perl completo (QA-OPS005-01, DEC-AUTO-226). Es la que se escanea en CI.
+# pull_policy: build en TODOS los servicios con build: las etiquetas brujula/* no existen en ningún
+# registro y, sin esto, compose intenta primero un pull de Docker Hub (un tercero podría publicar
+# ese nombre). Con build nunca hay pull; con --no-build y sin imagen local, falla (no descarga).
+x-db-build: &db-build
+  context: ./infra/db
+  dockerfile: Dockerfile
+
 x-backend-build: &backend-build
   context: ./backend
   dockerfile: ../infra/docker/backend.Dockerfile
@@ -68,10 +77,12 @@ x-backend-env: &backend-env
 services:
   # ---------------------------------------------------------------------------
   # Preparación de volúmenes (one-shot, idempotente): propietarios y permisos independientes
-  # del orden en que Docker cree los volúmenes (DEC-AUTO-149). Reutiliza la imagen fijada de la BD.
+  # del orden en que Docker cree los volúmenes (DEC-AUTO-149). Reutiliza la imagen de la BD (brujula/db).
   # ---------------------------------------------------------------------------
   init-volumes:
-    image: postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     user: "0:0"
     read_only: true
     security_opt: ["no-new-privileges:true"]
@@ -113,7 +124,9 @@ services:
   # PostgreSQL 18.6 — INFRA-DB-000 (infra/db/init), ADR-DB-001
   # ---------------------------------------------------------------------------
   db:
-    image: postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     user: "999:999"                     # postgres de la imagen; sin fase root ni gosu
     shm_size: 256mb
@@ -197,6 +210,7 @@ services:
       <<: *backend-build
       target: runtime
     image: brujula/backend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     restart: "no"
     command: ["python", "manage.py", "migrate", "--noinput"]
@@ -221,6 +235,7 @@ services:
       <<: *backend-build
       target: runtime
     image: brujula/backend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     environment:
       <<: *backend-env
@@ -229,6 +244,9 @@ services:
       OTEL_SERVICE_NAME: brujula-backend
       # Único emisor de X-Forwarded-* de confianza para gunicorn: la IP fija del proxy (DEC-AUTO-155)
       GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10
+      # Redes de proxy de confianza para la IP del cliente en Django (X-Forwarded-For solo si
+      # REMOTE_ADDR pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224): solo el proxy (.10/32)
+      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32
     volumes:
       - media:/var/lib/brujula/media
       - ops_libro:/var/lib/brujula/ops
@@ -261,6 +279,7 @@ services:
         APP_VERSION: ${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
         ANGULAR_PROJECT: brujula-salvaje
     image: brujula/frontend:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     environment:
       NODE_ENV: production
@@ -286,6 +305,7 @@ services:
       context: ./infra/proxy
       dockerfile: Dockerfile
     image: brujula/proxy:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     ports:
       - "127.0.0.1:${PROXY_HOST_PORT:-8080}:8080"
@@ -314,6 +334,7 @@ services:
       <<: *backend-build
       target: scheduler
     image: brujula/scheduler:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     environment:
       <<: *backend-env
@@ -342,6 +363,7 @@ services:
       additional_contexts:
         ops: ./scripts/ops
     image: brujula/backup:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
     <<: *hardening
     group_add: ["10001"]                # lee medios privados y el libro (dirs 0750, archivos 0640 del grupo app)
     environment:
