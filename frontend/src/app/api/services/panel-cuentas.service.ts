@@ -80,7 +80,7 @@ export class PanelCuentasService extends BaseService {
   /**
    * Alta de cuenta con contraseña temporal (se devuelve una sola vez).
    *
-   * Estado inicial PENDIENTE_ACTIVACION. Usuario duplicado → 409 duplicado. Audita CUENTA_CREAR (sin valores secretos). Idempotencia (DEC-AUTO-129): la respuesta no se persiste (AC-106). Repetir con una Idempotency-Key ya completada y la misma huella → 409 idempotencia_respuesta_no_reproducible con cabecera Location de la cuenta creada; el Administrador emite otra contraseña con POST /api/v1/panel/cuentas/{id}/restablecer-contrasena.
+   * Estado inicial PENDIENTE_ACTIVACION. Usuario duplicado → 409 duplicado. Audita CUENTA_CREAR (sin valores secretos). Idempotencia (DEC-AUTO-129; caso general en el parámetro IdempotencyKey, CHG-API-002): la respuesta no se persiste nunca (AC-106). Repetir con una Idempotency-Key ya completada y la misma huella → 409 idempotencia_respuesta_no_reproducible con cabecera Location de la cuenta creada; el Administrador emite otra contraseña con POST /api/v1/panel/cuentas/{id}/restablecer-contrasena.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelCrearCuenta()` instead.
@@ -95,7 +95,7 @@ export class PanelCuentasService extends BaseService {
   /**
    * Alta de cuenta con contraseña temporal (se devuelve una sola vez).
    *
-   * Estado inicial PENDIENTE_ACTIVACION. Usuario duplicado → 409 duplicado. Audita CUENTA_CREAR (sin valores secretos). Idempotencia (DEC-AUTO-129): la respuesta no se persiste (AC-106). Repetir con una Idempotency-Key ya completada y la misma huella → 409 idempotencia_respuesta_no_reproducible con cabecera Location de la cuenta creada; el Administrador emite otra contraseña con POST /api/v1/panel/cuentas/{id}/restablecer-contrasena.
+   * Estado inicial PENDIENTE_ACTIVACION. Usuario duplicado → 409 duplicado. Audita CUENTA_CREAR (sin valores secretos). Idempotencia (DEC-AUTO-129; caso general en el parámetro IdempotencyKey, CHG-API-002): la respuesta no se persiste nunca (AC-106). Repetir con una Idempotency-Key ya completada y la misma huella → 409 idempotencia_respuesta_no_reproducible con cabecera Location de la cuenta creada; el Administrador emite otra contraseña con POST /api/v1/panel/cuentas/{id}/restablecer-contrasena.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelCrearCuenta$Response()` instead.

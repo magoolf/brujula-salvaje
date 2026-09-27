@@ -8,13 +8,16 @@ import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
 import { MfaActivacionInicio } from '../../models/mfa-activacion-inicio';
+import { MfaActivacionInicioEntrada } from '../../models/mfa-activacion-inicio-entrada';
 
 export interface PanelIniciarActivacionMfa$Params {
+      body: MfaActivacionInicioEntrada
 }
 
-export function panelIniciarActivacionMfa(http: HttpClient, rootUrl: string, params?: PanelIniciarActivacionMfa$Params, context?: HttpContext): Observable<StrictHttpResponse<MfaActivacionInicio>> {
+export function panelIniciarActivacionMfa(http: HttpClient, rootUrl: string, params: PanelIniciarActivacionMfa$Params, context?: HttpContext): Observable<StrictHttpResponse<MfaActivacionInicio>> {
   const rb = new RequestBuilder(rootUrl, panelIniciarActivacionMfa.PATH, 'post');
   if (params) {
+    rb.body(params.body, 'application/json');
   }
 
   return http.request(

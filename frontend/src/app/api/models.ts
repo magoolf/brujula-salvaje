@@ -101,6 +101,7 @@ export type { Mes } from './models/mes';
 export type { Meses } from './models/meses';
 export type { MetadatosEditoriales } from './models/metadatos-editoriales';
 export type { MfaActivacionInicio } from './models/mfa-activacion-inicio';
+export type { MfaActivacionInicioEntrada } from './models/mfa-activacion-inicio-entrada';
 export type { MfaCodigoEntrada } from './models/mfa-codigo-entrada';
 export type { MfaDesactivacionEntrada } from './models/mfa-desactivacion-entrada';
 export type { MfaVerificacionEntrada } from './models/mfa-verificacion-entrada';

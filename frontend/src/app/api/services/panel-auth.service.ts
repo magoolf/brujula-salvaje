@@ -351,31 +351,31 @@ export class PanelAuthService extends BaseService {
   static readonly PanelIniciarActivacionMfaPath = '/api/v1/panel/auth/mfa/activacion';
 
   /**
-   * Iniciar activación TOTP (devuelve URI otpauth; el QR se genera en el cliente, sin terceros).
+   * Iniciar activación TOTP con reautenticación (devuelve URI otpauth; el QR se genera en el cliente, sin terceros).
    *
-   *
+   * Exige reautenticación con la contraseña actual de la cuenta (CHG-API-002, DEC-AUTO-215/218), también con paso pendiente CONFIGURAR_MFA: una sesión robada no puede vincular un segundo factor del atacante. Contraseña ausente, vacía o con formato inválido → 400 validacion con `errors.contrasena`. Contraseña incorrecta → 401 credenciales_invalidas (misma semántica y tiempo equivalente que el login, THREAT-018); NO cierra la sesión y el cliente NO debe tratar este 401 como sesión expirada (distinguir por `code`). Cada fallo cuenta en el contador por usuario normalizado de RULE-017 (5 fallos → 429 acceso_bloqueado_temporalmente con Retry-After) y se audita como LOGIN_FALLIDO. Solo con contraseña correcta se genera el secreto provisional; cualquier secreto provisional previo de la sesión se descarta. MFA ya activo → 409 transicion_invalida. El cuerpo nunca se registra (THREAT-020).
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelIniciarActivacionMfa()` instead.
    *
-   * This method doesn't expect any request body.
+   * This method sends `application/json` and handles request body of type `application/json`.
    */
-  panelIniciarActivacionMfa$Response(params?: PanelIniciarActivacionMfa$Params, context?: HttpContext): Promise<StrictHttpResponse<MfaActivacionInicio>> {
+  panelIniciarActivacionMfa$Response(params: PanelIniciarActivacionMfa$Params, context?: HttpContext): Promise<StrictHttpResponse<MfaActivacionInicio>> {
     const obs = panelIniciarActivacionMfa(this.http, this.rootUrl, params, context);
     return firstValueFrom(obs);
   }
 
   /**
-   * Iniciar activación TOTP (devuelve URI otpauth; el QR se genera en el cliente, sin terceros).
+   * Iniciar activación TOTP con reautenticación (devuelve URI otpauth; el QR se genera en el cliente, sin terceros).
    *
-   *
+   * Exige reautenticación con la contraseña actual de la cuenta (CHG-API-002, DEC-AUTO-215/218), también con paso pendiente CONFIGURAR_MFA: una sesión robada no puede vincular un segundo factor del atacante. Contraseña ausente, vacía o con formato inválido → 400 validacion con `errors.contrasena`. Contraseña incorrecta → 401 credenciales_invalidas (misma semántica y tiempo equivalente que el login, THREAT-018); NO cierra la sesión y el cliente NO debe tratar este 401 como sesión expirada (distinguir por `code`). Cada fallo cuenta en el contador por usuario normalizado de RULE-017 (5 fallos → 429 acceso_bloqueado_temporalmente con Retry-After) y se audita como LOGIN_FALLIDO. Solo con contraseña correcta se genera el secreto provisional; cualquier secreto provisional previo de la sesión se descarta. MFA ya activo → 409 transicion_invalida. El cuerpo nunca se registra (THREAT-020).
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelIniciarActivacionMfa$Response()` instead.
    *
-   * This method doesn't expect any request body.
+   * This method sends `application/json` and handles request body of type `application/json`.
    */
-  panelIniciarActivacionMfa(params?: PanelIniciarActivacionMfa$Params, context?: HttpContext): Promise<MfaActivacionInicio> {
+  panelIniciarActivacionMfa(params: PanelIniciarActivacionMfa$Params, context?: HttpContext): Promise<MfaActivacionInicio> {
     const resp = this.panelIniciarActivacionMfa$Response(params, context);
     return resp.then((r: StrictHttpResponse<MfaActivacionInicio>): MfaActivacionInicio => r.body);
   }
