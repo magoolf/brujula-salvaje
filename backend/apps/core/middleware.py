@@ -105,4 +105,8 @@ class RegistroPeticionMiddleware:
             duration_ms=duracion_ms,
             user_id=seudonimo_usuario(request),
         )
+        # OBS-01: esta línea (con trace_id) ya registra la respuesta. Django comprueba esta marca
+        # en django.utils.log.log_response y así no emite la línea duplicada de django.request,
+        # que se escribe fuera de TrazaMiddleware y por tanto sin trace_id.
+        response._has_been_logged = True  # type: ignore[attr-defined]
         return response

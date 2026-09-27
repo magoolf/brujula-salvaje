@@ -4,7 +4,7 @@
 |---|---|
 | Estado | PROPOSED (Autoridad Delegada, CLAUDE.md §0.2) |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) y TKT-F4-007 (CHG-API-002, §1, §5, §17, §18) |
+| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) , TKT-F4-007 (CHG-API-002, §1, §5, §17, §18) y TKT-F4-008 (CHG-API-003, §7, §19) |
 | Contrato | `contracts/openapi.yaml` (OpenAPI 3.1.0, 127 operaciones) |
 | Trazabilidad | Skill_Backend §7 (reglas 11-13), §12.1-§12.6; BLUEPRINT §9, §12, §15, §16, §18, §38, §39.3, §40; DB_HANDOFF (PostgreSQL 18.6, bigint identity, ADR-DB-002/003/005) |
 | DEC-AUTO | 100..119 y 216..219 (tablas finales). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles. DEC-AUTO-215 es una decisión del Orquestador (OBS-QA004-06) que este ADR aplica en §17 |
@@ -56,6 +56,7 @@ El Blueprint §38 enumera las operaciones públicas y del panel. Skill_Backend e
 
 ### 7. Texto enriquecido (DEC-AUTO-109)
 HTML de lista blanca (RULE-022) saneado **en el servidor al guardar**, con un saneador basado en allowlist. Solo se admiten enlaces http, https o rutas internas (RULE-021). Los términos de glosario se representan como `<a href="/glosario#{slug}" data-glosario="{slug}">`. El Frontend lo trata como HTML ya saneado, pero la CSP sin `unsafe-inline` sigue siendo la red de seguridad (THREAT-005).
+Longitud máxima: **100000 caracteres**, igual al `CHECK char_length <= 100000` de BD (DEC-AUTO-097). Ver §19 (CHG-API-003).
 
 ### 8. Medios (DEC-AUTO-110)
 - Subida `multipart/form-data` de 1 a 10 archivos, procesada de forma **síncrona** (sin broker, ADR-DB-005). Devuelve 200 con el resultado por archivo (ACEPTADO / RECHAZADO con motivo / DUPLICADO con `medio_existente_id`). Petición mayor de 105 MB → 413.
@@ -118,6 +119,62 @@ drf-spectacular genera componentes planos (sin `allOf` ni `unevaluatedProperties
 - Las URL cambian de `^https?://` a `^https?://[^\u0000]*$`. Los campos que ya tenían un patrón cerrado (slug, códigos, uuid, TOTP) no cambian, porque ya excluyen NUL.
 - La regla también figura como norma general en `info.description`. Si un campo de texto nuevo no lleva el patrón, la norma sigue aplicándose.
 - **Compatible hacia atrás:** esas peticiones ya recibían 400. El contrato solo documenta lo que el servidor ya hace.
+
+### 19. Longitud del texto enriquecido alineada con la BD (CHG-API-003 / TKT-F4-008, DEC-AUTO-903)
+- **Problema:** el contrato declaraba `maxLength: 200000` en el HTML enriquecido, pero DB_HANDOFF v1.2 (DEC-AUTO-097, ADR-DB-002 §6) define `CHECK char_length <= 100000` en esas columnas `text`, y el proxy (`infra/proxy/nginx.conf`) también asume ≤ 100.000. Una entrada de 100001 a 200000 caracteres cumplía el contrato y la BD la rechazaba: riesgo de 5xx en schemathesis y en TKT-006.
+- **Decisión (DEC-AUTO-903, del Orquestador):** el contrato baja a `maxLength: 100000` en los campos que superaban el CHECK de BD. Los campos que ya tenían un límite **menor** que la BD se mantienen.
+- **Campos cambiados (200000 → 100000; BD ≤ 100000):**
+
+| Esquema.campo | Columna BD | Operaciones afectadas |
+|---|---|---|
+| `TextoEnriquecido` (salida) | todas las de abajo | `publicoObtenerDestino`, `publicoObtenerItinerario`, `publicoObtenerTipoAventura`, `publicoObtenerGuia`, `publicoObtenerColeccion`, `publicoObtenerPaginaInstitucional` y los `datos` de las vistas previas |
+| `DestinoCampos.descripcion_experta`, `.como_llegar`, `.seguridad_riesgos`, `.sostenibilidad` | `destino.*` | `panelCrearDestino`, `panelActualizarDestino`, `panelVistaPreviaDestino` (entrada); `panelObtenerDestino` y respuestas `DestinoPanel` (salida) |
+| `ItinerarioCampos.riesgos_seguridad` | `itinerario.riesgos_seguridad` | `panelCrearItinerario`, `panelActualizarItinerario`, `panelVistaPreviaItinerario`; `panelObtenerItinerario` / `ItinerarioPanel` |
+| `GuiaCampos.cuerpo` | `guia.cuerpo` | `panelCrearGuia`, `panelActualizarGuia`, `panelVistaPreviaGuia`; `panelObtenerGuia` / `GuiaPanel` |
+| `TipoAventuraCampos.descripcion` | `tipo_aventura.descripcion` | `panelCrearTipoAventura`, `panelActualizarTipoAventura`, `panelVistaPreviaTipoAventura`; `panelObtenerTipoAventura` / `TipoAventuraPanel` |
+| `ColeccionCampos.descripcion` | `coleccion.descripcion` | `panelCrearColeccion`, `panelActualizarColeccion`, `panelVistaPreviaColeccion`; `panelObtenerColeccion` / `ColeccionPanel` |
+| `PaginaInstitucionalCampos.cuerpo` | `pagina_institucional.cuerpo` | `panelActualizarPaginaInstitucional`, `panelVistaPreviaPaginaInstitucional`; `panelObtenerPaginaInstitucional` / `PaginaInstitucionalPanel` |
+
+- **Campos que no cambian (límite del contrato menor que el de BD):** `DiaEntrada.actividades` y `DiaEntrada.consejos` (50000; BD ≤ 100000), `DestinoCampos.clima` (5000; BD `text` ≤ 100000), `ConfiguracionSitioCampos.texto_descargo` (5000; BD 1..100000). `DestinoDetalle.clima` y `ConfiguracionPublica.texto_descargo` (salida, 5000) tampoco cambian. El resto de textos largos son `varchar(n)` con el mismo n en el contrato.
+- **Longitud después del saneado:** el saneador puede alargar el texto (entidades como `&amp;`). El servicio comprueba el límite **sobre el HTML ya saneado** y, si lo supera, responde **400 `validacion`** en el campo. Nunca deja que el CHECK de BD produzca un 5xx. Queda escrito en la descripción de `TextoEnriquecido`.
+- **Compatibilidad:** para los clientes es compatible hacia atrás. La entrada es más restrictiva, pero ningún servidor implementa aún esas operaciones (TKT-006 pendiente) y ningún valor almacenable en BD supera el nuevo límite, así que la salida no cambia en la práctica. `oasdiff` puede marcar como *breaking* la reducción de `maxLength` en el cuerpo de la petición. Se acepta como excepción documentada (mismo criterio que §17): no se abre `/api/v2/` ni se emite `Deprecation`, y la versión `info.version` se mantiene en 1.0.0.
+
+- **Ampliación: nulabilidad alineada con la BD (DEC-AUTO-905, del Orquestador).** Se revisaron todos los campos nullable de los esquemas de entrada contra las columnas de DB_HANDOFF v1.2:
+
+| Esquema.campo | Antes | Después | Columna BD | Operaciones afectadas |
+|---|---|---|---|---|
+| `DiaEntrada.titulo` | `['string','null']`, opcional | `string`, **requerido**, `minLength: 1`, `maxLength: 150` | `dia_itinerario.titulo varchar(150) NOT NULL` | `panelCrearItinerario`, `panelActualizarItinerario`, `panelVistaPreviaItinerario` (array `dias`) |
+| `DiaEntrada.actividades` | `['string','null']`, opcional | `string`, **requerido**, `maxLength: 50000` (sin cambio) | `dia_itinerario.actividades text NOT NULL` | las mismas |
+
+  `DiaEntrada` es el único esquema de entrada de días (`ItinerarioCampos.dias`). Un día sin título ni actividades no se envía: el borrador guarda solo los días que ya tienen esos datos, y RULE-003 (días = duración) se sigue evaluando al publicar. `actividades` admite `""` en borrador porque la BD también lo admite. `DiaItinerario` (salida) ya los declaraba requeridos y no nullable.
+
+  **Nullable en el contrato con columna NOT NULL que no se cambian (el servidor da el valor):**
+  - `ContenidoComunCampos.slug` y `TerminoGlosarioCampos.slug` → `contenido.slug NOT NULL`. Si es null, el servicio propone el slug a partir del título antes de insertar (descripción del campo, RULE-008). No llega null a la BD.
+  - `IdOpcionalCampo.id` y `LoginEntrada.siguiente` no se persisten.
+
+  El resto de campos nullable de entrada (`DestinoCampos`, `ItinerarioCampos`, `GuiaCampos`, `TipoAventuraCampos`, `ColeccionCampos`, `ContenidoComunCampos.fecha_ultima_revision/seo_*`, `PaginaInstitucionalCampos.fecha_ultima_revision/seo_*`, `DiaEntrada.distancia_km/desniveles/alojamiento_orientativo/consejos`, `ChecklistEntrada.grupo`, `ElementoColeccionEntrada.nota_editorial`, `TerminoGlosarioCampos.definicion`, `FuenteEntrada.entidad_editora/url/fecha_consulta`, `MedioCatalogacionEntrada.*`, `ConfiguracionSitioCampos.lema/responsable_*`, `LicenciaCampos.url_texto_legal`) corresponde a columnas NULL. Sin cambios.
+
+- **Ampliación: otras restricciones en las que el contrato admitía lo que la BD rechaza.** Aplican el criterio de DEC-AUTO-903 (el contrato se ajusta a la BD). Las propone Backend y quedan **pendientes de que el Orquestador las ratifique**:
+
+| Esquema.campo | Antes | Después | Restricción BD | Operaciones afectadas |
+|---|---|---|---|---|
+| `FuenteEntrada.url` | maxLength 2000 | 500 | `fuente.url varchar(500)` | crear, actualizar y vista previa de destino, itinerario, guía, tipo de aventura y colección (`ContenidoComunCampos.fuentes`) |
+| `MedioCatalogacionEntrada.fuente_url` | 2000 | 500 | `medio.fuente_url varchar(500)` | `panelCatalogarMedio` |
+| `LicenciaCampos.url_texto_legal` | 2000 | 500 | `licencia.url_texto_legal varchar(500)` | `panelCrearLicencia`, `panelActualizarLicencia` (y la salida `Licencia`) |
+| `LicenciaCampos.codigo` | pattern `^[A-Za-z0-9.-]+$` | `^[A-Z0-9.-]+$` | `CHECK (codigo ~ '^[A-Z0-9.-]+$')` | `panelCrearLicencia`, `panelActualizarLicencia` |
+| `RegionCampos.slug` | `Slug` (maxLength 120) | en línea, maxLength 60 | `region.slug varchar(60)` | `panelCrearRegion`, `panelActualizarRegion` |
+| `PaisCampos.slug` | `Slug` (120) | en línea, maxLength 80 | `pais.slug varchar(80)` | `panelCrearPais`, `panelActualizarPais` |
+| `CategoriaGuiaCampos.slug` | `Slug` (120) | en línea, maxLength 80 | `categoria_guia.slug varchar(80)` | `panelCrearCategoriaGuia`, `panelActualizarCategoriaGuia` |
+| `UrlSegura` (esquema compartido, sin referencias actuales) | 2000 | 500 | `varchar(500)` de las URL | ninguna |
+
+  El parámetro de filtro por código de licencia (query del listado de medios) no se cambia: no se persiste.
+- **Compatibilidad de las ampliaciones:** todas son más restrictivas en la entrada. Las peticiones que ahora se rechazan con 400 ya fallaban en la BD (5xx), así que ningún cliente correcto se ve afectado. Se aplica la misma excepción documentada ante `oasdiff breaking`.
+
+## Registro DEC-AUTO-903 / DEC-AUTO-905 (CHG-API-003)
+| ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-905 | `DiaEntrada.titulo` (string, minLength 1, maxLength 150) y `DiaEntrada.actividades` (string) requeridos y no nullable, como las columnas NOT NULL de `dia_itinerario` | Hacer las columnas NULL en BD (CHG-DB); que el servicio convierta null en `""` | Contrato = BD; schemathesis deja de enviar null que la BD rechaza con 5xx; la salida `DiaItinerario` ya lo exigía | El editor no puede guardar un día vacío en borrador (el Frontend no envía días sin título) | Alta |
+| DEC-AUTO-903 | `maxLength: 100000` en `TextoEnriquecido` y en los 9 campos HTML de entrada que declaraban 200000; se mantienen los límites menores (50000, 5000); límite comprobado tras el saneado → 400 `validacion` | Subir el CHECK de BD a 200000 (migración + ADR-DB); dejar el contrato y traducir la violación del CHECK a 400 | Una sola fuente de verdad (DEC-AUTO-097); schemathesis deja de generar entradas que la BD rechaza; no toca la BD ya migrada ni nginx | Un texto enriquecido real de más de 100000 caracteres sería rechazado (improbable: ≫ el contenido experto previsto, ADR-DB-002 §6) | Alta (subir los dos límites a la vez con CHG coordinado API + BD) |
 
 ## Registro DEC-AUTO-216..219 (CHG-API-002)
 | ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
