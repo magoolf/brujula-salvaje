@@ -133,9 +133,7 @@ def test_AC_TKT005_06_pagina_institucional_no_se_borra_ni_en_borrador():
         contenido=pagina, clave="AVISO_LEGAL", cuerpo="<p>Texto</p>",
         version_documento="1.0", vigente_desde=date(2026, 9, 1),
     )  # fmt: skip
-    causa = _error_bd(
-        "DELETE FROM app.pagina_institucional WHERE contenido_id = %s", [pagina.pk]
-    )
+    causa = _error_bd("DELETE FROM app.pagina_institucional WHERE contenido_id = %s", [pagina.pk])
     assert causa.diag.constraint_name == "trg_subtipo_guarda_borrado"
 
 

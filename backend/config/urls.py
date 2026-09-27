@@ -1,7 +1,8 @@
 """Rutas raíz. Superficies (DEC-AUTO-100): /health/*, /api/v1/publico/**, /api/v1/panel/**.
 
-Panel de TKT-004: /api/v1/panel/auth/**, /api/v1/panel/cuentas/** y /api/v1/panel/auditoria.
-El resto de rutas /api/v1/** se añade en TKT-005/006. Los errores fuera de DRF también responden
+Público de TKT-005: /api/v1/publico/** (solo lectura, anónimo). Panel de TKT-004:
+/api/v1/panel/auth/**, /api/v1/panel/cuentas/** y /api/v1/panel/auditoria; el resto del panel
+se añade en TKT-006. Los errores fuera de DRF también responden
 application/problem+json (Skill_Backend §12.1).
 """
 
@@ -9,6 +10,7 @@ from django.urls import include, path
 
 urlpatterns = [
     path("", include("apps.core.api.urls")),
+    path("api/v1/publico/", include("apps.contenido.api.urls")),
     path("api/v1/panel/", include("apps.cuentas.api.urls")),
     path("api/v1/panel/", include("apps.auditoria.api.urls")),
 ]
