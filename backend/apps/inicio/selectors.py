@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.inicio.models import ID_SINGLETON, ConfigInicio, ConfigSitio, DestacadoInicio
-from apps.medios.selectors import prefetch_imagen
+from apps.medios.selectors import medios_publicos
 
 MARCA_POR_DEFECTO = "Brújula Salvaje"
 
@@ -20,13 +22,26 @@ def nombre_marca() -> str:
     return marca.first() or MARCA_POR_DEFECTO
 
 
-def config_inicio() -> ConfigInicio | None:
-    """Bloque principal; hero_medio queda en None si el medio no está DISPONIBLE (RULE-005)."""
+def hero_medio_id() -> int | None:
     return (
-        ConfigInicio.objects.filter(pk=ID_SINGLETON)
-        .prefetch_related(prefetch_imagen("hero_medio"))
-        .first()
+        ConfigInicio.objects.filter(pk=ID_SINGLETON).values_list("hero_medio_id", flat=True).first()
     )
+
+
+def hero() -> dict[str, Any] | None:
+    """Bloque principal del inicio; None si no está configurado o su medio no está DISPONIBLE
+    (RULE-005): el público nunca ve un medio sin licencia ni crédito."""
+    config = ConfigInicio.objects.filter(pk=ID_SINGLETON).first()
+    if config is None:
+        return None
+    medio = medios_publicos().filter(pk=config.hero_medio_id).first()
+    if medio is None:
+        return None
+    return {
+        "hero_titular": config.hero_titular,
+        "hero_subtitulo": config.hero_subtitulo,
+        "hero_medio": medio,
+    }
 
 
 def ids_destacados(seccion: str) -> list[int]:

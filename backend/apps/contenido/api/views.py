@@ -94,8 +94,7 @@ class Inicio(VistaPublica):
                 "guias": inicio.ids_destacados(SeccionInicio.GUIAS),
             }
         )
-        config = inicio.config_inicio()
-        datos["hero"] = config if config is not None and config.hero_medio is not None else None
+        datos["hero"] = inicio.hero()
         return Response(s.InicioSerializer(datos).data)
 
 
@@ -522,8 +521,7 @@ class Creditos(VistaPublica):
         responses=respuestas(s.PaginaCreditoMedioSerializer, con_404=True),
     )
     def get(self, request: Request) -> Response:
-        config = inicio.config_inicio()
-        hero_id = config.hero_medio_id if config is not None else None
+        hero_id = inicio.hero_medio_id()
         paginador = PaginacionNumerada()
         medios = paginador.paginate_queryset(
             selectors.ids_medios_en_uso(hero_id), request, view=self
