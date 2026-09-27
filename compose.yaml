@@ -28,6 +28,12 @@ x-hardening: &hardening
     driver: json-file
     options: {max-size: "10m", max-file: "5"}
 
+# Imagen de la BD (db e init-volumes): postgres:18.6-trixie fijada por digest en infra/db/Dockerfile,
+# sin gosu, gnupg ni perl completo (QA-OPS005-01, DEC-AUTO-226). Es la que se escanea en CI.
+x-db-build: &db-build
+  context: ./infra/db
+  dockerfile: Dockerfile
+
 x-backend-build: &backend-build
   context: ./backend
   dockerfile: ../infra/docker/backend.Dockerfile
@@ -68,10 +74,11 @@ x-backend-env: &backend-env
 services:
   # ---------------------------------------------------------------------------
   # Preparación de volúmenes (one-shot, idempotente): propietarios y permisos independientes
-  # del orden en que Docker cree los volúmenes (DEC-AUTO-149). Reutiliza la imagen fijada de la BD.
+  # del orden en que Docker cree los volúmenes (DEC-AUTO-149). Reutiliza la imagen de la BD (brujula/db).
   # ---------------------------------------------------------------------------
   init-volumes:
-    image: postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     user: "0:0"
     read_only: true
     security_opt: ["no-new-privileges:true"]
@@ -113,7 +120,8 @@ services:
   # PostgreSQL 18.6 — INFRA-DB-000 (infra/db/init), ADR-DB-001
   # ---------------------------------------------------------------------------
   db:
-    image: postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
     <<: *hardening
     user: "999:999"                     # postgres de la imagen; sin fase root ni gosu
     shm_size: 256mb
