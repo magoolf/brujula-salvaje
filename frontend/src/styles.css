@@ -1,0 +1,14 @@
+/* Estilos globales: tokens del Design System (generados) -> tema de Tailwind -> base -> primitivas. */
+@import './styles/tokens.css';
+@import './styles/fonts.css';
+@import 'tailwindcss';
+@import './styles/theme.css';
+@import './styles/base.css';
+@import './styles/componentes.css';
+@import '@angular/cdk/overlay-prebuilt.css';
+@import '@angular/cdk/a11y-prebuilt.css';
+
+/* Fondo de diálogos y cajones (overlay.backdrop, HANDOFF_UI_UX Dialog). */
+.bs-fondo-dialogo {
+  background: var(--bs-color-overlay-backdrop);
+}
