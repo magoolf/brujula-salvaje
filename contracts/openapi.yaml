@@ -3937,16 +3937,19 @@ components:
     TextoEnriquecido:
       type: string
       contentMediaType: text/html
-      maxLength: 200000
+      maxLength: 100000
       pattern: '^[^\u0000]*$'
       description: >-
         HTML de lista blanca saneado en el servidor al guardar (RULE-022, DEC-AUTO-043/109): p, h2-h4,
         ul, ol, li, strong, em, blockquote y a[href] con http, https o ruta interna (RULE-021); términos
         de glosario como `<a href="/glosario#{slug}" data-glosario="{slug}">`. Todo lo demás se elimina.
+        Longitud máxima 100000 caracteres, igual al CHECK char_length de BD (DEC-AUTO-097, CHG-API-003 /
+        DEC-AUTO-903). El límite se comprueba también sobre el HTML ya saneado: si el saneado lo
+        supera, el servidor responde 400 `validacion` en el campo, nunca 5xx.
     UrlSegura:
       type: string
       format: uri
-      maxLength: 2000
+      maxLength: 500
       pattern: '^https?://[^\u0000]*$'
       description: Solo http/https (RULE-021). Nunca se descarga desde el servidor (THREAT-022).
     EstadoEditorial:
@@ -4869,7 +4872,7 @@ components:
       properties:
         titulo: {type: string, minLength: 1, maxLength: 200, pattern: '^[^\u0000]*$'}
         entidad_editora: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
-        url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
+        url: {type: ['string', 'null'], format: uri, maxLength: 500, pattern: '^https?://[^\u0000]*$'}
         fecha_consulta: {type: ['string', 'null'], format: date}
     ContenidoComunCampos:
       type: object
@@ -4978,7 +4981,7 @@ components:
       properties:
         pais_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
-        descripcion_experta: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        descripcion_experta: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         tipos_ids:
           type: array
           maxItems: 12
@@ -4996,9 +4999,9 @@ components:
         nivel_presupuesto: {type: ['integer', 'null'], minimum: 1, maximum: 4}
         clima: {type: ['string', 'null'], maxLength: 5000, pattern: '^[^\u0000]*$'}
         altitud_max_m: {type: ['integer', 'null'], minimum: -500, maximum: 9000}
-        como_llegar: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
-        seguridad_riesgos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
-        sostenibilidad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        como_llegar: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
+        seguridad_riesgos: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
+        sostenibilidad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         latitud: {type: ['number', 'null'], minimum: -90, maximum: 90}
         longitud: {type: ['number', 'null'], minimum: -180, maximum: 180}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
@@ -5037,11 +5040,15 @@ components:
     DiaEntrada:
       type: object
       additionalProperties: false
-      required: [numero_dia]
+      description: >-
+        Día de itinerario. `titulo` y `actividades` son obligatorios y no admiten null porque las columnas
+        dia_itinerario.titulo (varchar(150)) y dia_itinerario.actividades (text) son NOT NULL en BD
+        (CHG-API-003 / DEC-AUTO-905). Un día que aún no tiene esos datos no se envía.
+      required: [numero_dia, titulo, actividades]
       properties:
         numero_dia: {type: integer, minimum: 1, maximum: 60}
-        titulo: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
-        actividades: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 50000, pattern: '^[^\u0000]*$'}
+        titulo: {type: string, minLength: 1, maxLength: 150, pattern: '^[^\u0000]*$'}
+        actividades: {type: string, contentMediaType: text/html, maxLength: 50000, pattern: '^[^\u0000]*$'}
         distancia_km: {type: ['number', 'null'], minimum: 0, maximum: 99999.9}
         desnivel_positivo_m: {type: ['integer', 'null'], minimum: 0, maximum: 20000}
         desnivel_negativo_m: {type: ['integer', 'null'], minimum: 0, maximum: 20000}
@@ -5061,7 +5068,7 @@ components:
           items: {$ref: '#/components/schemas/Id'}
         distancia_total_km: {type: ['number', 'null'], minimum: 0, maximum: 99999.9}
         desnivel_acumulado_m: {type: ['integer', 'null'], minimum: 0, maximum: 1000000}
-        riesgos_seguridad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        riesgos_seguridad: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         galeria_ids:
           type: array
@@ -5105,7 +5112,7 @@ components:
       properties:
         categoria_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
-        cuerpo: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        cuerpo: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         destinos_ids:
           type: array
           maxItems: 20
@@ -5161,7 +5168,7 @@ components:
       type: object
       properties:
         resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
-        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         nivel_exigencia: {type: ['integer', 'null'], minimum: 1, maximum: 5}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         orden: {type: integer, minimum: 0, maximum: 1000, default: 0}
@@ -5210,7 +5217,7 @@ components:
       type: object
       properties:
         resumen: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
-        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        descripcion: {type: ['string', 'null'], contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         portada_id: {type: ['integer', 'null'], format: int64, minimum: 1}
         elementos:
           type: array
@@ -5280,7 +5287,7 @@ components:
       type: object
       properties:
         titulo: {type: string, minLength: 1, maxLength: 150, pattern: '^[^\u0000]*$'}
-        cuerpo: {type: string, contentMediaType: text/html, maxLength: 200000, pattern: '^[^\u0000]*$'}
+        cuerpo: {type: string, contentMediaType: text/html, maxLength: 100000, pattern: '^[^\u0000]*$'}
         version_documento: {type: string, minLength: 1, maxLength: 20, pattern: '^[^\u0000]*$'}
         vigente_desde: {type: string, format: date}
         fecha_ultima_revision: {type: ['string', 'null'], format: date}
@@ -5430,7 +5437,7 @@ components:
         texto_alternativo: {type: ['string', 'null'], maxLength: 250, pattern: '^[^\u0000]*$'}
         pie_de_foto: {type: ['string', 'null'], maxLength: 300, pattern: '^[^\u0000]*$'}
         autor_credito: {type: ['string', 'null'], maxLength: 150, pattern: '^[^\u0000]*$'}
-        fuente_url: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
+        fuente_url: {type: ['string', 'null'], format: uri, maxLength: 500, pattern: '^https?://[^\u0000]*$'}
         licencia_id: {type: ['integer', 'null'], format: int64, minimum: 1}
     MedioPanel:
       type: object
@@ -5559,7 +5566,7 @@ components:
       type: object
       properties:
         nombre: {type: string, minLength: 1, maxLength: 60, pattern: '^[^\u0000]*$'}
-        slug: {$ref: '#/components/schemas/Slug'}
+        slug: {type: string, minLength: 1, maxLength: 60, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', description: 'region.slug es varchar(60) en BD (CHG-API-003).'}
         continente: {$ref: '#/components/schemas/Continente'}
         orden: {type: integer, minimum: 0, maximum: 1000}
         activo: {type: boolean}
@@ -5579,7 +5586,7 @@ components:
       type: object
       properties:
         nombre: {type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000]*$'}
-        slug: {$ref: '#/components/schemas/Slug'}
+        slug: {type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', description: 'pais.slug es varchar(80) en BD (CHG-API-003).'}
         codigo_iso2: {type: string, pattern: '^[A-Z]{2}$'}
         region_id: {$ref: '#/components/schemas/Id'}
         activo: {type: boolean}
@@ -5599,7 +5606,7 @@ components:
       type: object
       properties:
         nombre: {type: string, minLength: 1, maxLength: 80, pattern: '^[^\u0000]*$'}
-        slug: {$ref: '#/components/schemas/Slug'}
+        slug: {type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', description: 'categoria_guia.slug es varchar(80) en BD (CHG-API-003).'}
         descripcion: {type: string, minLength: 1, maxLength: 400, pattern: '^[^\u0000]*$'}
         orden: {type: integer, minimum: 0, maximum: 1000}
         activo: {type: boolean}
@@ -5618,9 +5625,9 @@ components:
     LicenciaCampos:
       type: object
       properties:
-        codigo: {type: string, minLength: 1, maxLength: 40, pattern: '^[A-Za-z0-9.-]+$'}
+        codigo: {type: string, minLength: 1, maxLength: 40, pattern: '^[A-Z0-9.-]+$'}
         nombre: {type: string, minLength: 1, maxLength: 120, pattern: '^[^\u0000]*$'}
-        url_texto_legal: {type: ['string', 'null'], format: uri, maxLength: 2000, pattern: '^https?://[^\u0000]*$'}
+        url_texto_legal: {type: ['string', 'null'], format: uri, maxLength: 500, pattern: '^https?://[^\u0000]*$'}
         requiere_atribucion: {type: boolean}
         compatible_publicacion: {type: boolean}
         activo: {type: boolean}
