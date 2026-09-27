@@ -3,7 +3,7 @@
 
 
 /**
- * HTML de lista blanca saneado en el servidor al guardar (RULE-022, DEC-AUTO-043/109): p, h2-h4, ul, ol, li, strong, em, blockquote y a[href] con http, https o ruta interna (RULE-021); términos de glosario como `<a href="/glosario#{slug}" data-glosario="{slug}">`. Todo lo demás se elimina.
+ * HTML de lista blanca saneado en el servidor al guardar (RULE-022, DEC-AUTO-043/109): p, h2-h4, ul, ol, li, strong, em, blockquote y a[href] con http, https o ruta interna (RULE-021); términos de glosario como `<a href="/glosario#{slug}" data-glosario="{slug}">`. Todo lo demás se elimina. Longitud máxima 100000 caracteres, igual al CHECK char_length de BD (DEC-AUTO-097, CHG-API-003 / DEC-AUTO-903). El límite se comprueba también sobre el HTML ya saneado: si el saneado lo supera, el servidor responde 400 `validacion` en el campo, nunca 5xx.
  */
 export type TextoEnriquecido = string;
 
