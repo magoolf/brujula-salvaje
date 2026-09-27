@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Error del servidor — Brújula Salvaje</title>
+    <!-- SCR-025 estático: sin datos ni JavaScript (BLUEPRINT SCR-025). Lo sirve src/server.ts cuando el renderizado falla. -->
+    <style>
+      body { margin: 0; background: #fbf8f3; color: #1b2421; font-family: system-ui, sans-serif; line-height: 1.6; }
+      header, footer { padding: 1rem; }
+      header { border-bottom: 1px solid #e6ded1; }
+      header a { color: #1f5c45; font-weight: 800; font-size: 1.25rem; text-decoration: none; }
+      main { max-width: 40rem; margin: 0 auto; padding: 3rem 1rem; text-align: center; }
+      h1 { font-size: 2rem; line-height: 1.1; margin: 1.5rem 0 1rem; }
+      .acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 1.5rem; }
+      .acciones a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.25rem; border-radius: 8px; border: 2px solid #1f5c45; font-weight: 600; text-decoration: none; }
+      .primario { background: #1f5c45; color: #fff; }
+      .secundario { background: #fff; color: #1f5c45; }
+      a:focus-visible { outline: 3px solid #1d5e7a; outline-offset: 2px; }
+      footer { background: #1b2421; color: #fbf8f3; }
+      footer a { color: #fbf8f3; }
+    </style>
+  </head>
+  <body>
+    <header><a href="/">Brújula Salvaje</a></header>
+    <main id="contenido-principal">
+      <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true" focusable="false">
+        <circle cx="60" cy="60" r="54" fill="#e3efe8" stroke="#1f5c45" stroke-width="3" />
+        <circle cx="60" cy="60" r="44" fill="#fff" stroke="#e6ded1" stroke-width="2" />
+        <path d="M60 22 68 60 60 98 52 60Z" fill="#55615b" />
+        <path d="M60 22 68 60H52Z" fill="#c2410c" />
+        <circle cx="60" cy="60" r="5" fill="#1b2421" />
+      </svg>
+      <h1>Tuvimos un problema de nuestro lado</h1>
+      <p>No es tu culpa. Vuelve a intentarlo en unos segundos.</p>
+      <div class="acciones">
+        <a class="primario" href="">Reintentar</a>
+        <a class="secundario" href="/">Ir al inicio</a>
+      </div>
+    </main>
+    <footer><a href="/mapa-del-sitio">Mapa del sitio</a></footer>
+  </body>
+</html>

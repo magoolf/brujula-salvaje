@@ -1,0 +1,8 @@
+/* Tipado de las pruebas E2E (Playwright) y su configuración. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+}
