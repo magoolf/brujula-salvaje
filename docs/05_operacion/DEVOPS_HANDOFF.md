@@ -1533,3 +1533,103 @@ PostgreSQL 18.6 desechable (misma imagen y digest que `infra/db`, 256 MiB) con l
 1. Enviar a QA la rama `tkt-ops-006-mejoras`.
 2. Registrar DEC-AUTO-250 a DEC-AUTO-255 y RSK-OPS-031/032, y cerrar RSK-OPS-021.
 3. Emitir el ticket del Developer `vigilar_cache_limites` (RSK-OPS-032).
+
+### 19.13 Ciclo 2 (QA_VERDICT FAIL, ciclo_qa 1/3): política de trivy con parser YAML, OBS-1/3/4/5
+
+**Estado:** COMPLETADO, pendiente de re-QA. En el ciclo 1 pasaron el gate, el 405, Dependabot, el SQL y el CI. Esta sección sustituye a §19.3.3 en lo que difiera.
+
+#### 19.13.1 Correcciones
+| Hallazgo | Corrección |
+|---|---|
+| **QA-OPS006-01** (MEDIUM, regresión): el `sed` unía un COMENTARIO que acaba en `\` con la línea siguiente y ocultaba la invocación real | La política es ahora `infra/ci/politica_trivy.py`, y `politica_trivy.sh` queda como envoltorio. Recorre cada cadena como shell, carácter a carácter y respetando comillas y escapes. Cuando encuentra un comentario (`#` al principio de una palabra), lo quita y **no** une la línea siguiente, igual que bash. Además, las opciones prohibidas se buscan en las líneas **físicas** y en las **lógicas**, así que unir nunca puede ocultar nada. Las opciones obligatorias (severidad, `--exit-code` del gate) se exigen sobre la línea lógica completa (DEC-AUTO-256) |
+| **QA-OPS006-02** (LOW): escalares YAML `run: >` (folded) y planos multilínea | Los workflows se cargan con **PyYAML** y se analizan los valores **resueltos** de **todas** las cadenas (`run:`, `with:`, `env:`…). Un folded o plano que YAML junta en un solo comando se analiza junto. Los comentarios YAML desaparecen. Un workflow con YAML no válido hace fallar la política |
+| **OBS-3** | Falla ante: <br>- `--severity`/`-s`/`--severity=` que no sea exactamente `CRITICAL,HIGH`, aunque haya varias (la 2.ª anula la 1.ª); <br>- `--ignorefile` distinto de `.trivyignore`; <br>- `--exit-code 0`; <br>- una invocación con `--ignorefile` (el gate) sin `--exit-code` distinto de 0; <br>- `uses: aquasecurity/trivy-action` o `setup-trivy`; <br>- la imagen `aquasec/trivy`; <br>- un `with:` con `ignore-unfixed`/`trivyignores`/`severity`/`trivy-config`/`skip-*`; <br>- claves `env:` `TRIVY_*` de configuración. <br>Exige al menos un gate (`--ignorefile .trivyignore --exit-code 1`) en los workflows. Reconoce `trivy` con ruta absoluta (`/usr/local/bin/trivy`), flags globales antes del subcomando (`trivy -q image`) y tabuladores. También revisa los `*.sh` del repositorio (salvo el fichero de controles) |
+| Consecuencia de OBS-3 en el CI | El control negativo "`.trivyignore` caducado" ya no puede usar `--ignorefile /tmp/trivyignore-caducado`. Ahora escribe `/tmp/neg/.trivyignore` y ejecuta `(cd /tmp/neg && trivy … --ignorefile .trivyignore --exit-code 1 …)`. Mismo efecto |
+| Ubicación en el CI | La política y sus controles pasan del job `images` al job **`infra`**: se ejecutan siempre y antes (fail-fast). PyYAML `${PYYAML_VERSION}` = 6.0.3 se instala en un venv efímero en `$RUNNER_TEMP` y la política lo usa mediante `$PYTHON` |
+| **OBS-4** | La cobertura de Dependabot pasa a `infra/ci/dependabot_cobertura.sh`, con controles en `dependabot_cobertura_controles.sh` (DEC-AUTO-257): <br>- `FROM` sin distinguir mayúsculas (`from ${IMG}`); <br>- nombres `Dockerfile`, `*.Dockerfile`, `Dockerfile.*`, `Containerfile`, `*.Containerfile` y `Containerfile.*`, sin distinguir mayúsculas (`app.dockerfile`) |
+| **OBS-5** | `\set ON_ERROR_STOP on` dentro de `infra/ops/cache_limites_tamano.sql`: la alerta sale con código ≠ 0 aunque no se pase `-v ON_ERROR_STOP=1` |
+| **OBS-1** (y lo que se encontró con `qa_gate2.py`) | Nuevos errores de clase N14 en el gate: <br>- N14h: `{type: object}` sin `properties` ni `additionalProperties` donde el contrato tiene estructura; <br>- N14i: `{type: array}` sin `items` donde el contrato tiene `items`; <br>- N14f/g: rama de `oneOf`/`anyOf` sin tipo (`{}` o solo descriptiva) donde el contrato está tipado (Q-N6/Q-N7 de QA daban rc 0) |
+
+**Nota sobre los casos Q1, Q2 y Q5 del arnés `qa_trivy.sh` de QA.** Esos fixtures están escritos entre comillas dobles con una sola `\` antes del salto de línea. Dentro de comillas dobles, bash **elimina** `\` + salto, así que el fichero generado no contiene la continuación:
+- Q1 queda como una sola línea: `# nota trivy image … --ignore-unfixed img`. Es un comentario completo, y en bash no ejecuta nada.
+- Q2 queda como `echo a # ver trivy image …`, igualmente dentro de un comentario.
+
+Con esos ficheros, la política da rc 0, que es la semántica correcta de shell y la misma que QA exige en Q7 (comentario al final de la línea con la opción prohibida → 0). Los casos que QA pretendía (comentario terminado en `\` seguido de la invocación real en la línea siguiente) están en `politica_trivy_controles.sh`, escritos con `\\`, y fallan como deben: Q1, Q2 → rc 1. Es la trampa que avisa la cabecera del script de controles.
+
+#### 19.13.2 Validaciones (2026-09-28)
+- **`politica_trivy_controles.sh`**: **39/39**. Se mantienen los 18 casos anteriores (P0-P2, S1-S6, M1-M9) y se añaden 21:
+  - Q1: comentario terminado en `\` seguido de la invocación con `--ignore-unfixed` → 1.
+  - Q2: `echo a # ver \` seguido de `--config` → 1.
+  - Q3: `run: >` → 1.
+  - Q4: escalar plano multilínea → 1.
+  - Q7: opción en un comentario al final de la línea → 0.
+  - Q8: comentario terminado en `\` seguido de una línea inocua → 0.
+  - Q9: segunda `--severity` → 1.
+  - Q10: `-s LOW` → 1.
+  - Q10b: `--severity=LOW` → 1.
+  - Q11: `--ignorefile /tmp/otro` → 1.
+  - Q12: `--exit-code 0` → 1.
+  - Q12b: gate sin `--exit-code` → 1.
+  - Q13: `trivy-action` → 1.
+  - Q13b: `aquasec/trivy` → 1.
+  - Q13c: `env: TRIVY_IGNORE_UNFIXED` → 1.
+  - Q14: `\` seguida de espacio (no continúa) → 0.
+  - Q15: tabulador y continuación con `--vex` → 1.
+  - Q16: `trivy -q image` → 1.
+  - Q17: `/usr/local/bin/trivy` → 1.
+  - Q18: `*.sh` del repositorio con continuación → 1.
+  - Q19: YAML no válido → 1.
+
+  Todos los negativos fallan por su regla (mensaje `::error::` comprobado). Sobre el repositorio real: "política de trivy OK; invocaciones: 3; gates: 2; excepciones: 16".
+- **`qa_trivy.sh` de QA con la política nueva**: Q3-Q15 dan el resultado esperado. Q1 y Q2 dan rc 0 porque sus ficheros no contienen continuación (ver la nota de §19.13.1).
+- **`dependabot_cobertura_controles.sh`**: **11/11**:
+  - P0: repositorio → 0.
+  - P1: `Dockerfile.dev` en un directorio listado → 0.
+  - N1: falta `/infra/db` → 1.
+  - N2: `FROM ${X}` → 1.
+  - N3: directorio no listado → 1.
+  - N4: `--platform` con variable → 1.
+  - N5: `FROM $IMG` → 1.
+  - N6: `from ${IMG}` → 1.
+  - N7: `Containerfile` → 1.
+  - N8: `app.dockerfile` → 1.
+  - N9: `Containerfile.dev` con variable → 1.
+- **Gate**:
+  - `gate_contrato_controles.py`: **27/27**, con los nuevos N14f-i.
+  - `qa_gate2.py` de QA: **20/20** (antes fallaban Q-N6, Q-N7, Q-N12 y Q-N13).
+  - Esquema real generado (50 operaciones implementadas frente al contrato): 0 errores.
+- **SQL**: PostgreSQL 18.6 desechable, **sin** `-v ON_ERROR_STOP=1`:
+  - con `max_filas=10` → rc 3;
+  - con los umbrales por defecto → rc 0.
+- **Estilo y validación**:
+  - `ruff check`/`format` (configuración del backend) sobre `infra/ci/`: OK.
+  - `shellcheck v0.10.0` sobre los 4 `.sh`: 0 avisos.
+  - `actionlint 1.7.7` sobre `ci.yaml`: 0 errores. En la primera pasada detectó un paréntesis sin cerrar en el control negativo, que se corrigió.
+  - `check-jsonschema vendor.github-workflows`: OK.
+- **CI**: run de GitHub Actions, SHA y URL en el `HANDOFF_ENVELOPE`.
+
+#### 19.13.3 Riesgos
+| ID | Riesgo | Sev. | Mitigación | Estado |
+|---|---|---|---|---|
+| RSK-OPS-033 | La política cubre workflows (todas las cadenas) y `*.sh`. Una invocación de trivy desde otro lenguaje (Python `subprocess`, Makefile) o con argumentos construidos en variables (`trivy $ARGS`) no se analiza | LOW | Hoy no existe ninguno de esos casos. La revisión de QA de cada cambio en el CI sigue siendo la barrera | ACEPTADO (documentado) |
+| RSK-OPS-034 | Con `cd <dir> && trivy --ignorefile .trivyignore`, se puede usar un `.trivyignore` de otro directorio (es lo que hace el control negativo) | LOW | Solo en el paso de control negativo, que exige que trivy FALLE. Un uso así en otro sitio es visible en revisión | ACEPTADO |
+| RSK-OPS-035 | PyYAML se instala en el CI con la versión fijada (6.0.3), pero sin hash | LOW | Venv efímero, sin privilegios, solo para leer YAML del propio repositorio | ACEPTADO |
+
+#### 19.13.4 Archivos (ciclo 2)
+- `infra/ci/politica_trivy.py` (nuevo)
+- `infra/ci/politica_trivy.sh` (ahora envoltorio)
+- `infra/ci/politica_trivy_controles.sh`
+- `infra/ci/dependabot_cobertura.sh` (nuevo)
+- `infra/ci/dependabot_cobertura_controles.sh` (nuevo)
+- `infra/ci/gate_contrato.py`
+- `infra/ci/gate_contrato_controles.py`
+- `infra/ops/cache_limites_tamano.sql`
+- `.github/workflows/ci.yaml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+#### 19.13.5 Próximo agente
+**Orquestador**, que debe:
+1. Enviar a re-QA la rama `tkt-ops-006-mejoras` (ciclo 2/3).
+2. Registrar DEC-AUTO-256 y DEC-AUTO-257.
+3. Registrar RSK-OPS-033 a RSK-OPS-035.
+4. Registrar la nota sobre los fixtures Q1, Q2 y Q5 del arnés de QA.

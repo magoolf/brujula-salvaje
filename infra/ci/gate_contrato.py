@@ -54,7 +54,9 @@ def norm(p: str) -> str:
     return re.sub(r"\{[^}]+\}", "{}", p)
 
 
-def operaciones(doc: dict[str, Any]) -> dict[tuple[str, str], tuple[str, dict[str, Any]]]:
+def operaciones(
+    doc: dict[str, Any],
+) -> dict[tuple[str, str], tuple[str, dict[str, Any]]]:
     return {
         (norm(p), m.lower()): (p, op)
         for p, item in (doc.get("paths") or {}).items()
@@ -120,6 +122,14 @@ def sin_tipo(doc: dict[str, Any], esquema: Any) -> bool:
     return all(k in DESCRIPTIVAS or str(k).startswith("x-") for k in esquema)
 
 
+def es_array(doc: dict[str, Any], esquema: Any) -> bool:
+    esquema = resolver(doc, esquema)
+    if not isinstance(esquema, dict):
+        return False
+    t = esquema.get("type")
+    return t == "array" or (isinstance(t, list) and "array" in t)
+
+
 def forma(
     doc: dict[str, Any], esquema: Any, en_curso: frozenset[int] = frozenset()
 ) -> dict[str, Any]:
@@ -127,7 +137,13 @@ def forma(
     si admite propiedades adicionales, sus esquemas (mapas) y el esquema de items (arrays).
     "en_curso" corta los ciclos de allOf/oneOf/anyOf autorreferenciados (DEC-AUTO-250)."""
     esquema = resolver(doc, esquema)
-    f: dict[str, Any] = {"props": {}, "abierto": False, "ap": [], "items": [], "objeto": False}
+    f: dict[str, Any] = {
+        "props": {},
+        "abierto": False,
+        "ap": [],
+        "items": [],
+        "objeto": False,
+    }
     if not isinstance(esquema, dict) or id(esquema) in en_curso:
         return f
     en_curso = en_curso | {id(esquema)}
@@ -173,7 +189,25 @@ def comparar(dc, sc, dg, sg, donde: str, visitados: set[tuple[int, int]] | None 
     if sin_tipo(dg, rg) and not sin_tipo(dc, rc):
         errores.append(f"esquema SIN TIPO en la implementación donde el contrato lo tipa: {donde}")
         return
+    # N14 (ramas): una rama oneOf/anyOf de lo generado sin tipo acepta cualquier valor.
+    if isinstance(rg, dict) and not sin_tipo(dc, rc):
+        for clave in ("oneOf", "anyOf"):
+            if any(sin_tipo(dg, rama) for rama in rg.get(clave) or []):
+                errores.append(
+                    f"rama {clave} SIN TIPO en la implementación donde el contrato lo tipa: {donde}"
+                )
+                return
     fc, fg = forma(dc, rc), forma(dg, rg)
+    # N14 (estructura vacía, TKT-OPS-006 ciclo 2): {type: object} sin properties ni
+    # additionalProperties, o {type: array} sin items, frente a un contrato con estructura.
+    if fg["objeto"] and not fg["props"] and not fg["ap"] and (fc["props"] or fc["ap"]):
+        errores.append(
+            f"objeto SIN ESTRUCTURA en la implementación y con ella en el contrato: {donde}"
+        )
+        return
+    if es_array(dg, rg) and not fg["items"] and fc["items"]:
+        errores.append(f"array SIN items en la implementación y con items en el contrato: {donde}")
+        return
     cerrado_c = fc["objeto"] and not fc["abierto"]
     if fg["props"] and cerrado_c:
         for nombre in sorted(set(fg["props"]) - set(fc["props"])):
@@ -224,7 +258,13 @@ def main() -> int:
                 if mt not in rc[ref_c]:
                     errores.append(f"media type NO documentado: {etiqueta} -> {codigo} {mt}")
                     continue
-                comparar(contrato, rc[ref_c][mt], generado, esquema_g, f"{etiqueta} {codigo} {mt}")
+                comparar(
+                    contrato,
+                    rc[ref_c][mt],
+                    generado,
+                    esquema_g,
+                    f"{etiqueta} {codigo} {mt}",
+                )
 
     # Contrato filtrado por OPERACIÓN: solo las operaciones implementadas (con su ruta tal cual
     # está en el contrato, conservando parámetros y claves comunes del path item).

@@ -71,7 +71,10 @@ def base() -> Doc:
                 },
                 "Pagina": {
                     "allOf": [
-                        {"type": "object", "properties": {"total": {"type": "integer"}}},
+                        {
+                            "type": "object",
+                            "properties": {"total": {"type": "integer"}},
+                        },
                         {
                             "type": "object",
                             "properties": {"resultados": {"type": "array", "items": ref("Obj")}},
@@ -84,7 +87,10 @@ def base() -> Doc:
                         "code": {"type": "string"},
                         "errors": {
                             "type": "object",
-                            "additionalProperties": {"type": "array", "items": {"type": "string"}},
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
                         },
                     },
                 },
@@ -116,7 +122,10 @@ NODO_ANY: Doc = {
         {"type": "object", "properties": {"a": ref("Nodo"), "b": ref("Nodo")}},
     ]
 }
-MUTUO_A: Doc = {"type": "object", "properties": {"x": ref("B"), "y": ref("B"), "z": ref("B")}}
+MUTUO_A: Doc = {
+    "type": "object",
+    "properties": {"x": ref("B"), "y": ref("B"), "z": ref("B")},
+}
 MUTUO_B: Doc = {
     "type": "object",
     "properties": {
@@ -195,7 +204,11 @@ CASOS: list[tuple[str, Callable[[Doc, Doc], None] | None, int]] = [
     ("N1 operación no documentada", con(_ruta_extra), 1),
     ("N3 200 -> 201", con(_codigo_201), 1),
     ("N8 media type cambia", con(_media_html), 1),
-    ("N10 propiedad extra", con(_set("Obj", "properties", "extra", valor={"type": "string"})), 1),
+    (
+        "N10 propiedad extra",
+        con(_set("Obj", "properties", "extra", valor={"type": "string"})),
+        1,
+    ),
     (
         "N13a additionalProperties {} vs cerrado",
         con(_set("Obj", "additionalProperties", valor={})),
@@ -211,10 +224,21 @@ CASOS: list[tuple[str, Callable[[Doc, Doc], None] | None, int]] = [
         con(_set("Obj", "additionalProperties", valor={"type": "string"})),
         1,
     ),
-    ("N14a propiedad {} vs tipada", con(_set("Obj", "properties", "etiqueta", valor={})), 1),
+    (
+        "N14a propiedad {} vs tipada",
+        con(_set("Obj", "properties", "etiqueta", valor={})),
+        1,
+    ),
     (
         "N14b propiedad solo descriptiva vs tipada",
-        con(_set("Obj", "properties", "etiqueta", valor={"description": "x", "readOnly": True})),
+        con(
+            _set(
+                "Obj",
+                "properties",
+                "etiqueta",
+                valor={"description": "x", "readOnly": True},
+            )
+        ),
         1,
     ),
     (
@@ -233,6 +257,49 @@ CASOS: list[tuple[str, Callable[[Doc, Doc], None] | None, int]] = [
         1,
     ),
     (
+        "N14f rama oneOf {} vs tipada",
+        con(
+            _set(
+                "Obj",
+                "properties",
+                "etiqueta",
+                valor={"oneOf": [{"type": "string"}, {}]},
+            )
+        ),
+        1,
+    ),
+    (
+        "N14g rama anyOf solo descriptiva vs tipada",
+        con(
+            _set(
+                "Obj",
+                "properties",
+                "etiqueta",
+                valor={"anyOf": [{"type": "string"}, {"description": "x"}]},
+            )
+        ),
+        1,
+    ),
+    (
+        "N14h {type: object} sin properties vs estructura",
+        con(_set("Obj", "properties", "nodo", valor={"type": "object"})),
+        1,
+    ),
+    (
+        "N14i {type: array} sin items vs items",
+        con(
+            _set(
+                "Pagina",
+                "allOf",
+                1,
+                "properties",
+                "resultados",
+                valor={"type": "array"},
+            )
+        ),
+        1,
+    ),
+    (
         "P1 solo cambia description",
         con(_set("Obj", "properties", "etiqueta", "description", valor="nueva")),
         0,
@@ -240,7 +307,8 @@ CASOS: list[tuple[str, Callable[[Doc, Doc], None] | None, int]] = [
     (
         "P2 contrato sin tipo, implementación tipada",
         con(
-            _set("Obj", "properties", "etiqueta", valor={"description": "libre"}), en_contrato=True
+            _set("Obj", "properties", "etiqueta", valor={"description": "libre"}),
+            en_contrato=True,
         ),
         0,
     ),
@@ -255,10 +323,22 @@ CASOS: list[tuple[str, Callable[[Doc, Doc], None] | None, int]] = [
     ("A1 autorreferenciado idéntico", recursivo(NODO, NODO), 0),
     ("A2 autorreferenciado + propiedad extra", recursivo(NODO, _nodo_extra()), 1),
     ("A3 anyOf autorreferenciado idéntico", recursivo(NODO_ANY, NODO_ANY), 0),
-    ("A4 anyOf autorreferenciado + objeto abierto", recursivo(NODO_ANY, _any_abierto()), 1),
+    (
+        "A4 anyOf autorreferenciado + objeto abierto",
+        recursivo(NODO_ANY, _any_abierto()),
+        1,
+    ),
     ("A5 recursión mutua idéntica", recursivo(MUTUO_A, MUTUO_A, MUTUO_B, MUTUO_B), 0),
-    ("A6 recursión mutua + objeto abierto", recursivo(MUTUO_A, MUTUO_A, MUTUO_B, _b_abierto()), 1),
-    ("A7 recursión mutua + items {}", recursivo(MUTUO_A, MUTUO_A, MUTUO_B, _b_items_libres()), 1),
+    (
+        "A6 recursión mutua + objeto abierto",
+        recursivo(MUTUO_A, MUTUO_A, MUTUO_B, _b_abierto()),
+        1,
+    ),
+    (
+        "A7 recursión mutua + items {}",
+        recursivo(MUTUO_A, MUTUO_A, MUTUO_B, _b_items_libres()),
+        1,
+    ),
 ]
 
 
@@ -289,7 +369,10 @@ def main() -> int:
                     check=False,
                 )
                 rc: int | str = p.returncode
-                err = next((x[9:] for x in p.stdout.splitlines() if x.startswith("::error::")), "")
+                err = next(
+                    (x[9:] for x in p.stdout.splitlines() if x.startswith("::error::")),
+                    "",
+                )
             except subprocess.TimeoutExpired:
                 rc, err = "TIMEOUT", ""
             ok = rc == esperado

@@ -14,6 +14,9 @@
 -- pg_class.reltuples (-1 = nunca analizada); el tamaño en bytes no necesita privilegios.
 -- Programado: ver docs/05_operacion/DEVOPS_HANDOFF.md §19 (comando de gestión del scheduler).
 -- =============================================================================
+-- OBS-5 (TKT-OPS-006 ciclo 2): el propio script activa ON_ERROR_STOP; la alerta sale con exit != 0
+-- aunque se invoque sin -v ON_ERROR_STOP=1.
+\set ON_ERROR_STOP on
 \if :{?max_filas}
 \else
   \set max_filas 50000

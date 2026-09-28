@@ -43,6 +43,7 @@ env:
   BANDIT_VERSION: "1.9.4"
   PIP_AUDIT_VERSION: "2.10.1"
   SCHEMATHESIS_VERSION: "4.28.0"
+  PYYAML_VERSION: "6.0.3"
   DB_CI_HOST_PORT: "5432"
 
 jobs:
@@ -81,19 +82,28 @@ jobs:
       # RSK-OPS-025 (TKT-OPS-006, DEC-AUTO-254): todo Dockerfile del repositorio está en el ecosistema
       # "docker" de .github/dependabot.yml y sus FROM de imágenes externas son literales (Dependabot
       # no resuelve ARG en FROM: con "FROM ${X}" la imagen base quedaría sin vigilar).
-      - name: "Dependabot cubre todos los Dockerfile (directorio listado, FROM sin ARG)"
+      - name: "Dependabot: controles de cobertura (FROM con variable, minúsculas, Containerfile)"
+        timeout-minutes: 5
+        run: bash infra/ci/dependabot_cobertura_controles.sh infra/ci/dependabot_cobertura.sh
+      - name: "Dependabot cubre todos los Dockerfile/Containerfile (directorio listado, FROM sin ARG)"
+        timeout-minutes: 5
+        run: bash infra/ci/dependabot_cobertura.sh .
+      # RSK-OPS-001 / QA-OPS005-04 / QA-OPS006-01/02 (TKT-OPS-006, DEC-AUTO-252/256): política de
+      # .trivyignore y de invocaciones de trivy. infra/ci/politica_trivy.py carga los workflows con
+      # PyYAML (valores run: RESUELTOS: folded, planos multilínea), une continuaciones de shell sin
+      # que una "\" dentro de un comentario continúe, busca lo prohibido en líneas físicas Y unidas,
+      # y revisa también los *.sh del repositorio. Primero sus controles (positivos y negativos).
+      - name: "política de trivy: PyYAML aislado (venv efímero)"
         run: |
-          bloque="$(awk '/package-ecosystem: "docker"$/{d=1;next} d&&/package-ecosystem:/{d=0} d' .github/dependabot.yml | grep -E '^[[:space:]]*directories?:')"
-          echo "dependabot docker: ${bloque}"
-          rc=0
-          while IFS= read -r f; do
-            dir="/$(dirname "${f#./}")"
-            grep -qF "\"${dir}\"" <<<"$bloque" || { echo "::error::${f} no está en el ecosistema docker de Dependabot (${dir})"; rc=1; }
-            if grep -nE '^[[:space:]]*FROM[[:space:]]+(--[^[:space:]]+[[:space:]]+)*[^[:space:]]*\$' "$f"; then
-              echo "::error::${f}: FROM con variable (Dependabot no la resuelve)"; rc=1
-            fi
-          done < <(find . -path ./.git -prune -o -path ./.agent -prune -o -path ./.claude -prune -o -name node_modules -prune -o -name .venv -prune -o -type f \( -name 'Dockerfile' -o -name '*.Dockerfile' -o -name 'Dockerfile.*' \) ! -name '*.dockerignore' -print)
-          exit $rc
+          python3 -m venv "${RUNNER_TEMP}/politica"
+          "${RUNNER_TEMP}/politica/bin/pip" install --disable-pip-version-check -q "pyyaml==${PYYAML_VERSION}"
+          echo "PYTHON=${RUNNER_TEMP}/politica/bin/python" >> "$GITHUB_ENV"
+      - name: "política de trivy: controles (una línea, multilínea, comentarios, YAML, trivy-action)"
+        timeout-minutes: 5
+        run: bash infra/ci/politica_trivy_controles.sh infra/ci/politica_trivy.sh
+      - name: "política de trivy y de .trivyignore (formato, caducidad, sin vías paralelas)"
+        timeout-minutes: 5
+        run: bash infra/ci/politica_trivy.sh .
       # OBS-QA-OPS002-04 / DEC-AUTO-192: las reglas p/docker-compose de semgrep solo se aplican a YAML
       # con clave "version:" y no resuelven anclas/merge keys (<<: *hardening). Se escanea la salida
       # RESUELTA de "docker compose config" (con version: prepended) en $RUNNER_TEMP: contiene los
@@ -277,15 +287,8 @@ jobs:
       # las de .trivyignore (CVE Debian 13.7 SIN parche, una por línea, cada una con exp:AAAA-MM-DD).
       # Una entrada caducada deja de suprimir -> el job vuelve a fallar. Prohibidos --ignore-unfixed,
       # comodines, --ignore-policy y la supresión por paquete.
-      # QA-OPS005-04 (TKT-OPS-006, DEC-AUTO-252): la política vive en infra/ci/politica_trivy.sh, que UNE
-      # las líneas de continuación ("\" + salto) antes de buscar opciones prohibidas; sus controles
-      # (positivos + negativos de una línea y MULTILÍNEA) se ejecutan antes que la propia política.
-      - name: "política de .trivyignore: controles negativos (una línea y multilínea)"
-        timeout-minutes: 5
-        run: bash infra/ci/politica_trivy_controles.sh infra/ci/politica_trivy.sh
-      - name: "política de .trivyignore (formato, caducidad obligatoria, sin comodines ni configuración paralela)"
-        timeout-minutes: 5
-        run: bash infra/ci/politica_trivy.sh .
+      # La POLÍTICA de .trivyignore y sus controles se ejecutan en el job "infra" (siempre, fail-fast;
+      # TKT-OPS-006 ciclo 2, DEC-AUTO-256).
       - name: image scan (trivy CRITICAL/HIGH = fail; excepciones solo en .trivyignore con aprobación humana)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
@@ -304,11 +307,13 @@ jobs:
       - name: "control negativo: .trivyignore caducado -> el gate falla"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
-          sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/trivyignore-caducado
-          if ! grep -qE '^(CVE|GHSA)-' /tmp/trivyignore-caducado; then echo "sin excepciones: control no aplicable"; exit 0; fi
+          # La política solo admite --ignorefile .trivyignore (DEC-AUTO-256): el fichero caducado se llama
+          # así en un directorio propio y trivy se ejecuta desde él.
+          mkdir -p /tmp/neg && sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/neg/.trivyignore
+          if ! grep -qE '^(CVE|GHSA)-' /tmp/neg/.trivyignore; then echo "sin excepciones: control no aplicable"; exit 0; fi
           # backend (excepciones Debian comunes) y db (además libxml2, 2.ª decisión humana)
           for s in backend db; do
-            if trivy image -q --scanners vuln --severity CRITICAL,HIGH --ignorefile /tmp/trivyignore-caducado --exit-code 1 --format json --output "/tmp/neg-${s}.json" "brujula/${s}:${APP_VERSION}"; then
+            if (cd /tmp/neg && trivy image -q --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1 --format json --output "/tmp/neg-${s}.json" "brujula/${s}:${APP_VERSION}"); then
               echo "::error::el gate NO falló con excepciones caducadas (${s})"; exit 1
             fi
             echo "OK (${s}): con las excepciones caducadas trivy falla (exit 1)"
