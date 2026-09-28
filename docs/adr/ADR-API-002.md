@@ -4,7 +4,7 @@
 |---|---|
 | Estado | PROPOSED (Autoridad Delegada, CLAUDE.md §0.2) |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) , TKT-F4-007 (CHG-API-002, §1, §5, §17, §18) y TKT-F4-008 (CHG-API-003, §7, §19) |
+| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) , TKT-F4-007 (CHG-API-002, §1, §5, §17, §18), TKT-F4-008 (CHG-API-003, §7, §19) y TKT-F4-009 (CHG-API-004, §20) |
 | Contrato | `contracts/openapi.yaml` (OpenAPI 3.1.0, 127 operaciones) |
 | Trazabilidad | Skill_Backend §7 (reglas 11-13), §12.1-§12.6; BLUEPRINT §9, §12, §15, §16, §18, §38, §39.3, §40; DB_HANDOFF (PostgreSQL 18.6, bigint identity, ADR-DB-002/003/005) |
 | DEC-AUTO | 100..119 y 216..219 (tablas finales). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles. DEC-AUTO-215 es una decisión del Orquestador (OBS-QA004-06) que este ADR aplica en §17 |
@@ -169,6 +169,25 @@ drf-spectacular genera componentes planos (sin `allOf` ni `unevaluatedProperties
 
   El parámetro de filtro por código de licencia (query del listado de medios) no se cambia: no se persiste.
 - **Compatibilidad de las ampliaciones:** todas son más restrictivas en la entrada. Las peticiones que ahora se rechazan con 400 ya fallaban en la BD (5xx), así que ningún cliente correcto se ve afectado. Se aplica la misma excepción documentada ante `oasdiff breaking`.
+
+### 20. Parámetros de ruta a nivel de path item en la superficie pública (CHG-API-004 / TKT-F4-009, DEC-AUTO-910)
+- **Problema:** el esquema generado por el backend (`apps/core/esquema.py`, TKT-004) declara siempre los parámetros de ruta en el `parameters` del path item, como el contrato ya hacía en las rutas del panel. Las rutas públicas con parámetro de ruta los declaraban dentro de la operación `get`. El gate `oasdiff breaking --fail-on WARN` (§16) reportaba 8 avisos `request-parameter-removed`, aunque el significado es idéntico: con `--flatten-params` da 0 cambios.
+- **Decisión (DEC-AUTO-910, del Orquestador):** el parámetro de ruta pasa al `parameters` del path item y se quita de la operación. Nombre, `in`, `required`, esquema (`SlugPath` → `Slug`, o el `enum` en línea) y descripción no cambian. Los parámetros de query (`Q`, `Pagina`) siguen en la operación.
+- **Rutas modificadas (8, todas `GET`):**
+  - `/api/v1/publico/paginas/{slug}` (`slug` en línea con `enum`, `publicoObtenerPaginaInstitucional`)
+  - `/api/v1/publico/destinos/{slug}` (`SlugPath`, `publicoObtenerDestino`)
+  - `/api/v1/publico/itinerarios/{slug}` (`SlugPath`, `publicoObtenerItinerario`)
+  - `/api/v1/publico/tipos-aventura/{slug}` (`SlugPath`, `publicoObtenerTipoAventura`)
+  - `/api/v1/publico/categorias-guia/{slug}` (`SlugPath`, `publicoObtenerCategoriaGuia`)
+  - `/api/v1/publico/guias/{slug}` (`SlugPath`, `publicoObtenerGuia`)
+  - `/api/v1/publico/colecciones/{slug}` (`SlugPath`, `publicoObtenerColeccion`)
+  - `/api/v1/publico/busqueda/{grupo}` (`grupo` en línea con `enum`, `publicoBuscarPorGrupo`; `Q` y `Pagina` siguen en la operación)
+- **Compatibilidad:** es un cambio estructural **sin efecto semántico**. OpenAPI 3.1 (Path Item Object, `parameters`) aplica los parámetros del path item a todas sus operaciones, y cada ruta tiene una sola operación. Los clientes generados y schemathesis ven la misma petición. `info.version` no cambia y no se necesita ninguna excepción ante `oasdiff`. Las rutas públicas sin parámetro de ruta y todas las del panel no cambian.
+
+## Registro DEC-AUTO-910 (CHG-API-004)
+| ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-910 | Parámetros de ruta de las 8 rutas públicas con `{slug}`/`{grupo}` declarados en el path item, no en la operación | Cambiar `esquema.py` para emitirlos por operación; ejecutar `oasdiff` con `--flatten-params` en el gate; bajar el gate a `--fail-on ERR` | Una sola convención en todo el contrato, igual que el panel y el generador; no se cambia código ni se relaja el gate | Nulo en tiempo de ejecución; un editor futuro podría volver a declararlos por operación (el gate lo detectaría) | Alta |
 
 ## Registro DEC-AUTO-903 / DEC-AUTO-905 (CHG-API-003)
 | ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |

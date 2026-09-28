@@ -236,6 +236,13 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/paginas/{slug}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [acerca-de, politica-de-tratamiento-de-datos, politica-de-cookies, aviso-legal]
     get:
       tags: [publico-general]
       operationId: publicoObtenerPaginaInstitucional
@@ -243,13 +250,6 @@ paths:
       security: []
       x-trazabilidad: [FEAT-023, SCR-020, DATA-014, AC-033, AC-070]
       x-limite-tasa: publico-lectura
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [acerca-de, politica-de-tratamiento-de-datos, politica-de-cookies, aviso-legal]
       responses:
         '200':
           description: Página institucional.
@@ -393,6 +393,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/destinos/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-destinos]
       operationId: publicoObtenerDestino
@@ -405,8 +407,6 @@ paths:
       x-trazabilidad: [FEAT-006, FEAT-007, FEAT-013, FEAT-014, FEAT-015, SCR-004, SCR-005, AP-03, RULE-006, AC-014, AC-015, AC-100, AC-102]
       x-amenazas: [THREAT-011, THREAT-019, THREAT-023]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Ficha de destino.
@@ -452,6 +452,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/itinerarios/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-itinerarios]
       operationId: publicoObtenerItinerario
@@ -460,8 +462,6 @@ paths:
       x-trazabilidad: [FEAT-008, FEAT-013, FEAT-022, SCR-007, AP-05, RULE-003, RULE-006, RULE-007, AC-021]
       x-amenazas: [THREAT-011, THREAT-023]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Itinerario.
@@ -499,6 +499,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/tipos-aventura/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-tipos]
       operationId: publicoObtenerTipoAventura
@@ -507,8 +509,6 @@ paths:
       x-trazabilidad: [FEAT-010, FEAT-011, FEAT-013, SCR-009, AP-06, RULE-025, AC-037]
       x-amenazas: [THREAT-011, THREAT-023]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Tipo de aventura.
@@ -546,6 +546,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/categorias-guia/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-guias]
       operationId: publicoObtenerCategoriaGuia
@@ -554,8 +556,6 @@ paths:
       security: []
       x-trazabilidad: [FEAT-012, SCR-011]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Categoría.
@@ -596,6 +596,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/guias/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-guias]
       operationId: publicoObtenerGuia
@@ -604,8 +606,6 @@ paths:
       x-trazabilidad: [FEAT-012, FEAT-013, FEAT-014, FEAT-052, SCR-012, AP-07, RULE-004, AC-123]
       x-amenazas: [THREAT-011, THREAT-023]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Guía.
@@ -644,6 +644,8 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/colecciones/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/SlugPath'
     get:
       tags: [publico-colecciones]
       operationId: publicoObtenerColeccion
@@ -653,8 +655,6 @@ paths:
       x-prioridad: SHOULD
       x-amenazas: [THREAT-011]
       x-limite-tasa: publico-lectura
-      parameters:
-        - $ref: '#/components/parameters/SlugPath'
       responses:
         '200':
           description: Colección.
@@ -695,6 +695,11 @@ paths:
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/publico/busqueda/{grupo}:
+    parameters:
+      - name: grupo
+        in: path
+        required: true
+        schema: {type: string, enum: [destinos, itinerarios, guias, tipos]}
     get:
       tags: [publico-busqueda]
       operationId: publicoBuscarPorGrupo
@@ -705,10 +710,6 @@ paths:
       x-limite-tasa: publico-busqueda
       x-tamano-pagina: 24
       parameters:
-        - name: grupo
-          in: path
-          required: true
-          schema: {type: string, enum: [destinos, itinerarios, guias, tipos]}
         - $ref: '#/components/parameters/Q'
         - $ref: '#/components/parameters/Pagina'
       responses:
