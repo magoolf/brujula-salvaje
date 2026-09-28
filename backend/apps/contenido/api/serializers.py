@@ -261,7 +261,9 @@ class ContenidoRelacionadoSerializer(Salida):
 
 
 class ContenidoRefPublicoSerializer(Salida):
-    tipo = serializers.ChoiceField(choices=TIPOS_PUBLICOS)
+    # Mismos valores que ContenidoRelacionado.tipo, con etiquetas: otro conjunto de choices para
+    # drf-spectacular, que así nombra cada enum por su componente sin colisión (W001).
+    tipo = serializers.ChoiceField(choices=[(str(t), t.label) for t in TIPOS_PUBLICOS])
     slug = SlugField()
     titulo = serializers.CharField(max_length=150)
 
