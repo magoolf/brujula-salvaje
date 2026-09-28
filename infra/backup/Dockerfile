@@ -14,13 +14,13 @@
 # Cifrado con age (clave PÚBLICA en BACKUP_AGE_RECIPIENT; la privada nunca entra al repo ni
 # al contenedor; la clave real es Puerta Humana, CLAUDE.md §0.5).
 # =============================================================================
-ARG POSTGRES_IMAGE=postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
-ARG DEBIAN_IMAGE=debian:13.7-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+# Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
+# no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
 
 # ---------------------------------------------------------------------------
 # pgclient: extrae de la imagen fijada de la BD solo el cliente 18.6 (binarios + libpq)
 # ---------------------------------------------------------------------------
-FROM ${POSTGRES_IMAGE} AS pgclient
+FROM postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722 AS pgclient
 RUN set -eu; \
     mkdir -p /out/bin /out/lib; \
     for b in pg_dump pg_restore psql; do cp -a "/usr/lib/postgresql/18/bin/$b" /out/bin/; done; \
@@ -30,7 +30,7 @@ RUN set -eu; \
 # ---------------------------------------------------------------------------
 # final
 # ---------------------------------------------------------------------------
-FROM ${DEBIAN_IMAGE}
+FROM debian:13.7-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 ARG TARGETARCH
 ARG AGE_DEB_VERSION=1.2.1-1+b5
 ARG KRB5_DEB_VERSION=1.21.3-5+deb13u1

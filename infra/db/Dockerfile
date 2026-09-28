@@ -18,8 +18,9 @@
 # Lo que NO se puede quitar: libxml2 (enlazada por el binario postgres: tipo xml, xmlparse...).
 #   Contexto de build: infra/db
 # =============================================================================
-ARG POSTGRES_IMAGE=postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
-FROM ${POSTGRES_IMAGE}
+# Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
+# no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
+FROM postgres:18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
 
 LABEL org.opencontainers.image.title="brujula-db" \
       org.opencontainers.image.description="PostgreSQL 18.6 oficial (digest fijado) sin gosu, gnupg ni perl completo" \
