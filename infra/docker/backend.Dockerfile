@@ -10,15 +10,15 @@
 #   pyproject.toml + uv.lock (dependencias con ==), manage.py, config/{settings.py,wsgi.py},
 #   ruta /health/live y /health/ready.
 # =============================================================================
-ARG PYTHON_IMAGE=python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0
-ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424
+# Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
+# no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
 
-FROM ${UV_IMAGE} AS uv
+FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 
 # ---------------------------------------------------------------------------
 # builder: resuelve dependencias desde uv.lock (--frozen: falla si el lock no cuadra)
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS builder
+FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS builder
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -41,7 +41,7 @@ RUN find /src -name '__pycache__' -type d -prune -exec rm -rf {} +  && rm -rf /s
 # sola capa (FROM scratch + COPY /) para que sus bytes no queden en capas inferiores. La imagen
 # base no trae setuptools ni wheel (Python 3.13); /opt/venv (uv) tampoco trae pip.
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS python-sin-pip
+FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS python-sin-pip
 RUN set -eu; \
     rm -rf /usr/local/lib/python3.13/site-packages/pip \
            /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
