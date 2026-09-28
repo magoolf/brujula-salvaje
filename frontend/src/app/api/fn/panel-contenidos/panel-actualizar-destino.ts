@@ -8,7 +8,7 @@ import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
 import { DestinoActualizacion } from '../../models/destino-actualizacion';
-import { DestinoPanel } from '../../models/destino-panel';
+import { DestinoGuardado } from '../../models/destino-guardado';
 import { Id } from '../../models/id';
 
 export interface PanelActualizarDestino$Params {
@@ -16,7 +16,7 @@ export interface PanelActualizarDestino$Params {
       body: DestinoActualizacion
 }
 
-export function panelActualizarDestino(http: HttpClient, rootUrl: string, params: PanelActualizarDestino$Params, context?: HttpContext): Observable<StrictHttpResponse<DestinoPanel>> {
+export function panelActualizarDestino(http: HttpClient, rootUrl: string, params: PanelActualizarDestino$Params, context?: HttpContext): Observable<StrictHttpResponse<DestinoGuardado>> {
   const rb = new RequestBuilder(rootUrl, panelActualizarDestino.PATH, 'put');
   if (params) {
     rb.path('id', params.id, {});
@@ -28,7 +28,7 @@ export function panelActualizarDestino(http: HttpClient, rootUrl: string, params
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<DestinoPanel>;
+      return r as StrictHttpResponse<DestinoGuardado>;
     })
   );
 }
