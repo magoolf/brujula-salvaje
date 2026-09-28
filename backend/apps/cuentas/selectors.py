@@ -8,7 +8,7 @@ lectura directa y de solo lectura de su modelo (sin mutarlo, Skill_Backend §5).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from django.conf import settings
 from django.db.models import QuerySet
@@ -90,4 +90,13 @@ def hay_otro_administrador_activo(excluida_id: int) -> bool:
         CuentaStaff.objects.filter(rol=RolCuenta.ADMINISTRADOR, estado=EstadoCuenta.ACTIVA)
         .exclude(pk=excluida_id)
         .exists()
+    )
+
+
+def ids_cuentas_por_anonimizar(limite: datetime) -> list[int]:
+    """Cuentas DESACTIVADAS antes de `limite` (plazo de anonimización, ADR-DB-004 §2)."""
+    return list(
+        CuentaStaff.objects.filter(estado=EstadoCuenta.DESACTIVADA, desactivado_en__lt=limite)
+        .order_by("id")
+        .values_list("id", flat=True)
     )

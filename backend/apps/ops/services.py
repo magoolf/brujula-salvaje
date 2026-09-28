@@ -142,8 +142,44 @@ def verificar_busqueda() -> Resultado:
     return Resultado(filas=estado.indexados, detalle=detalle, exito=estado.coherente)
 
 
+def purgar_auditoria() -> Resultado:
+    """PURGA_AUDITORIA (ADR-DB-004 §1.3): eventos > 365 días con app.fn_auditoria_purgar()."""
+    from apps.auditoria.services import purgar_eventos_caducados
+
+    purgados = purgar_eventos_caducados()
+    return Resultado(filas=purgados, detalle=f"eventos={purgados}")
+
+
+def anonimizar_cuentas() -> Resultado:
+    """ANONIMIZACION_CUENTAS (ADR-DB-004 §2): DESACTIVADAS hace más de 30 días."""
+    from apps.cuentas.services import anonimizar_cuentas_vencidas
+
+    cuentas = anonimizar_cuentas_vencidas()
+    return Resultado(filas=cuentas, detalle=f"cuentas={cuentas}")
+
+
+def reaplicar_anonimizaciones() -> Resultado:
+    """REAPLICAR_ANONIMIZACIONES (ADR-DB-004 §4): libro de anonimizaciones tras restaurar."""
+    from apps.cuentas.services import reaplicar_libro_anonimizaciones
+
+    r = reaplicar_libro_anonimizaciones()
+    return Resultado(
+        filas=r.desactivadas + r.anonimizadas,
+        detalle=(
+            f"desactivadas={r.desactivadas} anonimizadas={r.anonimizadas} "
+            f"lineas_invalidas={r.lineas_invalidas} inexistentes={r.cuentas_inexistentes}"
+        ),
+    )
+
+
 TRABAJOS: dict[str, tuple[TareaProgramada, Callable[[], Resultado]]] = {
+    "anonimizar_cuentas": (TareaProgramada.ANONIMIZACION_CUENTAS, anonimizar_cuentas),
+    "purgar_auditoria": (TareaProgramada.PURGA_AUDITORIA, purgar_auditoria),
     "purgar_ops": (TareaProgramada.PURGA_OPS, purgar_ops),
+    "reaplicar_anonimizaciones": (
+        TareaProgramada.REAPLICAR_ANONIMIZACIONES,
+        reaplicar_anonimizaciones,
+    ),
     "purgar_sesiones": (TareaProgramada.PURGA_SESIONES, purgar_sesiones),
     "reindexar_busqueda": (TareaProgramada.REINDEX_BUSQUEDA, reindexar_busqueda),
     "verificar_busqueda": (TareaProgramada.VERIFICACION_BUSQUEDA, verificar_busqueda),

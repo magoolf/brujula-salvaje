@@ -62,3 +62,13 @@ def seudonimizar_eventos_de_cuenta(cuenta_id: int) -> int:
         cursor.execute("SELECT app.fn_auditoria_seudonimizar(%s)", [cuenta_id])
         fila = cursor.fetchone()
     return int(fila[0]) if fila else 0
+
+
+def purgar_eventos_caducados() -> int:
+    """Purga los eventos con más de 365 días (ADR-DB-004 §1.3) con la función SECURITY DEFINER
+    app.fn_auditoria_purgar(): el corte lo fija la BD, no el llamante. Devuelve las filas
+    purgadas."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT app.fn_auditoria_purgar()")
+        fila = cursor.fetchone()
+    return int(fila[0]) if fila else 0

@@ -18,10 +18,11 @@ Reglas clave:
 
 from __future__ import annotations
 
+import re
 import secrets
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,11 @@ from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 
 from apps.auditoria.models import AccionAuditoria, ResultadoAuditoria
-from apps.auditoria.services import registrar_evento, seudonimizar_eventos_de_cuenta
+from apps.auditoria.services import (
+    ETIQUETA_SISTEMA,
+    registrar_evento,
+    seudonimizar_eventos_de_cuenta,
+)
 from apps.core import idempotencia
 from apps.core.exceptions import ErrorApi
 from apps.core.throttling import huella_hmac
@@ -739,7 +744,7 @@ def desactivar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaStaff:
         cuenta.save(update_fields=["estado", "desactivado_en", "password"])
         invalidar_sesiones(cuenta.pk)
         _auditar(AccionAuditoria.CUENTA_DESACTIVAR, actor, objetivo=cuenta, campos=["estado"])
-        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, "DESACTIVADA"))
+        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, EVENTO_DESACTIVADA))
     return cuenta
 
 
@@ -761,35 +766,162 @@ def anonimizar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaStaff:
         cuenta = _objetivo(actor, cuenta_id)
         if cuenta.estado != EstadoCuenta.DESACTIVADA:
             raise TransicionInvalida("Solo se anonimiza una cuenta desactivada.")
-        cuenta.usuario = None
-        cuenta.nombre_visible = None
-        cuenta.secreto_mfa = None
-        cuenta.mfa_activo = False
-        cuenta.last_login = None
-        cuenta.set_unusable_password()
-        cuenta.estado = EstadoCuenta.ANONIMIZADA
-        cuenta.anonimizado_en = timezone.now()
-        cuenta.save(
-            update_fields=[
-                "usuario",
-                "nombre_visible",
-                "secreto_mfa",
-                "mfa_activo",
-                "last_login",
-                "password",
-                "estado",
-                "anonimizado_en",
-            ]
-        )
-        CuentaCodigoRecuperacion.objects.filter(cuenta=cuenta).delete()
-        invalidar_sesiones(cuenta.pk)
-        idempotencia.borrar_claves_de_cuenta(cuenta.pk)
-        seudonimizar_eventos_de_cuenta(cuenta.pk)
-        _auditar(
-            AccionAuditoria.CUENTA_ANONIMIZAR,
-            actor,
-            objetivo=cuenta,
-            campos=["usuario", "nombre_visible", "password", "secreto_mfa"],
-        )
-        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, "ANONIMIZADA"))
+        _anonimizar(cuenta, actor)
     return cuenta
+
+
+def _anonimizar(cuenta: CuentaStaff, actor: CuentaStaff | None) -> None:
+    """Núcleo común de la anonimización (dentro de la transacción del llamante, fila bloqueada).
+
+    Nunca borra la fila de cuenta_staff (CHG-DB-002): UPDATE + DELETE solo de sus hijos. Con
+    `actor` None la acción es del sistema (tarea programada o reaplicación tras restaurar).
+    """
+    cuenta.usuario = None
+    cuenta.nombre_visible = None
+    cuenta.secreto_mfa = None
+    cuenta.mfa_activo = False
+    cuenta.last_login = None
+    cuenta.set_unusable_password()
+    cuenta.estado = EstadoCuenta.ANONIMIZADA
+    cuenta.anonimizado_en = timezone.now()
+    cuenta.save(
+        update_fields=[
+            "usuario",
+            "nombre_visible",
+            "secreto_mfa",
+            "mfa_activo",
+            "last_login",
+            "password",
+            "estado",
+            "anonimizado_en",
+        ]
+    )
+    CuentaCodigoRecuperacion.objects.filter(cuenta=cuenta).delete()
+    invalidar_sesiones(cuenta.pk)
+    idempotencia.borrar_claves_de_cuenta(cuenta.pk)
+    seudonimizar_eventos_de_cuenta(cuenta.pk)
+    _auditar(
+        AccionAuditoria.CUENTA_ANONIMIZAR,
+        actor,
+        objetivo=cuenta,
+        campos=["usuario", "nombre_visible", "password", "secreto_mfa"],
+        etiqueta=None if actor is not None else ETIQUETA_SISTEMA,
+    )
+    cuenta_id = cuenta.pk
+    transaction.on_commit(lambda: _anotar_libro(cuenta_id, EVENTO_ANONIMIZADA))
+
+
+# ---------------------------------------------------------------------------
+# Tareas del sistema (ADR-DB-004 §2 y §4; comandos anonimizar_cuentas y reaplicar_anonimizaciones)
+# ---------------------------------------------------------------------------
+PLAZO_ANONIMIZACION = timedelta(days=30)
+EVENTO_DESACTIVADA = "DESACTIVADA"
+EVENTO_ANONIMIZADA = "ANONIMIZADA"
+_LINEA_LIBRO = re.compile(
+    r"^(\d{1,19});(DESACTIVADA|ANONIMIZADA);(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$"
+)
+
+
+def anonimizar_cuentas_vencidas(ahora: datetime | None = None) -> int:
+    """Anonimiza las cuentas DESACTIVADAS hace más de 30 días (una transacción por cuenta).
+
+    Idempotente: una cuenta ya ANONIMIZADA no vuelve a tocarse. Devuelve cuántas se anonimizaron.
+    """
+    limite = (ahora or timezone.now()) - PLAZO_ANONIMIZACION
+    anonimizadas = 0
+    for cuenta_id in selectors.ids_cuentas_por_anonimizar(limite):
+        with transaction.atomic():
+            cuenta = (
+                CuentaStaff.objects.select_for_update()
+                .filter(pk=cuenta_id, estado=EstadoCuenta.DESACTIVADA, desactivado_en__lt=limite)
+                .first()
+            )
+            if cuenta is None:
+                continue
+            _anonimizar(cuenta, None)
+            anonimizadas += 1
+    return anonimizadas
+
+
+@dataclass(frozen=True)
+class ResultadoLibro:
+    desactivadas: int
+    anonimizadas: int
+    lineas_invalidas: int
+    cuentas_inexistentes: int
+
+
+def _leer_libro() -> tuple[dict[int, tuple[str, datetime]], int]:
+    """Estado final por cuenta según el libro: (evento, fecha de desactivación).
+
+    ANONIMIZADA prevalece sobre DESACTIVADA; la fecha es la de la última desactivación registrada
+    (o la de la anonimización si no hay ninguna). Las líneas mal formadas se cuentan y se ignoran.
+    """
+    ruta = Path(settings.LIBRO_ANONIMIZACIONES_PATH)
+    if not ruta.exists():
+        return {}, 0
+    anonimizadas: set[int] = set()
+    fechas: dict[int, datetime] = {}
+    invalidas = 0
+    with ruta.open(encoding="utf-8") as libro:
+        for linea in libro:
+            if not linea.strip():
+                continue
+            coincidencia = _LINEA_LIBRO.match(linea.strip())
+            if coincidencia is None:
+                invalidas += 1
+                continue
+            cuenta_id, evento = int(coincidencia[1]), coincidencia[2]
+            fecha = datetime.strptime(coincidencia[3], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+            if evento == EVENTO_ANONIMIZADA:
+                anonimizadas.add(cuenta_id)
+                fechas.setdefault(cuenta_id, fecha)
+            else:
+                fechas[cuenta_id] = fecha
+    return {
+        cuenta_id: (
+            EVENTO_ANONIMIZADA if cuenta_id in anonimizadas else EVENTO_DESACTIVADA,
+            fecha,
+        )
+        for cuenta_id, fecha in fechas.items()
+    }, invalidas
+
+
+def reaplicar_libro_anonimizaciones() -> ResultadoLibro:
+    """Tras restaurar una copia (ADR-DB-004 §4): vuelve a desactivar y anonimizar las cuentas que
+    en la copia estaban en un estado anterior al registrado en el libro. Idempotente; el libro
+    solo contiene ids (sin PII) y nunca se borra ninguna fila de cuenta_staff."""
+    estados, invalidas = _leer_libro()
+    desactivadas = anonimizadas = inexistentes = 0
+    for cuenta_id, (evento, fecha) in sorted(estados.items()):
+        with transaction.atomic():
+            cuenta = CuentaStaff.objects.select_for_update().filter(pk=cuenta_id).first()
+            if cuenta is None:
+                inexistentes += 1
+                continue
+            if cuenta.estado == EstadoCuenta.ANONIMIZADA:
+                continue
+            if cuenta.estado != EstadoCuenta.DESACTIVADA:
+                _desactivar_por_sistema(cuenta, fecha)
+                desactivadas += 1
+            if evento == EVENTO_ANONIMIZADA:
+                _anonimizar(cuenta, None)
+                anonimizadas += 1
+    return ResultadoLibro(desactivadas, anonimizadas, invalidas, inexistentes)
+
+
+def _desactivar_por_sistema(cuenta: CuentaStaff, desactivado_en: datetime) -> None:
+    """Desactivación reaplicada: conserva la fecha del libro (el plazo de 30 días sigue contando
+    desde la desactivación real) y no reescribe el libro."""
+    cuenta.estado = EstadoCuenta.DESACTIVADA
+    cuenta.desactivado_en = desactivado_en
+    cuenta.set_unusable_password()
+    cuenta.save(update_fields=["estado", "desactivado_en", "password"])
+    invalidar_sesiones(cuenta.pk)
+    _auditar(
+        AccionAuditoria.CUENTA_DESACTIVAR,
+        None,
+        objetivo=cuenta,
+        campos=["estado"],
+        etiqueta=ETIQUETA_SISTEMA,
+    )
