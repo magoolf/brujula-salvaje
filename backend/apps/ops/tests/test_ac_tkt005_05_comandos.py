@@ -165,8 +165,11 @@ def test_AC_TKT005_05_error_inesperado_queda_registrado_como_fallo(db, monkeypat
         raise ValueError("detalle-interno-no-registrable")
 
     monkeypatch.setitem(services.TRABAJOS, "purgar_ops", (TareaProgramada.PURGA_OPS, roto))
-    with pytest.raises(ValueError, match="detalle-interno"):
+    # OBS-06: CommandError solo con el tipo (sin traceback ni mensaje interno en stderr).
+    with pytest.raises(CommandError) as error:
         _ejecutar("purgar_ops")
+    assert str(error.value) == "purgar_ops: error inesperado (ValueError)"
+    assert error.value.__cause__ is None
     registro = _registros(TareaProgramada.PURGA_OPS)[-1]
     assert (registro.resultado, registro.detalle) == (ResultadoTarea.FALLO, "error: ValueError")
     assert "detalle-interno-no-registrable" not in logs_json.texto()

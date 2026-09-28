@@ -130,8 +130,9 @@ def test_AC_TKT005_03_indexar_y_desindexar(mundo):
 
 
 def test_AC_TKT005_03_reindexar_idempotente_y_estado_coherente(mundo):
-    total = services.reindexar_todo()
-    assert total == BusquedaDocumento.objects.count() == services.reindexar_todo()
+    total = services.reindexar_todo().documentos
+    assert services.reindexar_todo() == services.ResultadoReindex(documentos=total, omitidos=0)
+    assert total == BusquedaDocumento.objects.count()
     # 4 destinos + 2 itinerarios + 2 guías + 3 tipos publicados.
     assert total == 11
     assert selectors.estado_indice().coherente

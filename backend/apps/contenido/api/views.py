@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+import structlog
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -38,6 +39,7 @@ from apps.inicio import selectors as inicio
 from apps.inicio.models import SeccionInicio
 
 T = TipoContenido
+logger = structlog.get_logger("brujula.publico")
 PAGINA = ("pagina",)
 
 
@@ -69,8 +71,9 @@ def resolver_publicado(tipo: str, slug: str) -> Contenido:
             },
         )
     if not selectors.es_visible(contenido.pk):
-        # Publicado pero incoherente (p. ej. tipo principal no publicado): no es público
-        # (QA-TKT005-02, DEC-AUTO-912).
+        # Publicado pero incoherente (p. ej. tipo principal no publicado): no es público y se
+        # registra como error de integridad, solo con id y tipo (AC-129, DEC-AUTO-912).
+        logger.error("integridad_contenido_publicado", contenido_id=contenido.pk, tipo=tipo)
         raise NoEncontrado()
     return contenido
 

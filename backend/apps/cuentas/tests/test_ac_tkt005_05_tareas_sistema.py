@@ -189,3 +189,70 @@ def test_AC_TKT005_05_post_restore_encuentra_los_comandos():
         "verificar_busqueda",
         "purgar_ops",
     } <= disponibles
+
+
+# ---------------------------------------------------------------------------
+# QA-TKT005-03 (DEC-AUTO-913): REACTIVADA en el libro, último evento gana, último Administrador
+# ---------------------------------------------------------------------------
+def test_QA_TKT005_03_desactivar_reactivar_reaplicar_y_31_dias_sigue_activa(
+    libro, django_capture_on_commit_callbacks
+):
+    admin = crear_staff("admin.qa", rol=RolCuenta.ADMINISTRADOR).cuenta
+    editor = crear_staff("editor.qa").cuenta
+    with django_capture_on_commit_callbacks(execute=True):
+        services.desactivar_cuenta(admin, editor.pk)
+    with django_capture_on_commit_callbacks(execute=True):
+        services.reactivar_cuenta(admin, editor.pk)
+    eventos = [linea.split(";")[1] for linea in libro.read_text(encoding="utf-8").splitlines()]
+    assert eventos == ["DESACTIVADA", "REACTIVADA"]
+    resultado = services.reaplicar_libro_anonimizaciones()
+    assert (resultado.desactivadas, resultado.anonimizadas) == (0, 0)
+    assert services.anonimizar_cuentas_vencidas(timezone.now() + timedelta(days=31)) == 0
+    editor.refresh_from_db()
+    assert editor.estado in (EstadoCuenta.PENDIENTE_ACTIVACION, EstadoCuenta.ACTIVA)
+    assert editor.usuario == "editor.qa"
+
+
+def test_QA_TKT005_03_ultimo_evento_gana(libro):
+    reactivada = crear_staff("vuelve.a.desactivar").cuenta
+    libro.write_text(
+        f"{reactivada.pk};DESACTIVADA;2026-08-01T10:00:00Z\n"
+        f"{reactivada.pk};REACTIVADA;2026-08-05T10:00:00Z\n"
+        f"{reactivada.pk};DESACTIVADA;2026-09-10T10:00:00Z\n",
+        encoding="utf-8",
+    )
+    assert services.reaplicar_libro_anonimizaciones().desactivadas == 1
+    reactivada.refresh_from_db()
+    assert reactivada.estado == EstadoCuenta.DESACTIVADA
+    assert reactivada.desactivado_en == datetime(2026, 9, 10, 10, tzinfo=UTC)
+
+
+def test_QA_TKT005_03_copia_desactivada_con_reactivacion_posterior_no_se_anonimiza(libro):
+    # Copia restaurada anterior a la reactivación: en la BD sigue DESACTIVADA hace > 30 días.
+    cuenta = _desactivada("restaurada.reactivada", 45)
+    libro.write_text(
+        f"{cuenta.pk};DESACTIVADA;2026-08-01T10:00:00Z\n"
+        f"{cuenta.pk};REACTIVADA;2026-08-20T10:00:00Z\n",
+        encoding="utf-8",
+    )
+    assert services.anonimizar_cuentas_vencidas() == 0
+    cuenta.refresh_from_db()
+    assert cuenta.estado == EstadoCuenta.DESACTIVADA
+    assert cuenta.usuario == "restaurada.reactivada"
+
+
+def test_QA_TKT005_03_nunca_desactiva_al_ultimo_administrador_activo(libro, logs_json):
+    unico = crear_staff("admin.unico", rol=RolCuenta.ADMINISTRADOR).cuenta
+    libro.write_text(
+        f"{unico.pk};DESACTIVADA;2026-09-01T10:00:00Z\n"
+        f"{unico.pk};ANONIMIZADA;2026-09-02T10:00:00Z\n",
+        encoding="utf-8",
+    )
+    resultado = services.reaplicar_libro_anonimizaciones()
+    assert (resultado.desactivadas, resultado.anonimizadas, resultado.omitidas) == (0, 0, 1)
+    unico.refresh_from_db()
+    assert unico.estado == EstadoCuenta.ACTIVA
+    assert "admin.unico" not in logs_json.texto()
+    # Con otro Administrador activo, sí se reaplica.
+    crear_staff("admin.otro", rol=RolCuenta.ADMINISTRADOR)
+    assert services.reaplicar_libro_anonimizaciones().anonimizadas == 1
