@@ -84,7 +84,7 @@ def _coincidencias(texto: str, tipo: str | None) -> list[tuple[int, str, int, in
             "set_config('statement_timeout', %s, true)",
             [TIMEOUT_BUSQUEDA],
         )
-        previo = cursor.fetchone()[0]  # type: ignore[index]
+        previo = cursor.fetchone()[0]
         try:
             cursor.execute(_FTS, parametros)
             filas = cursor.fetchall()
