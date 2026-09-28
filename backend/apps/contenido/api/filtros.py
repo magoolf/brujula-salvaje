@@ -41,6 +41,13 @@ def _array(items: dict[str, Any], maximo: int) -> dict[str, Any]:
     return {"type": "array", "maxItems": maximo, "uniqueItems": True, "items": items}
 
 
+def _eleccion(**kwargs: Any) -> serializers.ChoiceField:
+    """ChoiceField cuyo error no repite el valor recibido (sin reflejo de la entrada)."""
+    return serializers.ChoiceField(
+        error_messages={"invalid_choice": "Valor no admitido."}, **kwargs
+    )
+
+
 def rango(maximo: int) -> dict[str, Any]:
     return {"type": "integer", "minimum": 1, "maximum": maximo}
 
@@ -73,16 +80,14 @@ class FiltroDestinosSerializer(serializers.Serializer[Any]):
     dificultad_max = serializers.IntegerField(min_value=1, max_value=5, required=False)
     mes = serializers.IntegerField(min_value=1, max_value=12, required=False)
     duracion = serializers.ListField(
-        child=serializers.ChoiceField(choices=list(selectors.TRAMOS_DURACION)),
+        child=_eleccion(choices=list(selectors.TRAMOS_DURACION)),
         max_length=4,
         required=False,
     )
     presupuesto = serializers.ListField(
         child=serializers.IntegerField(min_value=1, max_value=4), max_length=4, required=False
     )
-    orden = serializers.ChoiceField(
-        choices=list(selectors.ORDENES_DESTINOS), required=False, default="nombre"
-    )
+    orden = _eleccion(choices=list(selectors.ORDENES_DESTINOS), required=False, default="nombre")
 
     @staticmethod
     def documentacion() -> list[OpenApiParameter]:
@@ -143,9 +148,7 @@ class FiltroItinerariosSerializer(serializers.Serializer[Any]):
     PARAMETROS: ClassVar[tuple[str, ...]] = ("destino", "orden")
 
     destino = _slug(required=False)
-    orden = serializers.ChoiceField(
-        choices=list(selectors.ORDENES_ITINERARIOS), required=False, default="titulo"
-    )
+    orden = _eleccion(choices=list(selectors.ORDENES_ITINERARIOS), required=False, default="titulo")
 
     @staticmethod
     def documentacion() -> list[OpenApiParameter]:
