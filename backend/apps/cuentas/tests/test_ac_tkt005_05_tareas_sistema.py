@@ -8,7 +8,6 @@ tenía en la copia; el libro (volumen vivo) conserva todos los eventos.
 from __future__ import annotations
 
 import io
-import multiprocessing
 import os
 import re
 from datetime import UTC, datetime, timedelta
@@ -224,16 +223,22 @@ def _escribir_muchas(ruta: str, cuenta_id: int, cantidad: int) -> None:
 
 @solo_posix
 def test_libro_v2_dos_procesos_concurrentes_400_lineas_validas(libro_anonimizaciones):
-    contexto = multiprocessing.get_context("fork")
-    procesos = [
-        contexto.Process(target=_escribir_muchas, args=(str(libro_anonimizaciones), n, 200))
-        for n in (1, 2)
-    ]
-    for proceso in procesos:
-        proceso.start()
-    for proceso in procesos:
-        proceso.join(60)
-        assert proceso.exitcode == 0
+    # os.fork + os._exit: los hijos no ejecutan finalizadores (no cierran la conexión a la BD
+    # heredada del proceso de pruebas).
+    hijos = []
+    for cuenta_id in (1, 2):
+        pid = os.fork()
+        if pid == 0:  # pragma: no cover - proceso hijo
+            codigo = 0
+            try:
+                _escribir_muchas(str(libro_anonimizaciones), cuenta_id, 200)
+            except BaseException:
+                codigo = 1
+            os._exit(codigo)
+        hijos.append(pid)
+    for pid in hijos:
+        _pid, estado = os.waitpid(pid, 0)
+        assert os.waitstatus_to_exitcode(estado) == 0
     lineas = _lineas(libro_anonimizaciones)
     assert len(lineas) == 400
     assert all(REGEX_LINEA.match(linea) for linea in lineas)
