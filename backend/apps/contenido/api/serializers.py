@@ -47,7 +47,7 @@ TRAMOS = ["1-3", "4-7", "8-14", "15+"]
 TEXTO_ENRIQUECIDO = {
     "type": "string",
     "contentMediaType": "text/html",
-    "maxLength": 200000,
+    "maxLength": 100000,
     "pattern": "^[^\\u0000]*$",
 }
 URI = {"type": "string", "format": "uri"}
