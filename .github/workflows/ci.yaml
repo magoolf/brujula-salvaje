@@ -88,11 +88,11 @@ jobs:
       - name: "Dependabot cubre todos los Dockerfile/Containerfile (directorio listado, FROM sin ARG)"
         timeout-minutes: 5
         run: bash infra/ci/dependabot_cobertura.sh .
-      # RSK-OPS-001 / QA-OPS005-04 / QA-OPS006-01/02 (TKT-OPS-006, DEC-AUTO-252/256): política de
-      # .trivyignore y de invocaciones de trivy. infra/ci/politica_trivy.py carga los workflows con
-      # PyYAML (valores run: RESUELTOS: folded, planos multilínea), une continuaciones de shell sin
-      # que una "\" dentro de un comentario continúe, busca lo prohibido en líneas físicas Y unidas,
-      # y revisa también los *.sh del repositorio. Primero sus controles (positivos y negativos).
+      # RSK-OPS-001 / QA-OPS005-04 / QA-OPS006-01/02/03 (TKT-OPS-006, DEC-AUTO-252/256/258, DEC-AUTO-915):
+      # política de trivy por LISTA BLANCA (infra/ci/politica_trivy.py; lista en DEVOPS_HANDOFF §19.14).
+      # Carga los workflows con PyYAML (valores run: resueltos), analiza cada run: y cada *.sh como shell
+      # (continuaciones, comentarios, comillas, expansiones) y exige que TODA aparición de trivy sea
+      # 'trivy image' con solo flags y valores permitidos. Primero sus controles (positivos y negativos).
       - name: "política de trivy: PyYAML aislado (venv efímero)"
         run: |
           python3 -m venv "${RUNNER_TEMP}/politica"
@@ -294,11 +294,12 @@ jobs:
         run: |
           mkdir -p reports
           rc=0
+          # Objetivo SIEMPRE "brujula/…" entre comillas dobles: la política (lista blanca, DEC-AUTO-258)
+          # solo admite expansiones en el objetivo si empieza por "brujula/" literal.
           for s in backend frontend proxy scheduler backup db; do
-            img="brujula/${s}:${APP_VERSION}"
             # JSON completo (sin .trivyignore) como evidencia; el gate aplica .trivyignore y muestra lo suprimido
-            trivy image --scanners vuln --severity CRITICAL,HIGH --format json --output "reports/trivy-${s}.json" "$img"
-            trivy image --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1 "$img" || rc=1
+            trivy image --scanners vuln --severity CRITICAL,HIGH --format json --output "reports/trivy-${s}.json" "brujula/${s}:${APP_VERSION}"
+            trivy image --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1 "brujula/${s}:${APP_VERSION}" || rc=1
           done
           exit $rc
       # Control negativo: con TODAS las caducidades en el pasado, el gate debe fallar (prueba de que la
@@ -307,16 +308,16 @@ jobs:
       - name: "control negativo: .trivyignore caducado -> el gate falla"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
-          # La política solo admite --ignorefile .trivyignore (DEC-AUTO-256): el fichero caducado se llama
-          # así en un directorio propio y trivy se ejecuta desde él.
-          mkdir -p /tmp/neg && sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/neg/.trivyignore
-          if ! grep -qE '^(CVE|GHSA)-' /tmp/neg/.trivyignore; then echo "sin excepciones: control no aplicable"; exit 0; fi
+          # Única excepción de la política (DEC-AUTO-258): --ignorefile /tmp/trivyignore-caducado solo
+          # como condición de "if …; then … exit 1" y con este mismo generador sed en este run.
+          sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/trivyignore-caducado
+          if ! grep -qE '^(CVE|GHSA)-' /tmp/trivyignore-caducado; then echo "sin excepciones: control no aplicable"; exit 0; fi
           # backend (excepciones Debian comunes) y db (además libxml2, 2.ª decisión humana)
           for s in backend db; do
-            if (cd /tmp/neg && trivy image -q --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1 --format json --output "/tmp/neg-${s}.json" "brujula/${s}:${APP_VERSION}"); then
+            if trivy image -q --scanners vuln --severity CRITICAL,HIGH --ignorefile /tmp/trivyignore-caducado --exit-code 1 --format json --output "/tmp/neg-${s}.json" "brujula/${s}:${APP_VERSION}"; then
               echo "::error::el gate NO falló con excepciones caducadas (${s})"; exit 1
             fi
-            echo "OK (${s}): con las excepciones caducadas trivy falla (exit 1)"
+            echo "OK (${s}): con las excepciones caducadas el escáner falla (exit 1)"
           done
       - name: SBOM (syft, CycloneDX JSON)
         if: always()

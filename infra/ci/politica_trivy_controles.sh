@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016  # los casos B* van entre comillas simples a propósito: $ literal
 # =============================================================================
-# Controles de la política de trivy (TKT-OPS-006: QA-OPS005-04, DEC-AUTO-252; ciclo 2: QA-OPS006-01/02,
-# OBS-3, DEC-AUTO-256). Ojo al escribir casos: dentro de comillas dobles, "\\" + salto se queda como
+# Controles de la política de trivy (TKT-OPS-006): QA-OPS005-04 (DEC-AUTO-252); ciclo 2 QA-OPS006-01/02,
+# OBS-3 (DEC-AUTO-256); ciclo 3 LISTA BLANCA, QA-OPS006-03/OBS-C2-1 (DEC-AUTO-915/258).
+# Ojo al escribir casos: dentro de comillas dobles, "\\" + salto se queda como
 # "\" + salto en el fichero; una sola "\" + salto la ELIMINA bash y junta las dos líneas.
 # Uso:  bash infra/ci/politica_trivy_controles.sh [POLITICA]   (por defecto infra/ci/politica_trivy.sh)
 # Copia .github/workflows y .trivyignore del repositorio a raíces temporales, introduce en cada una
@@ -118,7 +120,8 @@ jobs:
   x:
     steps:
       - run: echo hola"
-caso "Q14 barra seguida de espacio (no continúa)" 0 wf "${I}trivy image --severity CRITICAL,HIGH img \ 
+# Q14: "\ " no continúa la línea: pasa un 2.º argumento " " a trivy -> la lista blanca lo rechaza.
+caso "Q14 barra seguida de espacio: no continúa y añade un argumento extra" 1 wf "${I}trivy image --severity CRITICAL,HIGH img \ 
 ${I}echo --ignore-unfixed"
 caso "Q15 tabulador + continuación con --vex" 1 wf "${I}trivy	image --severity CRITICAL,HIGH \\
 ${I}	--vex v.json img"
@@ -127,6 +130,50 @@ caso "Q17 ruta absoluta al binario" 1 wf "${I}/usr/local/bin/trivy image --sever
 caso "Q18 script .sh del repositorio con opción prohibida" 1 sh "trivy image --severity CRITICAL,HIGH \\
   --ignore-unfixed img"
 caso "Q19 workflow YAML no válido" 1 yaml "jobs: [x"
+
+# --- ciclo 3: LISTA BLANCA (QA-OPS006-03, OBS-C2-1, DEC-AUTO-915/258) -------------------------
+# Contenido entre comillas SIMPLES: los $ y $(...) llegan literales al fixture.
+caso "B01 flag global con valor antes del subcomando + --ignore-unfixed" 1 wf '          trivy --cache-dir /tmp/c image --severity CRITICAL,HIGH --ignore-unfixed img'
+caso "B02 --timeout antes del subcomando + --skip-dirs" 1 wf '          trivy --timeout 10m image --severity CRITICAL,HIGH --skip-dirs x img'
+caso "B03 --cache-dir antes del subcomando, sin severidad" 1 wf '          trivy --cache-dir /tmp/c image --ignore-unfixed img'
+caso "B04 opción generada con \$(...)" 1 wf '          trivy image --severity CRITICAL,HIGH $(echo --ignore-unfixed) img'
+caso "B05 --scanners secret" 1 wf '          trivy image --severity CRITICAL,HIGH --scanners secret --ignorefile .trivyignore --exit-code 1 img'
+caso "B06 --pkg-types os" 1 wf '          trivy image --severity CRITICAL,HIGH --pkg-types os --exit-code 1 img'
+caso "B07 flag prohibido entre comillas" 1 wf '          trivy image --severity CRITICAL,HIGH "--ignore-unfixed" img'
+caso "B08 --ignore-unfixed=true" 1 wf '          trivy image --severity CRITICAL,HIGH --ignore-unfixed=true img'
+caso "B09 opciones en variable \$OPTS" 1 wf '          OPTS=--ignore-unfixed; trivy image --severity CRITICAL,HIGH $OPTS img'
+caso "B10 binario en variable (T=trivy; \$T image …)" 1 wf '          T=trivy; $T image --severity CRITICAL,HIGH --ignore-unfixed img'
+caso "B11 --skip-db-update + --db-repository ajeno" 1 wf '          trivy image --severity CRITICAL,HIGH --skip-db-update --db-repository ghcr.io/evil/db --exit-code 1 img'
+caso "B12 --exit-code=0" 1 wf '          trivy image --severity CRITICAL,HIGH --exit-code=0 img'
+caso "B13 gate válido con -s y --ignorefile=.trivyignore" 0 wf '          trivy image -s CRITICAL,HIGH --ignorefile=.trivyignore --exit-code 1 img'
+caso "B14 cd antes del gate" 1 wf '          cd /tmp/x && trivy image --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1 img'
+caso "B15 expresión \${{ }} como argumento" 1 yaml 'jobs:
+  x:
+    steps:
+      - run: trivy image --severity CRITICAL,HIGH ${{ env.EXTRA }} img'
+caso "B16 trivy dentro de python -c" 1 yaml 'jobs:
+  x:
+    steps:
+      - run: python -c "import os; os.system('"'"'trivy image --severity CRITICAL,HIGH --ignore-unfixed img'"'"')"'
+caso "B17 flags globales permitidos antes del subcomando" 0 wf '          trivy --cache-dir /tmp/c --timeout 10m -q image --severity CRITICAL,HIGH --no-progress img'
+caso "B18 --scanners vuln,secret" 1 wf '          trivy image --scanners vuln,secret --severity CRITICAL,HIGH img'
+caso "B19 subcomando fs (no usado por el CI)" 1 wf '          trivy fs --severity CRITICAL,HIGH .'
+caso "B20 objetivo entre comillas con variable que no empieza por brujula/" 1 wf '          trivy image --severity CRITICAL,HIGH "$img"'
+caso "B21 objetivo brujula/ entre comillas con variables" 0 wf '          trivy image --severity CRITICAL,HIGH --format json --output "reports/t-${s}.json" "brujula/${s}:${APP_VERSION}"'
+caso "B22 --output con variable SIN comillas" 1 wf '          trivy image --severity CRITICAL,HIGH --output reports/$s.json img'
+caso "B23 dos objetivos" 1 wf '          trivy image --severity CRITICAL,HIGH img1 img2'
+caso "B24 --ignorefile del control negativo fuera de su forma" 1 wf '          trivy image --severity CRITICAL,HIGH --ignorefile /tmp/trivyignore-caducado --exit-code 1 img'
+caso "B25 working-directory en un paso con trivy" 1 yaml 'jobs:
+  x:
+    steps:
+      - working-directory: sub
+        run: trivy image --severity CRITICAL,HIGH img'
+caso "B26 invocación en un valor que no es run" 1 yaml 'jobs:
+  x:
+    steps:
+      - uses: actions/github-script@0000000000000000000000000000000000000000
+        with: {script: "trivy image --severity CRITICAL,HIGH --ignore-unfixed img"}'
+caso "B27 sin comillas de cierre" 1 wf '          trivy image --severity "CRITICAL,HIGH img'
 
 echo "controles: ${n}; fallos: ${fallos}"
 test "$fallos" = 0

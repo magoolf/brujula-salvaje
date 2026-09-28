@@ -1633,3 +1633,111 @@ Con esos ficheros, la política da rc 0, que es la semántica correcta de shell 
 2. Registrar DEC-AUTO-256 y DEC-AUTO-257.
 3. Registrar RSK-OPS-033 a RSK-OPS-035.
 4. Registrar la nota sobre los fixtures Q1, Q2 y Q5 del arnés de QA.
+
+### 19.14 Ciclo 3 (QA_VERDICT FAIL, ciclo_qa 2/3): la política de trivy pasa a LISTA BLANCA
+
+**Estado:** COMPLETADO, pendiente de re-QA (último ciclo, CLAUDE.md §0.7).
+
+**Decisiones:**
+- DEC-AUTO-915 (Orquestador).
+- DEC-AUTO-258 (implementación): sustituye a la lista negra de §19.3.3 y §19.13.
+
+**Hallazgos que corrige:**
+- **QA-OPS006-03 (MEDIUM):** un flag global con valor antes del subcomando (`trivy --cache-dir /tmp/c image …`) hacía que el valor se tomara por subcomando y la invocación se descartaba.
+- **OBS-C2-1:** `--scanners` sin `vuln`, `--pkg-types os`, `--db-repository` ajeno y `--skip-db-update` pasaban la política.
+
+#### 19.14.1 Qué es una invocación
+El análisis de los ciclos anteriores se mantiene:
+- PyYAML con los valores resueltos.
+- Shell con continuaciones: una `\` dentro de un comentario no continúa la línea.
+
+Además, ahora cuenta como invocación **toda aparición** de la palabra `trivy` dentro de un `run:` o de un `*.sh` del repositorio:
+- Da igual la ruta del binario (`/usr/local/bin/trivy`).
+- Se detecta también detrás de `=`, comillas, `(` o un operador (`T=trivy;`, `python -c "…'trivy …'"`).
+- No son apariciones `/tmp/trivy.tgz`, `trivy_…` ni `aquasecurity/trivy/releases`.
+
+Hay una sola **excepción literal** (`EXCEPCIONES_LINEA`): `tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy`, la instalación del binario verificado por sha256.
+
+En valores YAML que no son `run:` (por ejemplo, `with: script:`), `trivy <subcomando>` es error directamente.
+
+#### 19.14.2 Lista blanca (`infra/ci/politica_trivy.py`)
+| Elemento | Permitido |
+|---|---|
+| Subcomando | `image` (el único que usa el CI). Cualquier otro (`fs`, `rootfs`, `repo`, `config`…) → error |
+| `--severity` / `-s` | Exactamente `CRITICAL,HIGH`. **Obligatorio y una sola vez** |
+| `--scanners` | Exactamente `vuln` (opcional, una vez). No se admiten `secret` ni `vuln,secret` |
+| `--ignorefile` | Exactamente `.trivyignore`, con la excepción del control negativo (ver más abajo) |
+| `--exit-code` | Exactamente `1`. Un gate (una invocación con `--ignorefile`) lo exige |
+| `--format` / `-f` | `json` o `table` |
+| `--output` / `-o` | Una ruta. Admite expansiones **solo** si el valor completo va entre comillas dobles |
+| `--timeout` | `\d+[smh]` |
+| `--cache-dir` | Ruta literal `[\w./-]+` |
+| `--quiet` / `-q`, `--no-progress`, `--show-suppressed` | Booleanos, sin `=valor` |
+| Objetivo | **Exactamente 1** argumento posicional. Puede ser literal (`[a-z0-9][\w./:@-]*`) o ir entre comillas dobles empezando por `brujula/` literal (las imágenes que construye el CI) |
+
+Reglas adicionales:
+- **Cualquier otro flag es error**, en cualquier posición (antes o después del subcomando) y aunque vaya entre comillas. Por ejemplo `--ignore-unfixed`, `--skip-*`, `--pkg-types`, `--db-repository`, `--skip-db-update`, `--config`, `--vex`, `--ignore-status` o `--ignore-policy`.
+- Los **argumentos no literales** (`$VAR`, `$(...)`, `` `...` ``, `${{ … }}`) son error. Hay dos únicas excepciones: el valor de `--output` y el objetivo `"brujula/…"`, ambos entre comillas dobles.
+- Unas comillas o una expansión sin cerrar hacen la invocación "no analizable", y eso también es error.
+- **Gate:** es cualquier invocación con `--ignorefile .trivyignore` y `--exit-code 1`. Tiene que haber al menos uno en los workflows. Para que el `.trivyignore` usado sea el de la raíz:
+  - el mismo `run:` no puede contener `cd` ni `pushd`;
+  - el paso, su job y el workflow no pueden fijar `working-directory`.
+- **Control negativo (excepción única):** se admite `--ignorefile /tmp/trivyignore-caducado` solo si se cumplen las tres condiciones:
+  - la invocación es la condición de un `if …; then`;
+  - la rama `then` ejecuta `exit 1`, es decir, se exige que trivy FALLE;
+  - el mismo `run:` genera ese fichero con el `sed` literal que cambia todas las caducidades a `2000-01-01`.
+
+  Por eso el paso de CI ha vuelto a esa forma. La variante `cd /tmp/neg` del ciclo 2 queda prohibida; corresponde a B14.
+- Se mantienen las reglas de los ciclos anteriores:
+  - sin claves ni asignaciones `TRIVY_*` de configuración;
+  - sin `trivy-action`, `setup-trivy` ni la imagen `aquasec/trivy`;
+  - sin `trivy.yaml` ni `.trivyignore.yaml`;
+  - `.trivyignore` solo con `CVE/GHSA exp:AAAA-MM-DD`.
+- Para ampliar la lista blanca (un flag o un subcomando nuevo) hay que tocar `SUBCOMANDOS`, `FLAGS_BOOL`/`FLAGS_VALOR` y los controles. Queda en el diff y lo revisa QA.
+
+**Cambios en `ci.yaml`:**
+- El objetivo de los dos `trivy image` del escaneo pasa de `"$img"` a `"brujula/${s}:${APP_VERSION}"`, para cumplir la regla del objetivo.
+- El mensaje "…trivy falla…" del control negativo se cambia a "…el escáner falla…": con la nueva regla, la palabra `trivy` dentro de un `echo` también cuenta como aparición.
+
+#### 19.14.3 Validaciones (2026-09-28)
+- **`politica_trivy_controles.sh`: 66/66.** Incluye:
+  - los 39 casos anteriores. **Q14 cambia de 0 a 1:** `img \ ` no continúa la línea y pasa un segundo argumento `" "` a trivy, que la lista blanca rechaza (se espera exactamente 1 objetivo);
+  - los 16 de QA, B01-B16: B13 → 0 y el resto → 1;
+  - 11 nuevos:
+
+  | Caso | Resultado |
+  |---|---|
+  | B17 flags globales permitidos antes del subcomando | 0 |
+  | B18 `--scanners vuln,secret` | 1 |
+  | B19 `trivy fs` | 1 |
+  | B20 `"$img"` | 1 |
+  | B21 `--output "…${s}…"` + `"brujula/${s}:…"` | 0 |
+  | B22 `--output reports/$s.json` sin comillas | 1 |
+  | B23 dos objetivos | 1 |
+  | B24 `--ignorefile /tmp/trivyignore-caducado` fuera de su forma | 1 |
+  | B25 `working-directory` en un paso con trivy | 1 |
+  | B26 trivy en `with: script:` | 1 |
+  | B27 comillas sin cerrar | 1 |
+
+  Cada caso negativo falla por la regla que le toca (`::error::` comprobado).
+- **Arnés de QA `run_fx.sh`:**
+  - `fx3/`: B01-B16, **16/16**.
+  - `fx2/`: 15 de 16. La diferencia es Q14 (esperado 0, rc 1), por el mismo motivo explicado arriba. Es un cambio intencionado al pasar a lista blanca, no un falso positivo: trivy recibiría un segundo objetivo `" "`.
+- **Repositorio real**: "política de trivy OK (lista blanca); invocaciones: 3; gates: 1; excepciones: 16". No hay falsos positivos en `ci.yaml` ni en los `*.sh` (`scripts/ops/*.sh`, `infra/ci/*.sh`, `infra/db/init/*.sh`).
+- **Estilo y estática:**
+  - `ruff check`/`format` en `infra/ci/`: OK.
+  - `shellcheck 0.10.0` en los 4 `.sh`: 0 avisos. SC2016 está desactivado en el fichero de controles, porque los casos van entre comillas simples a propósito.
+  - `actionlint 1.7.7`: 0 errores.
+
+#### 19.14.4 Riesgos
+- **RSK-OPS-033:** sigue abierto solo para trivy invocado desde otro lenguaje fuera de `run:`/`*.sh` (Makefile, `.py`). Queda **mitigado** para:
+  - las variables: `$T image` no se detecta como invocación, pero `T=trivy` sí aparece y falla (B10);
+  - los argumentos construidos: los no literales son error;
+  - `python -c` dentro de un `run:` (B16).
+- **RSK-OPS-034:** CERRADO. `cd`/`pushd` y `working-directory` están prohibidos con un gate, y la excepción del control negativo está acotada.
+
+#### 19.14.5 Archivos (ciclo 3)
+- `infra/ci/politica_trivy.py` (reescrito, lista blanca)
+- `infra/ci/politica_trivy_controles.sh`
+- `.github/workflows/ci.yaml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
