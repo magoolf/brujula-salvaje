@@ -61,7 +61,7 @@ info:
     `errors`. Los esquemas de texto de entrada lo declaran con `pattern: '^[^\u0000]*$'` (o con un
     patrón propio que ya lo excluye) para que los clientes generados y schemathesis no generen NUL.
   x-ticket: TKT-F4-003
-  x-cambios: [CHG-API-001, CHG-API-002]
+  x-cambios: [CHG-API-001, CHG-API-002, CHG-API-003, CHG-API-004, CHG-API-005]
   x-estado: PROPOSED
   x-adr: [ADR-API-001, ADR-API-002]
 servers:
@@ -1239,11 +1239,35 @@ paths:
       tags: [panel-contenidos]
       operationId: panelActualizarDestino
       summary: Guardar borrador o actualizar publicación de un destino
+      description: >-
+        BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con
+        validación completa (ADR-API-002 §4). RETIRADO → 409 transicion_invalida.
+
+
+        Multi-entidad en "Actualizar publicación" (CHG-BP-001, CHG-API-005, DEC-AUTO-265/268):
+        (a) si el cambio AÑADE tipos en BORRADOR, se co-publican en la misma operación: `copublicar_tipos`
+        debe contener exactamente esos tipos con su `version` (misma semántica y errores que
+        `panelPublicarContenido`; AC-124, AC-125). (b) Si el cambio QUITA un tipo (de `tipos_ids` o como
+        principal) y ese tipo se queda con 0 destinos publicados, el tipo se retira en cascada en la misma
+        transacción (auditoría RETIRAR con motivo "Cascada: sin destinos publicados (RULE-025)", una
+        instantánea por entidad; AC-128). Exige `confirmar_cascada: true` (si no, 409 cascada_sin_confirmar
+        con `impacto_cascada`) y, si se envía `cascada_confirmada`, que coincida con la calculada (si no, 409
+        impacto_modificado). Si el tipo lo usa algún itinerario PUBLICADO (este destino no retira
+        itinerarios al actualizar), 409 cascada_bloqueada con la lista y nada cambia (RULE-003,
+        DEC-AUTO-914). El impacto se obtiene antes con `panelAnalizarPublicacion` enviando los `tipos_ids`
+        del formulario. La respuesta 200 incluye en `entidades_afectadas` los tipos co-publicados y
+        retirados en cascada.
+
+
+        En BORRADOR, un `copublicar_tipos` no vacío, `confirmar_cascada: true` o un `cascada_confirmada` no
+        vacío → 400 campo_no_permitido (los tipos se validan al publicar). Orden de evaluación y
+        bloqueos: los de `panelPublicarContenido` y `panelRetirarContenido` (DEC-AUTO-269); 422
+        publicacion_invalida se evalúa antes que 409 cascada_bloqueada / cascada_sin_confirmar.
       security:
         - sesionPanel: []
           csrfToken: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-034, FEAT-036, FEAT-039, SCR-036, FLOW-011, FLOW-012, RULE-002, RULE-005, RULE-006, RULE-008, RULE-009, RULE-022, RULE-023, RULE-027, AC-101, AC-104, AC-110]
+      x-trazabilidad: [FEAT-034, FEAT-036, FEAT-037, FEAT-039, SCR-036, SCR-038, FLOW-011, FLOW-012, RULE-002, RULE-003, RULE-005, RULE-006, RULE-008, RULE-009, RULE-022, RULE-023, RULE-025, RULE-027, STATE-001, AC-101, AC-104, AC-110, AC-124, AC-125, AC-128, CHG-API-005]
       x-amenazas: [THREAT-003, THREAT-005, THREAT-012, THREAT-021, THREAT-024]
       x-limite-tasa: panel-escritura
       requestBody:
@@ -1253,16 +1277,16 @@ paths:
             schema: {$ref: '#/components/schemas/DestinoActualizacion'}
       responses:
         '200':
-          description: Destino guardado.
+          description: Destino guardado (con las entidades co-publicadas o retiradas en cascada, si las hay).
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/DestinoPanel'}
+              schema: {$ref: '#/components/schemas/DestinoGuardado'}
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
         '404': {$ref: '#/components/responses/NoEncontrado'}
         '409': {$ref: '#/components/responses/Conflicto'}
-        '422': {$ref: '#/components/responses/ReglaNegocio'}
+        '422': {$ref: '#/components/responses/ReglaNegocioPublicacion'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
     delete:
@@ -1402,11 +1426,21 @@ paths:
       tags: [panel-contenidos]
       operationId: panelActualizarItinerario
       summary: Guardar borrador o actualizar publicación de un itinerario
+      description: >-
+        BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con
+        validación completa. RETIRADO → 409 transicion_invalida. Desde CHG-API-005 (RULE-003 v1.1,
+        DEC-AUTO-914) un itinerario PUBLICADO exige que TODOS sus tipos estén PUBLICADOS: añadir un tipo en
+        BORRADOR o RETIRADO → 422 publicacion_invalida con `errores_por_entidad[].errores[].code`
+        `itinerario_tipo_no_publicado` (o `tipo_retirado`) en el campo `tipos_ids`. No hay co-publicación
+        desde el itinerario: el tipo se publica antes con un destino. Quitar un tipo de un itinerario nunca
+        provoca cascada (RULE-025 solo cuenta destinos); es la vía para desbloquear una `cascada_bloqueada`.
+        Bloqueo: FOR SHARE de los tipos referenciados (orden ascendente de id) para no competir con una
+        cascada concurrente.
       security:
         - sesionPanel: []
           csrfToken: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-034, FEAT-036, SCR-036, RULE-003, AC-110, AC-118]
+      x-trazabilidad: [FEAT-034, FEAT-036, SCR-036, RULE-003, RULE-025, AC-110, AC-118, AC-128, DEC-AUTO-914, CHG-API-005]
       x-amenazas: [THREAT-003, THREAT-005, THREAT-024]
       x-limite-tasa: panel-escritura
       requestBody:
@@ -1425,7 +1459,7 @@ paths:
         '403': {$ref: '#/components/responses/PermisoDenegado'}
         '404': {$ref: '#/components/responses/NoEncontrado'}
         '409': {$ref: '#/components/responses/Conflicto'}
-        '422': {$ref: '#/components/responses/ReglaNegocio'}
+        '422': {$ref: '#/components/responses/ReglaNegocioPublicacion'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
     delete:
@@ -2215,17 +2249,48 @@ paths:
     post:
       tags: [panel-ciclo-editorial]
       operationId: panelPublicarContenido
-      summary: BORRADOR → PUBLICADO con validación completa
+      summary: BORRADOR → PUBLICADO con validación completa (co-publicación destino + tipos, CHG-API-005)
       description: >-
         Valida RULE-002..006, 009, 023..027 según el tipo; si falla, 422 publicacion_invalida con `errors`
-        por campo (lista enlazable a los campos, ALT-018). Si pasa: fija el slug, crea la instantánea
-        (DATA-026) en la misma transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409
-        transicion_invalida. Páginas legales: solo Administrador.
+        por campo (lista enlazable a los campos, ALT-018) y `errores_por_entidad` agrupados por entidad
+        (CHG-API-005, DEC-AUTO-266). Si pasa: fija el slug, crea la instantánea (DATA-026) en la misma
+        transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409 transicion_invalida. Páginas legales:
+        solo Administrador.
+
+
+        **Co-publicación (solo destinos; CHG-BP-001, DEC-AUTO-912, DEC-AUTO-265).** `copublicar_tipos`
+        debe contener EXACTAMENTE los tipos del destino (`tipos_ids`, incluido `tipo_principal_id`) que están
+        en BORRADOR, cada uno con la `version` que el editor vio (ALT-016). El cliente obtiene esa lista de
+        `panelAnalizarPublicacion`. La validación evalúa el estado RESULTANTE de la operación completa: el
+        destino cuenta como "destino publicado" de cada tipo co-publicado (RULE-025), y cada tipo se valida
+        con sus propias reglas (RULE-006, RULE-009, RULE-025 checklist, RULE-027…). Todo o nada: el destino y
+        los tipos pasan a PUBLICADO en una única transacción, con una instantánea y una auditoría PUBLICAR
+        por entidad; si algo falla, ninguna entidad cambia de estado (AC-124, AC-125). La respuesta 200
+        enumera en `entidades` TODAS las entidades publicadas (principal + co-publicadas). Idempotente con
+        `Idempotency-Key` (ALT-017): la huella incluye `copublicar_tipos`.
+
+
+        Errores específicos (DEC-AUTO-266, dentro de `errores_por_entidad[].errores[].code`):
+        `tipo_retirado` (un tipo del destino está RETIRADO: "Reactiva primero el tipo {nombre}", con enlace en
+        `referencias`; AC-124, AC-130) · `tipo_no_publicado` (tipo en BORRADOR no incluido en
+        `copublicar_tipos`) · `copublicacion_tipo_no_asociado` (id de `copublicar_tipos` que no es tipo del
+        destino o no existe) · `copublicacion_tipo_no_borrador` (tipo listado que ya está PUBLICADO) ·
+        `tipo_sin_destino_publicado` (publicar un TIPO por sí solo con 0 destinos publicados, RULE-025,
+        AC-126: `referencias` = destinos en BORRADOR que tienen asociado el tipo) ·
+        `itinerario_tipo_no_publicado` (itinerario con algún tipo no PUBLICADO, RULE-003, DEC-AUTO-914; no
+        hay co-publicación desde el itinerario).
+        `copublicar_tipos` no vacío en un contenido que no es destino → 400 campo_no_permitido.
+
+
+        Orden de evaluación (DEC-AUTO-269): 400 formato → 403 permiso → 404 principal → 409
+        transicion_invalida → 409 conflicto_version (principal o cualquier tipo listado; `entidades_en_conflicto`)
+        → 422 publicacion_invalida (todas las entidades, agrupadas). Bloqueo: FOR UPDATE del destino y de
+        TODOS sus tipos en orden ascendente de id antes de validar.
       security:
         - sesionPanel: []
           csrfToken: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-036, SCR-038, FLOW-011, RULE-002, RULE-003, RULE-004, RULE-005, RULE-006, RULE-009, RULE-023, RULE-024, RULE-025, RULE-026, RULE-027, AC-028, AC-044, AC-102, AC-118]
+      x-trazabilidad: [FEAT-036, SCR-038, FLOW-011, RULE-002, RULE-003, RULE-004, RULE-005, RULE-006, RULE-009, RULE-023, RULE-024, RULE-025, RULE-026, RULE-027, STATE-001, ALT-016, ALT-017, ALT-018, AC-028, AC-044, AC-102, AC-118, AC-124, AC-125, AC-126, AC-130, CHG-BP-001, DEC-AUTO-912, DEC-AUTO-914, CHG-API-005]
       x-amenazas: [THREAT-003, THREAT-004, THREAT-012, THREAT-024]
       x-limite-tasa: panel-escritura
       parameters:
@@ -2234,10 +2299,10 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/TransicionEntrada'}
+            schema: {$ref: '#/components/schemas/PublicacionEntrada'}
       responses:
         '200':
-          description: Publicado.
+          description: Publicado (con los tipos co-publicados, si los hay).
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ResultadoTransicion'}
@@ -2246,7 +2311,68 @@ paths:
         '403': {$ref: '#/components/responses/PermisoDenegado'}
         '404': {$ref: '#/components/responses/NoEncontrado'}
         '409': {$ref: '#/components/responses/Conflicto'}
-        '422': {$ref: '#/components/responses/ReglaNegocio'}
+        '422': {$ref: '#/components/responses/ReglaNegocioPublicacion'}
+        '429': {$ref: '#/components/responses/LimiteTasa'}
+        '500': {$ref: '#/components/responses/ErrorInterno'}
+  /api/v1/panel/contenidos/{tipo}/{id}/analisis-publicacion:
+    parameters:
+      - $ref: '#/components/parameters/TipoContenidoPath'
+      - $ref: '#/components/parameters/IdPath'
+    post:
+      tags: [panel-ciclo-editorial]
+      operationId: panelAnalizarPublicacion
+      summary: Análisis previo (sin efectos) de "Publicar" o "Actualizar publicación" multi-entidad (SCR-038)
+      description: >-
+        Operación NUEVA de solo lectura (CHG-API-005, DEC-AUTO-267): no persiste, no audita, no crea
+        instantáneas. Es POST porque recibe el estado propuesto de los tipos del formulario y requiere CSRF
+        como toda operación POST del panel. Alimenta el diálogo SCR-038.
+
+
+        - Contenido en BORRADOR → `operacion: PUBLICAR`. Evalúa el estado GUARDADO: `entidad` contiene la
+          validación completa de publicación del principal y, si es un destino, `copublicacion` lista los
+          tipos en BORRADOR con su propia validación ("Se publicarán también") y `copublicar_tipos` trae la
+          lista exacta `{id, version}` que el cliente debe enviar a `panelPublicarContenido`. Los tipos
+          RETIRADOS aparecen como error `tipo_retirado` del principal (no confirmable).
+
+        - Destino PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION`. Si el cuerpo trae `tipos_ids` /
+          `tipo_principal_id` (valores del formulario sin guardar), se evalúa ese estado propuesto; si no,
+          el guardado. Devuelve la co-publicación de los tipos añadidos en BORRADOR, los `tipos_en_cascada`
+          (tipos que quedarían con 0 destinos publicados al quitarlos, RULE-025, AC-128) y los
+          `bloqueos_cascada` (itinerarios PUBLICADOS que usan esos tipos). La validación de los demás campos
+          del destino la da `panelVistaPreviaDestino` (`requisitos_publicacion`) y, de forma definitiva, el
+          PUT; aquí `entidad` solo contiene las reglas multi-entidad (tipos).
+
+        - Otro contenido PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION` sin efectos multi-entidad (listas
+          vacías). RETIRADO → 409 transicion_invalida.
+
+
+        `tipos_ids` / `tipo_principal_id` solo se admiten en un destino PUBLICADO; en otro caso 400
+        campo_no_permitido. `version` distinta de la actual → 409 conflicto_version. El resultado es
+        orientativo: la operación de escritura vuelve a validar todo bajo bloqueo (el estado puede cambiar
+        entre el análisis y la confirmación; ver `cascada_confirmada` e `impacto_modificado`).
+      security:
+        - sesionPanel: []
+          csrfToken: []
+      x-roles: [EDITOR, ADMINISTRADOR]
+      x-trazabilidad: [FEAT-036, FEAT-037, SCR-038, FLOW-011, FLOW-012, RULE-002, RULE-003, RULE-025, STATE-001, ALT-018, ALT-019, AC-124, AC-125, AC-126, AC-128, CHG-BP-001, DEC-AUTO-912, DEC-AUTO-914, CHG-API-005]
+      x-amenazas: [THREAT-003, THREAT-024]
+      x-limite-tasa: panel-vista-previa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AnalisisPublicacionEntrada'}
+      responses:
+        '200':
+          description: Análisis del estado resultante (sin efectos).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AnalisisPublicacion'}
+        '400': {$ref: '#/components/responses/Validacion'}
+        '401': {$ref: '#/components/responses/NoAutenticado'}
+        '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '404': {$ref: '#/components/responses/NoEncontrado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/contenidos/{tipo}/{id}/impacto-retiro:
@@ -2257,10 +2383,22 @@ paths:
       tags: [panel-ciclo-editorial]
       operationId: panelObtenerImpactoRetiro
       summary: Análisis de impacto antes de retirar (cascada, colecciones, destacados, enlaces entrantes)
+      description: >-
+        Sin efectos. Para un destino (CHG-API-005, DEC-AUTO-268): `itinerarios_en_cascada` (sus itinerarios
+        PUBLICADOS), `tipos_en_cascada` (tipos PUBLICADOS del destino cuyo ÚNICO destino publicado es este,
+        que se retirarían en la misma operación, RULE-025/RULE-007, AC-127) y `bloqueos_cascada` (por cada
+        tipo en cascada, los itinerarios PUBLICADOS que lo usan y que NO se retiran en la misma operación,
+        es decir, de otro destino; RULE-003, DEC-AUTO-914, ALT-019, AC-128). `colecciones` y `destacados`
+        incluyen los de la entidad principal y los de las entidades en cascada. `bloqueos` mantiene los usos
+        de RULE-007 (p. ej. retirar un tipo usado por destinos publicados: nunca de forma directa; se
+        resuelve retirando el último destino). `retirable` = false si `bloqueos` o `bloqueos_cascada` no
+        están vacíos. Guías, colecciones, destacados y relacionados que referencian un tipo en cascada NO
+        bloquean (RULE-001). El cliente envía los elementos de `itinerarios_en_cascada` y `tipos_en_cascada`
+        como `cascada_confirmada` en `panelRetirarContenido`.
       security:
         - sesionPanel: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-037, SCR-038, RULE-007, AC-112]
+      x-trazabilidad: [FEAT-037, SCR-038, FLOW-012, RULE-003, RULE-007, RULE-025, ALT-019, AC-112, AC-127, AC-128, CHG-API-005]
       x-limite-tasa: panel-lectura
       responses:
         '200':
@@ -2281,18 +2419,43 @@ paths:
     post:
       tags: [panel-ciclo-editorial]
       operationId: panelRetirarContenido
-      summary: PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios)
+      summary: PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios + tipos sin destinos publicados)
       description: >-
-        Si el destino tiene itinerarios publicados y `confirmar_cascada` es false: 409
-        dependencia_bloqueante con `usos`. Con confirmación, retira en cascada con una instantánea y una
-        entrada de auditoría RETIRAR por entidad (AC-112). Páginas institucionales: 409 transicion_invalida.
+        Cascada atómica (RULE-007, RULE-025, CHG-BP-001, DEC-AUTO-268): retirar un destino retira en la
+        MISMA transacción sus itinerarios PUBLICADOS y los tipos PUBLICADOS que se quedarían con 0 destinos
+        publicados, con una instantánea y una auditoría RETIRAR por entidad (AC-112, AC-127). El motivo
+        de auditoría de los tipos en cascada es "Cascada: sin destinos publicados (RULE-025)"; el de los
+        itinerarios, el `motivo` recibido. La respuesta 200 enumera en `entidades` la principal y TODAS las
+        entidades retiradas en cascada (`origen: CASCADA`).
+
+
+        Errores 409 (ProblemaConUsos): `cascada_bloqueada` si algún tipo en cascada lo usa un itinerario
+        PUBLICADO que no se retira en la misma operación (itinerario de otro destino, RULE-003,
+        DEC-AUTO-914): nada cambia; `usos` y `bloqueos_cascada` listan esos itinerarios (el editor les quita
+        el tipo y repite; ALT-019, AC-128). `cascada_sin_confirmar` si hay cascada (itinerarios o tipos) y
+        `confirmar_cascada` es false, con `impacto_cascada` (sustituye al antiguo `dependencia_bloqueante`
+        de este caso: ADR-API-002 §21, excepción documentada). `impacto_modificado` si se envía
+        `cascada_confirmada` y no coincide con la cascada calculada bajo bloqueo, con `impacto_cascada`
+        actualizado (el cliente vuelve a mostrar el impacto). `dependencia_bloqueante` queda solo para los
+        usos de RULE-007 (tipo, categoría, país, región, licencia o medio en uso por contenido publicado;
+        un tipo en uso por destinos publicados nunca se retira de forma directa). Páginas institucionales:
+        409 transicion_invalida.
+
+
+        Orden de evaluación (DEC-AUTO-269): 400 → 403 → 404 → 409 transicion_invalida → 409
+        conflicto_version → 409 dependencia_bloqueante → 409 cascada_bloqueada → 409 cascada_sin_confirmar /
+        impacto_modificado. Bloqueo: FOR UPDATE del destino, sus itinerarios publicados y sus tipos en orden
+        ascendente de id antes de calcular la cascada (evita que dos retiros concurrentes dejen un tipo
+        PUBLICADO con 0 destinos). Si la cascada superase 200 entidades → 422 regla_negocio (límite de
+        `afectados`; no esperado con los datos del producto).
       security:
         - sesionPanel: []
           csrfToken: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-037, SCR-038, FLOW-012, RULE-007, AC-100, AC-112]
+      x-trazabilidad: [FEAT-037, SCR-038, FLOW-012, RULE-003, RULE-007, RULE-025, STATE-001, ALT-019, AC-100, AC-112, AC-127, AC-128, CHG-BP-001, DEC-AUTO-912, DEC-AUTO-914, CHG-API-005]
       x-amenazas: [THREAT-003, THREAT-012, THREAT-024]
       x-limite-tasa: panel-escritura
+      x-cambio-incompatible: CHG-API-005 (cascada sin confirmar pasa de 409 dependencia_bloqueante a 409 cascada_sin_confirmar; operación aún no implementada, ADR-API-002 §21)
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -2322,11 +2485,18 @@ paths:
       tags: [panel-ciclo-editorial]
       operationId: panelReactivarContenido
       summary: RETIRADO → BORRADOR (conserva el slug)
+      description: >-
+        Solo afecta a la entidad indicada: `entidades` contiene únicamente la principal. Reactivar un destino
+        NO reactiva sus tipos ni sus itinerarios retirados en cascada (FLOW-012, AC-130). Para volver a
+        publicar un destino cuyos tipos siguen RETIRADOS hay que reactivar antes esos tipos (quedan en
+        BORRADOR) y publicarlos por co-publicación con el destino (`panelPublicarContenido`,
+        `copublicar_tipos`); mientras tanto la publicación del destino falla con `tipo_retirado`. Un tipo
+        reactivado solo vuelve a PUBLICADO mediante co-publicación (RULE-025).
       security:
         - sesionPanel: []
           csrfToken: []
       x-roles: [EDITOR, ADMINISTRADOR]
-      x-trazabilidad: [FEAT-037, FLOW-012]
+      x-trazabilidad: [FEAT-037, FLOW-012, RULE-025, AC-130, CHG-API-005]
       x-amenazas: [THREAT-003]
       x-limite-tasa: panel-escritura
       parameters:
@@ -3726,8 +3896,10 @@ components:
           schema: {$ref: '#/components/schemas/Problem'}
     Conflicto:
       description: >-
-        409 conflicto_version / transicion_invalida / slug_inmutable / slug_en_uso / duplicado /
-        dependencia_bloqueante / medio_en_uso / ultimo_administrador / operacion_sobre_si_mismo /
+        409 conflicto_version (en operaciones multi-entidad, con `entidades_en_conflicto`) /
+        transicion_invalida / slug_inmutable / slug_en_uso / duplicado / dependencia_bloqueante /
+        cascada_bloqueada (con `usos` y `bloqueos_cascada`) / cascada_sin_confirmar y impacto_modificado
+        (con `impacto_cascada`) (CHG-API-005) / medio_en_uso / ultimo_administrador / operacion_sobre_si_mismo /
         mfa_obligatorio / idempotencia_en_curso (reintentable: incluye Retry-After) /
         idempotencia_respuesta_no_reproducible (cualquier operación con Idempotency-Key cuya respuesta
         original no se guardó: siempre panelCrearCuenta y, en las demás, cuando superó 64 KB; ver el
@@ -3772,6 +3944,23 @@ components:
                 detail: La operación ya se realizó y su respuesta no puede repetirse.
                 code: idempotencia_respuesta_no_reproducible
                 trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
+            cascada_bloqueada:
+              summary: Retiro de un destino bloqueado por un itinerario publicado de otro destino (CHG-API-005, AC-128)
+              value:
+                type: https://brujulasalvaje.example/errors/cascada_bloqueada
+                title: No se puede retirar
+                status: 409
+                detail: El tipo Packrafting se retiraría en cascada, pero lo usa 1 itinerario publicado de otro destino. Quítale el tipo y repite.
+                code: cascada_bloqueada
+                usos:
+                  - {tipo_entidad: ITINERARIO, id: 88, titulo: Travesía del Futaleufú, estado_editorial: PUBLICADO}
+                total_usos: 1
+                bloqueos_cascada:
+                  - tipo_aventura: {tipo: TIPO, id: 41, titulo: Packrafting, slug: packrafting, estado_editorial: PUBLICADO}
+                    itinerarios:
+                      - {tipo: ITINERARIO, id: 88, titulo: Travesía del Futaleufú, slug: travesia-del-futaleufu, estado_editorial: PUBLICADO}
+                    total_itinerarios: 1
+                trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
     Retirado:
       description: 410 retirado. Sin el cuerpo del contenido; incluye alternativas publicadas (DEC-AUTO-113).
       headers:
@@ -3811,6 +4000,73 @@ components:
               galeria_ids: ['Se necesitan al menos 3 medios DISPONIBLES.']
               descripcion_experta: ['Mínimo 600 palabras.']
             trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
+    ReglaNegocioPublicacion:
+      description: >-
+        422 publicacion_invalida / regla_negocio / idempotencia_conflicto (CHG-API-005). Con
+        publicacion_invalida incluye SIEMPRE `errores_por_entidad` (errores agrupados por entidad: principal y
+        tipos co-publicados) además del mapa `errors` compatible. Ninguna entidad cambió de estado.
+      headers:
+        X-Trace-Id: {$ref: '#/components/headers/X-Trace-Id'}
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/ProblemaPublicacion'}
+          examples:
+            copublicacion_invalida:
+              summary: Destino con un tipo co-publicado incompleto y otro RETIRADO
+              value:
+                type: https://brujulasalvaje.example/errors/publicacion_invalida
+                title: No se puede publicar
+                status: 422
+                detail: Faltan requisitos de publicación en 2 entidades.
+                code: publicacion_invalida
+                errors:
+                  tipos_ids: ['Reactiva primero el tipo Barranquismo.']
+                  copublicar_tipos.41.checklist: ['La lista de comprobación necesita al menos 8 elementos.']
+                errores_por_entidad:
+                  - tipo: DESTINO
+                    id: 17
+                    titulo: Cañón del Colca
+                    estado_editorial: BORRADOR
+                    rol: PRINCIPAL
+                    errores:
+                      - campo: tipos_ids
+                        code: tipo_retirado
+                        mensaje: Reactiva primero el tipo Barranquismo.
+                        referencias:
+                          - {tipo: TIPO, id: 43, titulo: Barranquismo, slug: barranquismo, estado_editorial: RETIRADO}
+                  - tipo: TIPO
+                    id: 41
+                    titulo: Packrafting
+                    estado_editorial: BORRADOR
+                    rol: COPUBLICACION
+                    errores:
+                      - campo: checklist
+                        code: checklist_insuficiente
+                        mensaje: La lista de comprobación necesita al menos 8 elementos.
+                trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
+            tipo_sin_destino_publicado:
+              summary: Publicar un tipo por sí solo (RULE-025, AC-126)
+              value:
+                type: https://brujulasalvaje.example/errors/publicacion_invalida
+                title: No se puede publicar
+                status: 422
+                detail: Un tipo se publica junto con su primer destino.
+                code: publicacion_invalida
+                errors:
+                  _general: ['Este tipo no tiene destinos publicados. Publícalo desde uno de sus destinos en borrador.']
+                errores_por_entidad:
+                  - tipo: TIPO
+                    id: 41
+                    titulo: Packrafting
+                    estado_editorial: BORRADOR
+                    rol: PRINCIPAL
+                    errores:
+                      - campo: _general
+                        code: tipo_sin_destino_publicado
+                        mensaje: Este tipo no tiene destinos publicados. Publícalo desde uno de sus destinos en borrador.
+                        referencias:
+                          - {tipo: DESTINO, id: 17, titulo: Cañón del Colca, slug: canon-del-colca, estado_editorial: BORRADOR}
+                trace_id: 4bf92f3577b34da6a3ce929d0e0e4736
     LimiteTasa:
       description: 429 limite_tasa / acceso_bloqueado_temporalmente.
       headers:
@@ -3863,10 +4119,12 @@ components:
         401 no_autenticado, sesion_expirada, credenciales_invalidas, mfa_requerido, mfa_invalido ·
         403 permiso_denegado, csrf_invalido, cambio_credencial_requerido, autorizacion_requerida, configuracion_mfa_requerida ·
         404 no_encontrado, pagina_fuera_de_rango · 405 metodo_no_permitido ·
-        409 conflicto_version, transicion_invalida, slug_inmutable, slug_en_uso, duplicado, dependencia_bloqueante, medio_en_uso, ultimo_administrador, operacion_sobre_si_mismo, mfa_obligatorio, idempotencia_en_curso, idempotencia_respuesta_no_reproducible ·
+        409 conflicto_version, transicion_invalida, slug_inmutable, slug_en_uso, duplicado, dependencia_bloqueante, cascada_bloqueada, cascada_sin_confirmar, impacto_modificado, medio_en_uso, ultimo_administrador, operacion_sobre_si_mismo, mfa_obligatorio, idempotencia_en_curso, idempotencia_respuesta_no_reproducible ·
         410 retirado · 413 carga_demasiado_grande · 415 tipo_medio_no_soportado ·
         422 publicacion_invalida, regla_negocio, idempotencia_conflicto ·
         429 limite_tasa, acceso_bloqueado_temporalmente · 500 error_interno · 503 servicio_no_disponible.
+        Los códigos por entidad y campo de una publicación (p. ej. tipo_retirado) NO son `code` de Problem:
+        van en `ErrorRegla.code` (CHG-API-005).
       required: [type, title, status, code, trace_id]
       properties:
         type: {type: string, format: uri}
@@ -3887,6 +4145,23 @@ components:
         - $ref: '#/components/schemas/Problem'
         - type: object
           required: [errors]
+    ProblemaPublicacion:
+      description: >-
+        Problema de validación de una publicación multi-entidad (CHG-API-005, DEC-AUTO-266). `errors` se
+        mantiene por compatibilidad: claves `{campo}` para la entidad principal y
+        `copublicar_tipos.{id}.{campo}` para cada tipo co-publicado. `errores_por_entidad` es la fuente
+        estructurada para SCR-038 ("lista de errores agrupada por entidad", FLOW-011 6a'); aparece siempre
+        con code publicacion_invalida y nunca con idempotencia_conflicto.
+      allOf:
+        - $ref: '#/components/schemas/ProblemaValidacion'
+        - type: object
+          properties:
+            errores_por_entidad:
+              type: array
+              description: Solo las entidades con errores; la principal primero y después los tipos por id ascendente.
+              minItems: 1
+              maxItems: 13
+              items: {$ref: '#/components/schemas/ErroresEntidad'}
     ProblemaConUsos:
       allOf:
         - $ref: '#/components/schemas/Problem'
@@ -3897,6 +4172,19 @@ components:
               maxItems: 100
               items: {$ref: '#/components/schemas/ReferenciaUso'}
             total_usos: {type: integer, minimum: 0}
+            bloqueos_cascada:
+              type: array
+              description: Solo con code cascada_bloqueada (CHG-API-005). Por cada tipo cuya cascada se bloquea, los itinerarios PUBLICADOS que lo usan.
+              maxItems: 12
+              items: {$ref: '#/components/schemas/BloqueoCascada'}
+            impacto_cascada:
+              description: Solo con code cascada_sin_confirmar o impacto_modificado (CHG-API-005). Cascada calculada bajo bloqueo.
+              $ref: '#/components/schemas/ImpactoCascada'
+            entidades_en_conflicto:
+              type: array
+              description: Solo con code conflicto_version en operaciones multi-entidad (CHG-API-005). Entidades cuya versión enviada está obsoleta.
+              maxItems: 13
+              items: {$ref: '#/components/schemas/ContenidoRefPanel'}
     ProblemaRetirado:
       allOf:
         - $ref: '#/components/schemas/Problem'
@@ -4850,13 +5138,124 @@ components:
         pendientes:
           type: array
           maxItems: 200
-          items:
-            type: object
-            required: [campo, code, mensaje]
-            properties:
-              campo: {type: string, maxLength: 100}
-              code: {type: string, pattern: '^[a-z][a-z0-9_]{2,63}$'}
-              mensaje: {type: string, maxLength: 300}
+          items: {$ref: '#/components/schemas/ErrorRegla'}
+    ErrorRegla:
+      type: object
+      description: >-
+        Requisito incumplido de una entidad (CHG-API-005 extrae a este esquema el elemento de
+        `RequisitosPublicacion.pendientes`, sin cambiar sus campos, y añade `referencias` opcional).
+        `campo` usa la notación de `Problem.errors` (`_general` para errores de la entidad completa).
+        Códigos multi-entidad (DEC-AUTO-266): tipo_retirado (RULE-002: "Reactiva primero el tipo {nombre}";
+        `referencias` = el tipo) · tipo_no_publicado (RULE-002: tipo en BORRADOR no incluido en
+        `copublicar_tipos`; `referencias` = el tipo) · copublicacion_tipo_no_asociado ·
+        copublicacion_tipo_no_borrador · tipo_sin_destino_publicado (RULE-025, AC-126: `referencias` = destinos
+        en BORRADOR que tienen asociado el tipo, remite a la co-publicación) · itinerario_tipo_no_publicado
+        (RULE-003, DEC-AUTO-914: `referencias` = los tipos no PUBLICADOS). El resto de códigos son los de
+        requisitos por campo de cada tipo de contenido.
+      required: [campo, code, mensaje]
+      properties:
+        campo: {type: string, maxLength: 100}
+        code: {type: string, pattern: '^[a-z][a-z0-9_]{2,63}$'}
+        mensaje: {type: string, maxLength: 300}
+        referencias:
+          type: array
+          description: Entidades enlazables desde el mensaje (editor del panel).
+          maxItems: 50
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+    ErroresEntidad:
+      type: object
+      description: Errores de validación de una entidad dentro de una operación multi-entidad (CHG-API-005).
+      required: [tipo, id, titulo, estado_editorial, rol, errores]
+      properties:
+        tipo: {$ref: '#/components/schemas/TipoEntidadContenido'}
+        id: {$ref: '#/components/schemas/Id'}
+        titulo: {type: string, maxLength: 150}
+        estado_editorial: {$ref: '#/components/schemas/EstadoEditorial'}
+        rol: {$ref: '#/components/schemas/RolEntidadOperacion'}
+        errores:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: {$ref: '#/components/schemas/ErrorRegla'}
+    RolEntidadOperacion:
+      type: string
+      description: PRINCIPAL = la entidad de la ruta; COPUBLICACION = tipo publicado en la misma operación; CASCADA = entidad retirada en cascada.
+      enum: [PRINCIPAL, COPUBLICACION, CASCADA]
+    ValidacionEntidad:
+      type: object
+      description: Resultado de la validación de publicación de una entidad en el estado resultante de la operación (CHG-API-005).
+      required: [tipo, id, titulo, estado_editorial, version, rol, cumple, pendientes]
+      properties:
+        tipo: {$ref: '#/components/schemas/TipoEntidadContenido'}
+        id: {$ref: '#/components/schemas/Id'}
+        titulo: {type: string, maxLength: 150}
+        slug: {type: ['string', 'null'], maxLength: 120}
+        estado_editorial: {$ref: '#/components/schemas/EstadoEditorial'}
+        version: {type: integer, minimum: 1}
+        rol: {$ref: '#/components/schemas/RolEntidadOperacion'}
+        cumple: {type: boolean}
+        pendientes:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/ErrorRegla'}
+    BloqueoCascada:
+      type: object
+      description: >-
+        Tipo cuya retirada en cascada (RULE-025) está bloqueada porque lo usan itinerarios PUBLICADOS que no
+        se retiran en la misma operación (RULE-003, DEC-AUTO-914). El editor les quita el tipo y repite.
+      required: [tipo_aventura, itinerarios, total_itinerarios]
+      properties:
+        tipo_aventura: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        itinerarios:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        total_itinerarios: {type: integer, minimum: 1}
+    ImpactoCascada:
+      type: object
+      description: Entidades que una operación retiraría en cascada y bloqueos de esa cascada (CHG-API-005).
+      required: [itinerarios_en_cascada, tipos_en_cascada, bloqueos_cascada]
+      properties:
+        itinerarios_en_cascada:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        tipos_en_cascada:
+          type: array
+          maxItems: 12
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        bloqueos_cascada:
+          type: array
+          maxItems: 12
+          items: {$ref: '#/components/schemas/BloqueoCascada'}
+    EntidadRef:
+      type: object
+      additionalProperties: false
+      description: Referencia a una entidad de contenido del panel (entrada).
+      required: [tipo, id]
+      properties:
+        tipo: {$ref: '#/components/schemas/TipoEntidadContenido'}
+        id: {$ref: '#/components/schemas/Id'}
+    TipoVersionado:
+      type: object
+      additionalProperties: false
+      description: Tipo de aventura en BORRADOR a co-publicar, con la versión que vio el editor (bloqueo optimista, ALT-016).
+      required: [id, version]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        version: {type: integer, minimum: 1}
+    EntidadTransitada:
+      description: Entidad que cambió de estado en la operación, con su nueva versión y revisión (CHG-API-005).
+      allOf:
+        - $ref: '#/components/schemas/ContenidoRefPanel'
+        - type: object
+          required: [version, origen]
+          properties:
+            version: {type: integer, minimum: 1}
+            numero_revision: {type: ['integer', 'null'], minimum: 1}
+            url_publica: {type: ['string', 'null'], pattern: '^/[a-z0-9/-]*$'}
+            origen: {$ref: '#/components/schemas/RolEntidadOperacion'}
 
     # ------------------------------------------------------------ Panel: contenido (común)
     RelacionEntrada:
@@ -5022,6 +5421,7 @@ components:
         - $ref: '#/components/schemas/ContenidoComunCampos'
         - $ref: '#/components/schemas/DestinoCampos'
         - $ref: '#/components/schemas/VersionCampo'
+        - $ref: '#/components/schemas/CamposOperacionPublicada'
       required: [titulo, version]
       unevaluatedProperties: false
     DestinoVistaPrevia:
@@ -5323,6 +5723,48 @@ components:
       required: [version]
       properties:
         version: {type: integer, minimum: 1}
+    PublicacionEntrada:
+      type: object
+      additionalProperties: false
+      description: >-
+        Cuerpo de `panelPublicarContenido` (CHG-API-005, DEC-AUTO-265). Sustituye a `TransicionEntrada` en
+        esa operación y es un superconjunto compatible: `{version}` sigue siendo un cuerpo válido.
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1}
+        copublicar_tipos:
+          type: array
+          description: >-
+            Solo destinos. Lista EXACTA de los tipos del destino (incluido el principal) en BORRADOR, con su
+            versión. Vacía si todos sus tipos ya están PUBLICADOS. Sin ids repetidos (400 validacion).
+          maxItems: 12
+          uniqueItems: true
+          default: []
+          items: {$ref: '#/components/schemas/TipoVersionado'}
+    CamposOperacionPublicada:
+      type: object
+      description: >-
+        Campos de control de "Actualizar publicación" de un destino (CHG-API-005). No son campos del
+        contenido: no se guardan ni aparecen en `DestinoPanel`. En BORRADOR solo se admiten con su valor por
+        defecto.
+      properties:
+        copublicar_tipos:
+          type: array
+          description: Tipos en BORRADOR que el cambio añade al destino, con su versión (misma semántica que en PublicacionEntrada).
+          maxItems: 12
+          uniqueItems: true
+          default: []
+          items: {$ref: '#/components/schemas/TipoVersionado'}
+        confirmar_cascada:
+          type: boolean
+          default: false
+          description: Confirma la retirada en cascada de los tipos que el cambio deja con 0 destinos publicados (RULE-025).
+        cascada_confirmada:
+          type: array
+          description: Opcional (recomendado). Entidades en cascada que el editor vio y confirmó; si difiere de la calculada → 409 impacto_modificado.
+          maxItems: 12
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/EntidadRef'}
     RetiroEntrada:
       type: object
       additionalProperties: false
@@ -5331,9 +5773,19 @@ components:
         version: {type: integer, minimum: 1}
         motivo: {type: string, minLength: 1, maxLength: 300, pattern: '^[^\u0000]*$', description: 'Interno; nunca se publica.'}
         confirmar_cascada: {type: boolean, default: false}
+        cascada_confirmada:
+          type: array
+          description: >-
+            Opcional (recomendado; CHG-API-005, DEC-AUTO-268). Itinerarios y tipos en cascada que el editor
+            vio en `panelObtenerImpactoRetiro` y confirmó. Si difiere del conjunto calculado bajo bloqueo →
+            409 impacto_modificado y nada cambia. Si se omite, `confirmar_cascada: true` confirma la cascada
+            calculada en el momento (comportamiento anterior).
+          maxItems: 212
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/EntidadRef'}
     ResultadoTransicion:
       type: object
-      required: [id, tipo, estado_editorial, version, afectados]
+      required: [id, tipo, estado_editorial, version, afectados, entidades]
       properties:
         id: {$ref: '#/components/schemas/Id'}
         tipo: {$ref: '#/components/schemas/TipoEntidadContenido'}
@@ -5343,18 +5795,96 @@ components:
         url_publica: {type: ['string', 'null'], pattern: '^/[a-z0-9/-]*$'}
         afectados:
           type: array
-          description: Entidades retiradas en cascada (destino → itinerarios).
+          description: >-
+            Entidades distintas de la principal que cambiaron de estado en la misma operación: tipos
+            co-publicados (publicar) o itinerarios y tipos retirados en cascada (retirar). Vacío en reactivar.
+            Se mantiene por compatibilidad; `entidades` es la lista completa con versiones (CHG-API-005).
           maxItems: 200
           items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        entidades:
+          type: array
+          description: >-
+            TODAS las entidades que cambiaron de estado, la principal primero (`origen: PRINCIPAL`), con su
+            nueva versión y número de revisión (CHG-API-005, AC-125, AC-127).
+          minItems: 1
+          maxItems: 213
+          items: {$ref: '#/components/schemas/EntidadTransitada'}
+    DestinoGuardado:
+      description: Respuesta de `panelActualizarDestino` (CHG-API-005). `DestinoPanel` + entidades afectadas en la misma operación.
+      allOf:
+        - $ref: '#/components/schemas/DestinoPanel'
+        - type: object
+          required: [entidades_afectadas]
+          properties:
+            entidades_afectadas:
+              type: array
+              description: 'Tipos co-publicados (`origen: COPUBLICACION`) y retirados en cascada (`origen: CASCADA`). Vacío al guardar un borrador.'
+              maxItems: 24
+              items: {$ref: '#/components/schemas/EntidadTransitada'}
+    AnalisisPublicacionEntrada:
+      type: object
+      additionalProperties: false
+      description: Cuerpo de `panelAnalizarPublicacion` (CHG-API-005, DEC-AUTO-267).
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1, description: 'Versión que el editor tiene abierta (409 conflicto_version si es obsoleta).'}
+        tipos_ids:
+          type: array
+          description: Solo destino PUBLICADO. Tipos propuestos en el formulario (sin guardar).
+          maxItems: 12
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/Id'}
+        tipo_principal_id: {type: ['integer', 'null'], format: int64, minimum: 1, description: 'Solo destino PUBLICADO. Debe pertenecer a tipos_ids.'}
+    AnalisisPublicacion:
+      type: object
+      description: >-
+        Resultado sin efectos del análisis de "Publicar" / "Actualizar publicación" (CHG-API-005). `confirmable`
+        = `entidad.cumple` y todas las `copublicacion[].cumple` y `bloqueos_cascada` vacío.
+      required: [operacion, confirmable, entidad, copublicacion, copublicar_tipos, tipos_en_cascada, bloqueos_cascada]
+      properties:
+        operacion: {type: string, enum: [PUBLICAR, ACTUALIZAR_PUBLICACION]}
+        confirmable: {type: boolean}
+        entidad:
+          description: Validación de la entidad principal (en ACTUALIZAR_PUBLICACION de un destino, solo las reglas de tipos).
+          $ref: '#/components/schemas/ValidacionEntidad'
+        copublicacion:
+          type: array
+          description: Tipos en BORRADOR que se publicarán también ("Se publicarán también"), cada uno con su validación en el estado resultante.
+          maxItems: 12
+          items: {$ref: '#/components/schemas/ValidacionEntidad'}
+        copublicar_tipos:
+          type: array
+          description: Lista exacta a enviar como `copublicar_tipos` en la operación de escritura.
+          maxItems: 12
+          items: {$ref: '#/components/schemas/TipoVersionado'}
+        tipos_en_cascada:
+          type: array
+          description: Solo ACTUALIZAR_PUBLICACION de un destino. Tipos que el cambio deja con 0 destinos publicados y se retirarían en cascada.
+          maxItems: 12
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        bloqueos_cascada:
+          type: array
+          maxItems: 12
+          items: {$ref: '#/components/schemas/BloqueoCascada'}
     ImpactoRetiro:
       type: object
-      required: [retirable, itinerarios_en_cascada, colecciones, destacados, enlaces_entrantes, bloqueos]
+      required: [retirable, itinerarios_en_cascada, tipos_en_cascada, colecciones, destacados, enlaces_entrantes, bloqueos, bloqueos_cascada]
       properties:
         retirable: {type: boolean}
         itinerarios_en_cascada:
           type: array
           maxItems: 200
           items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        tipos_en_cascada:
+          type: array
+          description: Tipos PUBLICADOS cuyo único destino publicado es el que se retira (RULE-025, CHG-API-005).
+          maxItems: 12
+          items: {$ref: '#/components/schemas/ContenidoRefPanel'}
+        bloqueos_cascada:
+          type: array
+          description: Itinerarios PUBLICADOS de otros destinos que bloquean la cascada de un tipo (RULE-003, DEC-AUTO-914).
+          maxItems: 12
+          items: {$ref: '#/components/schemas/BloqueoCascada'}
         colecciones:
           type: array
           maxItems: 200
