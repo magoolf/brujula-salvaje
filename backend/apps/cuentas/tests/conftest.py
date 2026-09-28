@@ -133,3 +133,13 @@ def cliente_editora(editora: Staff) -> Client:
     cliente = Client(raise_request_exception=False)
     entrar(cliente, editora)
     return cliente
+
+
+@pytest.fixture(autouse=True)
+def libro_anonimizaciones(tmp_path, settings):
+    """Libro v2 aislado por prueba (se escribe dentro de las transacciones, CHG-DB-003)."""
+    directorio = tmp_path / "ops_libro"
+    directorio.mkdir()
+    ruta = directorio / "libro_anonimizaciones.log"
+    settings.LIBRO_ANONIMIZACIONES_PATH = str(ruta)
+    return ruta

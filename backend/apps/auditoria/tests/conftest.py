@@ -5,4 +5,5 @@ from apps.cuentas.tests.conftest import (  # noqa: F401 (fixtures de pytest)
     cliente_admin,
     cliente_editora,
     editora,
+    libro_anonimizaciones,
 )

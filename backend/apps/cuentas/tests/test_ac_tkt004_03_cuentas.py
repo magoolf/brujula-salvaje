@@ -447,11 +447,17 @@ def test_AC_TKT004_03_libro_no_escrito_se_registra_sin_pii(
 ):
     ocupado = tmp_path / "es-un-archivo"
     ocupado.write_text("x", encoding="utf-8")
+    # CHG-DB-003 (ADR-DB-004 §4.2): fail-closed. Sin libro no hay desactivación: 503 genérico y
+    # rollback completo (estado, auditoría y sesiones sin cambios).
     with (
         override_settings(LIBRO_ANONIMIZACIONES_PATH=str(ocupado / "libro.log")),
         django_capture_on_commit_callbacks(execute=True),
     ):
-        assert post(cliente_admin, f"/cuentas/{editora.cuenta.pk}/desactivar").status_code == 200
+        respuesta = post(cliente_admin, f"/cuentas/{editora.cuenta.pk}/desactivar")
+    problema(respuesta, 503, "servicio_no_disponible")
+    editora.cuenta.refresh_from_db()
+    assert editora.cuenta.estado == "ACTIVA"
+    assert not EventoAuditoria.objects.filter(accion="CUENTA_DESACTIVAR").exists()
     texto = logs_json.texto()
     assert "libro_anonimizaciones_no_escrito" in texto
     assert "editora.uno" not in texto

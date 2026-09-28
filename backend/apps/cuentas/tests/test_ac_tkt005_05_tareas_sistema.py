@@ -1,26 +1,30 @@
-"""AC-TKT005-05 (BP-1, DEC-AUTO-909): tareas del sistema sobre cuentas y auditoría.
+"""AC-TKT005-05 y QA-TKT005-03: tareas del sistema sobre cuentas y auditoría con el libro v2.
 
-- cuentas.services.anonimizar_cuentas_vencidas(): DESACTIVADAS hace > 30 días, actor "sistema",
-  la fila persiste (CHG-DB-002), idempotente.
-- cuentas.services.reaplicar_libro_anonimizaciones(): libro solo con ids, idempotente, sin PII.
-- auditoria.services.purgar_eventos_caducados(): app.fn_auditoria_purgar() (365 días).
-- Comandos anonimizar_cuentas, reaplicar_anonimizaciones y purgar_auditoria con lock y registro.
+Fuente: ADR-DB-004 §2 y §4.1-§4.5, DB_HANDOFF v1.3 pruebas_obligatorias "Libro v2" (CHG-DB-003,
+DEC-AUTO-260..264). "Restaurar una copia" se simula devolviendo la fila de la cuenta al estado que
+tenía en la copia; el libro (volumen vivo) conserva todos los eventos.
 """
 
 from __future__ import annotations
 
 import io
+import multiprocessing
+import os
+import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from django.core.management import call_command, get_commands
+from django.core.management.base import CommandError
 from django.db import connection
 from django.test import override_settings
 from django.utils import timezone
 
 from apps.auditoria.models import AccionAuditoria, EventoAuditoria
 from apps.auditoria.services import purgar_eventos_caducados
-from apps.cuentas import services
+from apps.core.exceptions import ErrorApi
+from apps.cuentas import libro, services
 from apps.cuentas.models import (
     CuentaCodigoRecuperacion,
     CuentaStaff,
@@ -34,19 +38,42 @@ from apps.ops.models import OpsEjecucionTarea, ResultadoTarea, TareaProgramada
 
 pytestmark = pytest.mark.django_db
 
+REGEX_LINEA = re.compile(
+    r"^[1-9][0-9]{0,18};(DESACTIVADA|REACTIVADA|ANONIMIZADA);"
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+)
+solo_posix = pytest.mark.skipif(os.name != "posix", reason="flock/O_NOFOLLOW/permisos POSIX")
+T0 = datetime(2026, 8, 1, 10, 0, 0, tzinfo=UTC)
+
 
 @pytest.fixture
-def libro(tmp_path):
-    ruta = tmp_path / "libro_anonimizaciones.log"
-    with override_settings(LIBRO_ANONIMIZACIONES_PATH=str(ruta)):
-        yield ruta
+def admin():
+    return crear_staff("admin.libro", rol=RolCuenta.ADMINISTRADOR).cuenta
 
 
-def _desactivada(usuario: str, hace_dias: int) -> CuentaStaff:
+def _lineas(ruta: Path) -> list[str]:
+    return ruta.read_text(encoding="utf-8").splitlines() if ruta.exists() else []
+
+
+def _escribir(ruta: Path, *lineas: str, final: str = "\n") -> None:
+    ruta.write_bytes(("\n".join(lineas) + final).encode("utf-8"))
+    if os.name == "posix":
+        ruta.chmod(0o640)
+
+
+def _f(momento: datetime) -> str:
+    return momento.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _restaurar(cuenta: CuentaStaff, **estado) -> None:
+    """Devuelve la fila al estado de la copia (la restauración no toca el libro)."""
+    CuentaStaff.objects.filter(pk=cuenta.pk).update(**estado)
+    cuenta.refresh_from_db()
+
+
+def _desactivada(usuario: str, desactivado_en: datetime) -> CuentaStaff:
     cuenta = crear_staff(usuario, estado=EstadoCuenta.DESACTIVADA).cuenta
-    CuentaStaff.objects.filter(pk=cuenta.pk).update(
-        desactivado_en=timezone.now() - timedelta(days=hace_dias)
-    )
+    _restaurar(cuenta, desactivado_en=desactivado_en)
     CuentaCodigoRecuperacion.objects.create(cuenta=cuenta, hash_codigo="h" * 64)
     sesion = SessionStore()
     sesion.create()
@@ -58,88 +85,369 @@ def _eventos(accion: str, cuenta: CuentaStaff) -> list[EventoAuditoria]:
     return list(EventoAuditoria.objects.filter(accion=accion, entidad_id=cuenta.pk))
 
 
+def _comando(nombre: str, *args: str) -> str:
+    salida = io.StringIO()
+    call_command(nombre, *args, stdout=salida)
+    return salida.getvalue()
+
+
+def _registro(tarea: str) -> OpsEjecucionTarea:
+    return OpsEjecucionTarea.objects.filter(tarea=tarea).order_by("-id").first()
+
+
 # ---------------------------------------------------------------------------
-# anonimizar_cuentas_vencidas
+# Escenario de QA-TKT005-03 (obligatorio)
 # ---------------------------------------------------------------------------
-def test_AC_TKT005_05_anonimiza_solo_las_vencidas_con_actor_sistema(
-    libro, django_capture_on_commit_callbacks
+@pytest.mark.parametrize("estado_copia", [EstadoCuenta.ACTIVA, EstadoCuenta.PENDIENTE_ACTIVACION])
+def test_QA_TKT005_03_desactivar_reactivar_copia_restaurar_31_dias_sigue_igual(
+    admin, libro_anonimizaciones, estado_copia
 ):
-    vencida = _desactivada("vencida.uno", 31)
-    reciente = _desactivada("reciente.dos", 10)
-    activa = crear_staff("activa.tres").cuenta
-    with django_capture_on_commit_callbacks(execute=True):
-        assert services.anonimizar_cuentas_vencidas() == 1
+    editor = crear_staff("editor.qa", estado=estado_copia).cuenta
+    services.desactivar_cuenta(admin, editor.pk)
+    services.reactivar_cuenta(admin, editor.pk)
+    assert [linea.split(";")[1] for linea in _lineas(libro_anonimizaciones)] == [
+        "DESACTIVADA",
+        "REACTIVADA",
+    ]
+    tamano = libro_anonimizaciones.stat().st_size
+    _restaurar(editor, estado=estado_copia, desactivado_en=None)
+
+    reaplicado = services.reaplicar_libro_anonimizaciones()
+    anonimizado = services.anonimizar_cuentas_vencidas(timezone.now() + timedelta(days=31))
+
+    assert (reaplicado.desactivadas, reaplicado.anonimizadas) == ([], [])
+    assert anonimizado.anonimizadas == []
+    editor.refresh_from_db()
+    assert (editor.estado, editor.usuario, editor.desactivado_en) == (
+        estado_copia,
+        "editor.qa",
+        None,
+    )
+    assert editor.nombre_visible == "Nombre de editor.qa"
+    assert _eventos(AccionAuditoria.CUENTA_ANONIMIZAR, editor) == []
+    assert libro_anonimizaciones.stat().st_size == tamano
+
+
+# ---------------------------------------------------------------------------
+# Escritura (§4.2)
+# ---------------------------------------------------------------------------
+def test_libro_v2_escritura_una_linea_por_transicion(admin, libro_anonimizaciones):
+    editor = crear_staff("editor.lineas").cuenta
+    services.desactivar_cuenta(admin, editor.pk)
+    editor.refresh_from_db()
+    services.reactivar_cuenta(admin, editor.pk)
+    services.desactivar_cuenta(admin, editor.pk)
+    services.anonimizar_cuenta(admin, editor.pk)
+    vencida = _desactivada("vencida.lineas", timezone.now() - timedelta(days=40))
+    services.anonimizar_cuentas_vencidas()
+    lineas = _lineas(libro_anonimizaciones)
+    assert all(REGEX_LINEA.match(linea) for linea in lineas), lineas
+    assert [linea.split(";")[:2] for linea in lineas] == [
+        [str(editor.pk), "DESACTIVADA"],
+        [str(editor.pk), "REACTIVADA"],
+        [str(editor.pk), "DESACTIVADA"],
+        [str(editor.pk), "ANONIMIZADA"],
+        [str(vencida.pk), "ANONIMIZADA"],
+    ]
+    # En DESACTIVADA, la fecha es desactivado_en truncado a segundos.
+    assert lineas[0].split(";")[2] == libro.fecha_libro(editor.desactivado_en)
+
+
+def test_libro_v2_sin_libro_escribible_la_operacion_se_deshace(admin, tmp_path, logs_json):
+    ocupado = tmp_path / "es-un-fichero"
+    ocupado.write_text("x", encoding="utf-8")
+    editor = crear_staff("editor.sin.libro").cuenta
+    sesion = SessionStore()
+    sesion.create()
+    SesionPanel.objects.filter(session_key=sesion.session_key).update(cuenta=editor)
+    with override_settings(LIBRO_ANONIMIZACIONES_PATH=str(ocupado / "libro.log")):
+        with pytest.raises(libro.LibroNoEscrito):
+            services.desactivar_cuenta(admin, editor.pk)
+        editor.refresh_from_db()
+        assert editor.estado == EstadoCuenta.ACTIVA
+        assert SesionPanel.objects.filter(cuenta=editor).exists()
+        assert _eventos(AccionAuditoria.CUENTA_DESACTIVAR, editor) == []
+        desactivada = _desactivada("ya.desactivada", timezone.now() - timedelta(days=1))
+        for operacion in (services.reactivar_cuenta, services.anonimizar_cuenta):
+            with pytest.raises(libro.LibroNoEscrito):
+                operacion(admin, desactivada.pk)
+            desactivada.refresh_from_db()
+            assert desactivada.estado == EstadoCuenta.DESACTIVADA
+    assert "libro_anonimizaciones_no_escrito" in logs_json.texto()
+    assert "editor.sin.libro" not in logs_json.texto()
+
+
+def test_libro_v2_si_falla_rule_015_no_se_escribe_linea(admin, libro_anonimizaciones):
+    otro = crear_staff("admin.otro", rol=RolCuenta.ADMINISTRADOR, estado=EstadoCuenta.DESACTIVADA)
+    with pytest.raises(ErrorApi) as error:
+        services.desactivar_cuenta(otro.cuenta, admin.pk)
+    assert error.value.codigo == "ultimo_administrador"
+    assert _lineas(libro_anonimizaciones) == []
+
+
+def test_libro_v2_reparacion_de_cola_sin_salto_de_linea(admin, libro_anonimizaciones):
+    editor = crear_staff("editor.reparacion").cuenta
+    _escribir(libro_anonimizaciones, "12;DESACTIVADA;2026-0", final="")
+    services.desactivar_cuenta(admin, editor.pk)
+    lineas = _lineas(libro_anonimizaciones)
+    assert lineas[0] == "12;DESACTIVADA;2026-0"
+    assert lineas[1].startswith("#REPARACION;")
+    assert lineas[2].startswith(f"{editor.pk};DESACTIVADA;")
+    lectura = libro.leer()
+    assert lectura.avisos == ["LINEA_REPARADA:1"]
+    assert lectura.cuentas[editor.pk].ultimo == libro.DESACTIVADA
+
+
+@solo_posix
+def test_libro_v2_modo_0640_y_enlace_simbolico_rechazado(admin, libro_anonimizaciones, tmp_path):
+    editor = crear_staff("editor.modo").cuenta
+    services.desactivar_cuenta(admin, editor.pk)
+    assert libro_anonimizaciones.stat().st_mode & 0o777 == 0o640
+    destino = tmp_path / "otro.log"
+    destino.write_text("", encoding="utf-8")
+    enlace = tmp_path / "enlace.log"
+    enlace.symlink_to(destino)
+    with override_settings(LIBRO_ANONIMIZACIONES_PATH=str(enlace)):
+        with pytest.raises(libro.LibroNoEscrito):
+            services.reactivar_cuenta(admin, editor.pk)
+        with pytest.raises(libro.ErrorLibro) as error:
+            libro.leer()
+        assert error.value.codigo == libro.LIBRO_ILEGIBLE
+    assert destino.read_text(encoding="utf-8") == ""
+
+
+def _escribir_muchas(ruta: str, cuenta_id: int, cantidad: int) -> None:
+    for _ in range(cantidad):
+        momento = datetime.now(UTC)
+        libro.anadir_linea(Path(ruta), f"{cuenta_id};DESACTIVADA;{_f(momento)}\n", momento)
+
+
+@solo_posix
+def test_libro_v2_dos_procesos_concurrentes_400_lineas_validas(libro_anonimizaciones):
+    contexto = multiprocessing.get_context("fork")
+    procesos = [
+        contexto.Process(target=_escribir_muchas, args=(str(libro_anonimizaciones), n, 200))
+        for n in (1, 2)
+    ]
+    for proceso in procesos:
+        proceso.start()
+    for proceso in procesos:
+        proceso.join(60)
+        assert proceso.exitcode == 0
+    lineas = _lineas(libro_anonimizaciones)
+    assert len(lineas) == 400
+    assert all(REGEX_LINEA.match(linea) for linea in lineas)
+
+
+def test_libro_v2_la_relectura_no_escribe(admin, libro_anonimizaciones):
+    editor = crear_staff("editor.relectura").cuenta
+    services.desactivar_cuenta(admin, editor.pk)
+    _restaurar(editor, estado=EstadoCuenta.ACTIVA, desactivado_en=None)
+    tamano = libro_anonimizaciones.stat().st_size
+    assert services.reaplicar_libro_anonimizaciones().desactivadas == [editor.pk]
+    assert libro_anonimizaciones.stat().st_size == tamano
+
+
+# ---------------------------------------------------------------------------
+# Relectura (a)-(i) (§4.3)
+# ---------------------------------------------------------------------------
+def test_libro_v2_a_desactivada_tras_la_copia_plazo_desde_la_fecha_del_libro(
+    admin, libro_anonimizaciones
+):
+    editor = crear_staff("rel.a").cuenta
+    _escribir(libro_anonimizaciones, f"{editor.pk};DESACTIVADA;{_f(T0)}")
+    assert services.reaplicar_libro_anonimizaciones().desactivadas == [editor.pk]
+    editor.refresh_from_db()
+    assert (editor.estado, editor.desactivado_en) == (EstadoCuenta.DESACTIVADA, T0)
+    desactivar = _eventos(AccionAuditoria.CUENTA_DESACTIVAR, editor)[0]
+    assert (desactivar.actor_id, desactivar.actor_etiqueta) == (None, "sistema")
+    assert services.anonimizar_cuentas_vencidas(T0 + timedelta(days=29)).anonimizadas == []
+    assert services.anonimizar_cuentas_vencidas(T0 + timedelta(days=31)).anonimizadas == [editor.pk]
+
+
+def test_libro_v2_b_desactivacion_vigente_tras_reactivar_y_desactivar(admin, libro_anonimizaciones):
+    editor = _desactivada("rel.b", T0)  # copia: DESACTIVADA en t0
+    t1 = T0 + timedelta(days=10)
+    _escribir(
+        libro_anonimizaciones,
+        f"{editor.pk};DESACTIVADA;{_f(T0)}",
+        f"{editor.pk};REACTIVADA;{_f(T0 + timedelta(days=2))}",
+        f"{editor.pk};DESACTIVADA;{_f(t1)}",
+    )
+    assert services.reaplicar_libro_anonimizaciones().alineadas == [editor.pk]
+    editor.refresh_from_db()
+    assert editor.desactivado_en == t1
+    assert services.anonimizar_cuentas_vencidas(T0 + timedelta(days=31)).anonimizadas == []
+    assert services.anonimizar_cuentas_vencidas(t1 + timedelta(days=31)).anonimizadas == [editor.pk]
+
+
+def test_libro_v2_c_reactivada_tras_la_copia_no_se_reproduce_ni_se_anonimiza(
+    admin, libro_anonimizaciones
+):
+    editor = _desactivada("rel.c", T0)
+    _escribir(
+        libro_anonimizaciones,
+        f"{editor.pk};DESACTIVADA;{_f(T0)}",
+        f"{editor.pk};REACTIVADA;{_f(T0 + timedelta(days=3))}",
+    )
+    reaplicado = services.reaplicar_libro_anonimizaciones()
+    assert reaplicado.avisos() == {"REACTIVADA_NO_REPRODUCIDA": [editor.pk]}
+    editor.refresh_from_db()
+    assert editor.estado == EstadoCuenta.DESACTIVADA
+    resultado = services.anonimizar_cuentas_vencidas(T0 + timedelta(days=31))
+    assert (resultado.anonimizadas, resultado.omitidas_reactivada) == ([], [editor.pk])
+    _comando("anonimizar_cuentas")
+    assert "OMITIDA_REACTIVADA=1" in _registro(TareaProgramada.ANONIMIZACION_CUENTAS).detalle
+
+
+def test_libro_v2_d_anonimizada_tras_la_copia(admin, libro_anonimizaciones):
+    editor = crear_staff("rel.d").cuenta
+    EventoAuditoria.objects.create(
+        actor=editor, actor_etiqueta="rel.d", accion="LOGIN_OK", resultado="EXITO"
+    )
+    _escribir(
+        libro_anonimizaciones,
+        f"{editor.pk};DESACTIVADA;{_f(T0)}",
+        f"{editor.pk};ANONIMIZADA;{_f(T0 + timedelta(days=1))}",
+    )
+    assert services.reaplicar_libro_anonimizaciones().anonimizadas == [editor.pk]
+    editor.refresh_from_db()
+    assert (editor.estado, editor.usuario, editor.desactivado_en) == (
+        EstadoCuenta.ANONIMIZADA,
+        None,
+        T0,
+    )
+    assert not EventoAuditoria.objects.filter(actor_etiqueta="rel.d").exists()
+
+
+def test_libro_v2_e_f_ultimo_administrador_nunca_se_toca(libro_anonimizaciones, logs_json):
+    unico = crear_staff("admin.unico", rol=RolCuenta.ADMINISTRADOR).cuenta
+    for evento in ("DESACTIVADA", "ANONIMIZADA"):
+        _escribir(libro_anonimizaciones, f"{unico.pk};{evento};{_f(T0)}")
+        salida = _comando("reaplicar_anonimizaciones")
+        assert f"OMITIDA_ULTIMO_ADMIN=1[{unico.pk}]" in salida
+        unico.refresh_from_db()
+        assert unico.estado == EstadoCuenta.ACTIVA
+    assert "admin.unico" not in logs_json.texto()
+    crear_staff("admin.nuevo", rol=RolCuenta.ADMINISTRADOR)
+    _escribir(libro_anonimizaciones, f"{unico.pk};DESACTIVADA;{_f(T0)}")
+    assert services.reaplicar_libro_anonimizaciones().desactivadas == [unico.pk]
+
+
+def test_libro_v2_g_h_id_desconocido_e_idempotencia(admin, libro_anonimizaciones):
+    editor = crear_staff("rel.h").cuenta
+    _escribir(
+        libro_anonimizaciones,
+        "999999999;ANONIMIZADA;2026-08-01T10:00:00Z",
+        f"{editor.pk};DESACTIVADA;{_f(T0)}",
+    )
+    primera = services.reaplicar_libro_anonimizaciones()
+    assert (primera.inexistentes, primera.desactivadas) == ([999999999], [editor.pk])
+    segunda = services.reaplicar_libro_anonimizaciones()
+    assert (segunda.desactivadas, segunda.anonimizadas, segunda.alineadas) == ([], [], [])
+
+
+def test_libro_v2_i_bd_mas_reciente_que_el_libro_inconsistente(admin, libro_anonimizaciones):
+    editor = _desactivada("rel.i", T0 + timedelta(days=5))
+    _escribir(libro_anonimizaciones, f"{editor.pk};DESACTIVADA;{_f(T0)}")
+    assert services.reaplicar_libro_anonimizaciones().avisos() == {"INCONSISTENTE": [editor.pk]}
+    editor.refresh_from_db()
+    assert editor.desactivado_en == T0 + timedelta(days=5)
+
+
+# ---------------------------------------------------------------------------
+# Casos límite (§4.4)
+# ---------------------------------------------------------------------------
+def test_libro_v2_ausente(admin, libro_anonimizaciones, logs_json):
+    editor = crear_staff("limite.ausente").cuenta
+    with pytest.raises(CommandError, match="LIBRO_AUSENTE"):
+        _comando("reaplicar_anonimizaciones")
+    assert _registro(TareaProgramada.REAPLICAR_ANONIMIZACIONES).resultado == ResultadoTarea.FALLO
+    assert "EXITO" in _comando("reaplicar_anonimizaciones", "--libro-vacio-confirmado")
+    vencida = _desactivada("limite.vencida", timezone.now() - timedelta(days=40))
+    salida = _comando("anonimizar_cuentas")
+    assert "LIBRO_AUSENTE_SOLO_BD" in salida
     vencida.refresh_from_db()
-    assert vencida.estado == EstadoCuenta.ANONIMIZADA
-    assert (vencida.usuario, vencida.nombre_visible, vencida.secreto_mfa) == (None, None, None)
-    assert not vencida.has_usable_password()
-    assert not CuentaCodigoRecuperacion.objects.filter(cuenta=vencida).exists()
-    assert not SesionPanel.objects.filter(cuenta=vencida).exists()
-    evento = _eventos(AccionAuditoria.CUENTA_ANONIMIZAR, vencida)[0]
-    assert (evento.actor_id, evento.actor_etiqueta) == (None, "sistema")
-    for cuenta, estado in ((reciente, EstadoCuenta.DESACTIVADA), (activa, EstadoCuenta.ACTIVA)):
+    editor.refresh_from_db()
+    assert (vencida.estado, editor.estado) == (EstadoCuenta.ANONIMIZADA, EstadoCuenta.ACTIVA)
+    assert "libro_ausente" in logs_json.texto()
+
+
+def test_libro_v2_corrupto_falla_sin_cambios_en_ambos_comandos(admin, libro_anonimizaciones):
+    editor = crear_staff("limite.corrupto").cuenta
+    vencida = _desactivada("limite.corrupto.vencida", timezone.now() - timedelta(days=40))
+    _escribir(
+        libro_anonimizaciones,
+        f"{editor.pk};DESACTIVADA;{_f(T0)}",
+        "linea basura",
+        f"{editor.pk};REACTIVADA;{_f(T0)}",
+    )
+    for nombre, tarea in (
+        ("reaplicar_anonimizaciones", TareaProgramada.REAPLICAR_ANONIMIZACIONES),
+        ("anonimizar_cuentas", TareaProgramada.ANONIMIZACION_CUENTAS),
+    ):
+        with pytest.raises(CommandError, match="LIBRO_CORRUPTO lineas=2"):
+            _comando(nombre)
+        assert _registro(tarea).resultado == ResultadoTarea.FALLO
+    for cuenta, estado in ((editor, EstadoCuenta.ACTIVA), (vencida, EstadoCuenta.DESACTIVADA)):
         cuenta.refresh_from_db()
         assert cuenta.estado == estado
-    assert libro.read_text(encoding="utf-8").startswith(f"{vencida.pk};ANONIMIZADA;")
-    # Idempotente y sin borrar la fila (CHG-DB-002).
-    assert services.anonimizar_cuentas_vencidas() == 0
-    assert CuentaStaff.objects.filter(pk=vencida.pk).exists()
 
 
-def test_AC_TKT005_05_anonimizar_ahora_del_admin_sigue_igual(libro):
-    admin = crear_staff("admin.panel", rol=RolCuenta.ADMINISTRADOR).cuenta
-    objetivo = _desactivada("objetivo.cuatro", 1)
-    services.anonimizar_cuenta(admin, objetivo.pk)
-    evento = _eventos(AccionAuditoria.CUENTA_ANONIMIZAR, objetivo)[0]
-    assert (evento.actor_id, evento.actor_etiqueta) == (admin.pk, "admin.panel")
-
-
-# ---------------------------------------------------------------------------
-# reaplicar_libro_anonimizaciones
-# ---------------------------------------------------------------------------
-def test_AC_TKT005_05_reaplica_el_libro_de_forma_idempotente(libro, logs_json):
-    solo_desactivada = crear_staff("restaurada.activa").cuenta
-    anonimizada = crear_staff("restaurada.anonimizable").cuenta
-    ya_anonimizada = _desactivada("ya.anonimizada", 40)
-    services.anonimizar_cuentas_vencidas()
-    libro.write_text(
-        f"{solo_desactivada.pk};DESACTIVADA;2026-09-01T10:00:00Z\n"
-        f"{anonimizada.pk};DESACTIVADA;2026-08-01T10:00:00Z\n"
-        f"{anonimizada.pk};ANONIMIZADA;2026-09-02T10:00:00Z\n"
-        f"{ya_anonimizada.pk};ANONIMIZADA;2026-09-03T10:00:00Z\n"
-        "999999999;ANONIMIZADA;2026-09-03T10:00:00Z\n"
-        "linea con usuario@correo.example no valida\n"
-        "\n",
-        encoding="utf-8",
+def test_libro_v2_cola_truncada_y_duplicados_se_toleran(admin, libro_anonimizaciones):
+    uno = crear_staff("limite.uno").cuenta
+    dos = crear_staff("limite.dos").cuenta
+    _escribir(
+        libro_anonimizaciones,
+        f"{uno.pk};DESACTIVADA;{_f(T0)}",
+        f"{uno.pk};DESACTIVADA;{_f(T0)}",
+        f"{dos.pk};DESACTIVADA;2026-08-0",
+        final="",
     )
+    lectura = libro.leer()
+    assert lectura.avisos == ["COLA_INCOMPLETA:3"]
     resultado = services.reaplicar_libro_anonimizaciones()
-    assert resultado == services.ResultadoLibro(
-        desactivadas=2, anonimizadas=1, lineas_invalidas=1, cuentas_inexistentes=1
+    assert resultado.desactivadas == [uno.pk]
+    dos.refresh_from_db()
+    assert dos.estado == EstadoCuenta.ACTIVA
+
+
+def test_libro_v2_manda_el_orden_del_fichero_no_la_fecha(admin, libro_anonimizaciones):
+    editor = _desactivada("limite.orden", T0)
+    _escribir(
+        libro_anonimizaciones,
+        f"{editor.pk};DESACTIVADA;{_f(T0 + timedelta(days=9))}",
+        f"{editor.pk};REACTIVADA;{_f(T0)}",
     )
-    solo_desactivada.refresh_from_db()
-    assert solo_desactivada.estado == EstadoCuenta.DESACTIVADA
-    assert solo_desactivada.desactivado_en == datetime(2026, 9, 1, 10, tzinfo=UTC)
-    assert not solo_desactivada.has_usable_password()
-    anonimizada.refresh_from_db()
-    assert anonimizada.estado == EstadoCuenta.ANONIMIZADA
-    assert anonimizada.usuario is None
-    desactivar = _eventos(AccionAuditoria.CUENTA_DESACTIVAR, solo_desactivada)[0]
-    assert (desactivar.actor_id, desactivar.actor_etiqueta) == (None, "sistema")
-    # Segunda pasada: nada que hacer.
-    segunda = services.reaplicar_libro_anonimizaciones()
-    assert (segunda.desactivadas, segunda.anonimizadas) == (0, 0)
-    texto = logs_json.texto()
-    assert "restaurada" not in texto
-    assert "usuario@correo" not in texto
+    lectura = libro.leer()
+    assert lectura.cuentas[editor.pk].ultimo == libro.REACTIVADA
+    assert f"FECHAS_NO_MONOTONAS:{editor.pk}" in lectura.avisos
+    assert services.anonimizar_cuentas_vencidas(T0 + timedelta(days=60)).anonimizadas == []
 
 
-def test_AC_TKT005_05_libro_inexistente_no_hace_nada(libro):
-    assert not libro.exists()
-    assert services.reaplicar_libro_anonimizaciones() == services.ResultadoLibro(0, 0, 0, 0)
+def test_libro_v2_fecha_futura_retrasa_la_anonimizacion(admin, libro_anonimizaciones):
+    ahora = timezone.now()
+    futura = (ahora + timedelta(days=10)).replace(microsecond=0)
+    editor = _desactivada("limite.futuro", ahora - timedelta(days=40))
+    _escribir(libro_anonimizaciones, f"{editor.pk};DESACTIVADA;{_f(futura)}")
+    assert f"FECHA_FUTURA:{editor.pk}" in libro.leer(ahora).avisos
+    assert services.anonimizar_cuentas_vencidas(ahora).anonimizadas == []
+    assert services.anonimizar_cuentas_vencidas(futura + timedelta(days=31)).anonimizadas == [
+        editor.pk
+    ]
+
+
+@solo_posix
+def test_libro_v2_escribible_por_otros_es_ilegible(admin, libro_anonimizaciones):
+    _escribir(libro_anonimizaciones, f"{admin.pk};DESACTIVADA;{_f(T0)}")
+    libro_anonimizaciones.chmod(0o666)
+    for nombre in ("reaplicar_anonimizaciones", "anonimizar_cuentas"):
+        with pytest.raises(CommandError, match="LIBRO_ILEGIBLE"):
+            _comando(nombre)
 
 
 # ---------------------------------------------------------------------------
-# purgar_eventos_caducados
+# Auditoría, comandos y lock compartido
 # ---------------------------------------------------------------------------
 def test_AC_TKT005_05_purga_auditoria_mayor_de_365_dias():
     with connection.cursor() as cursor:
@@ -154,32 +462,44 @@ def test_AC_TKT005_05_purga_auditoria_mayor_de_365_dias():
     assert not EventoAuditoria.objects.filter(pk=antiguo).exists()
     assert EventoAuditoria.objects.filter(pk=reciente).exists()
     assert purgar_eventos_caducados() == 0
+    _comando("purgar_auditoria")
+    assert _registro(TareaProgramada.PURGA_AUDITORIA).resultado == ResultadoTarea.EXITO
 
 
-# ---------------------------------------------------------------------------
-# Comandos del planificador y de la restauración
-# ---------------------------------------------------------------------------
-@pytest.mark.parametrize(
-    ("nombre", "tarea"),
-    [
-        ("anonimizar_cuentas", TareaProgramada.ANONIMIZACION_CUENTAS),
-        ("reaplicar_anonimizaciones", TareaProgramada.REAPLICAR_ANONIMIZACIONES),
-        ("purgar_auditoria", TareaProgramada.PURGA_AUDITORIA),
-    ],
-)
-def test_AC_TKT005_05_comandos_de_sistema_con_registro(libro, nombre, tarea):
-    _desactivada("vencida.cmd", 45)
+def test_AC_TKT005_05_anonimizar_cuentas_registra_y_es_idempotente(libro_anonimizaciones):
+    vencida = _desactivada("cmd.vencida", timezone.now() - timedelta(days=45))
     for _ in range(2):
-        call_command(nombre, stdout=io.StringIO())
-    registros = list(OpsEjecucionTarea.objects.filter(tarea=tarea).order_by("id"))
-    assert [r.resultado for r in registros] == [ResultadoTarea.EXITO] * 2
-    if nombre == "anonimizar_cuentas":
-        assert [r.detalle for r in registros] == ["cuentas=1", "cuentas=0"]
+        _comando("anonimizar_cuentas")
+    registros = OpsEjecucionTarea.objects.filter(tarea=TareaProgramada.ANONIMIZACION_CUENTAS)
+    detalles = list(registros.order_by("id").values_list("detalle", flat=True))
+    assert detalles == [
+        f"anonimizadas=1[{vencida.pk}] OMITIDA_REACTIVADA=0 LIBRO_AUSENTE_SOLO_BD",
+        "anonimizadas=0 OMITIDA_REACTIVADA=0",
+    ]
+    evento = _eventos(AccionAuditoria.CUENTA_ANONIMIZAR, vencida)[0]
+    assert (evento.actor_id, evento.actor_etiqueta) == (None, "sistema")
+    assert CuentaStaff.objects.filter(pk=vencida.pk).exists()
+
+
+def test_AC_TKT005_05_comandos_del_libro_comparten_lock(libro_anonimizaciones):
+    datos = connection.settings_dict
+    import psycopg
+
+    with psycopg.connect(
+        host=datos["HOST"],
+        port=datos["PORT"],
+        user=datos["USER"],
+        password=datos["PASSWORD"],
+        dbname=datos["NAME"],
+        autocommit=True,
+    ) as otra:
+        otra.execute("SELECT pg_advisory_lock(hashtext('CUENTAS_LIBRO'))")
+        for nombre in ("anonimizar_cuentas", "reaplicar_anonimizaciones"):
+            assert "otro proceso tiene el lock" in _comando(nombre)
 
 
 def test_AC_TKT005_05_post_restore_encuentra_los_comandos():
     # scripts/ops/post-restore-local.sh los busca en `manage.py help --commands`.
-    disponibles = set(get_commands())
     assert {
         "reaplicar_anonimizaciones",
         "anonimizar_cuentas",
@@ -188,71 +508,4 @@ def test_AC_TKT005_05_post_restore_encuentra_los_comandos():
         "reindexar_busqueda",
         "verificar_busqueda",
         "purgar_ops",
-    } <= disponibles
-
-
-# ---------------------------------------------------------------------------
-# QA-TKT005-03 (DEC-AUTO-913): REACTIVADA en el libro, último evento gana, último Administrador
-# ---------------------------------------------------------------------------
-def test_QA_TKT005_03_desactivar_reactivar_reaplicar_y_31_dias_sigue_activa(
-    libro, django_capture_on_commit_callbacks
-):
-    admin = crear_staff("admin.qa", rol=RolCuenta.ADMINISTRADOR).cuenta
-    editor = crear_staff("editor.qa").cuenta
-    with django_capture_on_commit_callbacks(execute=True):
-        services.desactivar_cuenta(admin, editor.pk)
-    with django_capture_on_commit_callbacks(execute=True):
-        services.reactivar_cuenta(admin, editor.pk)
-    eventos = [linea.split(";")[1] for linea in libro.read_text(encoding="utf-8").splitlines()]
-    assert eventos == ["DESACTIVADA", "REACTIVADA"]
-    resultado = services.reaplicar_libro_anonimizaciones()
-    assert (resultado.desactivadas, resultado.anonimizadas) == (0, 0)
-    assert services.anonimizar_cuentas_vencidas(timezone.now() + timedelta(days=31)) == 0
-    editor.refresh_from_db()
-    assert editor.estado in (EstadoCuenta.PENDIENTE_ACTIVACION, EstadoCuenta.ACTIVA)
-    assert editor.usuario == "editor.qa"
-
-
-def test_QA_TKT005_03_ultimo_evento_gana(libro):
-    reactivada = crear_staff("vuelve.a.desactivar").cuenta
-    libro.write_text(
-        f"{reactivada.pk};DESACTIVADA;2026-08-01T10:00:00Z\n"
-        f"{reactivada.pk};REACTIVADA;2026-08-05T10:00:00Z\n"
-        f"{reactivada.pk};DESACTIVADA;2026-09-10T10:00:00Z\n",
-        encoding="utf-8",
-    )
-    assert services.reaplicar_libro_anonimizaciones().desactivadas == 1
-    reactivada.refresh_from_db()
-    assert reactivada.estado == EstadoCuenta.DESACTIVADA
-    assert reactivada.desactivado_en == datetime(2026, 9, 10, 10, tzinfo=UTC)
-
-
-def test_QA_TKT005_03_copia_desactivada_con_reactivacion_posterior_no_se_anonimiza(libro):
-    # Copia restaurada anterior a la reactivación: en la BD sigue DESACTIVADA hace > 30 días.
-    cuenta = _desactivada("restaurada.reactivada", 45)
-    libro.write_text(
-        f"{cuenta.pk};DESACTIVADA;2026-08-01T10:00:00Z\n"
-        f"{cuenta.pk};REACTIVADA;2026-08-20T10:00:00Z\n",
-        encoding="utf-8",
-    )
-    assert services.anonimizar_cuentas_vencidas() == 0
-    cuenta.refresh_from_db()
-    assert cuenta.estado == EstadoCuenta.DESACTIVADA
-    assert cuenta.usuario == "restaurada.reactivada"
-
-
-def test_QA_TKT005_03_nunca_desactiva_al_ultimo_administrador_activo(libro, logs_json):
-    unico = crear_staff("admin.unico", rol=RolCuenta.ADMINISTRADOR).cuenta
-    libro.write_text(
-        f"{unico.pk};DESACTIVADA;2026-09-01T10:00:00Z\n"
-        f"{unico.pk};ANONIMIZADA;2026-09-02T10:00:00Z\n",
-        encoding="utf-8",
-    )
-    resultado = services.reaplicar_libro_anonimizaciones()
-    assert (resultado.desactivadas, resultado.anonimizadas, resultado.omitidas) == (0, 0, 1)
-    unico.refresh_from_db()
-    assert unico.estado == EstadoCuenta.ACTIVA
-    assert "admin.unico" not in logs_json.texto()
-    # Con otro Administrador activo, sí se reaplica.
-    crear_staff("admin.otro", rol=RolCuenta.ADMINISTRADOR)
-    assert services.reaplicar_libro_anonimizaciones().anonimizadas == 1
+    } <= set(get_commands())

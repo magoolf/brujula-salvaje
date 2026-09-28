@@ -123,6 +123,31 @@ def _fsync_directorio(directorio: Path) -> None:
         os.close(fd)
 
 
+def anadir_linea(camino: Path, linea: str, momento: datetime) -> None:
+    """Procedimiento de §4.2 sobre el fichero (sin BD). Lanza OSError si algo falla."""
+    # El volumen lo prepara DevOps (0750); en desarrollo se crea si falta.
+    camino.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+    nuevo = not camino.exists()
+    if os.name != "posix" and camino.is_symlink():  # pragma: no cover - sin O_NOFOLLOW
+        raise OSError("enlace simbólico")
+    fd = os.open(
+        camino,
+        os.O_WRONLY | os.O_APPEND | os.O_CREAT | _NOFOLLOW | _CLOEXEC | _BINARIO,
+        MODO,
+    )
+    try:
+        with _flock(fd, exclusivo=True):
+            datos = linea
+            if not nuevo and _ultimo_byte(camino) not in (b"", b"\n"):
+                datos = f"\n{PREFIJO_REPARACION}{fecha_libro(momento)}\n{linea}"
+            os.write(fd, datos.encode("utf-8"))
+            os.fsync(fd)
+    finally:
+        os.close(fd)
+    if nuevo:
+        _fsync_directorio(camino.parent)
+
+
 def escribir(cuenta_id: int, evento: str, momento: datetime) -> None:
     """Añade una línea de forma durable, dentro de la transacción en curso (§4.2)."""
     if evento not in EVENTOS:
@@ -130,28 +155,8 @@ def escribir(cuenta_id: int, evento: str, momento: datetime) -> None:
     # RULE-015 diferida: se comprueba ya, para no escribir una transición que no se confirmará.
     with connection.cursor() as cursor:
         cursor.execute("SET CONSTRAINTS app.trg_cuenta_admin_minimo IMMEDIATE")
-    camino = ruta()
-    linea = f"{cuenta_id};{evento};{fecha_libro(momento)}\n"
     try:
-        nuevo = not camino.exists()
-        if os.name != "posix" and camino.is_symlink():  # pragma: no cover - sin O_NOFOLLOW
-            raise OSError("enlace simbólico")
-        fd = os.open(
-            camino,
-            os.O_WRONLY | os.O_APPEND | os.O_CREAT | _NOFOLLOW | _CLOEXEC | _BINARIO,
-            MODO,
-        )
-        try:
-            with _flock(fd, exclusivo=True):
-                datos = linea
-                if not nuevo and _ultimo_byte(camino) not in (b"", b"\n"):
-                    datos = f"\n{PREFIJO_REPARACION}{fecha_libro(momento)}\n{linea}"
-                os.write(fd, datos.encode("utf-8"))
-                os.fsync(fd)
-        finally:
-            os.close(fd)
-        if nuevo:
-            _fsync_directorio(camino.parent)
+        anadir_linea(ruta(), f"{cuenta_id};{evento};{fecha_libro(momento)}\n", momento)
     except OSError as exc:
         logger.error(
             "libro_anonimizaciones_no_escrito", cuenta_id=cuenta_id, tipo=type(exc).__name__
