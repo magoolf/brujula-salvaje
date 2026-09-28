@@ -146,26 +146,26 @@ tickets:
   - id: TKT-004
     titulo: "Backend acceso al panel y cuentas: sesión+CSRF, login por pasos, MFA TOTP, bloqueo progresivo, autorización Ley 1581, cuentas (alta/restablecer/desactivar/anonimizar), auditoría, servicio común de idempotencia"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [MOD-009, MOD-013, FEAT-029..032, FEAT-045, FEAT-046, REQ-055, REQ-OPS002-01, OBS-01, NV-02, OBS-QA003-01, OBS-QA003-05, OBS-QA003-06, CHG-DB-002]
     depende_de: [TKT-003 (QA PASS; parte de su rama)]
     archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/**", "backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**"]
-    ciclo_qa: 2/3
+    ciclo_qa: 4/3 (excepcional autorizado)
     ciclo_panico: 0/2
-    evidencia: ["PR #8 @ 8570f57", "Ciclo 2 corregido: validar_parametros general (vacío/espacios/repetido -> 400 parametro_invalido); 42 casos desde el contrato; schemathesis Editor 1177, Admin 1151, anónimo 1559 sin 5xx; 376 tests 97.47 %", "Re-QA final ciclo 3/3"]
+    evidencia: ["PR #8 integrado en main", "QA_VERDICT PASS ciclo 4 excepcional @ a4ec249; CI verde completo tras update-branch"]
     actualizado: 2026-09-25
   - id: TKT-005
     titulo: "Backend API pública + búsqueda + comandos de operación: /api/v1/publico/**, filtros/facetas, mapa, aleatorio, 410, búsqueda es_unaccent+pg_trgm, throttling público, comandos programados del crontab"
     fase: F7
-    estado: TODO
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052, CHG-DB-002 (medios.0002, contenido.0003, catalogos.0003, inicio.0002 de DB_HANDOFF v1.2)]
     depende_de: [TKT-004]
-    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**", "backend/pyproject.toml", "backend/uv.lock"]
-    ciclo_qa: 0/3
-    ciclo_panico: 0/2
-    evidencia: []
+    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**", "backend/pyproject.toml", "backend/uv.lock"]
+    ciclo_qa: 1/3
+    ciclo_panico: 1/2
+    evidencia: ["PR #18 @ a5e08fe", "QA_VERDICT FAIL 1/3: QA-TKT005-01 bandit B608 en tests bloquea el CI; QA-TKT005-02 MEDIUM fuga de tipo en BORRADOR vía tipo_principal + conflicto RULE-025/RULE-002/contrato; QA-TKT005-03 MEDIUM el libro de anonimizaciones no registra reactivaciones -> anonimización irreversible tras restaurar", "PASS: 25 operaciones, p95 87/107 ms, throttling real, búsqueda, 7 comandos, post-restore exit 0 (cierra RSK-OPS-030), CHG-DB-002, THREAT-020"]
     actualizado: 2026-09-25
   - id: TKT-006
     titulo: "Backend API del panel: contenidos (CRUD, vista previa, publicar/retirar/reactivar, revisiones, bloqueo optimista), medios (subida segura, derivados, publico/privado), taxonomías, inicio, configuración, tablero"
@@ -314,27 +314,111 @@ tickets:
   - id: TKT-OPS-006
     titulo: "DevOps LOW: gate con memoización y timeout-minutes (OBS-QA-OPS004-01); objeto abierto vs cerrado (OBS-QA-OPS004-02); 405 de medios en Problem Details (OBS-QA-OPS004-03); comentario de dependabot.yml; /infra/db en Dependabot docker (RSK-OPS-025); alerta de tamaño de cache_limites (RSK-QA004-02); política de trivy robusta a líneas de continuación (QA-OPS005-04)"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: devops
     trazabilidad: [REQ-055]
     depende_de: [TKT-OPS-005]
     archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-26
+    evidencia: ["rama tkt-ops-006-mejoras @ 90ad865; CI verde run 36472920013", "Ciclo 2: política de trivy en Python con PyYAML (39/39 controles), cobertura Dependabot 11/11, gate 27/27, ON_ERROR_STOP en SQL"]
+    actualizado: 2026-09-25
   - id: TKT-OPS-007
     titulo: "DevOps: restore-local.sh falla sobre BD limpia (schema app/ext, COMMENT pg_stat_statements, REVOKE public) — usar lista TOC filtrada; bloquea AC-054 y F9 (QA-OPS005-02, preexistente)"
     fase: F7
-    estado: TODO
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-054, AC-054]
     depende_de: [TKT-OPS-005]
     archivos_permitidos: ["scripts/ops/**", "infra/**", "docs/05_operacion/**"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #16 integrado en main", "QA_VERDICT PASS 1/3 @ 7e5d803; CI verde tras update-branch"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-008
+    titulo: "CHG-API-003: maxLength del contrato alineado con el CHECK de BD (TextoEnriquecido 200000 -> 100000; revisar el resto de campos de texto largo)"
+    fase: F4
+    estado: DONE
+    owner: backend-contrato
+    trazabilidad: [DEC-AUTO-097]
+    depende_de: []
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #15 integrado en main", "lint Redocly OK; cliente regenerado dc2f907; CI verde"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-008
+    titulo: "DevOps: reinstalación de medios (RSK-OPS-027); backup/restore sin tmpfs de 512 MiB (RSK-OPS-029); job CI del simulacro AC-054; post-restore no arranca la app si faltan pasos (DEC-AUTO-908); runbook: perfil ops, LIBRO_AUSENTE/avisos del libro v2 (CHG-DB-003); precondición de tipos/dominios (OBS-QAOPS007-03)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [REQ-054, AC-054]
+    depende_de: [TKT-OPS-007, TKT-005]
+    archivos_permitidos: ["scripts/ops/**", "infra/**", "compose*.yaml", ".github/workflows/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
-    actualizado: 2026-09-26
+    actualizado: 2026-09-27
+  - id: TKT-F4-009
+    titulo: "CHG-API-004: parámetros de ruta de las 8 rutas públicas declarados a nivel de ruta (coherencia con el panel y el hook de esquema) + regeneración del cliente del frontend"
+    fase: F4
+    estado: DONE
+    owner: backend-contrato
+    trazabilidad: [DEC-AUTO-910]
+    depende_de: []
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #17 integrado en main", "lint Redocly OK; CI verde; sin regeneración de cliente necesaria"]
+    actualizado: 2026-09-25
+  - id: TKT-011
+    titulo: "Backend: comando de gestión vigilar_cache_limites (alerta de tamaño de cache_limites, DEVOPS_HANDOFF §19.3.6) + línea en el crontab vía DevOps"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [RSK-QA004-02, RSK-OPS-032]
+    depende_de: [TKT-005, TKT-OPS-006]
+    archivos_permitidos: ["backend/apps/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-28
+  - id: TKT-F3-002
+    titulo: "CHG-BP-001: enmienda de RULE-025/RULE-002 (co-publicación de tipos y destinos, invariante: destino publicado solo con tipos publicados) en el Blueprint (DEC-AUTO-912)"
+    fase: F3
+    estado: READY_FOR_VALIDATION
+    owner: arquitecto-funcional
+    trazabilidad: [RULE-002, RULE-025, THREAT-011]
+    depende_de: []
+    archivos_permitidos: ["docs/02_blueprint/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["docs/02_blueprint/BLUEPRINT.md v1.1 (CHG-BP-001)", "RULE-001/002/003/007/025, FLOW-011/012, SCR-038, AC-124..130; CONFLICT-005 resuelto"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-010
+    titulo: "CHG-DB-003: evento REACTIVADA en el libro de anonimizaciones, 'último evento gana' y respeto de RULE-015 en desactivación por sistema (ADR-DB-004 §4, DEC-AUTO-913)"
+    fase: F4
+    estado: READY_FOR_VALIDATION
+    owner: base-datos
+    trazabilidad: [REQ-057, RULE-015]
+    depende_de: []
+    archivos_permitidos: ["docs/04_datos/**", "docs/adr/ADR-DB-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DB_HANDOFF v1.3 (YAML válido, js-yaml por el Orquestador), ADR-DB-004 §4.1-§4.5", "DEC-AUTO-260..264: evento REACTIVADA, escritura dentro de la transacción fail-closed, guarda RULE-015, casos límite, permisos del libro"]
+    actualizado: 2026-09-25
+  - id: TKT-F4-011
+    titulo: "CHG-API-005: operaciones multi-entidad del panel (co-publicación destino+tipos, previsualización de impacto de retiro con cascada/bloqueo, errores agrupados por entidad) según CHG-BP-001; antes de TKT-006"
+    fase: F4
+    estado: TODO
+    owner: backend-contrato
+    trazabilidad: [AC-124, AC-125, AC-126, AC-127, AC-128, AC-130, DEC-AUTO-912]
+    depende_de: [TKT-F3-002]
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-28
 ```
 
 ## F5 — Reglas de stack inyectadas (Orquestador, leídas de los Contratos Técnicos el 2026-09-25)
