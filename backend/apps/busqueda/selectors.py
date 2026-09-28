@@ -77,15 +77,26 @@ class ResultadoBusqueda:
 def _coincidencias(texto: str, tipo: str | None) -> list[tuple[int, str, int, int]]:
     parametros = {"q": texto, "tipo": tipo, "limite": MAX_COINCIDENCIAS}
     with transaction.atomic(), connection.cursor() as cursor:
-        cursor.execute("SELECT set_config('statement_timeout', %s, true)", [TIMEOUT_BUSQUEDA])
-        cursor.execute(_FTS, parametros)
-        filas = cursor.fetchall()
-        if not filas:
-            cursor.execute(
-                "SELECT set_config('pg_trgm.similarity_threshold', %s, true)", [UMBRAL_SIMILITUD]
-            )
-            cursor.execute(_DIFUSA, parametros)
+        # SET LOCAL acotado a esta consulta: se restaura el valor previo al terminar, también si
+        # la búsqueda corre dentro de una transacción mayor.
+        cursor.execute(
+            "SELECT current_setting('statement_timeout'), "
+            "set_config('statement_timeout', %s, true)",
+            [TIMEOUT_BUSQUEDA],
+        )
+        previo = cursor.fetchone()[0]  # type: ignore[index]
+        try:
+            cursor.execute(_FTS, parametros)
             filas = cursor.fetchall()
+            if not filas:
+                cursor.execute(
+                    "SELECT set_config('pg_trgm.similarity_threshold', %s, true)",
+                    [UMBRAL_SIMILITUD],
+                )
+                cursor.execute(_DIFUSA, parametros)
+                filas = cursor.fetchall()
+        finally:
+            cursor.execute("SELECT set_config('statement_timeout', %s, true)", [previo])
     return [(int(f[0]), str(f[1]), int(f[2]), int(f[3])) for f in filas]
 
 
