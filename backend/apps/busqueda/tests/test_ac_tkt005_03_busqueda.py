@@ -18,7 +18,7 @@ from apps.busqueda import selectors, services
 from apps.busqueda.models import BusquedaDocumento
 from apps.contenido.models import Contenido, Destino, EstadoEditorial
 from apps.contenido.tests import publicos
-from apps.contenido.tests.conftest import PUBLICO, api, mundo  # noqa: F401 (fixtures)
+from apps.contenido.tests.conftest import PUBLICO
 from apps.core.throttling import LimitePorAmbito
 
 pytestmark = pytest.mark.django_db
@@ -189,6 +189,9 @@ def test_AC_TKT005_03_p95_busqueda_y_lecturas_con_datos_de_prueba(api, mundo, mo
     _datos_volumen(600)
     consultas = ["volcán", "laguna páramo", "selv", "CAÑON", "glaciar costa", "numero 12"]
     consultas += ["aventura", "desiert", "volcan numero", "costa 5", "anapurna", "zzz"]
+    # Calentamiento (primera resolución de URL, importaciones y planes): no se mide.
+    for ruta in ("/busqueda?q=volcan", "/destinos", "/inicio", "/facetas/destinos"):
+        api.get(f"{PUBLICO}{ruta}")
     tiempos_busqueda: list[float] = []
     for ronda in range(5):
         for q in consultas:
@@ -198,7 +201,7 @@ def test_AC_TKT005_03_p95_busqueda_y_lecturas_con_datos_de_prueba(api, mundo, mo
             assert respuesta.status_code == 200, (ronda, q)
     tiempos_lectura: list[float] = []
     rutas = ["/destinos", "/destinos?mes=3", f"/destinos/{mundo['cocuy'].contenido.slug}"]
-    rutas += ["/inicio", "/destinos/mapa", "/facetas/destinos"]
+    rutas += ["/inicio", "/destinos/mapa", "/facetas/destinos", "/meses", "/indice"]
     for _ in range(10):
         for ruta in rutas:
             inicio = time.perf_counter()
