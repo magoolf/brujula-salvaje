@@ -5,6 +5,7 @@ Actualizado por **TKT-OPS-001** (F7, soporte de infraestructura, 2026-09-25): ve
 Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09-26): ver §15.
 Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
 Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10). Ciclo 2 (imagen de la BD derivada y en el gate): §17.14.
+Actualizado por **TKT-OPS-007** (F7, QA-OPS005-02: `restore-local.sh` restaura sobre la BD de INFRA-DB-000 sin errores y sin ampliar privilegios, pasos de aplicación posteriores y runbook de restauración, 2026-09-27): ver §18. **Runbook de restauración: §18.9.**
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -47,6 +48,7 @@ Dejar preparados, antes de F7, la matriz de interoperabilidad, el entorno Compos
 - **Copias**:
   - `scripts/ops/backup.sh`: pg_dump custom `--no-unlogged-table-data` con `app_backup` + manifiesto sha256 generado desde la BD + tar de medios + libro de anonimizaciones; cifrado con age (clave pública); sumas antes y después de cifrar; rotación de 30. Falla si la clave es el placeholder.
   - `scripts/ops/restore-local.sh`: simulacro AC-054, solo en local. Exige `--confirmar-entorno-local` y `RESTORE_ENV=local`.
+  - `scripts/ops/post-restore-local.sh` (TKT-OPS-007): pasos de aplicación posteriores a la restauración (migrate, comandos de ADR-DB-004 §4, arranque y `/health/ready`). Runbook completo en §18.9.
   - `infra/backup/crontab`: 01:30 UTC.
 - **Entorno**: `.env.example` documentado y `scripts/ops/init-env.sh`, que genera el `.env` local con valores aleatorios y nunca sobrescribe uno existente.
 - **CI**: `.github/workflows/ci.yaml` (§8.3).
@@ -1096,3 +1098,158 @@ Ninguna imagen contiene npm, pip, setuptools ni msgpack. Solo db contiene gosu, 
 2. Registrar DEC-AUTO-226 a DEC-AUTO-229, RSK-OPS-025/026 y la 2.ª decisión humana aplicada.
 3. Emitir el ticket de Dependabot `/infra/db` (RSK-OPS-025).
 4. La validación del job `images` en GitHub, que ahora incluye db, llegará con el PR #9 una vez integrado este ticket.
+
+## 18. TKT-OPS-007 — restauración fiel sobre INFRA-DB-000 (QA-OPS005-02, AC-054) (F7, soporte)
+
+### 18.1 Estado
+**COMPLETADO** para la parte de infraestructura. La restauración de la BD y de los medios es fiel y termina con exit 0. Los 6 comandos de gestión de ADR-DB-004 §4 **todavía no existen en el backend**: `post-restore-local.sh` los marca `NO_DISPONIBLE` y termina con **exit 5** (restauración incompleta). No los da por buenos (§18.10, RSK-OPS-030).
+
+### 18.2 Objetivo
+Corregir QA-OPS005-02: sobre una BD recién creada por INFRA-DB-000, `restore-local.sh` terminaba con exit 1 (`schema "app" already exists`). Validarlo con un simulacro AC-054 completo y medir el RTO (objetivo ≤ 4 h, DB_HANDOFF `rpo_rto`).
+
+### 18.3 Cambios realizados
+
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Lista TOC con `pg_restore -l` que excluye **exactamente** las 5 entradas precreadas por INFRA-DB-000: `SCHEMA - app`, `SCHEMA - ext`, `EXTENSION - pg_stat_statements`, `COMMENT - EXTENSION pg_stat_statements` y `ACL - SCHEMA public`. Cada patrón puede coincidir con una entrada como máximo: si coincide con más, exit 5; si no coincide con ninguna, se avisa (copias antiguas). Se restaura con `-L`. **No** se excluyen las ACL de los esquemas `app`/`ext` (propiedad de app_migrator: se aplican sin error y reproducen el origen) ni `unaccent`/`pg_trgm` (las crea la migración `busqueda.0001` con app_migrator; no existen en una BD recién creada) | `scripts/ops/restore-local.sh` | DEC-AUTO-240 |
+| **Defecto nuevo detectado en el simulacro (más grave que el original)**: con los 4 errores ignorados, los conteos coincidían, pero los **privilegios no**. INFRA-DB-000 ya crea `ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA app` (arwd para app_rw y SELECT para readonly), así que cada `CREATE TABLE` del restore los concede. `pg_dump` solo emite GRANT relativos al ACL de fábrica, nunca REVOKE, de modo que se perdían en silencio los REVOKE de las migraciones en 9 relaciones: `readonly` pasaba a leer `cuenta_staff` completa (hash de contraseña, `secreto_mfa`), `cuenta_codigo_recuperacion` y `sesion_panel`, y `app_rw` recibía UPDATE/DELETE en `evento_auditoria`, `revision_contenido` y `django_migrations`, además de sobre `cache_limites`, `idempotencia_peticion` y `v_medio_uso`. Corrección: en la **misma transacción**, un preludio retira los privilegios por defecto del rol de restauración (DO genérico sobre `pg_default_acl`); después se restaura, y las entradas `DEFAULT ACL` del propio dump los recrean al final. Tras restaurar se comprueba que el número de privilegios por defecto coincide con el de la copia | `scripts/ops/restore-local.sh` | DEC-AUTO-242 |
+| Ejecución todo o nada: `pg_restore --exit-on-error -L … --file=-` alimenta a `psql` con `ON_ERROR_STOP`, un `BEGIN` explícito y un `COMMIT` que solo se envía si pg_restore generó el script completo. Ante cualquier fallo, exit 1 y la BD queda como la dejó INFRA-DB-000. (`pg_restore --single-transaction` directo no permite ejecutar el preludio dentro de la misma transacción) | `scripts/ops/restore-local.sh` | DEC-AUTO-242 |
+| Salvaguarda previa: la BD destino debe tener el estado de INFRA-DB-000 (esquemas `app`/`ext` de app_migrator y `pg_stat_statements` en `ext`) y el esquema `app` debe estar **vacío** (0 relaciones y 0 funciones). En otro caso, exit 4. Se conservan las salvaguardas anteriores: `--confirmar-entorno-local`, `RESTORE_ENV=local`, clave legible, `sha256sum -c` antes y después de descifrar y `MEDIA_RESTORE_DIR` vacío (exit 3) | `scripts/ops/restore-local.sh` | DEC-AUTO-243 |
+| Manifiesto de medios vacío (BD sin medios): `sha256sum -c` lo trataría como error, así que ahora se informa y se continúa. Con contenido: `sha256sum -c --quiet --strict` (cualquier ausencia o alteración da exit ≠ 0). Libro de anonimizaciones: si la copia lo incluye y se define `LIBRO_RESTORE_DIR`, se deposita la copia verificada sin sobrescribir; por defecto se usa el libro vivo del volumen `ops_libro`, que es más reciente (DEC-AUTO-094) | `scripts/ops/restore-local.sh` | DEC-AUTO-244 |
+| **Nuevo** `post-restore-local.sh` (host). Con la aplicación parada (si backend, frontend, proxy o scheduler están en marcha, exit 2), ejecuta `migrate` (y dice si había migraciones pendientes) y después los 6 comandos de ADR-DB-004 §4 en orden, con la imagen scheduler y el rol app_rw. Solo ejecuta los que existen en `manage.py help --commands`: un comando que existe y falla detiene el script con exit 1, y uno que no existe se marca `NO_DISPONIBLE (NOT_RUN)`. Al final hace `up -d --wait` y comprueba `/health/ready` = 200. Si falta algún comando, **exit 5** (nunca 0) | `scripts/ops/post-restore-local.sh` (nuevo) | DEC-AUTO-241 |
+
+### 18.4 Versiones aprobadas
+Sin cambios. Cliente `pg_restore`/`psql` 18.6, el mismo del servidor (imagen `brujula/backup`). shellcheck v0.10.0 (`koalaman/shellcheck:v0.10.0@sha256:2097951f…`) usado solo como herramienta local de validación.
+
+### 18.5 Infraestructura
+Sin cambios en compose, Dockerfiles, redes, puertos, límites, usuarios ni capacidades. La imagen `brujula/backup` incorpora el nuevo `restore-local.sh` en el siguiente build (`COPY --from=ops`). `post-restore-local.sh` no entra en ninguna imagen: se ejecuta en el host.
+
+### 18.6 Dependencias
+Ninguna.
+
+### 18.7 Variables de entorno
+Ninguna variable nueva en `.env.example`. Variables del runbook (solo en la sesión del operador, nunca en archivos versionados):
+- `RESTORE_ENV=local`.
+- `RESTORE_PGPASSWORD`, igual a `APP_MIGRATOR_PASSWORD` del `.env` local. Se pasa por nombre (`-e RESTORE_PGPASSWORD`), nunca por valor en la línea de órdenes.
+- `MEDIA_RESTORE_DIR`.
+- `LIBRO_RESTORE_DIR`, opcional.
+- `COMPOSE_PROJECT_NAME` y `COMPOSE_ENV_FILES`, las estándar de compose para `post-restore-local.sh`.
+
+### 18.8 Validaciones ejecutadas (2026-09-27, Docker Engine 29.6.1, Compose v5.2.0)
+Proyecto `-p brujula-ops007`, `APP_NET_PREFIX=10.231.56`, `PROXY_HOST_PORT=18507` e imágenes `*:ops007` construidas desde `origin/main` b929b7d más esta rama. `.env` generado con `init-env.sh` en el scratchpad, fuera del repo. Clave age **efímera** (`age-keygen` de la imagen backup) en el scratchpad y borrada al terminar: no es un secreto real.
+
+**Preparación**
+- Stack completo `up --wait`: las migraciones reales de `main` (auditoria 0001-0002, busqueda 0001-0002, catalogos 0001-0002 con semilla, contenido 0001-0002, cuentas 0001, inicio 0001, medios 0001 y ops 0001) terminan en OK.
+- Datos de prueba insertados como `app_rw`: 12 `pais`, 2 `cuenta_staff` (una DESACTIVADA), 50 `evento_auditoria` con `ip_truncada`, 1 `ops_ejecucion_tarea`, y 1 `medio` con 1 `medio_derivado` que apuntan a 2 archivos reales escritos en el volumen de medios (privado/ y publico/) por el backend (uid 10001).
+- Instantánea **antes**, tomada como superusuario, solo para comparar:
+  - `pg_dump --schema-only`.
+  - Conteo de las 39 tablas de `app`.
+  - md5 del contenido de 5 tablas.
+  - 244 líneas de privilegios: relaciones, columnas, esquemas `app`/`ext`/`public`, privilegios por defecto, funciones (propietario, ACL, `SECURITY DEFINER`, `proconfig`), extensiones, ACL de la BD y triggers.
+  - Valores de las 28 secuencias.
+- `backup.sh` con app_backup: exit 0, 5 archivos `.age` y manifiesto de medios con 2 entradas.
+
+**Reproducción del defecto (script anterior)**: sobre la BD recién creada por INFRA-DB-000, exit 1 con `ERROR: schema "app" already exists`.
+
+**Simulacro AC-054 final (scripts definitivos)**: `down` → `docker volume rm brujula-ops007_db_data` → `up --wait db` (INFRA-DB-000) → `restore-local.sh` → `post-restore-local.sh`.
+
+| Hito (desde T0 = 2026-09-27T13:35:43Z) | Tiempo |
+|---|---|
+| BD destruida (`down` + borrado del volumen de datos) | +1 s |
+| INFRA-DB-000 terminado (db healthy) | +9 s |
+| `restore-local.sh` exit 0: descifrado y sha256 → comprobación de BD limpia → TOC 449 entradas, 444 restauradas y 5 excluidas → una transacción → privilegios por defecto 2 = copia → 2 medios verificados con `sha256sum -c` | +11 s |
+| `post-restore-local.sh`: migrate "No migrations to apply" (3 s); 6 comandos `NO_DISPONIBLE`; `up --wait` + `/health/ready` 200 (29 s) | exit **5** |
+| **RTO medido (incidente → `/health/ready` 200)** | **48 s** (objetivo ≤ 4 h) |
+
+Dos simulacros previos durante el desarrollo midieron 46 s y 57 s. El de 46 s todavía tenía el defecto de privilegios.
+
+**Comparación antes/después (simulacro final)**
+- Conteos (39 tablas): **idénticos**. Por ejemplo `cuenta_staff` 2, `evento_auditoria` 50, `pais` 12, `medio` 1, `medio_derivado` 1 y `django_migrations` 12.
+- md5 del contenido: **idéntico** (`d9129711ae89c9befdf07340bc439aee`).
+- Privilegios (244 líneas): **idénticos**. Con el preludio de DEC-AUTO-242 retirado, 9 relaciones diferían (§18.3).
+- Secuencias (28): **idénticas**. Extensiones: `pg_stat_statements` (postgres) y `unaccent`/`pg_trgm` (app_migrator), igual que antes.
+- Esquema: 0 diferencias salvo 27 líneas de CHECK en las que PostgreSQL vuelve a analizar la expresión y la reescribe de otra forma (`= ANY ((ARRAY['X'::varchar])::text[])` → `= ANY (ARRAY[('X'::varchar)::text])`). Son semánticamente iguales (comprobado evaluando las dos formas con un valor válido y uno inválido) y no afectan a Django (RSK-OPS-028).
+- Pruebas funcionales tras restaurar:
+  - `readonly`: `SELECT password FROM app.cuenta_staff` → permission denied; `sesion_panel` → permission denied; las columnas permitidas de `cuenta_staff` sí se leen.
+  - `app_rw`: `DELETE` en `evento_auditoria` → permission denied; `UPDATE` en `revision_contenido` → permission denied.
+- Proxy: `GET /health/ready` → 200 y `GET /` (SSR) → 200.
+- `manage.py help --commands` lista 106 comandos (incluidos `check` y `migrate`) y **ninguno** de los 6 de ADR-DB-004 §4. `grep` en `backend/apps` tampoco los encuentra. El `NO_DISPONIBLE` es real, no un error al leer la lista.
+
+**Pruebas negativas**
+
+| Caso | Resultado |
+|---|---|
+| `restore-local.sh` sobre la BD poblada | exit 4 ("NO está limpia: 202 relaciones, 9 funciones"), sin cambios |
+| Sin `--confirmar-entorno-local` / con `RESTORE_ENV=prod` | exit 2 / exit 2 |
+| `post-restore-local.sh` con la aplicación en marcha | exit 2 ("pararla antes") |
+| **Atomicidad**: BD limpia más un objeto conflictivo que la comprobación previa no detecta (`app.es_unaccent`), lo que provoca un fallo a mitad de la restauración | exit 1 "transacción deshecha". Después: 0 relaciones y 0 funciones en `app`, privilegios por defecto 2 (los de INFRA-DB-000) y extensiones solo `plpgsql` y `pg_stat_statements` |
+| shellcheck v0.10.0 sobre `restore-local.sh`, `post-restore-local.sh` y `backup.sh` | 0 hallazgos |
+
+**Limpieza**: `down -v --remove-orphans` de `brujula-ops007`, imágenes `*:ops007` borradas, y `.env`, clave age e instantáneas del scratchpad eliminados. No se tocaron otros proyectos (`brujula-tkt004-*`, `brujula_*`).
+
+**NOT_RUN**:
+- Los 6 comandos de gestión, porque no existen (RSK-OPS-030).
+- Restauración de medios tras **pérdida total** del volumen de medios. En el simulacro el volumen sobrevive y los medios se extraen y verifican en un tmpfs (RSK-OPS-027).
+- RTO con el volumen de datos objetivo (< 1 GB de BD y ~5 GB de medios): se midió con un dump de 190 KB (RSK-OPS-029).
+- Job de CI que ejecute el simulacro: `.github/workflows/**` está fuera de los `archivos_permitidos` de este ticket (§18.12).
+
+### 18.9 Runbook de restauración (AC-054, simulacro mensual; ADR-DB-004 §4)
+Solo en entornos locales o efímeros. Restaurar sobre datos reales, usar la clave age real o hacerlo en un entorno compartido es **Puerta Humana** (CLAUDE.md §0.5). Se ejecuta en bash desde la raíz del repo (en Windows, Git Bash con `MSYS_NO_PATHCONV=1` en las órdenes con `-v`).
+
+```bash
+# 0. Contexto del proyecto (ejemplo con proyecto aislado)
+export COMPOSE_PROJECT_NAME=brujula COMPOSE_ENV_FILES=.env RESTORE_ENV=local
+set -a; . ./.env; set +a; export RESTORE_PGPASSWORD="$APP_MIGRATOR_PASSWORD"
+# Localizar la copia: ls de /backups/diarias en el volumen <proyecto>_backups (AAAAMMDD)
+
+# 1. Parar la aplicación ("panel cerrado") y recrear la BD vacía con INFRA-DB-000
+docker compose --profile ops down                      # SIN -v: conserva medios, libro y copias
+docker volume rm "${COMPOSE_PROJECT_NAME}_db_data"     # solo en el simulacro o con la BD perdida
+docker compose up -d --wait db                         # NO levantar el stack: migrate crearía el esquema
+
+# 2. Restaurar BD + verificar medios (contenedor backup; la clave privada, montada en solo lectura
+#    y solo durante el simulacro, nunca dentro del repo)
+docker compose --profile ops run --rm --no-deps \
+  -e RESTORE_ENV -e RESTORE_PGPASSWORD -e MEDIA_RESTORE_DIR=/tmp/medios \
+  -v "$HOME/.brujula/age-local.key:/run/age.key:ro" \
+  backup bash -c 'mkdir /tmp/medios && restore-local.sh --confirmar-entorno-local AAAAMMDD /run/age.key'
+#    exit 0 = BD restaurada en una transacción + manifiesto de medios OK
+#    exit 4 = BD no limpia (repetir el paso 1); exit 1 = fallo (la BD queda como la dejó INFRA-DB-000)
+
+# 3. Pasos de aplicación + arranque + /health/ready
+bash scripts/ops/post-restore-local.sh --confirmar-entorno-local
+#    exit 0 = restauración completa; exit 5 = datos restaurados, pero faltan comandos de gestión
+#    (NO_DISPONIBLE): la restauración NO se da por completa; exit 1 = un paso falló
+```
+
+Evidencia que se registra en cada simulacro:
+- Las líneas de tiempo de ambos scripts (descifrado, pg_restore, medios, cada comando, arranque) y el RTO total.
+- Conteos por tipo y estado.
+- `verificar_busqueda`, cuando exista.
+- `/health/ready` = 200.
+
+Si `restore-local.sh` avisa de que la copia "no contiene" alguna de las 5 entradas excluidas, hay que revisar si INFRA-DB-000 o el origen han cambiado antes de dar la copia por buena.
+
+### 18.10 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-027 | Pérdida **total** del volumen de medios: `restore-local.sh` extrae como uid 999 en un directorio vacío, pero el volumen real lo recrea init-volumes con `publico/` y `privado/` de 10001, que 999 no puede escribir (y el directorio no está vacío). No hay procedimiento automatizado ni validado para devolver los medios al volumen con propietario 10001 | MEDIUM | Ticket DevOps de seguimiento: paso one-shot (imagen `brujula/db`, root con `CHOWN`/`DAC_OVERRIDE`/`FOWNER`, `network_mode: none`) que copie desde un volumen de staging al volumen de medios con `chown 10001:10001` y vuelva a verificar el manifiesto. En este ticket, los medios se verifican íntegros contra el manifiesto (AC-054), pero no se reinstalan | ABIERTO (ticket) |
+| RSK-OPS-028 | Tras restaurar, PostgreSQL reescribe los CHECK con `= ANY (ARRAY[...])` de otra forma | INFO | Semánticamente iguales. Una comparación de esquema entre entornos restaurados y migrados debe normalizar esas expresiones | ACEPTADO |
+| RSK-OPS-029 | `backup.sh` y `restore-local.sh` trabajan en `/tmp` (tmpfs) dentro de un contenedor limitado a 512 MiB. El tar de medios (~5 GB previstos) y el dump descifrado ocupan memoria del cgroup: a escala de producción, la copia o la restauración terminarían por OOM **[INFERIDO, no medido]**. El RTO de 48 s se midió con 190 KB | MEDIUM (prod) | Ticket DevOps para F9 / ADR de producción: directorio de trabajo en un volumen dedicado (o `tar` → `age` en streaming) y un simulacro con un volumen representativo. No afecta al entorno local actual | ABIERTO (F9) |
+| RSK-OPS-030 | Los comandos `reaplicar_anonimizaciones`, `anonimizar_cuentas`, `purgar_auditoria`, `purgar_sesiones`, `reindexar_busqueda` y `verificar_busqueda` no existen. El crontab del scheduler ya los invoca (DEVOPS_HANDOFF §6.7), y sin `reaplicar_anonimizaciones` una restauración podría reactivar cuentas anonimizadas después de la copia (RSK-DB-006) | MEDIUM | Tickets del Developer (TKT-004 y siguientes, según DB_HANDOFF). `post-restore-local.sh` los ejecutará automáticamente en cuanto existan; hasta entonces termina con exit 5. **AC-054 no puede cerrarse como PASS completo** hasta que termine con exit 0 | ABIERTO (Developer) |
+
+### 18.11 Archivos modificados
+- `scripts/ops/restore-local.sh`
+- `scripts/ops/post-restore-local.sh` (nuevo)
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 18.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar la rama `tkt-ops-007-restore` a QA para volver a verificar QA-OPS005-02.
+2. Registrar DEC-AUTO-240 a DEC-AUTO-244 y RSK-OPS-027 a RSK-OPS-030.
+3. Registrar como hallazgo de seguridad corregido la ampliación de privilegios tras restaurar (§18.3, DEC-AUTO-242). Existía también con la solución de ignorar los 4 errores.
+4. Emitir tres tickets:
+   - DevOps: restauración de medios con pérdida total (RSK-OPS-027) y directorio de trabajo fuera de tmpfs (RSK-OPS-029).
+   - Developer: los 6 comandos de gestión (RSK-OPS-030).
+   - Recomendado: un job de CI (`.github/workflows/**`) que ejecute este simulacro sobre una BD migrada con datos de prueba y compare privilegios, para evitar regresiones.
