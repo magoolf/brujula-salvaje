@@ -78,6 +78,22 @@ jobs:
           docker compose --profile ops config --quiet
           docker compose -f compose.yaml -f compose.ci.yaml config --quiet
           docker compose -f compose.yaml -f compose.debug.yaml config --quiet
+      # RSK-OPS-025 (TKT-OPS-006, DEC-AUTO-254): todo Dockerfile del repositorio está en el ecosistema
+      # "docker" de .github/dependabot.yml y sus FROM de imágenes externas son literales (Dependabot
+      # no resuelve ARG en FROM: con "FROM ${X}" la imagen base quedaría sin vigilar).
+      - name: "Dependabot cubre todos los Dockerfile (directorio listado, FROM sin ARG)"
+        run: |
+          bloque="$(awk '/package-ecosystem: "docker"$/{d=1;next} d&&/package-ecosystem:/{d=0} d' .github/dependabot.yml | grep -E '^[[:space:]]*directories?:')"
+          echo "dependabot docker: ${bloque}"
+          rc=0
+          while IFS= read -r f; do
+            dir="/$(dirname "${f#./}")"
+            grep -qF "\"${dir}\"" <<<"$bloque" || { echo "::error::${f} no está en el ecosistema docker de Dependabot (${dir})"; rc=1; }
+            if grep -nE '^[[:space:]]*FROM[[:space:]]+(--[^[:space:]]+[[:space:]]+)*[^[:space:]]*\$' "$f"; then
+              echo "::error::${f}: FROM con variable (Dependabot no la resuelve)"; rc=1
+            fi
+          done < <(find . -path ./.git -prune -o -path ./.agent -prune -o -path ./.claude -prune -o -name node_modules -prune -o -name .venv -prune -o -type f \( -name 'Dockerfile' -o -name '*.Dockerfile' -o -name 'Dockerfile.*' \) ! -name '*.dockerignore' -print)
+          exit $rc
       # OBS-QA-OPS002-04 / DEC-AUTO-192: las reglas p/docker-compose de semgrep solo se aplican a YAML
       # con clave "version:" y no resuelven anclas/merge keys (<<: *hardening). Se escanea la salida
       # RESUELTA de "docker compose config" (con version: prepended) en $RUNNER_TEMP: contiene los
@@ -175,6 +191,9 @@ jobs:
       # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004); N13 (objeto
       # abierto vs cerrado), N14 (esquema sin tipo vs tipado) y A1..A7 (autorreferenciados, recorrido
       # memoizado): §19 (TKT-OPS-006, DEC-AUTO-250/251). timeout-minutes acota cualquier regresión.
+      - name: "contrato: controles del gate (sintéticos: N1..N14, autorreferenciados A1..A7)"
+        timeout-minutes: 5
+        run: uv run --frozen python ../infra/ci/gate_contrato_controles.py ../infra/ci/gate_contrato.py
       - name: "contrato: gate por operación + oasdiff (implementado vs contracts/openapi.yaml)"
         timeout-minutes: 5
         run: |
@@ -361,6 +380,15 @@ jobs:
           problema 404 "$B/media/privado/x.jpg"
           problema 403 -X POST "$B/"
           problema 400 "$B/api/v1/publico/inicio?q=$q"
+          # OBS-QA-OPS004-03 (TKT-OPS-006, DEC-AUTO-253): método no admitido sobre una imagen pública ->
+          # 405 metodo_no_permitido con Allow y SIN el Cache-Control immutable de las imágenes.
+          for m in PUT DELETE PATCH; do
+            problema 405 -X "$m" "$B/media/publico/x/y.jpg"
+            grep -qi '^allow: GET, HEAD' /tmp/cab.txt || { echo "::error::405 sin Allow: GET, HEAD"; exit 1; }
+            grep -qi '^cache-control: no-store' /tmp/cab.txt || { echo "::error::405 sin Cache-Control no-store"; exit 1; }
+            if grep -qi 'immutable' /tmp/cab.txt; then echo "::error::405 con caché inmutable"; exit 1; fi
+            grep -q '"code":"metodo_no_permitido"' /tmp/cuerpo.json || { echo "::error::405 sin code metodo_no_permitido"; exit 1; }
+          done
           seq 1 120 | xargs -P 1 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$B/health/live" > /tmp/salud_normal.txt
           sort /tmp/salud_normal.txt | uniq -c
           test "$(grep -vc '^200$' /tmp/salud_normal.txt)" = 0 || { echo "::error::/health recibe no-200 a ritmo de sondeo"; exit 1; }

@@ -6,6 +6,7 @@ Actualizado por **TKT-OPS-003** (F7, CI verde + proxy/gzip + Dependabot, 2026-09
 Actualizado por **TKT-OPS-004** (F7, gate de contrato por operación + límite de /health + errores del proxy + Dependabot sin mayores, 2026-09-26): ver §16.
 Actualizado por **TKT-OPS-005** (F7, RSK-OPS-001 según decisión humana: `.trivyignore` con caducidad, runtimes sin gestores de paquetes, backup mínimo, `Cache-Control` del HTML SSR, `DJANGO_TRUSTED_PROXIES`, 2026-09-26): ver §17. **RSK-OPS-001 queda aceptado con caducidad hasta el 2026-10-26** (§17.10). Ciclo 2 (imagen de la BD derivada y en el gate): §17.14.
 Actualizado por **TKT-OPS-007** (F7, QA-OPS005-02: `restore-local.sh` restaura sobre la BD de INFRA-DB-000 sin errores y sin ampliar privilegios, pasos de aplicación posteriores y runbook de restauración, 2026-09-27): ver §18. **Runbook de restauración: §18.9.**
+Actualizado por **TKT-OPS-006** (F7, mejoras LOW: gate de contrato memoizado + objeto abierto/sin tipo, `timeout-minutes`, 405 de medios en Problem Details, Dependabot sobre todos los Dockerfile, política de trivy multilínea, alerta de tamaño de `cache_limites`, 2026-09-28): ver §19.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -1253,3 +1254,282 @@ Si `restore-local.sh` avisa de que la copia "no contiene" alguna de las 5 entrad
    - DevOps: restauración de medios con pérdida total (RSK-OPS-027) y directorio de trabajo fuera de tmpfs (RSK-OPS-029).
    - Developer: los 6 comandos de gestión (RSK-OPS-030).
    - Recomendado: un job de CI (`.github/workflows/**`) que ejecute este simulacro sobre una BD migrada con datos de prueba y compare privilegios, para evitar regresiones.
+
+---
+
+## 19. TKT-OPS-006: mejoras LOW de QA (gate, CI, proxy, Dependabot, política de trivy, cache_limites) (F7, soporte)
+
+### 19.1 Estado
+**COMPLETADO** en la rama `tkt-ops-006-mejoras`, pendiente de QA. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 19.2 Objetivo
+| Origen | Hallazgo | Resolución |
+|---|---|---|
+| OBS-QA-OPS004-01 | `comparar()`/`forma()` del gate de contrato crecían de forma exponencial con esquemas autorreferenciados, y los jobs de CI no tenían `timeout-minutes` | Recorrido memoizado + `timeout-minutes` en todos los jobs (DEC-AUTO-250) |
+| OBS-QA-OPS004-02 | El gate aceptaba un objeto abierto en la implementación cuando el contrato lo cierra, y una propiedad sin tipo (`{}`) frente a una tipada | Controles N13 y N14 (DEC-AUTO-251) |
+| QA-OPS005-04 | La política de `.trivyignore` no veía opciones prohibidas en líneas de continuación (`\` + salto) | Script que une las continuaciones + controles multilínea (DEC-AUTO-252) |
+| OBS-QA-OPS004-03 | `PUT`/`DELETE`/`PATCH` sobre `/media/publico/<imagen>` respondían `405 text/html` con `Cache-Control: immutable` | `405 metodo_no_permitido` en Problem Details (DEC-AUTO-253) |
+| RSK-OPS-021 | El comentario de `.github/dependabot.yml` sobre las security updates estaba desactualizado | Corregido: están activadas (DEC-AUTO-230) |
+| RSK-OPS-025 | Dependabot no vigilaba `/infra/db` | Añadido, y además corregido un **hallazgo nuevo**: Dependabot no veía ninguna imagen base (§19.3.4, DEC-AUTO-254) |
+| RSK-QA004-02 | No había alerta de tamaño de `app.cache_limites` | Script SQL + runbook (DEC-AUTO-255) |
+
+### 19.3 Cambios realizados
+
+#### 19.3.1 Gate de contrato (`infra/ci/gate_contrato.py`)
+- **Memoización (DEC-AUTO-250).**
+  - `comparar()` guarda los pares `(id(esquema del contrato resuelto), id(esquema generado resuelto))` ya visitados y no los repite. Así termina aunque haya ciclos (`Nodo → Nodo`, `A → B → A`) y su coste es lineal en el número de pares distintos.
+  - `forma()` corta los ciclos de `allOf`/`oneOf`/`anyOf` con el conjunto de esquemas en curso.
+  - Se elimina el límite artificial de profundidad 40, que era lo que producía la explosión (4 ramas por nivel → 4^40 llamadas).
+  - Consecuencia: si el mismo par de esquemas aparece por varias rutas, el error se informa una vez, con la primera ruta.
+- **N13, objeto abierto frente a cerrado (DEC-AUTO-251).** El gate falla si el esquema generado declara `additionalProperties: true` o un esquema (incluido `{}`) donde el contrato tiene el objeto cerrado. "Cerrado" usa el mismo criterio que N10: objeto sin `additionalProperties` o con `false`.
+- **N14, sin tipo frente a tipado (DEC-AUTO-251).** El gate falla si el esquema generado no restringe nada donde el contrato fija un tipo o una estructura.
+  - "No restringe nada" significa `{}`, `true` o solo claves descriptivas: `description`, `title`, `example(s)`, `default`, `readOnly`, `writeOnly`, `deprecated`, `nullable`, `externalDocs`, `xml`, `$comment` y `x-*`.
+  - Se aplica a propiedades, `items` y valores de mapas (`additionalProperties` con esquema en ambos lados).
+- **Controles.** `infra/ci/gate_contrato_controles.py` contiene 23 casos con fixtures SINTÉTICOS, que no dependen del contrato ni del backend reales (cambian en cada ticket). Cada ejecución del gate tiene un límite de 60 s.
+
+#### 19.3.2 CI (`.github/workflows/ci.yaml`)
+- `timeout-minutes` en los 6 jobs, con holgura sobre el último run verde de `main` (36341493130):
+
+  | Job | Duración observada | Límite |
+  |---|---|---|
+  | detect | ~6 s | 5 min |
+  | infra | ~40 s | 15 min |
+  | backend | ~4 min 45 s | 30 min |
+  | frontend | ~1 min | 20 min |
+  | images | ~3 min | 45 min |
+  | sign | — | 10 min |
+
+  Los pasos del gate, de sus controles y de la política de trivy tienen además un límite de 5 min cada uno.
+- Pasos nuevos:
+  - `backend`: "contrato: controles del gate", que ejecuta `gate_contrato_controles.py` antes del gate real.
+  - `infra`: "Dependabot cubre todos los Dockerfile" (§19.3.4).
+  - `images`: controles de la política de trivy, y después la política desde `infra/ci/politica_trivy.sh` (§19.3.3).
+- Smoke del proxy: `PUT`/`DELETE`/`PATCH` sobre `/media/publico/x/y.jpg` deben devolver 405 Problem Details con:
+  - `code` `metodo_no_permitido`;
+  - `Allow: GET, HEAD`;
+  - `Cache-Control: no-store`, sin `immutable`.
+
+#### 19.3.3 Política de trivy (`infra/ci/politica_trivy.sh` + `politica_trivy_controles.sh`, DEC-AUTO-252)
+- Antes de buscar nada, el script une las líneas de continuación de shell de todos los workflows (`\` + salto de línea, sin CR). Después aplica sobre las líneas lógicas completas las mismas reglas que antes:
+  - variables `TRIVY_*`;
+  - `--severity CRITICAL,HIGH` exacto;
+  - ni `--config`/`-c`/`--vex`/`--ignore-status`;
+  - ni `--ignore-unfixed`/`--ignore-policy`/`--skip-(pkgs|files|dirs)`;
+  - `.trivyignore` con caducidad;
+  - sin `trivy.yaml` ni `.trivyignore.yaml`.
+- Admite `trivy` + espacios variables + subcomando, también con el subcomando en la línea siguiente.
+- Los textos de prueba viven en `infra/ci/`, no en `.github/workflows/`: la política no los ve en el repositorio real y el truco `[t]rivy` ya no hace falta.
+- Corrige también dos **falsos positivos** de la política anterior: una invocación válida partida en varias líneas y una opción prohibida dentro de un comentario (`# trivy image … --ignore-unfixed`).
+
+#### 19.3.4 Dependabot y Dockerfile (RSK-OPS-021, RSK-OPS-025, DEC-AUTO-254)
+- **Hallazgo nuevo (MEDIUM, corregido).** El `file_parser` de Dependabot para Docker (dependabot-core, `docker/lib/dependabot/docker/file_parser.rb`) solo reconoce `FROM` con la imagen **literal** y no resuelve `ARG`.
+  - Los 5 Dockerfile usaban `ARG X_IMAGE=…` + `FROM ${X_IMAGE}`, así que el ecosistema `docker` **no vigilaba ninguna imagen base**, no solo la de `/infra/db`.
+  - Es coherente con el historial: nunca se abrió un PR `dependabot/docker/*`.
+- **Corrección.** `FROM` literal, con la misma referencia `tag@sha256`, en `infra/db/Dockerfile`, `infra/backup/Dockerfile`, `infra/docker/backend.Dockerfile`, `infra/docker/frontend.Dockerfile` e `infra/proxy/Dockerfile`.
+  - Ningún `compose*.yaml` ni el CI sobrescribían esos `ARG` (verificado con grep), así que las imágenes resultantes son idénticas.
+  - Se quitan los `ARG` para que no quede una segunda copia del digest que Dependabot no actualizaría.
+- **`.github/dependabot.yml`:**
+  - `directories` del ecosistema `docker`: `/infra/db`, `/infra/docker`, `/infra/proxy`, `/infra/backup`.
+  - Grupo `postgres`: `infra/db` (servidor) e `infra/backup` (cliente `pg_dump`) deben compartir digest (ADR-DB-004), así que se actualizan en un solo PR.
+  - Comentario de las security updates corregido: están **activadas** en el repositorio (DEC-AUTO-230). Verificado el 2026-09-28 con `gh api repos/magoolf/brujula-salvaje/automated-security-fixes` → `{"enabled":true,"paused":false}`.
+  - Comentario del ecosistema `docker-compose` actualizado: hoy `compose*.yaml` no fija imágenes de terceros.
+- **Paso de CI "Dependabot cubre todos los Dockerfile".** Falla si algún `Dockerfile`, `*.Dockerfile` o `Dockerfile.*` del repositorio:
+  - está en un directorio que no figura en el ecosistema `docker`, o
+  - tiene un `FROM` con variable (`$X` o `${X}`, también con `--platform`).
+
+#### 19.3.5 Proxy: 405 de medios (`infra/proxy/nginx.conf`, DEC-AUTO-253)
+- `error_page 405 =405 /_errores_proxy/405` y una location interna que devuelve Problem Details `metodo_no_permitido` con:
+  - título y detalle del catálogo `apps/core/problemas.py`;
+  - `trace_id`;
+  - las 11 cabeceras de `security-headers-error.conf` (incluido `Cache-Control: no-store`);
+  - `Allow: GET, HEAD` (RFC 9110 §15.5.6).
+- La redirección interna cambia de location, así que la respuesta ya no hereda el `Cache-Control … immutable` de la location de imágenes.
+- `POST` y `OPTIONS` sobre una imagen también devolvían 405 (módulo estático de nginx) y ahora salen igual.
+- Sin cambios en `GET`/`HEAD` de imágenes, en el 404 (medios inexistentes o que no son imagen) ni en el 403 de `limit_except` (p. ej. `PUT` sobre `/media/publico/a/foto.txt` o `POST /`).
+
+#### 19.3.6 Alerta de tamaño de `app.cache_limites` (RSK-QA004-02, DEC-AUTO-255)
+- `infra/ops/cache_limites_tamano.sql` es de solo lectura.
+  - Umbrales por defecto: **> 50 000 filas o > 64 MB** (tabla + índices + TOAST), configurables con `-v max_filas=…` y `-v max_bytes=…`.
+  - Informa de filas, filas caducadas y tamaño.
+  - Si se supera un umbral, termina con `ERROR` (psql con `ON_ERROR_STOP` → exit 3); si no, con exit 0.
+  - Con un rol sin `SELECT` sobre la tabla (p. ej. `readonly`, que por diseño no la lee, ADR-DB-001) usa la estimación de `pg_class.reltuples` y el tamaño, que no requieren privilegios.
+- **Ejecución manual** (stack local):
+  ```bash
+  docker compose exec -T db psql -U postgres -d brujula -X -q -v ON_ERROR_STOP=1 -f - < infra/ops/cache_limites_tamano.sql
+  # umbrales propios:
+  docker compose exec -T db psql -U postgres -d brujula -X -q -v ON_ERROR_STOP=1 -v max_filas=20000 -v max_bytes=33554432 -f - < infra/ops/cache_limites_tamano.sql
+  ```
+- **Ejecución programada.** La imagen del scheduler (Django, rol `app_rw`) no trae `psql`, y un comando de gestión es código de aplicación (`backend/`, fuera de lo que §0.3 permite a DevOps).
+  - Propuesta de ticket para el Developer: comando `vigilar_cache_limites` con la misma consulta y los mismos umbrales (settings `CACHE_LIMITES_MAX_FILAS=50000` y `CACHE_LIMITES_MAX_BYTES=67108864`).
+  - Si se supera un umbral, sale con código ≠ 0 y un log JSON `nivel=ERROR`.
+  - Como el resto de comandos, usa `pg_try_advisory_lock` y registra su ejecución en `ops_ejecucion_tarea`.
+  - Cuando exista, se añade a `infra/scheduler/crontab`, p. ej. `*/15 * * * * python manage.py vigilar_cache_limites`.
+  - En producción, la alerta la recoge el sistema de logs y alertas (Skill_devops §23.5, F9).
+- **Runbook si salta la alerta:**
+  1. Mirar la proporción `caducadas / filas`. Si es alta, autovacuum o la purga de `DatabaseCache` (que solo purga al superar `MAX_ENTRIES`) no dan abasto. Ejecutar `VACUUM (VERBOSE) app.cache_limites` y revisar `pg_stat_user_tables` (`n_dead_tup`, `last_autovacuum`).
+  2. Si hay pocas caducadas y muchas filas, hay tráfico anómalo (muchas IP o claves distintas). Revisar la ráfaga en el access log del proxy (IP truncada) y, si procede, endurecer `limit_req` en el borde (RSK-DB-008).
+  3. La tabla es UNLOGGED y efímera (TTL ≤ 1 h). En una emergencia, `TRUNCATE app.cache_limites` reinicia los contadores de throttling y los bloqueos temporales, **y por tanto desbloquea las cuentas bloqueadas por intentos**. Es una decisión operativa; en un entorno compartido requiere aprobación humana (CLAUDE.md §0.5).
+
+### 19.4 Versiones aprobadas
+No cambia ninguna versión ni ningún digest: las mismas referencias `tag@sha256` pasan de `ARG` a `FROM`.
+
+Herramientas usadas solo para validar (no entran en el repositorio):
+- actionlint `rhysd/actionlint:1.7.7` (incluye shellcheck);
+- `koalaman/shellcheck:v0.10.0`;
+- check-jsonschema 0.33.0 (esquemas `vendor.dependabot` y `vendor.github-workflows`);
+- js-yaml 4.1.0.
+
+### 19.5 Infraestructura
+- Proxy: una location interna nueva.
+- Dockerfile: `FROM` literal.
+- CI: 3 pasos nuevos y 1 bloque de smoke.
+
+### 19.6 Dependencias
+Sin cambios de manifest ni de lockfile.
+
+### 19.7 Variables de entorno
+Sin cambios. Los umbrales de la alerta son variables de psql.
+
+### 19.8 Validaciones ejecutadas (2026-09-27/28, Docker Engine 29.6.1)
+
+#### 19.8.1 Gate de contrato
+**Sobre el contrato y el esquema REALES.** `contracts/openapi.yaml` (127 operaciones) frente a `manage.py spectacular --validate` de esta rama (25 operaciones implementadas), con mutaciones en el scratchpad:
+
+| Caso | Esperado | Gate nuevo | Gate anterior (`origin/main`), límite 120 s |
+|---|---|---|---|
+| BASE (esquema real) | 0 | 0 (1,6 s) | 0 |
+| N1, N3, N8, N9, N10 | 1 | 1 | 1 |
+| N13a/b/c: `additionalProperties` `{}` / `true` / `{type: string}` en `Cuenta`/`SesionEstado` | 1 | **1** | 0 (no detectado) |
+| N14a/b: propiedad `{}` / solo descriptiva frente a tipada | 1 | **1** | 0 |
+| N14c: `items: {}` frente a `$ref Cuenta` | 1 | **1** | 0 |
+| N14d/e: valor de `errors{*}` `{}` / `true` frente a array tipado | 1 | **1** | 0 |
+| P3 (solo cambia `description`) y P4 (contrato sin tipo, implementación tipada) | 0 | 0 | 0 |
+| A1: `Nodo` autorreferenciado idéntico (2 referencias + array) | 0 | **0 (1,5 s)** | **TIMEOUT 120 s** |
+| A2: A1 + propiedad extra | 1 | **1 (1,5 s)** | TIMEOUT |
+| A3: `anyOf` con 3 autorreferencias | 0 | **0 (1,5 s)** | TIMEOUT |
+| A4: A3 + objeto abierto | 1 | **1** | TIMEOUT |
+| A5: recursión mutua `Nodo ↔ B` | 0 | **0** | TIMEOUT |
+| A6: A5 + `B` abierto | 1 | **1** | TIMEOUT |
+| A7: A5 + `items: {}` | 1 | **1** | TIMEOUT |
+
+- Gate nuevo: 23/23. Gate anterior: 8/23 (8 omisiones y 7 timeouts). Casi todo el tiempo del gate nuevo es la carga del YAML.
+- Con `infra/ci/gate_contrato_controles.py` (los casos sintéticos que ejecuta el CI): gate nuevo 23/23, entre 0,10 y 0,16 s por caso. Gate anterior: 15 fallos (8 omisiones y 7 `TIMEOUT` de 60 s).
+- `ruff check` y `ruff format --check` (configuración del backend) sobre `infra/ci/`: OK.
+
+#### 19.8.2 Política de trivy
+`bash infra/ci/politica_trivy_controles.sh` pasa **18/18**:
+- P0: repositorio real.
+- P1: invocación válida en 3 líneas.
+- P2: opción prohibida dentro de un comentario.
+- S1-S6, en una línea: `--ignore-unfixed`, `TRIVY_IGNORE_UNFIXED`, severidad distinta, `trivy.yaml`, entrada sin caducidad, comodín.
+- M1-M9, multilínea:
+  - `--ignore-unfixed`;
+  - `--config` en la 3.ª línea;
+  - `-c`;
+  - `--skip-files`;
+  - `trivy` e `image` en líneas distintas, con `--vex`;
+  - `--ignore-status`;
+  - `trivy config --ignore-policy`;
+  - invocación partida sin `--severity`;
+  - continuación con CRLF.
+
+Cada caso negativo falla por su regla (mensaje `::error::` comprobado).
+
+La política anterior (extraída tal cual del CI de `origin/main`) con los mismos controles da 9 fallos:
+- **7 falsos negativos**: M1, M3, M4, M5, M6, M7 y M9 pasan con rc 0. Reproduce QA-OPS005-04.
+- **2 falsos positivos**: P1 y P2.
+
+`shellcheck v0.10.0` sobre los dos scripts: 0 avisos.
+
+#### 19.8.3 Proxy (405)
+- Imagen `brujula/proxy:ops006` construida desde `infra/proxy`. Por la memoria justa del host se ejecutó sola:
+  - `--read-only`, tmpfs en `/tmp`, `--add-host` para backend/frontend y 128 MiB;
+  - un volumen de medios de prueba de solo lectura.
+- Los errores del proxy no dependen de los upstreams. `nginx -t`: OK.
+
+| Petición | Resultado |
+|---|---|
+| `GET`/`HEAD /media/publico/a/foto.jpg` | 200 `image/jpeg` con `Cache-Control: public, max-age=31536000, immutable` (sin cambios) |
+| `PUT`/`DELETE`/`PATCH`/`POST`/`OPTIONS` sobre la imagen | **405 `application/problem+json`**: `code` `metodo_no_permitido`, `trace_id` de 32 hex, `Allow: GET, HEAD`, `Cache-Control: no-store` y las 11 cabeceras de seguridad |
+| `PUT /media/publico/no/existe.jpg` | 405 Problem Details |
+| `PUT /media/publico/a/foto.txt` y `POST /` | 403 Problem Details (sin cambios) |
+| `GET` de `/media/publico/no/existe.webp`, `/media/publico/a/foto.txt`, `/media/privado/x.jpg` y `/health/otra` | 404 Problem Details (sin cambios) |
+| **Línea base**: la misma imagen con el `nginx.conf` de `origin/main`, `PUT` sobre la imagen | `405 text/html` + `Cache-Control: public, max-age=31536000, immutable` (reproduce OBS-QA-OPS004-03) |
+
+#### 19.8.4 Dependabot y Dockerfile
+- `check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml`: OK.
+- `docker build --check` sobre los 5 Dockerfile (con `--build-context ops=scripts/ops` en backup e `infra=infra` en backend): "Check complete, no warnings found".
+- Las 6 imágenes se construyen de verdad en el job `images` del CI.
+- Paso "Dependabot cubre todos los Dockerfile", extraído del CI:
+
+| Caso | rc | Motivo |
+|---|---|---|
+| P0: repositorio | 0 | |
+| N1: sin `/infra/db` | 1 | directorio no listado |
+| N2: proxy con `FROM ${NGINX_IMAGE}` (versión de `main`) | 1 | `FROM` con variable |
+| N3: Dockerfile nuevo en `infra/nuevo` | 1 | directorio no listado |
+| N4: `FROM --platform=… ${IMG}` | 1 | `FROM` con variable |
+| N5: `FROM $IMG` | 1 | `FROM` con variable |
+
+#### 19.8.5 `cache_limites`
+PostgreSQL 18.6 desechable (misma imagen y digest que `infra/db`, 256 MiB) con la DDL exacta de `ops.0001_inicial` (tabla UNLOGGED + índice):
+
+| Caso | rc |
+|---|---|
+| T1: 1000 filas (100 caducadas), 272 kB, umbrales por defecto | 0 (OK) |
+| T2: `max_filas=500` | 3 (ALERTA) |
+| T3: `max_bytes=100000` | 3 |
+| T4: 53 000 filas / 84 MB, umbrales por defecto | 3 |
+| T5: rol `readonly` sin `SELECT` (estimación `reltuples` = 53 000) | 3 |
+
+#### 19.8.6 CI, YAML y secretos
+- `actionlint 1.7.7` (con shellcheck) sobre `ci.yaml`: 0 errores.
+- `check-jsonschema vendor.github-workflows`: OK.
+- `js-yaml 4.1.0` sobre `ci.yaml` y `dependabot.yml`: OK.
+- gitleaks y el run de GitHub Actions: ver el `HANDOFF_ENVELOPE` de TKT-OPS-006 (SHA y URL del run).
+
+#### 19.8.7 Limpieza
+- Contenedores `brujula-ops006-proxy`, `brujula-ops006-proxy-viejo` y `brujula-ops006-pg` eliminados; imagen `brujula/proxy:ops006` eliminada.
+- No se tocó `brujula-tkt005-db-1`.
+- Los fixtures quedaron en el scratchpad de la sesión, fuera del repositorio.
+
+#### 19.8.8 NOT_RUN
+- **Stack completo local `-p brujula-ops006` (`APP_NET_PREFIX` 10.231.60)**: sustituido por el proxy aislado de §19.8.3 porque el host tiene la memoria justa. El 405 sobre el stack completo lo cubre el smoke del CI.
+- **`oasdiff` local**: el gate nuevo no cambia su entrada (el contrato filtrado); se ejecuta en CI.
+- **Primer PR real de Dependabot docker**: llegará en la próxima ventana semanal (lunes 06:00, Europe/Madrid) tras integrar la rama.
+
+### 19.9 Seguridad
+- Sin secretos: la contraseña del PostgreSQL desechable fue un literal local que no entra en el repositorio.
+- El 405 del borde no revela la versión (`server_tokens off`) y lleva las cabeceras de seguridad.
+- La política de trivy es más estricta (opciones prohibidas en líneas de continuación) y más precisa (sin falsos positivos).
+
+### 19.10 Riesgos / pendientes
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-021 | Security updates de Dependabot | LOW | Activadas (DEC-AUTO-230) y comentario corregido | CERRADO |
+| RSK-OPS-025 | Dependabot no vigilaba `/infra/db` y, en realidad, ninguna imagen base (`ARG` en `FROM`) | MEDIUM | `FROM` literal + los 5 directorios + paso de cobertura en CI | MITIGADO (se confirma con el primer PR `dependabot/docker/*`) |
+| RSK-OPS-031 | Los PR de Dependabot docker cambiarán el SO base (digest de `postgres`, imágenes de runtime) y, con él, las CVE que cubre `.trivyignore` | LOW | Pasan por el CI completo (trivy con `.trivyignore` caducable) y por QA. El `.trivyignore` solo lo cambia una decisión humana (RSK-OPS-001) | ABIERTO (proceso) |
+| RSK-OPS-032 | La alerta de `cache_limites` solo se puede ejecutar a mano hasta que exista el comando `vigilar_cache_limites` (Developer) | LOW | Ticket al Developer (§19.3.6) + línea de crontab | ABIERTO (ticket) |
+| RSK-QA004-02 | Nadie vigila el tamaño de `cache_limites` | LOW | Consulta y umbrales documentados y probados (§19.3.6) | MITIGADO (manual) |
+
+### 19.11 Archivos modificados
+- `infra/ci/gate_contrato.py`
+- `infra/ci/gate_contrato_controles.py` (nuevo)
+- `infra/ci/politica_trivy.sh` (nuevo)
+- `infra/ci/politica_trivy_controles.sh` (nuevo)
+- `infra/ops/cache_limites_tamano.sql` (nuevo)
+- `infra/proxy/nginx.conf`
+- `infra/proxy/Dockerfile`
+- `infra/db/Dockerfile`
+- `infra/backup/Dockerfile`
+- `infra/docker/backend.Dockerfile`
+- `infra/docker/frontend.Dockerfile`
+- `.github/workflows/ci.yaml`
+- `.github/dependabot.yml`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 19.12 Próximo agente
+**Orquestador**, que debe:
+1. Enviar a QA la rama `tkt-ops-006-mejoras`.
+2. Registrar DEC-AUTO-250 a DEC-AUTO-255 y RSK-OPS-031/032, y cerrar RSK-OPS-021.
+3. Emitir el ticket del Developer `vigilar_cache_limites` (RSK-OPS-032).
