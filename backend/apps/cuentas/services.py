@@ -757,6 +757,9 @@ def reactivar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaConTemporal:
         cuenta.desactivado_en = None
         cuenta.save(update_fields=[*campos, "desactivado_en"])
         _auditar(AccionAuditoria.CUENTA_REACTIVAR, actor, objetivo=cuenta, campos=["estado"])
+        # QA-TKT005-03 (DEC-AUTO-913): la reactivación también va al libro, para que una
+        # restauración no vuelva a desactivar ni anonimizar la cuenta.
+        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, EVENTO_REACTIVADA))
     return CuentaConTemporal(cuenta=cuenta, contrasena_temporal=temporal)
 
 
@@ -817,19 +820,29 @@ def _anonimizar(cuenta: CuentaStaff, actor: CuentaStaff | None) -> None:
 PLAZO_ANONIMIZACION = timedelta(days=30)
 EVENTO_DESACTIVADA = "DESACTIVADA"
 EVENTO_ANONIMIZADA = "ANONIMIZADA"
+EVENTO_REACTIVADA = "REACTIVADA"
 _LINEA_LIBRO = re.compile(
-    r"^(\d{1,19});(DESACTIVADA|ANONIMIZADA);(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$"
+    r"^(\d{1,19});(DESACTIVADA|ANONIMIZADA|REACTIVADA);(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$"
 )
 
 
 def anonimizar_cuentas_vencidas(ahora: datetime | None = None) -> int:
     """Anonimiza las cuentas DESACTIVADAS hace más de 30 días (una transacción por cuenta).
 
-    Idempotente: una cuenta ya ANONIMIZADA no vuelve a tocarse. Devuelve cuántas se anonimizaron.
+    Idempotente: una cuenta ya ANONIMIZADA no vuelve a tocarse. No toca una cuenta cuyo último
+    evento en el libro es REACTIVADA (copia restaurada anterior a la reactivación, DEC-AUTO-913).
+    Devuelve cuántas se anonimizaron.
     """
     limite = (ahora or timezone.now()) - PLAZO_ANONIMIZACION
+    reactivadas = {
+        cuenta_id
+        for cuenta_id, (evento, _fecha) in _leer_libro()[0].items()
+        if evento == EVENTO_REACTIVADA
+    }
     anonimizadas = 0
     for cuenta_id in selectors.ids_cuentas_por_anonimizar(limite):
+        if cuenta_id in reactivadas:
+            continue
         with transaction.atomic():
             cuenta = (
                 CuentaStaff.objects.select_for_update()
@@ -849,19 +862,21 @@ class ResultadoLibro:
     anonimizadas: int
     lineas_invalidas: int
     cuentas_inexistentes: int
+    omitidas: int = 0
 
 
 def _leer_libro() -> tuple[dict[int, tuple[str, datetime]], int]:
-    """Estado final por cuenta según el libro: (evento, fecha de desactivación).
+    """Estado final por cuenta según el libro: el último evento gana (DEC-AUTO-913).
 
-    ANONIMIZADA prevalece sobre DESACTIVADA; la fecha es la de la última desactivación registrada
-    (o la de la anonimización si no hay ninguna). Las líneas mal formadas se cuentan y se ignoran.
+    Devuelve {cuenta_id: (evento, fecha de desactivación)}; para ANONIMIZADA la fecha es la de la
+    última DESACTIVADA anterior (o la de la anonimización si no hay). Las líneas mal formadas se
+    cuentan y se ignoran; nunca se registra su contenido.
     """
     ruta = Path(settings.LIBRO_ANONIMIZACIONES_PATH)
     if not ruta.exists():
         return {}, 0
-    anonimizadas: set[int] = set()
-    fechas: dict[int, datetime] = {}
+    ultimo: dict[int, str] = {}
+    desactivada_en: dict[int, datetime] = {}
     invalidas = 0
     with ruta.open(encoding="utf-8") as libro:
         for linea in libro:
@@ -873,27 +888,33 @@ def _leer_libro() -> tuple[dict[int, tuple[str, datetime]], int]:
                 continue
             cuenta_id, evento = int(coincidencia[1]), coincidencia[2]
             fecha = datetime.strptime(coincidencia[3], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-            if evento == EVENTO_ANONIMIZADA:
-                anonimizadas.add(cuenta_id)
-                fechas.setdefault(cuenta_id, fecha)
-            else:
-                fechas[cuenta_id] = fecha
-    return {
-        cuenta_id: (
-            EVENTO_ANONIMIZADA if cuenta_id in anonimizadas else EVENTO_DESACTIVADA,
-            fecha,
-        )
-        for cuenta_id, fecha in fechas.items()
-    }, invalidas
+            if ultimo.get(cuenta_id) == EVENTO_ANONIMIZADA:
+                continue  # la anonimización es irreversible: nada posterior la deshace
+            ultimo[cuenta_id] = evento
+            if evento == EVENTO_DESACTIVADA or cuenta_id not in desactivada_en:
+                desactivada_en[cuenta_id] = fecha
+    return {c: (evento, desactivada_en[c]) for c, evento in ultimo.items()}, invalidas
+
+
+def _es_ultimo_admin_operativo(cuenta: CuentaStaff) -> bool:
+    """RULE-015: la acción del sistema nunca deja sin Administrador activo."""
+    _bloquear_reglas_admin()
+    return cuenta.es_administrador and not selectors.hay_otro_administrador_activo(cuenta.pk)
 
 
 def reaplicar_libro_anonimizaciones() -> ResultadoLibro:
-    """Tras restaurar una copia (ADR-DB-004 §4): vuelve a desactivar y anonimizar las cuentas que
-    en la copia estaban en un estado anterior al registrado en el libro. Idempotente; el libro
-    solo contiene ids (sin PII) y nunca se borra ninguna fila de cuenta_staff."""
+    """Tras restaurar una copia (ADR-DB-004 §4, CHG-DB-003): vuelve a desactivar y anonimizar las
+    cuentas que en la copia estaban en un estado anterior al registrado en el libro.
+
+    - Último evento por cuenta gana; REACTIVADA no se toca.
+    - Nunca desactiva ni anonimiza al último Administrador operativo (RULE-015): se omite.
+    - Idempotente; el libro solo contiene ids (sin PII) y nunca se borra una fila de cuenta_staff.
+    """
     estados, invalidas = _leer_libro()
-    desactivadas = anonimizadas = inexistentes = 0
+    desactivadas = anonimizadas = inexistentes = omitidas = 0
     for cuenta_id, (evento, fecha) in sorted(estados.items()):
+        if evento == EVENTO_REACTIVADA:
+            continue
         with transaction.atomic():
             cuenta = CuentaStaff.objects.select_for_update().filter(pk=cuenta_id).first()
             if cuenta is None:
@@ -902,12 +923,16 @@ def reaplicar_libro_anonimizaciones() -> ResultadoLibro:
             if cuenta.estado == EstadoCuenta.ANONIMIZADA:
                 continue
             if cuenta.estado != EstadoCuenta.DESACTIVADA:
+                if _es_ultimo_admin_operativo(cuenta):
+                    logger.warning("libro_reaplicacion_omitida_ultimo_admin", cuenta_id=cuenta.pk)
+                    omitidas += 1
+                    continue
                 _desactivar_por_sistema(cuenta, fecha)
                 desactivadas += 1
             if evento == EVENTO_ANONIMIZADA:
                 _anonimizar(cuenta, None)
                 anonimizadas += 1
-    return ResultadoLibro(desactivadas, anonimizadas, invalidas, inexistentes)
+    return ResultadoLibro(desactivadas, anonimizadas, invalidas, inexistentes, omitidas)
 
 
 def _desactivar_por_sistema(cuenta: CuentaStaff, desactivado_en: datetime) -> None:

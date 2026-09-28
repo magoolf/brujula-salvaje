@@ -16,11 +16,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
+import structlog
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection, transaction
 from django.db.models import Prefetch, QuerySet
 from django.utils.html import strip_tags
 
 from apps.busqueda.models import TIPOS_BUSCABLES, BusquedaDocumento
+from apps.contenido import selectors as contenido_selectors
 from apps.contenido.models import (
     Contenido,
     DiaItinerario,
@@ -30,6 +33,7 @@ from apps.contenido.models import (
 )
 
 T = TipoContenido
+logger = structlog.get_logger("brujula.busqueda")
 CONFIG = "app.es_unaccent"
 _VECTOR = " || ".join(
     f"setweight(to_tsvector('{CONFIG}', %s), '{peso}')" for peso in ("A", "B", "C", "D")
@@ -155,19 +159,66 @@ def _guardar(documentos: Iterable[Documento]) -> int:
     return len(filas)
 
 
+def _ids_indexables() -> set[int]:
+    """Contenido visible en la API pública y de un tipo buscable (misma regla que el detalle)."""
+    return set(
+        contenido_selectors.contenidos_visibles()
+        .filter(tipo__in=TIPOS_BUSCABLES)
+        .values_list("pk", flat=True)
+    )
+
+
+def _documento_o_none(contenido: Contenido) -> Documento | None:
+    try:
+        return documento_de(contenido)
+    except (ObjectDoesNotExist, AttributeError) as exc:
+        logger.warning(
+            "busqueda_documento_omitido", contenido_id=contenido.pk, tipo=type(exc).__name__
+        )
+        return None
+
+
 def indexar(contenido_id: int) -> bool:
     """Upsert del documento si es público y buscable; si no, lo elimina. True si queda indexado."""
     with transaction.atomic():
         contenido = _candidatos([contenido_id]).first()
-        if contenido is None:
+        documento = None
+        if contenido is not None and contenido_selectors.es_visible(contenido_id):
+            documento = _documento_o_none(contenido)
+        if documento is None:
             BusquedaDocumento.objects.filter(contenido_id=contenido_id).delete()
             return False
-        _guardar([documento_de(contenido)])
+        _guardar([documento])
         return True
 
 
-def reindexar_todo() -> int:
-    """DELETE + INSERT en una transacción (idempotente). Devuelve el número de documentos."""
+@dataclass(frozen=True)
+class ResultadoReindex:
+    documentos: int
+    omitidos: int
+
+
+def reindexar_todo() -> ResultadoReindex:
+    """DELETE + INSERT en una transacción (idempotente).
+
+    Un registro publicado pero incoherente (sin fila de subtipo, o no visible en la API pública)
+    no aborta la reconstrucción: se omite, se registra su id (sin PII) y se cuenta (OBS-04).
+    """
     with transaction.atomic():
         BusquedaDocumento.objects.all().delete()
-        return _guardar(documento_de(c) for c in _candidatos())
+        visibles = _ids_indexables()
+        documentos: list[Documento] = []
+        omitidos = 0
+        for contenido in _candidatos():
+            if contenido.pk not in visibles:
+                logger.warning(
+                    "busqueda_documento_omitido", contenido_id=contenido.pk, tipo="no_visible"
+                )
+                omitidos += 1
+                continue
+            documento = _documento_o_none(contenido)
+            if documento is None:
+                omitidos += 1
+                continue
+            documentos.append(documento)
+        return ResultadoReindex(documentos=_guardar(documentos), omitidos=omitidos)

@@ -23,7 +23,11 @@ class ComandoTarea(BaseCommand):
         try:
             ejecucion = services.ejecutar(tarea, trabajo)
         except services.TareaFallida as exc:
-            raise CommandError(f"{self.nombre}: {exc}") from exc
+            raise CommandError(f"{self.nombre}: {exc}") from None
+        except Exception as exc:
+            # OBS-06: el detalle ya quedó en el log JSON (tarea_fallida, sin mensajes de la BD) y
+            # en ops_ejecucion_tarea; stderr solo lleva el tipo, sin traceback ni datos.
+            raise CommandError(f"{self.nombre}: error inesperado ({type(exc).__name__})") from None
         if not ejecucion.ejecutada:
             self.stdout.write(f"{self.nombre}: otro proceso tiene el lock; no se hace nada.")
             return

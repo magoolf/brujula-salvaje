@@ -107,7 +107,7 @@ def test_AC_TKT005_06_subtipo_de_contenido_publicado_alguna_vez_no_se_borra(tipo
     modelo, tabla = SUBTIPOS[tipo]
     contenido = crear_contenido(tipo, **campos_publicado(tipo))
     modelo.objects.create(contenido=contenido)
-    causa = _error_bd(f"DELETE FROM app.{tabla} WHERE contenido_id = %s", [contenido.pk])  # noqa: S608
+    causa = _error_bd(f"DELETE FROM app.{tabla} WHERE contenido_id = %s", [contenido.pk])  # noqa: S608  # nosec B608 (tabla de la constante SUBTIPOS)
     assert causa.sqlstate == "23001"
     assert causa.diag.constraint_name == "trg_subtipo_guarda_borrado"
     assert modelo.objects.filter(pk=contenido.pk).exists()
@@ -188,7 +188,7 @@ def test_AC_TKT005_06_catalogos_y_configuracion_sin_delete_para_app_rw(tabla):
     assert _privilegio(tabla, "UPDATE") is True
     assert _privilegio(tabla, "INSERT") is True
     with como_rol("app_rw") as cursor, pytest.raises(ProgrammingError) as error:
-        cursor.execute(f"DELETE FROM app.{tabla} WHERE false")  # noqa: S608
+        cursor.execute(f"DELETE FROM app.{tabla} WHERE false")  # noqa: S608  # nosec B608 (tabla de constantes)
     assert error.value.__cause__.sqlstate == "42501"
 
 

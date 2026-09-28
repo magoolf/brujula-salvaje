@@ -17,7 +17,8 @@ from typing import Any
 from django.db import connection, transaction
 
 from apps.busqueda.models import TIPOS_BUSCABLES, BusquedaDocumento
-from apps.contenido.models import EstadoEditorial, TipoContenido
+from apps.contenido import selectors as contenido_selectors
+from apps.contenido.models import TipoContenido
 from apps.medios.selectors import prefetch_imagen
 
 T = TipoContenido
@@ -28,7 +29,7 @@ GRUPOS: dict[str, str] = {
     "tipos": T.TIPO,
 }
 MAX_POR_GRUPO = 10
-MAX_COINCIDENCIAS = 5000
+MAX_COINCIDENCIAS = 5000  # por grupo (OBS-05): un tipo no deja sin resultados a otro
 TIMEOUT_BUSQUEDA = "2s"
 UMBRAL_SIMILITUD = "0.3"
 
@@ -41,26 +42,30 @@ coincidencias AS (
    WHERE consulta.tsq IS NOT NULL AND d.documento @@ consulta.tsq
      AND (%(tipo)s::text IS NULL OR d.tipo_contenido = %(tipo)s::text)
 )
-SELECT contenido_id, tipo_contenido,
-       row_number() OVER (PARTITION BY tipo_contenido
-                          ORDER BY rango DESC, titulo_norm, contenido_id) AS posicion,
-       count(*) OVER (PARTITION BY tipo_contenido) AS total
-  FROM coincidencias
+SELECT contenido_id, tipo_contenido, posicion, total FROM (
+  SELECT contenido_id, tipo_contenido,
+         row_number() OVER (PARTITION BY tipo_contenido
+                            ORDER BY rango DESC, titulo_norm, contenido_id) AS posicion,
+         count(*) OVER (PARTITION BY tipo_contenido) AS total
+    FROM coincidencias
+) AS agrupadas
+ WHERE posicion <= %(limite)s
  ORDER BY tipo_contenido, posicion
- LIMIT %(limite)s
 """
 
 _DIFUSA = """
-SELECT contenido_id, tipo_contenido,
-       row_number() OVER (PARTITION BY tipo_contenido
-                          ORDER BY ext.similarity(titulo_norm, app.f_normalizar(%(q)s)) DESC,
-                                   titulo_norm, contenido_id) AS posicion,
-       count(*) OVER (PARTITION BY tipo_contenido) AS total
-  FROM busqueda_documento
- WHERE titulo_norm OPERATOR(ext.%%) app.f_normalizar(%(q)s)
-   AND (%(tipo)s::text IS NULL OR tipo_contenido = %(tipo)s::text)
+SELECT contenido_id, tipo_contenido, posicion, total FROM (
+  SELECT contenido_id, tipo_contenido,
+         row_number() OVER (PARTITION BY tipo_contenido
+                            ORDER BY ext.similarity(titulo_norm, app.f_normalizar(%(q)s)) DESC,
+                                     titulo_norm, contenido_id) AS posicion,
+         count(*) OVER (PARTITION BY tipo_contenido) AS total
+    FROM busqueda_documento
+   WHERE titulo_norm OPERATOR(ext.%%) app.f_normalizar(%(q)s)
+     AND (%(tipo)s::text IS NULL OR tipo_contenido = %(tipo)s::text)
+) AS agrupadas
+ WHERE posicion <= %(limite)s
  ORDER BY tipo_contenido, posicion
- LIMIT %(limite)s
 """
 
 
@@ -105,7 +110,9 @@ def resultados_por_ids(ids: Sequence[int]) -> list[ResultadoBusqueda]:
     documentos = (
         BusquedaDocumento.objects.filter(
             contenido_id__in=list(ids),
-            contenido__estado_editorial=EstadoEditorial.PUBLICADO,
+        )
+        .filter(
+            contenido_id__in=contenido_selectors.contenidos_visibles().values("pk"),
         )
         .select_related("contenido")
         .prefetch_related(prefetch_imagen("contenido__portada"))
@@ -159,23 +166,16 @@ class EstadoIndice:
 
 
 def estado_indice() -> EstadoIndice:
-    """Invariante de ADR-DB-003: publicados en alcance = filas del índice (sin PII)."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            WITH pub AS (SELECT id FROM contenido
-                          WHERE estado_editorial = 'PUBLICADO' AND tipo = ANY(%s))
-            SELECT (SELECT count(*) FROM pub),
-                   (SELECT count(*) FROM busqueda_documento),
-                   (SELECT count(*) FROM pub
-                     WHERE NOT EXISTS (SELECT 1 FROM busqueda_documento d
-                                        WHERE d.contenido_id = pub.id)),
-                   (SELECT count(*) FROM busqueda_documento d
-                     WHERE NOT EXISTS (SELECT 1 FROM pub WHERE pub.id = d.contenido_id))
-            """,
-            [[str(t) for t in TIPOS_BUSCABLES]],
-        )
-        fila = cursor.fetchone()
-    if fila is None:  # pragma: no cover (una consulta de agregados siempre devuelve una fila)
-        raise RuntimeError("estado_indice sin fila")
-    return EstadoIndice(*(int(v) for v in fila))
+    """Invariante de ADR-DB-003: contenido visible y buscable = filas del índice (sin PII)."""
+    publicados = set(
+        contenido_selectors.contenidos_visibles()
+        .filter(tipo__in=TIPOS_BUSCABLES)
+        .values_list("pk", flat=True)
+    )
+    indexados = set(BusquedaDocumento.objects.values_list("contenido_id", flat=True))
+    return EstadoIndice(
+        publicados=len(publicados),
+        indexados=len(indexados),
+        faltan=len(publicados - indexados),
+        sobran=len(indexados - publicados),
+    )

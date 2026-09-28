@@ -68,6 +68,10 @@ def resolver_publicado(tipo: str, slug: str) -> Contenido:
                 "listado_padre": selectors.LISTADO_PADRE[T(tipo)],
             },
         )
+    if not selectors.es_visible(contenido.pk):
+        # Publicado pero incoherente (p. ej. tipo principal no publicado): no es público
+        # (QA-TKT005-02, DEC-AUTO-912).
+        raise NoEncontrado()
     return contenido
 
 

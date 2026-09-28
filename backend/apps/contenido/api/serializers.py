@@ -412,7 +412,9 @@ class DestinoDetalleSerializer(_DetalleComun):
     @extend_schema_field(RefTaxonomiaSerializer)
     def get_tipo_principal(self, destino: Any) -> dict[str, str] | None:
         tipo = destino.tipo_principal
-        if tipo is None:
+        # Nunca se serializa contenido no publicado (QA-TKT005-02): el selector ya excluye estos
+        # destinos; esta guarda es defensa en profundidad.
+        if tipo is None or tipo.contenido.estado_editorial != "PUBLICADO":
             return None
         return {"slug": tipo.contenido.slug, "nombre": tipo.contenido.titulo}
 

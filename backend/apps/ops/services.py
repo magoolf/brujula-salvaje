@@ -128,8 +128,12 @@ def purgar_sesiones() -> Resultado:
 
 def reindexar_busqueda() -> Resultado:
     """REINDEX_BUSQUEDA (ADR-DB-003 §2): DELETE + INSERT del índice en una transacción."""
-    documentos = busqueda_services.reindexar_todo()
-    return Resultado(filas=documentos, detalle=f"documentos={documentos}")
+    resultado = busqueda_services.reindexar_todo()
+    return Resultado(
+        filas=resultado.documentos,
+        detalle=f"documentos={resultado.documentos} omitidos={resultado.omitidos}",
+        exito=resultado.omitidos == 0,
+    )
 
 
 def verificar_busqueda() -> Resultado:
@@ -167,7 +171,8 @@ def reaplicar_anonimizaciones() -> Resultado:
         filas=r.desactivadas + r.anonimizadas,
         detalle=(
             f"desactivadas={r.desactivadas} anonimizadas={r.anonimizadas} "
-            f"lineas_invalidas={r.lineas_invalidas} inexistentes={r.cuentas_inexistentes}"
+            f"lineas_invalidas={r.lineas_invalidas} inexistentes={r.cuentas_inexistentes} "
+            f"omitidas={r.omitidas}"
         ),
     )
 
