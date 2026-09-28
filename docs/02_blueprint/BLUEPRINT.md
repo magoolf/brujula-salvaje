@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Documento | Blueprint Funcional / Master PRD v1.0 |
-| Ticket | TKT-F3-001 (fase F3) |
-| Fecha | 2026-09-25 |
+| Documento | Blueprint Funcional / Master PRD v1.1 |
+| Ticket | TKT-F3-001 (fase F3, v1.0) · TKT-F3-002 / CHG-BP-001 (v1.1, CONFLICT-005 → DEC-AUTO-912; ver Anexo C) |
+| Fecha | 2026-09-25 (v1.0) · 2026-09-28 (v1.1) |
 | Productor | skill_arquitecto_funcional (subagente) |
 | Input | `docs/01_requerimientos/PRD.md` + `docs/01_requerimientos/requirements.yaml` (51 REQ, 60 AC, DEC-AUTO-001..034) |
 | Consumidores | Skill_UI_UX, Skill_Base_datos, Skill_Backend (contrato), Skill_Frontend (estándar), Skill_Developer, Skill_QA |
@@ -381,7 +381,8 @@ Las URL públicas están en español, en minúsculas y con guiones (DEC-AUTO-046
 
 **SCR-038 — Diálogo de publicación/retiro** · DIALOG · MUST · FEAT-036, 037, 038
 - Publicar / Actualizar: ejecuta la validación de publicación. Si falla, muestra una lista de errores enlazados al campo. Si pasa, muestra un resumen y "Confirmar".
-- Retirar: motivo obligatorio (interno) e impacto (itinerarios que se retirarán en cascada, colecciones y destacados donde aparece, número de páginas que lo enlazan). Confirmar.
+- Co-publicación (Destino, v1.1, RULE-002/025, DEC-AUTO-912): si el destino tiene tipos en BORRADOR (incluido el principal), el diálogo los lista en una sección "Se publicarán también" con el resultado de la validación propia de cada tipo. "Confirmar" publica el destino y esos tipos en una sola operación atómica: o se publican todos, o no cambia nada. Si algún tipo está RETIRADO, el diálogo no permite confirmar y muestra el error "Reactiva primero el tipo {nombre}" con un enlace a su editor.
+- Retirar: motivo obligatorio (interno) e impacto (itinerarios que se retirarán en cascada, **tipos de aventura que se quedarían sin destinos publicados y se retirarán en cascada (RULE-025, v1.1)**, colecciones y destacados donde aparece, número de páginas que lo enlazan). Confirmar. El mismo bloque de impacto sobre los tipos aparece en "Actualizar publicación" cuando el cambio quita un tipo al destino. Si la cascada de un tipo queda bloqueada (RULE-025), el diálogo lista los usos que la impiden y no permite confirmar.
 - Eliminar borrador: confirmación irreversible.
 
 **SCR-039 — Biblioteca de medios** · LIST + upload · `/panel/medios?estado=&licencia=&q=&en_uso=` · MUST · FEAT-041, 042
@@ -487,12 +488,22 @@ El control se aplica en el servidor para cada acción. Ocultar un botón no sust
 - Pasos: 1) SCR-035 (destinos) → "Nuevo" → SCR-036. 2) Completa las secciones. En Medios abre SCR-041 y selecciona o sube (FLOW-013). 3) "Guardar borrador" → validación de formato → BORRADOR (auditoría CREAR/EDITAR). 4) "Vista previa" (SCR-037). 5) "Publicar" → SCR-038 → validación de publicación (RULE-002, 005, 006, 009, 023, 027). 6a) Falla → lista de errores enlazada y sigue en BORRADOR. 6b) Pasa → "Confirmar" → PUBLICADO: se fija el slug, se crea la instantánea (DATA-026) y se audita PUBLICAR. 7) Mensaje de éxito con "Ver en el sitio". 8) El destino aparece en listados, filtros, búsqueda, mapa, meses, sitemap.xml y SCR-022.
 - Alternativas: conflicto de versión → aviso y "Recargar" sin sobrescribir; sesión a punto de expirar → "Seguir conectado"; sesión expirada → los datos del formulario se conservan en la página y el reintento tras volver a autenticarse no pierde el trabajo; cancelar → confirmación si hay cambios sin guardar.
 - El resto de tipos siguen este mismo flujo con sus reglas propias (RULE-003, 004, 024, 025).
+- **Co-publicación destino + tipos (v1.1, CHG-BP-001, DEC-AUTO-912)** · AC-124, 125, 126:
+  - 5') Si en el paso 5 el destino tiene tipos (incluido el principal) en BORRADOR, SCR-038 los lista en "Se publicarán también". Cada uno se valida con sus propias reglas (RULE-025, RULE-006, RULE-009, RULE-027…). La validación evalúa el estado resultante de la operación completa, así que el destino cuenta como "destino publicado" del tipo.
+  - 6a') Si falla el destino o cualquiera de los tipos: aparece la lista de errores agrupada por entidad y **ninguna** entidad cambia de estado.
+  - 6b') Si todo pasa y se pulsa "Confirmar", el destino y los tipos pasan a PUBLICADO en una única operación atómica. Se crean una instantánea y una auditoría PUBLICAR por entidad. La operación es idempotente (ALT-017) y comprueba la versión de cada entidad (ALT-016).
+  - Un tipo RETIRADO no se puede co-publicar: primero hay que reactivarlo como borrador (FLOW-012).
+  - Publicar un Tipo desde su propio editor solo es posible si ya tiene ≥1 destino publicado. Como un destino publicado nunca tiene tipos no publicados (RULE-002), un tipo en BORRADOR solo se publica mediante co-publicación. En ese caso el error de RULE-025 ofrece enlaces a los destinos en BORRADOR que tienen asociado el tipo.
+  - "Actualizar publicación" de un destino PUBLICADO que añade un tipo en BORRADOR aplica la misma co-publicación.
 
 **FLOW-012 — Actualizar publicado, retirar y reactivar** · Editor/Admin · MUST · REQ-022, 057
 - Actualizar: abre un contenido PUBLICADO → edita → Vista previa → "Actualizar publicación" → validación completa → sigue PUBLICADO con una nueva instantánea (auditoría ACTUALIZAR_PUBLICACION).
 - Retirar: "Retirar" → SCR-038 muestra el impacto y pide el motivo → Confirmar → RETIRADO (+ cascada de itinerarios si es un destino) → instantánea → auditoría RETIRAR (una por entidad) → la URL pública responde 410 (SCR-024) y el contenido sale de listados, búsqueda, sitemap, mapa, colecciones y destacados (que se completan con relleno, RULE-016).
-- Reactivar: RETIRADO → "Reactivar como borrador" → BORRADOR (se conserva el slug) → publicar de nuevo con FLOW-011.
-- Bloqueos: retirar un tipo, categoría, país, región o licencia en uso por contenido publicado → rechazado con la lista de usos (RULE-007).
+- **Retiro en cascada de tipos (v1.1, CHG-BP-001, DEC-AUTO-912)** · AC-127, 128: si al retirar un destino (o al "Actualizar publicación" quitándole un tipo) algún Tipo PUBLICADO queda con 0 destinos publicados, SCR-038 lo incluye en el impacto. Al confirmar, ese tipo pasa a RETIRADO en la misma operación atómica que el destino y sus itinerarios. Se crean una instantánea y una auditoría RETIRAR por entidad, y la URL del tipo responde 410. Motivo de la auditoría: "Cascada: sin destinos publicados (RULE-025)".
+  - Bloqueo de la cascada: si el tipo también es tipo de un Itinerario PUBLICADO que no se retira en la misma operación (itinerario de otro destino, RULE-003), toda la operación se rechaza y se muestra la lista de esos itinerarios. El editor los actualiza (les quita el tipo) y repite la operación. No hay interbloqueo, porque esos itinerarios se editan de forma independiente.
+  - Las guías, colecciones, destacados y relacionados que referencian al tipo no bloquean la operación: la relación simplemente deja de exponerse (RULE-001).
+- Reactivar: RETIRADO → "Reactivar como borrador" → BORRADOR (se conserva el slug) → publicar de nuevo con FLOW-011. Reactivar un destino no reactiva sus tipos ni sus itinerarios retirados en cascada. Un tipo reactivado (BORRADOR) solo vuelve a publicarse mediante co-publicación con un destino (FLOW-011, 5'). Para volver a publicar un destino cuyos tipos siguen RETIRADOS, primero hay que reactivar esos tipos · AC-130.
+- Bloqueos: retirar un tipo, categoría, país, región o licencia en uso por contenido publicado → rechazado con la lista de usos (RULE-007). En el caso de un tipo, el uso por destinos publicados se resuelve retirando el último destino (cascada anterior); nunca de forma directa.
 
 **FLOW-013 — Subir y catalogar un medio** · Editor/Admin · MUST · REQ-019, 043, 071, 061
 - Pasos: 1) SCR-039 o SCR-041 → Subir (1..10 archivos). 2) El sistema valida cada archivo por su contenido real (JPEG, PNG o WebP; ≤10 MB; lado mayor ≥1200 px; ≤40 MP). 3) Re-codifica, elimina metadatos (EXIF, GPS), genera los derivados responsivos y calcula la huella. 4) Duplicado → ofrece "Usar el existente". 5) Estado PENDIENTE_METADATOS → SCR-040: alt, pie, autor, fuente y licencia. 6) Guardar → si la licencia es compatible y los campos obligatorios están completos → DISPONIBLE (auditoría SUBIR_MEDIO/EDITAR_MEDIO).
@@ -537,7 +548,7 @@ El control se aplica en el servidor para cada acción. Ocultar un botón no sust
 | ALT-016 | Edición concurrente | OPERACIÓN DUPLICADA | SCR-036 | Se rechaza el guardado con versión obsoleta; aviso + Recargar |
 | ALT-017 | Doble clic en Publicar o Subir | OPERACIÓN DUPLICADA | SCR-038, 039 | La operación es idempotente; el botón queda deshabilitado mientras procesa |
 | ALT-018 | Publicar incompleto | DATOS INVÁLIDOS | SCR-038 | Lista de errores enlazada; sigue en BORRADOR |
-| ALT-019 | Retirar algo con dependencias | RECHAZO | SCR-038, 043, 040 | Bloqueo con lista de usos o cascada confirmada (destino → itinerarios) |
+| ALT-019 | Retirar algo con dependencias | RECHAZO | SCR-038, 043, 040 | Bloqueo con lista de usos o cascada confirmada (destino → itinerarios + tipos que se quedan sin destinos publicados, v1.1). Cascada de un tipo usado por un itinerario publicado ajeno → bloqueo con lista (RULE-025) |
 | ALT-020 | Archivo rechazado | DATOS INVÁLIDOS | SCR-039 | Motivo por archivo; no se almacena |
 | ALT-021 | Medio duplicado | OPERACIÓN DUPLICADA | SCR-039 | "Usar el existente" |
 | ALT-022 | Destacado retirado | RECURSO NO DISPONIBLE | SCR-001 | Se excluye y se rellena automáticamente; alerta en el tablero* |
@@ -559,6 +570,7 @@ El control se aplica en el servidor para cada acción. Ocultar un botón no sust
 - Solo PUBLICADO es visible al público. BORRADOR y RETIRADO dan 404 y 410 respectivamente (un borrador nunca publicado da 404).
 - Las páginas institucionales no se pueden retirar ni eliminar (siempre deben existir, AC-033); solo se editan.
 - Cada transición a PUBLICADO o RETIRADO y cada actualización crea una instantánea (DATA-026) y una entrada de auditoría.
+- v1.1 (DEC-AUTO-912): una sola operación puede hacer transitar varias entidades de forma atómica, con una instantánea y una auditoría por entidad: co-publicación (Destino + Tipos BORRADOR → PUBLICADO) y retiro en cascada (Destino → Itinerarios + Tipos sin destinos publicados). El estado resultante de cada operación confirmada cumple el invariante: todo Destino PUBLICADO tiene su tipo principal y todos sus tipos PUBLICADOS, y todo Tipo PUBLICADO tiene ≥1 Destino PUBLICADO. Un TipoAventura en BORRADOR no transita a PUBLICADO por sí solo (RULE-025).
 
 **STATE-002 — Medio**
 ```
@@ -587,13 +599,13 @@ DESACTIVADA ──≤30 días o "Anonimizar ahora"──→ ANONIMIZADA (termina
 
 | ID | Regla | Impacto | REQ |
 |---|---|---|---|
-| RULE-001 | Solo el contenido PUBLICADO (y los medios DISPONIBLES que usa) aparece en rutas públicas, búsqueda, filtros, mapa, meses, colecciones, destacados, relacionados, sitemap.xml y SCR-022. Las consultas públicas nunca devuelven borradores, retirados ni datos del staff | Todas las SCR públicas; contrato de la API pública | 022, 003 |
-| RULE-002 | Para publicar un Destino, todos los campos obligatorios de PRD §6.2 deben estar completos: resumen ≤300 caracteres, descripción ≥600 palabras, ≥1 tipo + tipo principal, dificultad 1-5, ≥1 mes, duración mín ≤ máx, presupuesto 1-4, clima, cómo llegar, seguridad, sostenibilidad, coordenadas válidas, portada + ≥3 medios DISPONIBLES en la galería, fecha de revisión y descripción SEO | SCR-036, 038 | 012, 042 |
-| RULE-003 | Para publicar un Itinerario: destino PUBLICADO, número de días = duración (1..60), cada día con título y actividades, dificultad, ≥1 tipo, riesgos/seguridad, portada y fecha de revisión | SCR-036, 038 | 016, 024 |
+| RULE-001 | Solo el contenido PUBLICADO (y los medios DISPONIBLES que usa) aparece en rutas públicas, búsqueda, filtros, mapa, meses, colecciones, destacados, relacionados, sitemap.xml y SCR-022. Las consultas públicas nunca devuelven borradores, retirados ni datos del staff. **v1.1 (DEC-AUTO-912 c, defensa en profundidad):** esto también aplica a **todas las relaciones anidadas** (tipos y tipo principal de destinos e itinerarios, destino de un itinerario, destinos y tipos relacionados de guías, relacionados, elementos de colección, destacados, medios, términos): una referencia a una entidad no publicada se omite de la respuesta, aunque el invariante de RULE-002/025 ya lo impida. Si la entidad no publicada es obligatoria según el contrato (p. ej. `tipo_principal` o el destino de un itinerario), la entidad que la contiene se trata como no disponible en la API pública (404 o excluida de los listados) y se registra un error de integridad en el registro técnico, sin PII | Todas las SCR públicas; contrato de la API pública | 022, 003 |
+| RULE-002 | Para publicar un Destino, todos los campos obligatorios de PRD §6.2 deben estar completos: resumen ≤300 caracteres, descripción ≥600 palabras, ≥1 tipo + tipo principal, dificultad 1-5, ≥1 mes, duración mín ≤ máx, presupuesto 1-4, clima, cómo llegar, seguridad, sostenibilidad, coordenadas válidas, portada + ≥3 medios DISPONIBLES en la galería, fecha de revisión y descripción SEO. **v1.1 (DEC-AUTO-912 a):** además, el tipo principal y **todos** los tipos deben estar PUBLICADOS al confirmar la operación, ya sea porque ya lo estaban o porque se co-publican en la misma operación atómica (FLOW-011, 5'). Un tipo RETIRADO impide publicar hasta que se reactive. Invariante: ningún Destino PUBLICADO referencia un Tipo no PUBLICADO | SCR-036, 038 | 012, 042 |
+| RULE-003 | Para publicar un Itinerario: destino PUBLICADO, número de días = duración (1..60), cada día con título y actividades, dificultad, ≥1 tipo, riesgos/seguridad, portada y fecha de revisión. **v1.1 (DEC-AUTO-912 d, propuesta del Arquitecto):** todos sus tipos deben estar PUBLICADOS (mismo invariante que el Destino; no hay co-publicación desde el itinerario: un tipo nuevo se publica antes con un destino). Un tipo usado por un itinerario publicado no puede retirarse en cascada mientras el itinerario lo conserve (RULE-025) | SCR-036, 038 | 016, 024 |
 | RULE-004 | Para publicar una Guía: categoría, resumen, cuerpo, portada, fecha de revisión y (≥1 fuente o marca "remite a Metodología") | SCR-036, 038 | 017, 023 |
 | RULE-005 | Un medio solo pasa a DISPONIBLE con alt (≤250), autor/crédito y una licencia marcada como compatible. Solo los medios DISPONIBLES pueden formar parte de contenido publicado | SCR-040, 041, 038, 021 | 043, 071 |
 | RULE-006 | Cada Destino, Itinerario, Guía y Tipo publicado muestra ≥3 relacionados publicados: primero los curados (en su orden) y después el complemento automático por afinidad (DEC-AUTO-042). Si no se alcanzan 3 elegibles, la publicación se rechaza | SCR-004, 007, 009, 012, 038 | 020 |
-| RULE-007 | Retirar un Destino retira en cascada sus itinerarios publicados (con confirmación). No se puede retirar un Tipo, Categoría, País, Región, Licencia o Medio en uso por contenido publicado. Los elementos retirados desaparecen automáticamente de colecciones, destacados y relacionados | SCR-038, 040, 043 | 022 |
+| RULE-007 | Retirar un Destino retira en cascada sus itinerarios publicados y, **desde v1.1, los Tipos que se quedarían sin destinos publicados (RULE-025)**, todo con confirmación y en una sola operación atómica. No se puede retirar un Tipo, Categoría, País, Región, Licencia o Medio en uso por contenido publicado. Los elementos retirados desaparecen automáticamente de colecciones, destacados y relacionados | SCR-038, 040, 043 | 022 |
 | RULE-008 | El slug es único por tipo, sigue el patrón `[a-z0-9-]`, se propone a partir del título y es **inmutable tras la primera publicación**. Los slugs retirados quedan reservados | SCR-036 | 026, 020 |
 | RULE-009 | La fecha de última revisión es obligatoria para publicar, no puede ser futura, se muestra en formato es-CO y se actualiza manualmente (no automáticamente al guardar) | SCR-036, detalles públicos | 023 |
 | RULE-010 | El descargo de responsabilidad (texto de DATA-023) se muestra en Destino, Itinerario, Tipo y Guía | Detalles públicos | 024 |
@@ -611,7 +623,7 @@ DESACTIVADA ──≤30 días o "Anonimizar ahora"──→ ANONIMIZADA (termina
 | RULE-022 | El texto enriquecido solo admite: párrafos, h2-h4, listas, negrita/cursiva, citas, enlaces (RULE-021) y términos de glosario. Todo lo demás se elimina al guardar (DEC-AUTO-043) | SCR-036 | 055 |
 | RULE-023 | Las coordenadas son obligatorias y válidas (latitud −90..90, longitud −180..180, 6 decimales) | SCR-036, 003 | 018, 012 |
 | RULE-024 | Una colección se publica con ≥4 elementos publicados. Si baja de 4 por retiros, sigue publicada con alerta* y muestra solo los publicados | SCR-014, 036 | 027 |
-| RULE-025 | Un Tipo se publica solo con ≥1 destino publicado asociado. Checklist: ≥8 elementos cuando exista (Should) | SCR-009, 036 | 013, 029 |
+| RULE-025 | **v1.1 (enmendada por DEC-AUTO-912 b):** un Tipo solo puede estar PUBLICADO si, **al confirmar la operación**, tiene ≥1 destino PUBLICADO asociado. Por eso un tipo en BORRADOR se publica mediante co-publicación con su primer destino (FLOW-011, 5'), en una operación atómica. Retirar el último destino publicado de un tipo, o quitarle ese tipo con "Actualizar publicación", **retira el tipo en cascada** con confirmación en SCR-038 (FLOW-012). La cascada se bloquea, y con ella toda la operación, si el tipo lo usa un Itinerario PUBLICADO que no se retira en la misma operación (RULE-003); se muestra la lista de usos. Checklist: ≥8 elementos cuando exista (Should) | SCR-009, 036, 038 | 013, 029 |
 | RULE-026 | El término de glosario es único (sin distinguir mayúsculas ni tildes). Un término publicado debe estar vinculado a ≥1 contenido publicado (AC-040) | SCR-018 | 032 |
 | RULE-027 | Resumen ≤300 caracteres; descripción experta del destino ≥600 palabras; título SEO ≤70; descripción SEO ≤160, única por página | SCR-036 | 012, 026 |
 | RULE-028 | SEO: title y description únicos; canónica; los URL con filtros llevan noindex,follow y canónica al listado base; búsqueda, vista previa y panel llevan noindex; sitemap.xml solo con lo publicado; robots.txt no menciona `/panel` | Transversal | 026 |
@@ -896,11 +908,11 @@ Explícitamente descartados (Won't): mapas o teselas de terceros, CDNs, fuentes 
 | 003 | 011 | 012, 013 | 002 | 001, 002 | 001, 019 | 005 | 009 |
 | 004 | 014 | 017, 018, 113 | 002 | 002 | 019 | 001, 002, 003, 005 | 008, 009 |
 | 005 | 018 | 023 | 003 | 007 | 023 | 005 | 016 |
-| 006 | 012, 042 | 014, 015, 044 | 004 | 001 | 002, 012 | 005 + relaciones | 011 |
+| 006 | 012, 042 | 014, 015, 044, 129 | 004 | 001 | 001, 002, 012 | 005 + relaciones | 011 |
 | 007 | 019, 056 | 024 | 005 | 001 | 005 | 016, 017 | — |
 | 008 | 016 | 021, 118 | 007 | 001, 004 | 003 | 006, 007 | — |
 | 009 | 016, 020 | 025 | 006 | 001 | 001 | 006 | 009 |
-| 010 | 013 | 016 | 008, 009 | 006 | 025 | 003 | — |
+| 010 | 013 | 016, 126, 129 | 008, 009 | 006, 011, 012 | 001, 025 | 003 | — |
 | 011 | 029 | 037 | 009 | 004, 006 | 025 | 004 | — |
 | 012 | 017 | 022 | 010, 011, 012 | 005 | 004 | 008, 009 | — |
 | 013 | 020 | 025, 026, 102 | 004, 007, 009, 012 | 001 | 006 | 019 | — |
@@ -926,8 +938,8 @@ Explícitamente descartados (Won't): mapas o teselas de terceros, CDNs, fuentes 
 | 033 | 022 | 028 | 034, 035 | 011 | — | todas editoriales | 011 |
 | 034 | 022, 042 | 028, 044, 110 | 036, 041 | 011 | 002..004, 008, 022, 027 | todas editoriales | 004, 005, 021, 024 |
 | 035 | 022 | 111 | 037 | 011 | 028 | — | 011 |
-| 036 | 022, 023, 042, 043 | 028, 031, 044, 045, 102, 118 | 038 | 011, 012 | 002..006, 009 | 026 | 012 |
-| 037 | 022, 057 | 028, 100, 112 | 038 | 012 | 007 | 026 | 012 |
+| 036 | 022, 023, 042, 043 | 028, 031, 044, 045, 102, 118, 124, 125, 126 | 038 | 011, 012 | 002..006, 009, 025 | 026 | 012 |
+| 037 | 022, 057 | 028, 100, 112, 127, 128, 130 | 038 | 012 | 003, 007, 025 | 026 | 012 |
 | 038 | 022 | 028 | 038 | 011 | — | — | — |
 | 039 | 020, 032 | 026, 040 | 036 | 011 | 006, 026 | 013, 019 | — |
 | 040 | 057, 022 | 030 | 036 | 012, 016 | — | 026 | 012, 013 |
@@ -1061,6 +1073,13 @@ La matriz §21 vincula cada AC del PRD con FEAT, SCR y FLOW. AC transversales si
 | AC-121 | EXP-002 | 050 | Restaurar la revisión N carga su instantánea en el editor; no cambia nada público hasta publicar o actualizar; se audita RESTAURAR_REVISION | Test |
 | AC-122 | EXP-003 | 051 | "Sorpréndeme" navega a un destino publicado (nunca a un borrador o retirado) y la respuesta no se cachea | Test |
 | AC-123 | EXP-004 | 052 | El tiempo de lectura = ⌈palabras/200⌉ min y se muestra en SCR-011 y SCR-012 | Test |
+| AC-124 | 012, 042, 013 | 006, 036 | (v1.1, RULE-002) Publicar o actualizar un destino cuyo tipo principal o alguno de sus tipos no está PUBLICADO ni incluido en la co-publicación, o está RETIRADO, se rechaza con un error enlazado al campo; ninguna entidad cambia de estado. En ningún momento existe un destino PUBLICADO con un tipo no PUBLICADO | Test |
+| AC-125 | 013, 022 | 036, 010 | (v1.1, co-publicación) Un destino nuevo cuyo único tipo (y principal) es un tipo nuevo en BORRADOR se publica junto con ese tipo en una sola confirmación: ambos quedan PUBLICADOS, con una instantánea y una auditoría PUBLICAR por entidad, y la página del tipo lista el destino. Si falla la validación del destino o del tipo, ninguno cambia de estado (todo o nada). Repetir la petición no duplica nada (idempotente) y una versión obsoleta de cualquiera de las entidades rechaza la operación completa | Test |
+| AC-126 | 013 | 010, 036 | (v1.1, RULE-025) Publicar un tipo por sí solo con 0 destinos publicados se rechaza con un mensaje que remite a la co-publicación y enlaza a los destinos en BORRADOR asociados | Test |
+| AC-127 | 013, 022, 057 | 037 | (v1.1, RULE-025/007) Retirar el último destino publicado de un tipo muestra el tipo en el impacto de SCR-038; al confirmar, destino, itinerarios en cascada y tipo quedan RETIRADOS de forma atómica, con una auditoría RETIRAR y una instantánea por entidad; el tipo responde 410. Tras cualquier operación confirmada no existe ningún tipo PUBLICADO con 0 destinos publicados | Test |
+| AC-128 | 013, 016 | 037, 036 | (v1.1) "Actualizar publicación" que quita a un destino el único vínculo publicado de un tipo aplica la misma cascada (AC-127). Si el tipo lo usa un itinerario PUBLICADO que no se retira en la misma operación, toda la operación (retiro o actualización) se rechaza con la lista de esos itinerarios y nada cambia | Test |
+| AC-129 | 022, 003 | 006, 010, 033 | (v1.1, RULE-001, defensa en profundidad) Con una inconsistencia forzada en los datos de prueba (destino publicado con un tipo secundario o principal no publicado, guía con un tipo o destino relacionado no publicado), la API pública no expone la entidad no publicada en ninguna relación anidada. Si la relación ausente es obligatoria según el contrato (tipo principal), el destino no se expone (404 / excluido de los listados) y se registra un error de integridad sin PII | Test |
+| AC-130 | 022 | 037 | (v1.1, reactivación) Reactivar un destino retirado no reactiva sus tipos; volver a publicarlo con un tipo RETIRADO se rechaza (AC-124) hasta que el tipo se reactive como BORRADOR, y después se publica por co-publicación (AC-125) | Test |
 
 ## 26. Confirmado (hechos del usuario)
 
@@ -1091,7 +1110,15 @@ La numeración continúa la del PRD (ASM-001..007).
 
 ## 29. Conflictos
 
-**Ningún CONFLICT abierto.** Ambigüedades resueltas sin contradicción entre requisitos (registradas como DEC-AUTO, no como conflictos):
+**Ningún CONFLICT abierto** (v1.1).
+
+| ID | Conflicto | Detectado por | Estado | Resolución |
+|---|---|---|---|---|
+| CONFLICT-005 | RULE-025 (un tipo solo se publica con ≥1 destino publicado), RULE-002 (un destino publicado tiene tipo principal) y el contrato (`DestinoDetalle.tipo_principal` no nulo, `tipos` minItems 1) no pueden cumplirse a la vez para el primer destino de un tipo nuevo, porque ninguno de los dos puede publicarse antes que el otro | Skill_QA en TKT-005 | **RESUELTO** por DEC-AUTO-912 (Orquestador, Product Owner delegado, reversible) mediante CHG-BP-001 (Anexo C) | Invariante destino ⇒ tipos publicados (RULE-002); co-publicación atómica y RULE-025 evaluada al confirmar la operación (FLOW-011, 5'); retiro en cascada del tipo que se queda sin destinos (RULE-007/025, FLOW-012); API pública sin relaciones no publicadas (RULE-001). AC-124..130 |
+
+(La numeración CONFLICT-XXX es la del registro del Orquestador en `kanban.md`/`audit_log.md`; este documento solo refleja los conflictos que afectan al Blueprint.)
+
+Ambigüedades resueltas sin contradicción entre requisitos (registradas como DEC-AUTO, no como conflictos):
 - AC-028 dice "404/410" → DEC-AUTO-040 (inexistente = 404; retirado = 410).
 - REQ-059 ("0 cookies") frente a la sesión del panel → el propio REQ exceptúa el panel; RULE-029 limita las cookies al panel.
 - REQ-030 (guardados sin envío al servidor) frente a detectar elementos retirados → no se consulta al servidor; la detección ocurre al visitar (SCR-024) (RULE-013).
@@ -1118,6 +1145,7 @@ v1.0 inicial: sin cambios sobre una versión previa. Impactos previstos si se re
 | IMPACT-001 | Se resuelve GAP-004 (Responsable) | DATA-023, SCR-020, SCR-047, FEAT-023, AC-070 | LOW | No | Cargar los datos en la configuración y retirar la alerta | Developer, QA |
 | IMPACT-002 | Se decide no implementar REQ-018 (mapa, SHOULD) | SCR-003, FEAT-005, FLOW-007, GI-01, SCR-001/002/004 (enlaces), AC-023 | MEDIUM | No | Eliminar la ruta y los enlaces (RULE-030) y marcar AC-023 como NOT_RUN justificado | UI/UX, Developer, QA |
 | IMPACT-003 | El equipo editorial crece más de 5 personas (ASM-003 falsa) | ROL-*, §12, STATE-001, FLOW-011 | MEDIUM | No | Evaluar el flujo de aprobación (FUTURE) mediante CHG | Arquitecto Funcional, Backend |
+| IMPACT-004 | **CHG-BP-001 (v1.1, aplicado)**: co-publicación destino + tipos, RULE-025 evaluada al confirmar la operación, retiro en cascada del tipo, relaciones no publicadas ocultas | MOD panel editorial · FEAT-006, 010, 036, 037 · SCR-038 (y SCR-036 del Tipo: mensaje de RULE-025) · FLOW-011, 012 · RULE-001, 002, 003, 007, 025 · STATE-001 · ALT-019 · AC-124..130 · API del panel (operación atómica multi-entidad) · API pública (filtrado de relaciones) · DATA sin cambios de esquema lógico | MEDIUM | Sí para TKT-006/TKT-010 (hasta implementarlo) | Implementar según Anexo C | Backend (contrato del panel, si cambia), Developer (TKT-006, TKT-010, API pública), QA (AC-124..130; volver a validar TKT-005) |
 
 ## 34. Problemas e Inconsistencias
 
@@ -1128,8 +1156,9 @@ v1.0 inicial: sin cambios sobre una versión previa. Impactos previstos si se re
 | PRB-BP-003 | La tabla de PRD §6.3 mezcla continentes y subregiones ("América del Sur/Central/Norte") | LOW | No | Datos | DEC-AUTO-051: Región + continente. AC-046 se mide por continente |
 | PRB-BP-004 | REQ-060 (responsive 320-1920) no distingue entre el sitio público y el panel | LOW | No | UX | ASM-009 |
 | PRB-BP-005 | "Autoría" (REQ-023) podría exponer datos personales del staff | LOW | No | Datos | DEC-AUTO-039: firma de equipo |
+| PRB-BP-006 | (v1.0) RULE-025 y RULE-002 formaban un interbloqueo de publicación para el primer destino de un tipo nuevo (CONFLICT-005, detectado por QA en TKT-005) | HIGH | Sí (hasta v1.1) | Panel, API | **RESUELTO** en v1.1 por DEC-AUTO-912 / CHG-BP-001 (§29, Anexo C) |
 
-No hay problemas CRITICAL ni HIGH.
+No hay problemas CRITICAL ni HIGH abiertos (PRB-BP-006, HIGH, resuelto en v1.1).
 
 ## 35. Validación Final
 
@@ -1143,7 +1172,7 @@ No hay problemas CRITICAL ni HIGH.
 | ¿Las reglas tienen impacto identificado? | Sí: 30 RULE |
 | ¿Las dependencias son coherentes? | Sí: DEP-005..014 |
 | ¿Hay integraciones externas? | Ninguna (§20) |
-| ¿Hay contradicciones o conflictos abiertos? | No (§29) |
+| ¿Hay contradicciones o conflictos abiertos? | No (§29). v1.1: CONFLICT-005 resuelto (DEC-AUTO-912) |
 | ¿Hay decisiones bloqueantes? | No (§28) |
 | ¿Alguna asunción se presenta como hecho? | No: todas en §27 o como DEC-AUTO |
 | ¿EXP dentro del límite (≤5, complejidad MEDIO)? | Sí: 4 |
@@ -1331,3 +1360,42 @@ Autoridad: Orquestador (Autoridad Delegada). Estado: PROPOSED. `ORIGEN: EXPANSI�
 | DEC-AUTO-056 | EXP-004 Tiempo de lectura (COULD) | No incluir | Anexo A | Bajo | Alta |
 
 Total: **22 DEC-AUTO nuevas** (035..056).
+
+Referencia v1.1 (no es una DEC-AUTO nueva de este documento; la autoridad es el Orquestador): **DEC-AUTO-912**. Ver Anexo C.
+
+## Anexo C — Control de cambios (skill §49/§50)
+
+### CHG-BP-001 — Co-publicación de tipos y retiro en cascada (v1.0 → v1.1)
+
+| Campo | Valor |
+|---|---|
+| Ticket | TKT-F3-002 |
+| Fecha | 2026-09-28 |
+| Origen | CONFLICT-005, detectado por Skill_QA en TKT-005 (skill §49: discrepancia devuelta al Arquitecto Funcional) |
+| Decisión | DEC-AUTO-912 · Orquestador como Product Owner delegado · `ORIGEN: EXPANSIÓN_AUTÓNOMA` · reversible |
+| Requisito modificado | Ningún REQ ni AC del PRD cambia (AC-016 se sigue cumpliendo). Cambian reglas derivadas del Blueprint |
+
+**Contenido de DEC-AUTO-912 aplicado:**
+- (a) Invariante: un Destino solo puede estar PUBLICADO si su tipo principal y todos sus tipos están PUBLICADOS → RULE-002.
+- (b) Co-publicación atómica de un tipo nuevo con su primer destino. RULE-025 enmendada: "un tipo solo puede estar publicado si, al confirmar la operación, tiene ≥1 destino publicado" → RULE-025, FLOW-011 (5'), SCR-038, STATE-001.
+- (b.2) Retirar el último destino publicado de un tipo, o quitarle ese tipo al actualizar, **retira el tipo en cascada** (elegido por el Arquitecto dentro del mandato de DEC-AUTO-912):
+  - Alternativa descartada: impedir la retirada del destino. (1) Produce un interbloqueo: RULE-007 ya impide retirar un tipo en uso por un destino publicado, así que ni el destino ni el tipo se podrían retirar. (2) Retrasaría la retirada urgente de contenido peligroso (RSK-001, THREAT-012).
+  - Coherencia: reproduce el patrón existente destino → itinerarios (RULE-007, AC-112): impacto visible en SCR-038, confirmación explícita, auditoría e instantánea por entidad, y reversible con "Reactivar como borrador".
+  - Riesgo: retirar un tipo sin querer. Se mitiga porque se ve en el impacto antes de confirmar y es reversible.
+- (c) La API pública nunca expone contenido no publicado en ninguna relación → RULE-001, AC-129.
+- (d) **Propuesta del Arquitecto, pendiente de ratificación por el Orquestador** (reversible): aplicar el mismo invariante a los Itinerarios (todos sus tipos PUBLICADOS, RULE-003) y bloquear la cascada de un tipo que use un itinerario publicado ajeno. Motivo: el contrato de itinerario también exige ≥1 tipo; sin (d), la cascada de (b.2) podría dejar un itinerario publicado sin tipos visibles. Alternativa: ocultar el tipo (c) y aceptar itinerarios con menos tipos visibles. Riesgo: una retirada puede requerir editar antes un itinerario de otro destino (caso raro, sin interbloqueo).
+
+**Análisis de impacto (skill §50):**
+
+| Nivel | Afectados |
+|---|---|
+| Módulos | Panel editorial (publicación), API pública (serialización de relaciones) |
+| Funcionalidades | FEAT-006, FEAT-010, FEAT-036, FEAT-037 |
+| Pantallas | SCR-038 (co-publicación y cascada de tipos en el impacto); SCR-036 del Tipo (mensaje de RULE-025 con enlaces); SCR-009 / SCR-008 (410 por cascada; sin cambios de diseño) |
+| Flujos | FLOW-011 (paso 5' co-publicación), FLOW-012 (retiro en cascada de tipos, bloqueo, reactivación) |
+| Reglas | RULE-001, RULE-002, RULE-003, RULE-007, RULE-025 |
+| Estados / alternativos | STATE-001 (transiciones multi-entidad atómicas), ALT-019 |
+| AC | Nuevos: AC-124..AC-130. Sin cambios: AC-016, AC-111, AC-112 (se amplía con AC-127) |
+| Datos (§18/§39) | Sin cambios en el modelo lógico. A Skill_Base_datos: el invariante puede reforzarse en la capa de datos (decisión suya, §39); la operación exige una transacción que abarque varias entidades |
+| Amenazas | THREAT-012: la cascada queda auditada por entidad; sin controles nuevos |
+| Agentes | Backend (contrato: operación de publicación/retiro multi-entidad del panel, errores por entidad), Developer (TKT-006, TKT-010, API pública), UI/UX (sección "Se publicarán también" y bloque de impacto de tipos en SCR-038: refinamiento, no rediseño), QA (AC-124..130; volver a validar TKT-005) |
