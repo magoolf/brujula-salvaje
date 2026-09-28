@@ -120,8 +120,39 @@ def _publicado(prefijo: str = "contenido__") -> Q:
     return Q(**{f"{prefijo}estado_editorial": PUB})
 
 
-def q_visible() -> Q:
-    """Contenido visible en la API pública (QA-TKT005-02, DEC-AUTO-912).
+def _publicado_por_id(referencia: str) -> Exists:
+    """Existe un contenido PUBLICADO con id = `referencia` (subconsulta correlacionada por PK:
+    plan estable aunque las estadísticas estén desactualizadas)."""
+    return Exists(Contenido.objects.filter(pk=OuterRef(referencia), estado_editorial=PUB))
+
+
+def _tipo_itinerario_publicado(referencia: str = "pk") -> Exists:
+    return Exists(
+        ItinerarioTipoAventura.objects.filter(
+            itinerario_id=OuterRef(referencia), tipo_aventura__contenido__estado_editorial=PUB
+        )
+    )
+
+
+def _q_por_tipo(tipo: str) -> Q:
+    """Condición de coherencia de un tipo (solo lo que ese tipo necesita)."""
+    if tipo == T.DESTINO:
+        return Q(destino__pais__isnull=False) & Q(_publicado_por_id("destino__tipo_principal_id"))
+    if tipo == T.ITINERARIO:
+        destino_visible = destinos_publicados().filter(pk=OuterRef("itinerario__destino_id"))
+        return Q(Exists(destino_visible)) & Q(_tipo_itinerario_publicado())
+    subtipo = {
+        T.GUIA: "guia__categoria",
+        T.TIPO: "tipo_aventura",
+        T.COLECCION: "coleccion",
+        T.TERMINO: "termino_glosario",
+        T.PAGINA: "pagina",
+    }[TipoContenido(tipo)]
+    return Q(**{f"{subtipo}__isnull": False})
+
+
+def q_visible(tipo: str | None = None) -> Q:
+    """Contenido visible en la API pública (AC-129, QA-TKT005-02, DEC-AUTO-912).
 
     PUBLICADO y coherente: con su fila de subtipo y con las relaciones que el contrato exige
     publicadas. Un destino con el tipo principal no publicado, o un itinerario cuyo destino no es
@@ -129,40 +160,20 @@ def q_visible() -> Q:
     el detalle y fuera de listados, facetas, mapa, búsqueda, relacionados, colecciones, glosario,
     créditos e índice). La invariante que impide ese estado es del servicio de publicación.
     """
-    tipo_publicado = ItinerarioTipoAventura.objects.filter(
-        itinerario_id=OuterRef("pk"), tipo_aventura__contenido__estado_editorial=PUB
-    )
-    destino = Q(
-        tipo=T.DESTINO,
-        destino__pais__isnull=False,
-        destino__tipo_principal__contenido__estado_editorial=PUB,
-    )
-    itinerario = Q(
-        tipo=T.ITINERARIO,
-        itinerario__destino__contenido__estado_editorial=PUB,
-        itinerario__destino__pais__isnull=False,
-        itinerario__destino__tipo_principal__contenido__estado_editorial=PUB,
-    ) & Q(Exists(tipo_publicado))
-    return Q(estado_editorial=PUB) & (
-        destino
-        | itinerario
-        | Q(tipo=T.GUIA, guia__categoria__isnull=False)
-        | Q(tipo=T.TIPO, tipo_aventura__isnull=False)
-        | Q(tipo=T.COLECCION, coleccion__isnull=False)
-        | Q(tipo=T.TERMINO, termino_glosario__isnull=False)
-        | Q(tipo=T.PAGINA, pagina__isnull=False)
-    )
+    if tipo is not None:
+        return Q(estado_editorial=PUB, tipo=tipo) & _q_por_tipo(tipo)
+    por_tipo = Q()
+    for valor in TipoContenido.values:
+        por_tipo |= Q(tipo=valor) & _q_por_tipo(valor)
+    return Q(estado_editorial=PUB) & por_tipo
 
 
-def contenidos_visibles() -> QuerySet[Contenido]:
-    return Contenido.objects.filter(q_visible())
+def contenidos_visibles(tipo: str | None = None) -> QuerySet[Contenido]:
+    return Contenido.objects.filter(q_visible(tipo))
 
 
 def _ids_visibles(tipo: str | None = None) -> QuerySet[Contenido, Any]:
-    qs = contenidos_visibles()
-    if tipo is not None:
-        qs = qs.filter(tipo=tipo)
-    return qs.values("pk")
+    return contenidos_visibles(tipo).values("pk")
 
 
 def es_visible(contenido_id: int) -> bool:
@@ -240,12 +251,10 @@ def con_tarjeta_guia(qs: QuerySet[Guia]) -> QuerySet[Guia]:
 
 
 def con_tarjeta_tipo(qs: QuerySet[TipoAventura]) -> QuerySet[TipoAventura]:
-    destinos_publicados = Count(
-        "destinos", filter=Q(destinos__pk__in=_ids_visibles(T.DESTINO)), distinct=True
-    )
+    visibles = Count("destinos", filter=Q(destinos__in=destinos_publicados()), distinct=True)
     return (
         qs.select_related("contenido")
-        .annotate(numero_destinos=destinos_publicados)
+        .annotate(numero_destinos=visibles)
         .prefetch_related(prefetch_imagen("contenido__portada"))
     )
 
@@ -261,25 +270,32 @@ def con_tarjeta_coleccion(qs: QuerySet[Coleccion]) -> QuerySet[Coleccion]:
     )
 
 
+# Misma regla de visibilidad que q_visible(), expresada con uniones por clave desde cada subtipo
+# (planes estables aunque las estadísticas estén desactualizadas).
 def destinos_publicados() -> QuerySet[Destino]:
-    return Destino.objects.filter(pk__in=_ids_visibles(T.DESTINO))
+    return Destino.objects.filter(
+        _publicado(), _publicado_por_id("tipo_principal_id"), pais__isnull=False
+    )
 
 
 def itinerarios_publicados() -> QuerySet[Itinerario]:
-    # RULE-003: un itinerario público exige su destino PUBLICADO (la cascada lo garantiza).
-    return Itinerario.objects.filter(pk__in=_ids_visibles(T.ITINERARIO))
+    # RULE-003 / AC-129: el destino debe ser visible y el itinerario tener un tipo publicado.
+    destino_visible = destinos_publicados().filter(pk=OuterRef("destino_id"))
+    return Itinerario.objects.filter(
+        _publicado(), Exists(destino_visible), _tipo_itinerario_publicado()
+    )
 
 
 def guias_publicadas() -> QuerySet[Guia]:
-    return Guia.objects.filter(pk__in=_ids_visibles(T.GUIA))
+    return Guia.objects.filter(_publicado(), categoria__isnull=False)
 
 
 def tipos_publicados() -> QuerySet[TipoAventura]:
-    return TipoAventura.objects.filter(pk__in=_ids_visibles(T.TIPO))
+    return TipoAventura.objects.filter(_publicado())
 
 
 def colecciones_publicadas() -> QuerySet[Coleccion]:
-    return Coleccion.objects.filter(pk__in=_ids_visibles(T.COLECCION))
+    return Coleccion.objects.filter(_publicado())
 
 
 # ---------------------------------------------------------------------------

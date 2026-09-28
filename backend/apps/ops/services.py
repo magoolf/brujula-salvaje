@@ -58,9 +58,17 @@ def _soltar_lock(tarea: str) -> None:
         cursor.execute("SELECT pg_advisory_unlock(hashtext(%s))", [tarea])
 
 
+# anonimizar_cuentas y reaplicar_anonimizaciones comparten lock: nunca se solapan (§4.3).
+CLAVE_LOCK = {
+    TareaProgramada.ANONIMIZACION_CUENTAS: "CUENTAS_LIBRO",
+    TareaProgramada.REAPLICAR_ANONIMIZACIONES: "CUENTAS_LIBRO",
+}
+
+
 def ejecutar(tarea: TareaProgramada, trabajo: Callable[[], Resultado]) -> Ejecucion:
     """Ejecuta `trabajo` con lock consultivo y registro. Lanza TareaFallida si no tuvo éxito."""
-    if not _tomar_lock(tarea):
+    clave = CLAVE_LOCK.get(tarea, str(tarea))
+    if not _tomar_lock(clave):
         logger.info("tarea_omitida_lock_ocupado", tarea=str(tarea))
         return Ejecucion(ejecutada=False)
     inicio = time.perf_counter()
@@ -85,7 +93,7 @@ def ejecutar(tarea: TareaProgramada, trabajo: Callable[[], Resultado]) -> Ejecuc
             raise TareaFallida(resultado.detalle or str(tarea))
         return Ejecucion(ejecutada=True, registro=registro)
     finally:
-        _soltar_lock(tarea)
+        _soltar_lock(clave)
 
 
 def _cerrar(
@@ -154,30 +162,64 @@ def purgar_auditoria() -> Resultado:
     return Resultado(filas=purgados, detalle=f"eventos={purgados}")
 
 
+def _ids(ids: list[int]) -> str:
+    return ",".join(map(str, ids[:30])) + ("..." if len(ids) > 30 else "")
+
+
+def _detalle(partes: dict[str, list[int]], extra: list[str] | None = None) -> str:
+    texto = " ".join(
+        [
+            f"{motivo}={len(ids)}" + (f"[{_ids(ids)}]" if ids else "")
+            for motivo, ids in partes.items()
+        ]
+        + (extra or [])
+    )
+    return texto[:LARGO_DETALLE]
+
+
 def anonimizar_cuentas() -> Resultado:
-    """ANONIMIZACION_CUENTAS (ADR-DB-004 §2): DESACTIVADAS hace más de 30 días."""
+    """ANONIMIZACION_CUENTAS (ADR-DB-004 §2 y §4.3): desactivación vigente de más de 30 días."""
+    from apps.cuentas import libro
     from apps.cuentas.services import anonimizar_cuentas_vencidas
 
-    cuentas = anonimizar_cuentas_vencidas()
-    return Resultado(filas=cuentas, detalle=f"cuentas={cuentas}")
+    try:
+        r = anonimizar_cuentas_vencidas()
+    except libro.ErrorLibro as error:
+        return Resultado(filas=0, detalle=str(error)[:LARGO_DETALLE], exito=False)
+    detalle = _detalle(
+        {"anonimizadas": r.anonimizadas, "OMITIDA_REACTIVADA": r.omitidas_reactivada},
+        ["LIBRO_AUSENTE_SOLO_BD"] if r.libro_ausente else None,
+    )
+    return Resultado(filas=len(r.anonimizadas), detalle=detalle)
 
 
-def reaplicar_anonimizaciones() -> Resultado:
-    """REAPLICAR_ANONIMIZACIONES (ADR-DB-004 §4): libro de anonimizaciones tras restaurar."""
+def reaplicar_anonimizaciones(*, libro_vacio_confirmado: bool = False) -> Resultado:
+    """REAPLICAR_ANONIMIZACIONES (ADR-DB-004 §4.3-§4.4): relectura del libro tras restaurar.
+
+    LIBRO_AUSENTE/ILEGIBLE/CORRUPTO → FALLO sin cambios (exit != 0); avisos → EXITO con detalle.
+    """
+    from apps.cuentas import libro
     from apps.cuentas.services import reaplicar_libro_anonimizaciones
 
-    r = reaplicar_libro_anonimizaciones()
+    try:
+        r = reaplicar_libro_anonimizaciones(libro_vacio_confirmado=libro_vacio_confirmado)
+    except libro.ErrorLibro as error:
+        return Resultado(filas=0, detalle=str(error)[:LARGO_DETALLE], exito=False)
+    partes = {
+        "desactivadas": r.desactivadas,
+        "anonimizadas": r.anonimizadas,
+        "alineadas": r.alineadas,
+        **r.avisos(),
+        "inexistentes": r.inexistentes,
+    }
+    extra = [f"avisos_libro={len(r.avisos_libro)}"] if r.avisos_libro else None
     return Resultado(
-        filas=r.desactivadas + r.anonimizadas,
-        detalle=(
-            f"desactivadas={r.desactivadas} anonimizadas={r.anonimizadas} "
-            f"lineas_invalidas={r.lineas_invalidas} inexistentes={r.cuentas_inexistentes} "
-            f"omitidas={r.omitidas}"
-        ),
+        filas=len(r.desactivadas) + len(r.anonimizadas) + len(r.alineadas),
+        detalle=_detalle(partes, extra),
     )
 
 
-TRABAJOS: dict[str, tuple[TareaProgramada, Callable[[], Resultado]]] = {
+TRABAJOS: dict[str, tuple[TareaProgramada, Callable[..., Resultado]]] = {
     "anonimizar_cuentas": (TareaProgramada.ANONIMIZACION_CUENTAS, anonimizar_cuentas),
     "purgar_auditoria": (TareaProgramada.PURGA_AUDITORIA, purgar_auditoria),
     "purgar_ops": (TareaProgramada.PURGA_OPS, purgar_ops),

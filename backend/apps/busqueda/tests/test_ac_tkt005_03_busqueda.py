@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from apps.busqueda import selectors, services
 from apps.busqueda.models import BusquedaDocumento
-from apps.contenido.models import Contenido, Destino, EstadoEditorial
+from apps.contenido.models import Contenido, Destino, DestinoTipoAventura, EstadoEditorial
 from apps.contenido.tests import publicos
 from apps.contenido.tests.conftest import PUBLICO
 from apps.core.throttling import LimitePorAmbito
@@ -152,6 +152,7 @@ def test_AC_TKT005_03_texto_plano_sin_html():
 def _datos_volumen(cantidad: int) -> None:
     portada = publicos.medio()
     pais = publicos.pais("Tierra de pruebas")
+    tipo = publicos.tipo("Tipo de volumen")
     ahora = timezone.now()
     palabras = ["volcán", "laguna", "páramo", "selva", "desierto", "cañón", "glaciar", "costa"]
     for i in range(cantidad):
@@ -177,7 +178,12 @@ def _datos_volumen(cantidad: int) -> None:
             duracion_min_dias=2,
             duracion_max_dias=6,
             nivel_presupuesto=1 + i % 4,
+            tipo_principal=tipo,
         )
+        DestinoTipoAventura.objects.create(destino_id=contenido.pk, tipo_aventura=tipo)
+    # Como haría autovacuum tras una carga masiva: estadísticas al día para el planificador.
+    with connection.cursor() as cursor:
+        cursor.execute("ANALYZE")
     services.reindexar_todo()
 
 

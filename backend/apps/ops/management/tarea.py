@@ -18,10 +18,15 @@ class ComandoTarea(BaseCommand):
 
     nombre: ClassVar[str] = ""
 
+    def opciones_trabajo(self, options: dict[str, Any]) -> dict[str, Any]:
+        """Argumentos del trabajo a partir de las opciones del comando (por defecto, ninguno)."""
+        return {}
+
     def handle(self, *args: Any, **options: Any) -> None:
         tarea, trabajo = services.TRABAJOS[self.nombre]
+        argumentos = self.opciones_trabajo(options)
         try:
-            ejecucion = services.ejecutar(tarea, trabajo)
+            ejecucion = services.ejecutar(tarea, lambda: trabajo(**argumentos))
         except services.TareaFallida as exc:
             raise CommandError(f"{self.nombre}: {exc}") from None
         except Exception as exc:

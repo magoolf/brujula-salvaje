@@ -18,17 +18,14 @@ Reglas clave:
 
 from __future__ import annotations
 
-import re
 import secrets
 import unicodedata
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import StrEnum
-from pathlib import Path
 from typing import Any
 
 import structlog
-from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import CommonPasswordValidator
 from django.core.cache import cache
@@ -44,7 +41,7 @@ from apps.auditoria.services import (
 from apps.core import idempotencia
 from apps.core.exceptions import ErrorApi
 from apps.core.throttling import huella_hmac
-from apps.cuentas import mfa, selectors
+from apps.cuentas import libro, mfa, selectors
 from apps.cuentas.models import (
     CuentaCodigoRecuperacion,
     CuentaStaff,
@@ -614,20 +611,6 @@ def _exigir_otro_admin_activo(cuenta: CuentaStaff) -> None:
         raise ErrorApi(codigo="ultimo_administrador")
 
 
-def _anotar_libro(cuenta_id: int, evento: str) -> None:
-    """Libro de anonimizaciones (ADR-DB-004 §4): solo ids, fuera de las copias de la BD."""
-    ruta = Path(settings.LIBRO_ANONIMIZACIONES_PATH)
-    linea = f"{cuenta_id};{evento};{timezone.now().strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
-    try:
-        ruta.parent.mkdir(parents=True, exist_ok=True)
-        with ruta.open("a", encoding="utf-8") as libro:
-            libro.write(linea)
-    except OSError as exc:
-        logger.error(
-            "libro_anonimizaciones_no_escrito", cuenta_id=cuenta_id, tipo=type(exc).__name__
-        )
-
-
 def crear_cuenta(
     actor: CuentaStaff, *, usuario: str, nombre_visible: str, rol: str
 ) -> CuentaConTemporal:
@@ -744,7 +727,8 @@ def desactivar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaStaff:
         cuenta.save(update_fields=["estado", "desactivado_en", "password"])
         invalidar_sesiones(cuenta.pk)
         _auditar(AccionAuditoria.CUENTA_DESACTIVAR, actor, objetivo=cuenta, campos=["estado"])
-        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, EVENTO_DESACTIVADA))
+        # Último paso de la transacción (ADR-DB-004 §4.2): fail-closed.
+        libro.escribir(cuenta.pk, libro.DESACTIVADA, cuenta.desactivado_en)
     return cuenta
 
 
@@ -757,9 +741,9 @@ def reactivar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaConTemporal:
         cuenta.desactivado_en = None
         cuenta.save(update_fields=[*campos, "desactivado_en"])
         _auditar(AccionAuditoria.CUENTA_REACTIVAR, actor, objetivo=cuenta, campos=["estado"])
-        # QA-TKT005-03 (DEC-AUTO-913): la reactivación también va al libro, para que una
-        # restauración no vuelva a desactivar ni anonimizar la cuenta.
-        transaction.on_commit(lambda: _anotar_libro(cuenta.pk, EVENTO_REACTIVADA))
+        # QA-TKT005-03 (DEC-AUTO-913, CHG-DB-003): la reactivación también va al libro, para
+        # que una restauración no vuelva a desactivar ni anonimizar la cuenta.
+        libro.escribir(cuenta.pk, libro.REACTIVADA, timezone.now())
     return CuentaConTemporal(cuenta=cuenta, contrasena_temporal=temporal)
 
 
@@ -769,11 +753,11 @@ def anonimizar_cuenta(actor: CuentaStaff, cuenta_id: int) -> CuentaStaff:
         cuenta = _objetivo(actor, cuenta_id)
         if cuenta.estado != EstadoCuenta.DESACTIVADA:
             raise TransicionInvalida("Solo se anonimiza una cuenta desactivada.")
-        _anonimizar(cuenta, actor)
+        _anonimizar(cuenta, actor, escribir_libro=True)
     return cuenta
 
 
-def _anonimizar(cuenta: CuentaStaff, actor: CuentaStaff | None) -> None:
+def _anonimizar(cuenta: CuentaStaff, actor: CuentaStaff | None, *, escribir_libro: bool) -> None:
     """Núcleo común de la anonimización (dentro de la transacción del llamante, fila bloqueada).
 
     Nunca borra la fila de cuenta_staff (CHG-DB-002): UPDATE + DELETE solo de sus hijos. Con
@@ -810,38 +794,62 @@ def _anonimizar(cuenta: CuentaStaff, actor: CuentaStaff | None) -> None:
         campos=["usuario", "nombre_visible", "password", "secreto_mfa"],
         etiqueta=None if actor is not None else ETIQUETA_SISTEMA,
     )
-    cuenta_id = cuenta.pk
-    transaction.on_commit(lambda: _anotar_libro(cuenta_id, EVENTO_ANONIMIZADA))
+    if escribir_libro:
+        libro.escribir(cuenta.pk, libro.ANONIMIZADA, cuenta.anonimizado_en)
 
 
 # ---------------------------------------------------------------------------
 # Tareas del sistema (ADR-DB-004 §2 y §4; comandos anonimizar_cuentas y reaplicar_anonimizaciones)
 # ---------------------------------------------------------------------------
 PLAZO_ANONIMIZACION = timedelta(days=30)
-EVENTO_DESACTIVADA = "DESACTIVADA"
-EVENTO_ANONIMIZADA = "ANONIMIZADA"
-EVENTO_REACTIVADA = "REACTIVADA"
-_LINEA_LIBRO = re.compile(
-    r"^(\d{1,19});(DESACTIVADA|ANONIMIZADA|REACTIVADA);(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$"
+TOLERANCIA_FECHA = timedelta(seconds=1)
+_ESTADOS_OPERATIVOS = (
+    EstadoCuenta.PENDIENTE_ACTIVACION,
+    EstadoCuenta.ACTIVA,
+    EstadoCuenta.BLOQUEADA_TEMPORAL,
 )
 
 
-def anonimizar_cuentas_vencidas(ahora: datetime | None = None) -> int:
-    """Anonimiza las cuentas DESACTIVADAS hace más de 30 días (una transacción por cuenta).
+def _ahora_bd() -> datetime:
+    """now() de PostgreSQL: los plazos nunca dependen del reloj del contenedor (§4.3)."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT now()")
+        fila = cursor.fetchone()
+    return fila[0] if fila else timezone.now()
 
-    Idempotente: una cuenta ya ANONIMIZADA no vuelve a tocarse. No toca una cuenta cuyo último
-    evento en el libro es REACTIVADA (copia restaurada anterior a la reactivación, DEC-AUTO-913).
-    Devuelve cuántas se anonimizaron.
+
+@dataclass
+class ResultadoAnonimizacion:
+    anonimizadas: list[int] = field(default_factory=list)
+    omitidas_reactivada: list[int] = field(default_factory=list)
+    libro_ausente: bool = False
+
+
+def anonimizar_cuentas_vencidas(ahora: datetime | None = None) -> ResultadoAnonimizacion:
+    """Anonimiza las DESACTIVADAS cuya desactivación vigente tiene más de 30 días (§2, §4.3).
+
+    - Plazo desde max(desactivado_en, fD) con el reloj de PostgreSQL.
+    - Excluye las cuentas cuyo último evento del libro es REACTIVADA (OMITIDA_REACTIVADA).
+    - Libro ausente: solo la BD, con aviso. Ilegible o corrupto: ErrorLibro (FALLO, nadie se
+      anonimiza). Escribe ANONIMIZADA en el libro dentro de cada transacción.
     """
-    limite = (ahora or timezone.now()) - PLAZO_ANONIMIZACION
-    reactivadas = {
-        cuenta_id
-        for cuenta_id, (evento, _fecha) in _leer_libro()[0].items()
-        if evento == EVENTO_REACTIVADA
-    }
-    anonimizadas = 0
+    resultado = ResultadoAnonimizacion()
+    try:
+        lectura = libro.leer()
+    except libro.ErrorLibro as error:
+        if error.codigo != libro.LIBRO_AUSENTE:
+            raise
+        logger.warning("libro_ausente")
+        resultado.libro_ausente = True
+        lectura = libro.Lectura()
+    limite = (ahora or _ahora_bd()) - PLAZO_ANONIMIZACION
     for cuenta_id in selectors.ids_cuentas_por_anonimizar(limite):
-        if cuenta_id in reactivadas:
+        estado_libro = lectura.cuentas.get(cuenta_id)
+        if estado_libro is not None and estado_libro.ultimo == libro.REACTIVADA:
+            resultado.omitidas_reactivada.append(cuenta_id)
+            continue
+        fd = estado_libro.desactivacion_vigente if estado_libro is not None else None
+        if fd is not None and fd >= limite:
             continue
         with transaction.atomic():
             cuenta = (
@@ -851,93 +859,102 @@ def anonimizar_cuentas_vencidas(ahora: datetime | None = None) -> int:
             )
             if cuenta is None:
                 continue
-            _anonimizar(cuenta, None)
-            anonimizadas += 1
-    return anonimizadas
+            _anonimizar(cuenta, None, escribir_libro=True)
+        resultado.anonimizadas.append(cuenta_id)
+    return resultado
 
 
-@dataclass(frozen=True)
-class ResultadoLibro:
-    desactivadas: int
-    anonimizadas: int
-    lineas_invalidas: int
-    cuentas_inexistentes: int
-    omitidas: int = 0
+@dataclass
+class ResultadoReaplicacion:
+    desactivadas: list[int] = field(default_factory=list)
+    anonimizadas: list[int] = field(default_factory=list)
+    alineadas: list[int] = field(default_factory=list)
+    omitidas_ultimo_admin: list[int] = field(default_factory=list)
+    inconsistentes: list[int] = field(default_factory=list)
+    reactivadas_no_reproducidas: list[int] = field(default_factory=list)
+    inexistentes: list[int] = field(default_factory=list)
+    avisos_libro: list[str] = field(default_factory=list)
 
-
-def _leer_libro() -> tuple[dict[int, tuple[str, datetime]], int]:
-    """Estado final por cuenta según el libro: el último evento gana (DEC-AUTO-913).
-
-    Devuelve {cuenta_id: (evento, fecha de desactivación)}; para ANONIMIZADA la fecha es la de la
-    última DESACTIVADA anterior (o la de la anonimización si no hay). Las líneas mal formadas se
-    cuentan y se ignoran; nunca se registra su contenido.
-    """
-    ruta = Path(settings.LIBRO_ANONIMIZACIONES_PATH)
-    if not ruta.exists():
-        return {}, 0
-    ultimo: dict[int, str] = {}
-    desactivada_en: dict[int, datetime] = {}
-    invalidas = 0
-    with ruta.open(encoding="utf-8") as libro:
-        for linea in libro:
-            if not linea.strip():
-                continue
-            coincidencia = _LINEA_LIBRO.match(linea.strip())
-            if coincidencia is None:
-                invalidas += 1
-                continue
-            cuenta_id, evento = int(coincidencia[1]), coincidencia[2]
-            fecha = datetime.strptime(coincidencia[3], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-            if ultimo.get(cuenta_id) == EVENTO_ANONIMIZADA:
-                continue  # la anonimización es irreversible: nada posterior la deshace
-            ultimo[cuenta_id] = evento
-            if evento == EVENTO_DESACTIVADA or cuenta_id not in desactivada_en:
-                desactivada_en[cuenta_id] = fecha
-    return {c: (evento, desactivada_en[c]) for c, evento in ultimo.items()}, invalidas
+    def avisos(self) -> dict[str, list[int]]:
+        todos = {
+            "OMITIDA_ULTIMO_ADMIN": self.omitidas_ultimo_admin,
+            "INCONSISTENTE": self.inconsistentes,
+            "REACTIVADA_NO_REPRODUCIDA": self.reactivadas_no_reproducidas,
+        }
+        return {motivo: ids for motivo, ids in todos.items() if ids}
 
 
 def _es_ultimo_admin_operativo(cuenta: CuentaStaff) -> bool:
-    """RULE-015: la acción del sistema nunca deja sin Administrador activo."""
+    """Guarda RULE-015 (§4.4): un ADMINISTRADOR solo se toca si queda OTRA ADMINISTRADOR ACTIVA,
+    comprobado bajo pg_advisory_xact_lock(hashtext('cuentas_admin'))."""
     _bloquear_reglas_admin()
     return cuenta.es_administrador and not selectors.hay_otro_administrador_activo(cuenta.pk)
 
 
-def reaplicar_libro_anonimizaciones() -> ResultadoLibro:
-    """Tras restaurar una copia (ADR-DB-004 §4, CHG-DB-003): vuelve a desactivar y anonimizar las
-    cuentas que en la copia estaban en un estado anterior al registrado en el libro.
+def reaplicar_libro_anonimizaciones(
+    *, libro_vacio_confirmado: bool = False
+) -> ResultadoReaplicacion:
+    """Relectura del libro tras restaurar (ADR-DB-004 §4.3 y §4.4).
 
-    - Último evento por cuenta gana; REACTIVADA no se toca.
-    - Nunca desactiva ni anonimiza al último Administrador operativo (RULE-015): se omite.
-    - Idempotente; el libro solo contiene ids (sin PII) y nunca se borra una fila de cuenta_staff.
+    Nunca escribe en el libro, nunca reactiva ni toca una cuenta cuyo último evento es REACTIVADA,
+    y es idempotente. Lanza ErrorLibro (LIBRO_AUSENTE salvo `libro_vacio_confirmado`, ILEGIBLE o
+    CORRUPTO) sin aplicar ninguna línea.
     """
-    estados, invalidas = _leer_libro()
-    desactivadas = anonimizadas = inexistentes = omitidas = 0
-    for cuenta_id, (evento, fecha) in sorted(estados.items()):
-        if evento == EVENTO_REACTIVADA:
-            continue
+    try:
+        lectura = libro.leer()
+    except libro.ErrorLibro as error:
+        if not (error.codigo == libro.LIBRO_AUSENTE and libro_vacio_confirmado):
+            raise
+        lectura = libro.Lectura()
+    resultado = ResultadoReaplicacion(avisos_libro=lectura.avisos)
+    for cuenta_id, estado_libro in sorted(lectura.cuentas.items()):
         with transaction.atomic():
             cuenta = CuentaStaff.objects.select_for_update().filter(pk=cuenta_id).first()
             if cuenta is None:
-                inexistentes += 1
+                resultado.inexistentes.append(cuenta_id)
                 continue
-            if cuenta.estado == EstadoCuenta.ANONIMIZADA:
-                continue
-            if cuenta.estado != EstadoCuenta.DESACTIVADA:
-                if _es_ultimo_admin_operativo(cuenta):
-                    logger.warning("libro_reaplicacion_omitida_ultimo_admin", cuenta_id=cuenta.pk)
-                    omitidas += 1
-                    continue
-                _desactivar_por_sistema(cuenta, fecha)
-                desactivadas += 1
-            if evento == EVENTO_ANONIMIZADA:
-                _anonimizar(cuenta, None)
-                anonimizadas += 1
-    return ResultadoLibro(desactivadas, anonimizadas, invalidas, inexistentes, omitidas)
+            _reaplicar_cuenta(cuenta, estado_libro, resultado)
+    return resultado
+
+
+def _reaplicar_cuenta(
+    cuenta: CuentaStaff, estado_libro: libro.EstadoLibro, resultado: ResultadoReaplicacion
+) -> None:
+    """Tabla de reglas de ADR-DB-004 §4.3 para una cuenta (fila bloqueada)."""
+    if cuenta.estado == EstadoCuenta.ANONIMIZADA:
+        return
+    ultimo, fd = estado_libro.ultimo, estado_libro.desactivacion_vigente
+    if ultimo == libro.REACTIVADA:
+        if cuenta.estado == EstadoCuenta.DESACTIVADA:
+            resultado.reactivadas_no_reproducidas.append(cuenta.pk)
+        return
+    operativa = cuenta.estado in _ESTADOS_OPERATIVOS
+    if operativa and _es_ultimo_admin_operativo(cuenta):
+        logger.warning("libro_reaplicacion_omitida_ultimo_admin", cuenta_id=cuenta.pk)
+        resultado.omitidas_ultimo_admin.append(cuenta.pk)
+        return
+    fecha = fd or estado_libro.fecha_ultimo
+    if ultimo == libro.DESACTIVADA:
+        if operativa:
+            _desactivar_por_sistema(cuenta, fecha)
+            resultado.desactivadas.append(cuenta.pk)
+        elif cuenta.desactivado_en is not None and cuenta.desactivado_en > fecha + TOLERANCIA_FECHA:
+            resultado.inconsistentes.append(cuenta.pk)
+        elif cuenta.desactivado_en is None or abs(cuenta.desactivado_en - fecha) > TOLERANCIA_FECHA:
+            cuenta.desactivado_en = fecha
+            cuenta.save(update_fields=["desactivado_en"])
+            resultado.alineadas.append(cuenta.pk)
+        return
+    # Último evento ANONIMIZADA: desactivación (si era operativa) y anonimización completa.
+    if operativa:
+        _desactivar_por_sistema(cuenta, fecha)
+    _anonimizar(cuenta, None, escribir_libro=False)
+    resultado.anonimizadas.append(cuenta.pk)
 
 
 def _desactivar_por_sistema(cuenta: CuentaStaff, desactivado_en: datetime) -> None:
-    """Desactivación reaplicada: conserva la fecha del libro (el plazo de 30 días sigue contando
-    desde la desactivación real) y no reescribe el libro."""
+    """Desactivación reproducida (igual que desactivar_cuenta, sin escribir en el libro): conserva
+    la fecha del libro para que el plazo de 30 días cuente desde la desactivación vigente."""
     cuenta.estado = EstadoCuenta.DESACTIVADA
     cuenta.desactivado_en = desactivado_en
     cuenta.set_unusable_password()
