@@ -203,6 +203,11 @@ jobs:
       #      fidelidad de formato/patrón/límites -deuda técnica, seguimiento en TKT-012-. Los valores
       #      válidos del flag son ERR/WARN/INFO, no "ERROR" (corregido tras el primer intento fallido
       #      del CI del PR, run 36561133019). Detalle: §20).
+      #   3) --err-ignore infra/ci/oasdiff_err_ignore.txt (TKT-OPS-011, DEC-AUTO-920, decisión del
+      #      usuario 2026-09-29): excepción PUNTUAL y NOMBRADA de un único hallazgo "error" restante
+      #      tras TKT-OPS-010 (request-body-type-changed en POST /api/v1/panel/medios: multipart real
+      #      -string/binary- vs contrato abstracto -object-), análoga en espíritu a .trivyignore
+      #      (RSK-OPS-001). Formato y alcance exacto documentados en el propio archivo. Detalle: §21.
       # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004); N13 (objeto
       # abierto vs cerrado), N14 (esquema sin tipo vs tipado) y A1..A7 (autorreferenciados, recorrido
       # memoizado): §19 (TKT-OPS-006, DEC-AUTO-250/251). timeout-minutes acota cualquier regresión.
@@ -218,7 +223,7 @@ jobs:
           uv run --frozen python manage.py spectacular --validate --file /tmp/generado.yaml
           uv run --frozen python ../infra/ci/gate_contrato.py ../contracts/openapi.yaml /tmp/generado.yaml /tmp/contrato-filtrado.yaml
           if ! grep -qE '^  /' /tmp/generado.yaml; then echo "::warning::el esquema generado no tiene operaciones"; exit 0; fi
-          oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on ERR
+          oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on ERR --err-ignore ../infra/ci/oasdiff_err_ignore.txt
       - name: SAST (bandit + semgrep)
         run: |
           uvx --from "bandit==${BANDIT_VERSION}" bandit -r . -x ./.venv,./tests -ll
