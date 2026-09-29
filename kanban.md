@@ -374,14 +374,14 @@ tickets:
   - id: TKT-011
     titulo: "Backend: comando de gestión vigilar_cache_limites (alerta de tamaño de cache_limites, DEVOPS_HANDOFF §19.3.6) + línea en el crontab vía DevOps"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [RSK-QA004-02, RSK-OPS-032]
     depende_de: [TKT-005, TKT-OPS-006]
     archivos_permitidos: ["backend/apps/ops/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado con especificación exacta de DEVOPS_HANDOFF.md §19.3.6 (umbrales, patrón de infra/ops/cache_limites_tamano.sql) y plantilla de código (apps/ops/services.py::verificar_busqueda, mismo patrón Resultado(exito=bool))", "Entregado @ b9cd19a, PR #31. vigilar_cache_limites() añadida a TRABAJOS, mismo patrón que verificar_busqueda(); recuento exacto por COUNT(*) (verificado que app_rw tiene acceso directo, no necesita el fallback de estimación del script SQL de DevOps). Migración 0002 (expand, reversible) amplía el CHECK del campo tarea. 6 tests nuevos, suite completa 712 passed/0 failed/3 skipped, cobertura 89.79%. CI real (run 36634144163) en verde completo. QA despachado (ciclo 1/3). Pendiente: DevOps debe añadir la línea al crontab después de integrar"]
+    evidencia: ["Despachado con especificación exacta de DEVOPS_HANDOFF.md §19.3.6 (umbrales, patrón de infra/ops/cache_limites_tamano.sql) y plantilla de código (apps/ops/services.py::verificar_busqueda, mismo patrón Resultado(exito=bool))", "Entregado @ b9cd19a, PR #31. vigilar_cache_limites() añadida a TRABAJOS, mismo patrón que verificar_busqueda(); recuento exacto por COUNT(*) (verificado que app_rw tiene acceso directo, no necesita el fallback de estimación del script SQL de DevOps). Migración 0002 (expand, reversible) amplía el CHECK del campo tarea. 6 tests nuevos, suite completa 712 passed/0 failed/3 skipped, cobertura 89.79%. CI real (run 36634144163) en verde completo. QA despachado (ciclo 1/3). Pendiente: DevOps debe añadir la línea al crontab después de integrar", "QA_VERDICT PASS ciclo 1/3: reprodujo con datos reales bajo el rol app_rw real (confirmó has_table_privilege en BD real, no solo documentación), confirmó que el comando delega íntegramente en ComandoTarea/ejecutar() sin reimplementar lock/registro, revisión de seguridad del SQL crudo sin interpolación insegura, migración reversible verificada (con una advertencia menor sobre reversibilidad tras uso real, no bloqueante). PR #31 integrado con git merge --no-ff @ 8babd75. TKT-011 DONE. Pendiente: TKT-OPS-012 para que DevOps añada la línea al crontab"]
     actualizado: 2026-09-29
   - id: TKT-F3-002
     titulo: "CHG-BP-001: enmienda de RULE-025/RULE-002 (co-publicación de tipos y destinos, invariante: destino publicado solo con tipos publicados) en el Blueprint (DEC-AUTO-912)"
@@ -502,6 +502,18 @@ tickets:
     ciclo_qa: 2/3
     ciclo_panico: 0/2
     evidencia: ["Despachado: TKT-014 integrado, ya no hay solapamiento de archivo. Reutilizar _destinos_publicados_de_tipo() y el patrón de _bloqueos_de_cascada() ya existentes para construir la lista de usos", "Entregado @ 3c9b8cb, PR #30. _usos_publicados_de_tipo() añadida; retirar() con tipo==T.TIPO ahora levanta DependenciaBloqueante(usos/total_usos) antes de confirmar, si el tipo es tipo_principal de un destino publicado o lo usa un itinerario publicado. Rama T.DESTINO/cascada sin tocar. 5 tests nuevos (706 passed total, 0 failed). Alcance documentado explícitamente: NO bloquea si el tipo es solo secundario (no principal) de un destino publicado -- riesgo residual bajo, mitigado por RULE-001 v1.1, con test propio que lo deja trazado en vez de oculto. CI real (run 36623872475) en verde completo. QA despachado (ciclo 1/3), con instrucción explícita de re-evaluar por su cuenta la decisión de alcance (tipo secundario no bloqueado)", "QA_VERDICT FAIL (ciclo 1/3): confirmó con datos reales que el alcance limitado del Developer SÍ es un bug bloqueante, no un riesgo residual aceptable. RULE-002 v1.1 (BLUEPRINT.md:603) y AC-124 dicen 'ningún Destino PUBLICADO referencia un Tipo no PUBLICADO' sin distinguir principal/secundario; RULE-025 exige '≥1 destino PUBLICADO asociado' (no 'como principal'); FLOW-012 enumera de forma cerrada las únicas relaciones que se toleran sin bloquear (guías/colecciones/destacados/relacionados) y tipos_aventura secundarios NO está en esa lista; AC-129 describe ese estado como 'inconsistencia FORZADA' para probar la defensa en profundidad, no como estado tolerado. Inconsistencia interna: _destinos_publicados_de_tipo() y _tipos_en_cascada() (ya usadas en la rama T.DESTINO) SÍ tratan el M2M completo (tipos_aventura) como 'uso', pero la nueva _usos_publicados_de_tipo() de TKT-015 solo mira tipo_principal_id. Reproducido con datos reales: retirar un tipo SOLO secundario de un destino publicado tiene éxito sin bloqueo, el Destino sigue PUBLICADO con un enlace M2M roto a un Tipo RETIRADO en BD, y ni siquiera se reindexa (mismo filtro estrecho en _reindexar_dependientes_de_tipo de TKT-014). Fix sugerido por QA: reutilizar el mismo filtro M2M (Destino.tipos_aventura) que ya usa _destinos_publicados_de_tipo. Devuelto al Developer", "Corrección @ b13c4d3: verificó por su cuenta los 5 puntos de QA antes de aplicar el fix (reprodujo el gap con un test contra el código anterior primero). _usos_publicados_de_tipo() y _reindexar_dependientes_de_tipo() (TKT-014) ahora usan el mismo filtro M2M Destino.tipos_aventura que _destinos_publicados_de_tipo()/_tipos_en_cascada() -- las 4 funciones del archivo responden igual a 'destino ⇒ tipo en uso'. Test invertido (ahora confirma que SÍ bloquea). Suite 706 passed/0 failed/3 skipped, mismo conteo que ciclo 1 (test invertido 1:1, sin regresión en T.DESTINO/cascada RULE-025). CI real (run 36629133685) en verde completo. QA despachado (ciclo 2/3), con foco específico en el caso 'tipo secundario' que motivó el FAIL", "QA_VERDICT PASS ciclo 2/3: verificación completamente independiente (worktrees y Postgres propios, distintos de rondas anteriores) -- reprodujo el bug ANTES del fix (revirtiendo a 3c9b8cb) y confirmó que b13c4d3 lo corrige; revisó que la ampliación de _reindexar_dependientes_de_tipo (TKT-014) es idempotente (indexar() es upsert/delete puro); verificó técnicamente el razonamiento de ventana de carrera del Developer (select_for_update solo bloquea la fila del propio Tipo, no sus dependientes). Suite completa 706/0/3 sin regresión, contrato 128/128 sin cambios, gitleaks/semgrep limpios sobre el PR completo. PR #30 integrado con git merge --no-ff @ f46a18b. TKT-015 DONE"]
+    actualizado: 2026-09-29
+  - id: TKT-OPS-012
+    titulo: "DevOps: añadir la línea al crontab del planificador para el comando vigilar_cache_limites de TKT-011 (DEVOPS_HANDOFF.md §19.3.6 ya propone '*/15 * * * * python manage.py vigilar_cache_limites'); cierra RSK-OPS-032"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-011, RSK-OPS-032]
+    depende_de: [TKT-011]
+    archivos_permitidos: ["infra/scheduler/**", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
     actualizado: 2026-09-29
 ```
 
