@@ -434,7 +434,7 @@ tickets:
   - id: TKT-OPS-010
     titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERROR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [DEC-AUTO-196, TKT-OPS-004]
     depende_de: []
