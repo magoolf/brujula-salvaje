@@ -506,14 +506,14 @@ tickets:
   - id: TKT-OPS-012
     titulo: "DevOps: añadir la línea al crontab del planificador para el comando vigilar_cache_limites de TKT-011 (DEVOPS_HANDOFF.md §19.3.6 ya propone '*/15 * * * * python manage.py vigilar_cache_limites'); cierra RSK-OPS-032"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-011, RSK-OPS-032]
     depende_de: [TKT-011]
     archivos_permitidos: ["infra/scheduler/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado a devops"]
     actualizado: 2026-09-29
 ```
 
