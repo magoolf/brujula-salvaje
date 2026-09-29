@@ -1417,6 +1417,30 @@ def _reindexar_dependientes_de_tipo(tipo_aventura_id: int) -> None:
         _reindexar(itinerario_id)
 
 
+def _usos_publicados_de_tipo(tipo_aventura_id: int) -> list[dict[str, Any]]:
+    """Usos de un Tipo por contenido PUBLICADO (RULE-007, FLOW-012): retirarlo DIRECTAMENTE (fuera
+    de la cascada de `retirar()` con tipo == T.DESTINO, que verifica sus propios tipos en cascada
+    con `_bloqueos_de_cascada` antes de llegar aquí y nunca pasa por esta función) se bloquea si es
+    `tipo_principal` de algún Destino PUBLICADO o está en `tipos_aventura` de algún Itinerario
+    PUBLICADO. Mismas dos consultas que `_reindexar_dependientes_de_tipo` (TKT-014), en formato
+    ReferenciaUso (contracts/openapi.yaml) para el `extra` de `DependenciaBloqueante`."""
+    destinos = Contenido.objects.filter(
+        destino__tipo_principal_id=tipo_aventura_id, estado_editorial=E.PUBLICADO
+    ).order_by("id")
+    itinerarios = Contenido.objects.filter(
+        itinerario__tipos_aventura=tipo_aventura_id, estado_editorial=E.PUBLICADO
+    ).order_by("id")
+    return [
+        {
+            "tipo_entidad": c.tipo,
+            "id": c.pk,
+            "titulo": c.titulo,
+            "estado_editorial": c.estado_editorial,
+        }
+        for c in list(destinos) + list(itinerarios)
+    ]
+
+
 def retirar(
     tipo: str,
     contenido_id: int,
@@ -1435,6 +1459,14 @@ def retirar(
             raise TransicionInvalida()
         if contenido.version != version:
             raise ConflictoVersion(extra={"entidades_en_conflicto": [_referencia(contenido)]})
+
+        # RULE-007: un Tipo en uso por contenido publicado nunca se retira de forma DIRECTA (solo
+        # mediante la cascada de retiro de su último Destino, rama T.DESTINO más abajo). Se evalúa
+        # antes de tocar nada (DEC-AUTO-269: dependencia_bloqueante precede a cascada_bloqueada).
+        if tipo == T.TIPO:
+            usos = _usos_publicados_de_tipo(contenido.pk)
+            if usos:
+                raise DependenciaBloqueante(extra={"usos": usos, "total_usos": len(usos)})
 
         itinerarios: list[Contenido] = []
         tipos_cascada: list[TipoAventura] = []
