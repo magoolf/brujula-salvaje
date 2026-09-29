@@ -158,27 +158,27 @@ tickets:
   - id: TKT-005
     titulo: "Backend API pública + búsqueda + comandos de operación: /api/v1/publico/**, filtros/facetas, mapa, aleatorio, 410, búsqueda es_unaccent+pg_trgm, throttling público, comandos programados del crontab"
     fase: F7
-    estado: QA_FAIL
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [MOD-001..008, MOD-014, FEAT-001..028, FEAT-048, FEAT-051, FEAT-052, CHG-DB-002 (medios.0002, contenido.0003, catalogos.0003, inicio.0002 de DB_HANDOFF v1.2)]
     depende_de: [TKT-004]
     archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/ops/**", "backend/apps/medios/**", "backend/apps/cuentas/**", "backend/apps/auditoria/**", "backend/pyproject.toml", "backend/uv.lock"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 1/2
-    evidencia: ["PR #18 @ a5e08fe", "QA_VERDICT FAIL 1/3: QA-TKT005-01 bandit B608 en tests bloquea el CI; QA-TKT005-02 MEDIUM fuga de tipo en BORRADOR vía tipo_principal + conflicto RULE-025/RULE-002/contrato; QA-TKT005-03 MEDIUM el libro de anonimizaciones no registra reactivaciones -> anonimización irreversible tras restaurar", "PASS: 25 operaciones, p95 87/107 ms, throttling real, búsqueda, 7 comandos, post-restore exit 0 (cierra RSK-OPS-030), CHG-DB-002, THREAT-020"]
-    actualizado: 2026-09-25
+    evidencia: ["PR #18 @ 9af0dcc; CI verde run 36478626205 (todos los jobs)", "Corrección ciclo 1: visibilidad pública única (AC-129), libro de anonimizaciones v2 (CHG-DB-003), nosec B608, OBS-04/05/06; p95 lecturas 117 ms, búsqueda 42 ms", "QA ciclo 2/3 previo cortado por límite de sesión sin veredicto (NOT_RUN, ver audit_log.md 2026-09-28); relanzado ciclo 2/3 desde cero sobre el mismo commit", "Segundo corte durante schemathesis, de nuevo sin QA_VERDICT persistido ni subagente alcanzable: NOT_RUN otra vez (ver audit_log.md 2026-09-28, segunda entrada); relanzado ciclo 2/3 desde cero sobre 9af0dcc, sin integrar a main", "QA_VERDICT PASS ciclo 2/3 @ 9af0dcc: schemathesis 3032 casos/0 fallos, pytest 591 passed, bandit/semgrep/gitleaks limpios, 4 correcciones del ciclo 1 verificadas; OBS-QA-TKT005-C2-01 INFO (artefacto Git-Bash/MSYS en Windows, no es defecto de código); RSK-DB-015 verificado, recomendado MITIGADO", "PR #18 actualizado con main (072bf55) y CI verde completo (run 36501571124); integrado en main con git merge --no-ff @ 3e042e8. TKT-005 DONE"]
+    actualizado: 2026-09-28
   - id: TKT-006
     titulo: "Backend API del panel: contenidos (CRUD, vista previa, publicar/retirar/reactivar, revisiones, bloqueo optimista), medios (subida segura, derivados, publico/privado), taxonomías, inicio, configuración, tablero"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-010, MOD-011, MOD-012, FEAT-033..044, FEAT-047, FEAT-049, FEAT-050]
     depende_de: [TKT-005]
-    archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/pyproject.toml", "backend/uv.lock"]
+    archivos_permitidos: ["backend/config/urls.py", "backend/config/settings/base.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-25
+    evidencia: ["PR #24 @ 5b6f270 (base main 3e042e8), rama tkt-006-panel-editorial", "Developer: pytest 674 passed/3 skipped, mypy sin issues (176 archivos), ruff limpio, manage.py check --deploy sin hallazgos", "DEC-AUTO-917: 3 códigos Problem Details de CHG-API-005 registrados vía apps.py::ready() en el propio dominio contenido (apps/core/problemas.py fuera de archivos_permitidos), reversible", "GAP declarado por el Developer: sin tests HTTP/E2E de panel_views.py ni medición de cobertura pytest-cov -> a validar por QA", "Verificación tras reinicio 2026-09-29: CI run 36513898298 terminó en FAIL (no 'en curso' como registraba el kanban); lint/typecheck/tests/check --deploy en verde, pero el gate de contrato (oasdiff, paso 14) falló con 77 errores -> no es READY_FOR_VALIDATION real; se devuelve al Developer sobre la misma rama, no es Botón de Pánico", "Corrección 1 @ 7ad0ae4: gate_contrato.py (N1-N14) pasa a 0 errores (antes 76-77); pytest/oasdiff NOT_RUN por el Developer (sin Docker/Postgres/binario oasdiff en su entorno)", "Segundo FAIL de CI (run 36517118944): gate_contrato.py sigue en 0 errores, pero el paso siguiente de la misma etapa ('oasdiff breaking contrato-filtrado.yaml generado.yaml --fail-on WARN') falla con 296 cambios (103 error/193 warning) — primera vez que esta comprobación llega a ejecutarse en el proyecto (antes siempre fallaba primero el gate N1-N14). Patrón sistemático de 'allOf branch removed'/'media type removed' que coincide con endpoints que usan el patrón de paginación PaginaMetaSerializer (herencia de clases DRF) ya usado con éxito en TKT-005; incluye también /panel/taxonomias/paises y /regiones, fuera del alcance de la corrección anterior. Se devuelve al Developer, segunda ronda de corrección sobre la misma rama, aún no es QA (ciclo_qa 0/3)", "Corrección 2 @ 6cc15d0: 4 causas raíz distintas diagnosticadas y corregidas (25 respuestas sin schema por serializers con 0 campos declarados/código muerto nunca importado; 16 parámetros de query/header no declarados vía OpenApiParameter; ~15 enums perdidos por el patrón _CampoTipo anti-colisión W001; ~25 campos sin format/pattern/maxItems), verificado con script propio de aproximación a oasdiff (no versionado, sin binario oasdiff disponible en su entorno). GAP arquitectónico residual identificado con precisión: apps/core/esquema.py solo generaliza el allOf de paginación (_paginas) y de Problema*, no la composición {EntidadMeta}+{ComunCampos}+{TipoCampos} que el contrato usa en los 7 tipos de contenido del panel + Pais/Region (~75 hallazgos restantes). DEC-AUTO-918 (Orquestador, ver audit_log): se amplía archivos_permitidos con backend/apps/core/esquema.py (generalización del hook existente, ya usado por TKT-005; no es cambio de arquitectura ni de contrato) en vez de abrir un ticket separado. Tercera ronda de corrección despachada sobre la misma rama, aún no es QA (ciclo_qa 0/3), no es Botón de Pánico formal", "Corrección 3 @ bce84ce: tabla `_COMPOSICIONES` (28 entradas) generaliza allOf para los 9 recursos autorizados (75->26 hallazgos de allOf, los 26 restantes fuera de alcance); prerrequisito encontrado y corregido: los 7 serializers Panel no declaraban casi ningún campo como atributo de clase (solo en to_representation), completados con los Mixin ya usados por Entrada. CI real (run 36522908583): 676 passed/1 failed — regresión real (no del Developer, preexistente desde antes: TKT-001 test_AC_TKT001_01_check_deploy_prod_sin_avisos) por 9 colisiones de nombre de enum (drf_spectacular.W001) que aparecieron al restaurar los enums explícitos; el paso del gate de contrato ni siquiera se ejecutó (se saltó tras el fallo de pytest). DEC-AUTO-919 (Orquestador): se amplía archivos_permitidos con backend/config/settings/base.py para añadir las entradas que faltan a ENUM_NAME_OVERRIDES (patrón ya existente en ese archivo, 4 entradas previas, mecánico y de bajo riesgo). Cuarta ronda despachada, aún no es QA", "Corrección 4 @ 91e78e0: 5 entradas nuevas en ENUM_NAME_OVERRIDES, verificado con evidencia real (133 tests sin BD, incluido exactamente el que había fallado en CI, PASS). CI real (run 36524304762): unit tests y check --deploy en VERDE por primera vez; el gate de contrato por fin se ejecutó completo (primera vez en 4 rondas) y sigue en FAIL: 677 cambios (69 error, 608 warning) — MÁS que en la ronda 2 (296), no menos: la corrección de allOf de la ronda 3 permitió que oasdiff recorra más profundo dentro de las ramas y revele una capa nueva de hallazgos de bajo nivel (177 pattern, 199 maxItems, 58 max, 36 tipo, 32 uniqueItems, 60 content-media-type, 28 required, etc.), abrumadoramente formato/patrón/límites de campos anidados, no rupturas estructurales. El script de aproximación del Developer (oasdiff_lite.py) no predijo este salto (mostraba 26 residuales, no 677): no es fiable como sustituto del oasdiff real. Pausa del Orquestador: 4 rondas de corrección pre-QA sobre el mismo gate, con el conteo de hallazgos EMPEORANDO en la última ronda en vez de converger — no se despacha una quinta ronda sin decisión explícita del usuario sobre cómo proceder (ver audit_log.md, pregunta planteada al usuario)", "DECISIÓN DEL USUARIO 2026-09-29: relajar el gate a --fail-on ERROR. Se abre TKT-OPS-010 (DevOps, cambio de CI) y TKT-012 (deuda técnica de los 608 warnings, seguimiento). TKT-006 vuelve a IN_PROGRESS, a la espera de TKT-OPS-010 para saber si los 69 hallazgos ERROR restantes exigen una quinta ronda del Developer"]
+    actualizado: 2026-09-29
   - id: TKT-007
     titulo: "Semilla de contenido: comando cargar_semilla (24 destinos reales, itinerarios, guías, 12 tipos, colecciones, glosario, páginas legales, config de inicio, medios propios con licencia) vía servicio de publicación"
     fase: F7
@@ -314,14 +314,14 @@ tickets:
   - id: TKT-OPS-006
     titulo: "DevOps LOW: gate con memoización y timeout-minutes (OBS-QA-OPS004-01); objeto abierto vs cerrado (OBS-QA-OPS004-02); 405 de medios en Problem Details (OBS-QA-OPS004-03); comentario de dependabot.yml; /infra/db en Dependabot docker (RSK-OPS-025); alerta de tamaño de cache_limites (RSK-QA004-02); política de trivy robusta a líneas de continuación (QA-OPS005-04)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-055]
     depende_de: [TKT-OPS-005]
     archivos_permitidos: [".github/workflows/**", ".github/dependabot.yml", "infra/**", "docs/05_operacion/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 3/3
     ciclo_panico: 0/2
-    evidencia: ["rama tkt-ops-006-mejoras @ 90ad865; CI verde run 36472920013", "Ciclo 2: política de trivy en Python con PyYAML (39/39 controles), cobertura Dependabot 11/11, gate 27/27, ON_ERROR_STOP en SQL"]
+    evidencia: ["PR #20 integrado en main (decisión humana: riesgo aceptado hasta TKT-OPS-009)", "CI verde"]
     actualizado: 2026-09-25
   - id: TKT-OPS-007
     titulo: "DevOps: restore-local.sh falla sobre BD limpia (schema app/ext, COMMENT pg_stat_statements, REVOKE public) — usar lista TOC filtrada; bloquea AC-054 y F9 (QA-OPS005-02, preexistente)"
@@ -386,39 +386,75 @@ tickets:
   - id: TKT-F3-002
     titulo: "CHG-BP-001: enmienda de RULE-025/RULE-002 (co-publicación de tipos y destinos, invariante: destino publicado solo con tipos publicados) en el Blueprint (DEC-AUTO-912)"
     fase: F3
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: arquitecto-funcional
     trazabilidad: [RULE-002, RULE-025, THREAT-011]
     depende_de: []
     archivos_permitidos: ["docs/02_blueprint/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["docs/02_blueprint/BLUEPRINT.md v1.1 (CHG-BP-001)", "RULE-001/002/003/007/025, FLOW-011/012, SCR-038, AC-124..130; CONFLICT-005 resuelto"]
+    evidencia: ["PR #19 integrado en main", "Blueprint v1.1"]
     actualizado: 2026-09-25
   - id: TKT-F4-010
     titulo: "CHG-DB-003: evento REACTIVADA en el libro de anonimizaciones, 'último evento gana' y respeto de RULE-015 en desactivación por sistema (ADR-DB-004 §4, DEC-AUTO-913)"
     fase: F4
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: base-datos
     trazabilidad: [REQ-057, RULE-015]
     depende_de: []
     archivos_permitidos: ["docs/04_datos/**", "docs/adr/ADR-DB-*.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DB_HANDOFF v1.3 (YAML válido, js-yaml por el Orquestador), ADR-DB-004 §4.1-§4.5", "DEC-AUTO-260..264: evento REACTIVADA, escritura dentro de la transacción fail-closed, guarda RULE-015, casos límite, permisos del libro"]
+    evidencia: ["PR #19 integrado en main", "DB_HANDOFF v1.3"]
     actualizado: 2026-09-25
   - id: TKT-F4-011
     titulo: "CHG-API-005: operaciones multi-entidad del panel (co-publicación destino+tipos, previsualización de impacto de retiro con cascada/bloqueo, errores agrupados por entidad) según CHG-BP-001; antes de TKT-006"
     fase: F4
-    estado: TODO
+    estado: DONE
     owner: backend-contrato
     trazabilidad: [AC-124, AC-125, AC-126, AC-127, AC-128, AC-130, DEC-AUTO-912]
     depende_de: [TKT-F3-002]
     archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/ADR-API-*.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
+    evidencia: ["PR #23 integrado en main", "lint OK; cliente regenerado bc57a97; CI verde"]
+    actualizado: 2026-09-25
+  - id: TKT-OPS-009
+    titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
+    depende_de: [TKT-OPS-006]
+    archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
     evidencia: []
     actualizado: 2026-09-28
+  - id: TKT-OPS-010
+    titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERROR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [DEC-AUTO-196, TKT-OPS-004]
+    depende_de: []
+    archivos_permitidos: [".github/workflows/**", "docs/05_operacion/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-29
+  - id: TKT-012
+    titulo: "Backend: deuda técnica — cerrar los ~608 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-006, TKT-OPS-010]
+    depende_de: [TKT-006, TKT-OPS-010]
+    archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-29
 ```
 
 ## F5 — Reglas de stack inyectadas (Orquestador, leídas de los Contratos Técnicos el 2026-09-25)

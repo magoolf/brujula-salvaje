@@ -197,7 +197,12 @@ jobs:
       #   1) infra/ci/gate_contrato.py: operaciones generadas ⊆ contrato; por operación, códigos de estado,
       #      media types y propiedades de respuesta (recursivo) ⊆ contrato; escribe el contrato FILTRADO
       #      a las operaciones implementadas (una ruta implementada en parte no cuenta como eliminada).
-      #   2) "oasdiff breaking" contrato filtrado -> implementación con --fail-on WARN.
+      #   2) "oasdiff breaking" contrato filtrado -> implementación con --fail-on ERR (antes WARN;
+      #      relajado por decisión del usuario 2026-09-29, TKT-OPS-010: solo bloquean los cambios de
+      #      severidad "error" -posibles rupturas reales de compatibilidad-, no los "warning" de
+      #      fidelidad de formato/patrón/límites -deuda técnica, seguimiento en TKT-012-. Los valores
+      #      válidos del flag son ERR/WARN/INFO, no "ERROR" (corregido tras el primer intento fallido
+      #      del CI del PR, run 36561133019). Detalle: §20).
       # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004); N13 (objeto
       # abierto vs cerrado), N14 (esquema sin tipo vs tipado) y A1..A7 (autorreferenciados, recorrido
       # memoizado): §19 (TKT-OPS-006, DEC-AUTO-250/251). timeout-minutes acota cualquier regresión.
@@ -213,7 +218,7 @@ jobs:
           uv run --frozen python manage.py spectacular --validate --file /tmp/generado.yaml
           uv run --frozen python ../infra/ci/gate_contrato.py ../contracts/openapi.yaml /tmp/generado.yaml /tmp/contrato-filtrado.yaml
           if ! grep -qE '^  /' /tmp/generado.yaml; then echo "::warning::el esquema generado no tiene operaciones"; exit 0; fi
-          oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on WARN
+          oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on ERR
       - name: SAST (bandit + semgrep)
         run: |
           uvx --from "bandit==${BANDIT_VERSION}" bandit -r . -x ./.venv,./tests -ll
