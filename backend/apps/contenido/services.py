@@ -1394,6 +1394,29 @@ def _confirmar_retiro_entidad(
     _reindexar(contenido.pk)
 
 
+def _reindexar_dependientes_de_tipo(tipo_aventura_id: int) -> None:
+    """TKT-014: al retirar un Tipo DIRECTAMENTE (fuera de la cascada RULE-025 de `retirar()` con
+    tipo == T.DESTINO, que ya reindexa explícitamente cada entidad que ella misma retira), ese
+    Tipo puede seguir siendo `tipo_principal` de un Destino PUBLICADO o estar entre los tipos de
+    un Itinerario PUBLICADO. Ninguna de esas dos entidades cambia su propio estado_editorial, así
+    que `_confirmar_retiro_entidad` (que solo reindexa la entidad que retira, es decir, el propio
+    Tipo) nunca las toca. Pero su visibilidad pública SÍ cambia: q_visible()/es_visible() exige
+    tipo_principal PUBLICADO para un Destino (AC-129) y al menos un tipo PUBLICADO para un
+    Itinerario, así que ambas dejan de ser visibles (RULE-001) sin que BusquedaDocumento se entere
+    por sí solo. Se reindexan explícitamente aquí, igual que TKT-013 reindexa explícitamente tras
+    confirmar el estado de todas las entidades de una operación."""
+    destinos_afectados = Destino.objects.filter(
+        tipo_principal_id=tipo_aventura_id, contenido__estado_editorial=E.PUBLICADO
+    ).values_list("pk", flat=True)
+    for destino_id in destinos_afectados:
+        _reindexar(destino_id)
+    itinerarios_afectados = Itinerario.objects.filter(
+        tipos_aventura=tipo_aventura_id, contenido__estado_editorial=E.PUBLICADO
+    ).values_list("pk", flat=True)
+    for itinerario_id in itinerarios_afectados:
+        _reindexar(itinerario_id)
+
+
 def retirar(
     tipo: str,
     contenido_id: int,
@@ -1473,6 +1496,12 @@ def retirar(
                 tipo_c.contenido, actor_id, "Cascada: sin destinos publicados (RULE-025)", ip
             )
             afectadas.append(_entidad_transitada(tipo_c.contenido, origen="CASCADA"))
+        if tipo == T.TIPO:
+            # TKT-014: retiro directo de un Tipo (no vía cascada RULE-025 desde un Destino, que
+            # ya cubre sus propias entidades arriba). No transiciona estado en nadie más, pero
+            # puede dejar sin visibilidad pública a Destinos (tipo_principal) e Itinerarios que lo
+            # usan; ver _reindexar_dependientes_de_tipo.
+            _reindexar_dependientes_de_tipo(contenido.pk)
         return contenido, afectadas
 
 
