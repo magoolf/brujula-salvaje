@@ -1,0 +1,43 @@
+# =============================================================================
+# Excepción puntual del gate de contrato (oasdiff breaking --err-ignore) — Brújula Salvaje
+# TKT-OPS-011, DEC-AUTO-920 (audit_log.md, 2026-09-29). Continuación de TKT-OPS-010.
+#
+# Análoga en espíritu a .trivyignore (RSK-OPS-001): una excepción PUNTUAL, NOMBRADA y de alcance
+# MÍNIMO, no un relajamiento general del gate. Ignora exactamente UN hallazgo de severidad "error"
+# (request-body-type-changed) para UNA sola operación (POST /api/v1/panel/medios). Todo lo demás
+# de severidad "error" sigue bloqueando el CI sin cambios (--fail-on ERR se mantiene, TKT-OPS-010).
+#
+# Motivo: contracts/openapi.yaml (API-first, escrito a mano) modela el cuerpo de la petición de
+# POST /api/v1/panel/medios de forma abstracta como `type: object` (propiedad `archivos`, array de
+# `string`/`binary`). drf-spectacular, al generar el esquema real desde la implementación de una
+# subida multipart/form-data (OpenApiTypes.BINARY, TKT-006, panel editorial, PR #24, rama
+# tkt-006-panel-editorial), representa el cuerpo del media type como `type: string, format: binary`:
+# así es como Django/DRF reciben el archivo en la práctica. No hay forma precisa de corregirlo sin
+# remodelar el multipart en el contrato (fuera del alcance de un Micro-Ticket de Developer/DevOps) o
+# sin forzar una anotación de esquema inexacta respecto a lo que la API realmente acepta. Deuda de
+# modelado del contrato con seguimiento en TKT-012.
+#
+# Formato de este archivo (docs/BREAKING-CHANGES.md "Ignoring Specific Breaking Changes" del propio
+# oasdiff; verificado además contra el código fuente de oasdiff/oasdiff en el tag v1.32.1 -pinned en
+# OASDIFF_VERSION de ci.yaml-: checker/ignore.go y checker/api_change.go, método MatchIgnore). NO es
+# una expresión regular -aunque el comentario de cabecera de examples/ignore-err-example.txt del
+# propio repositorio lo describa así; ese comentario no coincide con la implementación real leída en
+# el código fuente, que es la fuente de verdad-. Cada línea (comparada en minúsculas) debe contener:
+#   1) el método y la ruta exactos de la operación ("post /api/v1/panel/medios"), con la ruta además
+#      como el primer campo separado por espacios que empieza por "/" en la línea;
+#   2) el texto exacto, sin colorear, del hallazgo tal como lo renderiza oasdiff: la plantilla
+#      "the request's body %s changed from %s to %s" (checker/localizations_src/en/messages.yaml,
+#      id request-body-type-changed) con los argumentos entre comillas invertidas. Los argumentos los
+#      calcula checker/type_format.go a partir del esquema base (contrato: sin `format`) y de la
+#      revisión (drf-spectacular: `string`/`binary`): dimensión "type/format", base "object",
+#      revisión "string/binary".
+# Los espacios en blanco separan campos; el resto de la línea es libre (puede llevar texto adicional,
+# como en los ejemplos oficiales), pero aquí se deja solo el texto exacto, sin relleno, para minimizar
+# el riesgo de una coincidencia parcial o accidental con otro hallazgo.
+#
+# NO VALIDADO por ejecución local: el binario oasdiff no está instalado en este entorno (igual que en
+# TKT-OPS-010), así que no se pudo ejecutar `oasdiff breaking --err-ignore` contra un caso real para
+# confirmar que esta línea ignora el hallazgo y ninguno más. El texto se derivó leyendo el código
+# fuente de la versión exacta fijada (v1.32.1), no ejecutándolo. Pendiente de confirmación por el CI
+# real del PR de este ticket (ver DEVOPS_HANDOFF.md y HANDOFF_ENVELOPE).
+POST /api/v1/panel/medios the request's body `type/format` changed from `object` to `string/binary`
