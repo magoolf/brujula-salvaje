@@ -494,14 +494,14 @@ tickets:
   - id: TKT-015
     titulo: "GAP: retirar(T.TIPO, ...) en apps/contenido/services.py no bloquea el retiro directo de un Tipo de aventura en uso por Destinos o Itinerarios PUBLICADOS, pese a que RULE-007/FLOW-012 del Blueprint lo exigen explícitamente ('No se puede retirar un Tipo... en uso por contenido publicado'; 'el uso por destinos publicados se resuelve retirando el último destino -cascada-; nunca de forma directa'), y el contrato ya documenta 409 dependencia_bloqueante para este caso exacto (contracts/openapi.yaml líneas 2439-2441: 'dependencia_bloqueante queda solo para los usos de RULE-007... un tipo en uso por destinos publicados nunca se retira de forma directa'). La excepción DependenciaBloqueante ya existe en services.py (línea 125) pero nunca se usa -- implementar el bloqueo con la lista de usos, siguiendo el mismo patrón ya implementado en apps/catalogos/services.py para País/Región/Categoría/Licencia (DependenciaBloqueante con extra usos/total_usos) y en apps/medios/services.py (MedioEnUso). No toca el contrato (el código de error y su semántica ya están documentados). Encontrado por el Developer de TKT-014 durante su investigación, no introducido por ningún diff reciente"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-014, RULE-007, FLOW-012, FEAT-037]
     depende_de: [TKT-014]
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado: TKT-014 integrado, ya no hay solapamiento de archivo. Reutilizar _destinos_publicados_de_tipo() y el patrón de _bloqueos_de_cascada() ya existentes para construir la lista de usos"]
     actualizado: 2026-09-29
 ```
 
