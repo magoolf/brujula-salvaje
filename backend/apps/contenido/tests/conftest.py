@@ -1,9 +1,13 @@
-"""Fixtures de las pruebas de la API pública (TKT-005).
+"""Fixtures de las pruebas de la API pública (TKT-005) y del panel editorial (TKT-006).
 
 - `mundo`: conjunto de contenido publicado coherente (apps/contenido/tests/publicos.py) con el
   índice de búsqueda reconstruido.
 - `conforme`: valida un cuerpo JSON contra un componente de contracts/openapi.yaml (JSON Schema
   2020-12, dialecto de OAS 3.1), como hace schemathesis con response_schema_conformance.
+- `cliente_editora`/`editora`: sesión real de panel (login + CSRF vía `apps.cuentas.tests.conftest`,
+  mismo patrón que `apps/auditoria/tests/conftest.py`) para pruebas HTTP end-to-end del panel
+  editorial (TKT-006, QA ciclo 1/3: BUG-1/BUG-2 solo se detectaron con una petición HTTP real
+  contra Postgres, nunca con una llamada directa a `services.py`).
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from jsonschema import Draft202012Validator
 
 from apps.busqueda.services import reindexar_todo
 from apps.contenido.tests import publicos
+from apps.cuentas.tests.conftest import cliente_editora, editora  # noqa: F401 (fixtures de pytest)
 
 PUBLICO = "/api/v1/publico"
 

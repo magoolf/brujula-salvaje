@@ -11,6 +11,7 @@ from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -112,6 +113,16 @@ class _VistaMediosMixta(_VistaMedios):
 class ListaMedios(_VistaMediosMixta):
     tamano_pagina = 48
     throttle_scope_subida = "panel-subida"
+    # `POST` (subida) es el único endpoint multipart del panel (contrato: `multipart/form-data`,
+    # PARAMETRO_IDEMPOTENCY_KEY + `archivos`); el resto del panel es JSON-only por diseño
+    # (`REST_FRAMEWORK["DEFAULT_PARSER_CLASSES"]` en config/settings/base.py, fuera de
+    # archivos_permitidos salvo la excepción ya vigente de DEC-AUTO-919). Sin este override, DRF
+    # rechaza cualquier `multipart/form-data` con 415 antes de ejecutar `post()` (BUG-2, QA ciclo
+    # 1/3): scoped a esta vista -- no a `_VistaMedios`/`_VistaMediosMixta`, de las que heredan
+    # también `DetalleMedio` y las demás vistas JSON del mismo archivo -- para no cambiar su
+    # comportamiento. `GET` (listar, sin body) no se ve afectado: los parsers solo se invocan
+    # cuando hay cuerpo que parsear.
+    parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
         operation_id="panelListarMedios",

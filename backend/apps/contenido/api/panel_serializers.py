@@ -884,7 +884,7 @@ class DestinoPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, Destino
                 "pais_id": destino.pais_id,
                 "resumen": destino.resumen,
                 "descripcion_experta": destino.descripcion_experta,
-                "tipos_ids": list(destino.tipos_aventura.values_list("id", flat=True)),
+                "tipos_ids": list(destino.tipos_aventura.values_list("contenido_id", flat=True)),
                 "tipo_principal_id": destino.tipo_principal_id,
                 "dificultad": destino.dificultad,
                 "meses_mejor_epoca": list(destino.meses_mejor_epoca or []),
@@ -928,7 +928,7 @@ class ItinerarioPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, Itin
                 "resumen": itinerario.resumen,
                 "duracion_dias": itinerario.duracion_dias,
                 "dificultad": itinerario.dificultad,
-                "tipos_ids": list(itinerario.tipos_aventura.values_list("id", flat=True)),
+                "tipos_ids": list(itinerario.tipos_aventura.values_list("contenido_id", flat=True)),
                 "distancia_total_km": float(itinerario.distancia_total_km)
                 if itinerario.distancia_total_km is not None
                 else None,
@@ -971,7 +971,7 @@ class GuiaPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, GuiaCampos
                 "resumen": guia.resumen,
                 "cuerpo": guia.cuerpo,
                 "destinos_ids": list(guia.destinos.values_list("contenido_id", flat=True)),
-                "tipos_ids": list(guia.tipos_aventura.values_list("id", flat=True)),
+                "tipos_ids": list(guia.tipos_aventura.values_list("contenido_id", flat=True)),
                 "remite_a_metodologia": guia.remite_a_metodologia,
                 "portada_id": instance.portada_id,
                 "palabras": guia.palabras,
