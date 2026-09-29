@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 import structlog
+from django.conf import settings
 from django.db import connection, transaction
 from django.utils import timezone
 
@@ -27,6 +28,13 @@ logger = structlog.get_logger("brujula.ops")
 
 RETENCION_OPS = timedelta(days=30)
 LARGO_DETALLE = 500
+
+# DEVOPS_HANDOFF.md §19.3.6, mismos valores por defecto que infra/ops/cache_limites_tamano.sql
+# (-v max_filas / -v max_bytes). No están en settings (fuera de archivos_permitidos de TKT-011):
+# se leen con getattr(settings, ..., <valor por defecto de aquí>), así que si algún día se añaden
+# a settings se respetan sin ampliar el alcance de este ticket.
+CACHE_LIMITES_MAX_FILAS_POR_DEFECTO = 50_000
+CACHE_LIMITES_MAX_BYTES_POR_DEFECTO = 67_108_864  # 64 MiB
 
 
 @dataclass(frozen=True)
@@ -154,6 +162,35 @@ def verificar_busqueda() -> Resultado:
     return Resultado(filas=estado.indexados, detalle=detalle, exito=estado.coherente)
 
 
+def vigilar_cache_limites() -> Resultado:
+    """VIGILAR_CACHE_LIMITES (RSK-QA004-02, RSK-OPS-032, DEVOPS_HANDOFF §19.3.6): alerta si
+    `cache_limites` (tabla UNLOGGED, throttling/bloqueos, TTL <= 1 h) supera el umbral de filas o
+    el de tamaño en disco (tabla + índices + TOAST). Misma consulta y mismos umbrales por defecto
+    que `infra/ops/cache_limites_tamano.sql` (solo lectura, propiedad de DevOps, no se modifica).
+
+    Ese script SQL también contempla el rol `readonly`, que por diseño no tiene SELECT sobre
+    `cache_limites` (ADR-DB-001) y por eso recurre a la estimación de `pg_class.reltuples`. Este
+    comando corre con la conexión habitual de Django (`DB_USER` por defecto `app_rw`), que SÍ
+    tiene SELECT sobre la tabla (DB_HANDOFF roles.app_rw: "... y cache_limites"; lo confirma
+    también `purgar_ops()`, que ya hace DELETE sobre ella con esta misma conexión): el recuento de
+    filas es siempre un COUNT(*) exacto, sin necesidad de ese fallback de estimación.
+    """
+    max_filas = getattr(settings, "CACHE_LIMITES_MAX_FILAS", CACHE_LIMITES_MAX_FILAS_POR_DEFECTO)
+    max_bytes = getattr(settings, "CACHE_LIMITES_MAX_BYTES", CACHE_LIMITES_MAX_BYTES_POR_DEFECTO)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*), count(*) FILTER (WHERE expires < now()), "
+            "pg_total_relation_size('cache_limites') FROM cache_limites"
+        )
+        filas, caducadas, tamano_bytes = cursor.fetchone()
+    supera_umbral = filas > max_filas or tamano_bytes > max_bytes
+    detalle = (
+        f"filas={filas} caducadas={caducadas} bytes={tamano_bytes} "
+        f"max_filas={max_filas} max_bytes={max_bytes}"
+    )
+    return Resultado(filas=filas, detalle=detalle, exito=not supera_umbral)
+
+
 def purgar_auditoria() -> Resultado:
     """PURGA_AUDITORIA (ADR-DB-004 §1.3): eventos > 365 días con app.fn_auditoria_purgar()."""
     from apps.auditoria.services import purgar_eventos_caducados
@@ -230,4 +267,5 @@ TRABAJOS: dict[str, tuple[TareaProgramada, Callable[..., Resultado]]] = {
     "purgar_sesiones": (TareaProgramada.PURGA_SESIONES, purgar_sesiones),
     "reindexar_busqueda": (TareaProgramada.REINDEX_BUSQUEDA, reindexar_busqueda),
     "verificar_busqueda": (TareaProgramada.VERIFICACION_BUSQUEDA, verificar_busqueda),
+    "vigilar_cache_limites": (TareaProgramada.VIGILAR_CACHE_LIMITES, vigilar_cache_limites),
 }
