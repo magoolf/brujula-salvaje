@@ -432,16 +432,16 @@ tickets:
     evidencia: []
     actualizado: 2026-09-28
   - id: TKT-OPS-010
-    titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERROR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
+    titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [DEC-AUTO-196, TKT-OPS-004]
     depende_de: []
     archivos_permitidos: [".github/workflows/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["PR #25 (rama tkt-ops-010-gate-error, worktree nuevo ops010); único cambio funcional: --fail-on WARN -> --fail-on ERROR en el paso de oasdiff de ci.yaml; docstring de gate_contrato.py y DEVOPS_HANDOFF.md §20 actualizados; RSK-OPS-035 (608 warnings sin bloquear, deuda en TKT-012) y RSK-OPS-036 (actionlint no disponible localmente, solo sintaxis YAML validada) registrados", "READY_FOR_VALIDATION; despachado a QA aunque el propio DevOps sugería que no hacía falta (consistencia con TKT-OPS-001..009, todos pasaron por QA antes de integrarse)"]
+    evidencia: ["PR #25 (rama tkt-ops-010-gate-error, worktree nuevo ops010); único cambio funcional: --fail-on WARN -> --fail-on ERROR en el paso de oasdiff de ci.yaml; docstring de gate_contrato.py y DEVOPS_HANDOFF.md §20 actualizados; RSK-OPS-035 (608 warnings sin bloquear, deuda en TKT-012) y RSK-OPS-036 (actionlint no disponible localmente, solo sintaxis YAML validada) registrados", "READY_FOR_VALIDATION; despachado a QA aunque el propio DevOps sugería que no hacía falta (consistencia con TKT-OPS-001..009, todos pasaron por QA antes de integrarse)", "CI real del PR #25 (run 36561133019) FALLÓ: --fail-on ERROR no es un valor válido del binario oasdiff (solo acepta ERR o WARN), error de uso del comando, no un hallazgo de contrato. Se devuelve a devops en la misma rama para corregir a --fail-on ERR"]
     actualizado: 2026-09-29
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~608 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias"
