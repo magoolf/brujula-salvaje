@@ -564,6 +564,20 @@ def test_AC_TKT006_02_impacto_retiro_sin_efectos(actor: int) -> None:
 # de este `retirar()`, ya que solo se bloquea con `select_for_update()` la fila del propio Tipo, no
 # las de sus potenciales dependientes) y sigue cubierta por el caso "sin dependientes" más abajo,
 # que sí llega al camino feliz.
+#
+# CORRECCIÓN QA (ciclo_qa 2/3): la primera versión de `_usos_publicados_de_tipo` solo miraba
+# `tipo_principal` en el caso de un Destino, no el M2M `tipos_aventura` completo. QA lo reprodujo
+# con datos reales: un Destino PUBLICADO con el tipo como SECUNDARIO permitía retirar ese tipo de
+# forma directa sin bloqueo, dejando una fila `DestinoTipoAventura` viva apuntando a un Tipo ya
+# RETIRADO — un estado que RULE-002/AC-124 declara imposible en cualquier operación normal
+# ("ningún Destino PUBLICADO referencia un Tipo no PUBLICADO", sin distinguir principal de
+# secundario) y que AC-129 solo contempla como inconsistencia FORZADA en datos de prueba, nunca
+# como algo alcanzable por el panel. Además era inconsistente con el propio archivo:
+# `_destinos_publicados_de_tipo` y `_tipos_en_cascada` (usadas por la rama T.DESTINO de `retirar()`
+# para RULE-025) ya interpretan "un destino tiene este tipo en uso" como pertenencia al M2M
+# `tipos_aventura` completo, no solo como `tipo_principal`. `_usos_publicados_de_tipo` (y, por
+# consistencia, `_reindexar_dependientes_de_tipo`) se corrigieron para usar el mismo criterio
+# amplio; el test que antes documentaba el alcance estrecho como intencional se invirtió más abajo.
 # ---------------------------------------------------------------------------
 def test_AC_TKT015_retirar_tipo_directo_bloqueado_si_es_tipo_principal_de_destino_publicado(
     actor: int,
@@ -677,27 +691,47 @@ def test_AC_TKT015_retirar_tipo_directo_bloqueado_lista_ambos_usos(actor: int) -
     }
 
 
-def test_AC_TKT015_retirar_tipo_directo_no_bloqueado_si_es_solo_secundario_de_destino(
+def test_AC_TKT015_retirar_tipo_directo_bloqueado_si_es_solo_secundario_de_destino_publicado(
     actor: int,
 ) -> None:
-    """Alcance intencional (idéntico al de `_reindexar_dependientes_de_tipo`, TKT-014): RULE-007
-    solo bloquea por `tipo_principal` en el caso de un Destino, no por pertenecer a su
-    `tipos_aventura` como tipo secundario. Un Tipo secundario de un Destino publicado sí se puede
-    retirar directamente."""
+    """RULE-002/AC-124: ningún Destino PUBLICADO puede referenciar un Tipo no PUBLICADO, sea
+    `tipo_principal` o cualquier otro miembro de `tipos_aventura`. Retirar directamente un Tipo que
+    es SOLO secundario (no principal) de un Destino publicado debe bloquear igual que si fuera el
+    principal: el destino quedaría con un tipo no publicado en su lista, un estado que AC-129 solo
+    contempla como inconsistencia forzada en datos de prueba, nunca alcanzable por el panel."""
     principal = publicos.tipo("Tipo principal TKT-015")
     secundario = publicos.tipo("Tipo secundario TKT-015")
-    publicos.destino("Destino con tipo secundario TKT-015", tipos=[principal, secundario])
-
-    contenido, _ = services.retirar(
-        T.TIPO,
-        secundario.pk,
-        actor,
-        version=secundario.contenido.version,
-        motivo="Ya no se ofrece",
-        confirmar_cascada=False,
-        cascada_confirmada=None,
+    destino_ = publicos.destino(
+        "Destino con tipo secundario TKT-015", tipos=[principal, secundario]
     )
-    assert contenido.estado_editorial == E.RETIRADO
+
+    with pytest.raises(services.DependenciaBloqueante) as exc:
+        services.retirar(
+            T.TIPO,
+            secundario.pk,
+            actor,
+            version=secundario.contenido.version,
+            motivo="Ya no se ofrece",
+            confirmar_cascada=False,
+            cascada_confirmada=None,
+        )
+    assert exc.value.extra["total_usos"] == 1
+    assert exc.value.extra["usos"] == [
+        {
+            "tipo_entidad": "DESTINO",
+            "id": destino_.contenido_id,
+            "titulo": destino_.contenido.titulo,
+            "estado_editorial": E.PUBLICADO,
+        }
+    ]
+
+    destino_.contenido.refresh_from_db()
+    assert destino_.contenido.estado_editorial == E.PUBLICADO
+    secundario.contenido.refresh_from_db()
+    assert secundario.contenido.estado_editorial == E.PUBLICADO
+    # El tipo_principal (distinto del retirado) no se ve afectado por este intento bloqueado.
+    destino_.refresh_from_db()
+    assert destino_.tipo_principal_id == principal.pk
 
 
 def test_AC_TKT015_retirar_tipo_directo_no_bloqueado_si_los_dependientes_no_estan_publicados(
