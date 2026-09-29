@@ -6,7 +6,11 @@
 # DEC-AUTO-210 (TKT-OPS-004): se ignoran las actualizaciones de versión semver-major en TODOS los
 # ecosistemas (una mayor es un cambio de stack: la fija el Contrato Técnico / ticket, no un bot);
 # se mantienen parches y menores. El "ignore" por update-types solo afecta a las actualizaciones de
-# versión: las actualizaciones de SEGURIDAD de Dependabot siguen activas (ajuste del repositorio).
+# versión, no a las de SEGURIDAD.
+# "Dependabot security updates" está ACTIVADO en el repositorio desde el 2026-09-26 (DEC-AUTO-230,
+# RSK-OPS-021; verificable con: gh api repos/magoolf/brujula-salvaje/automated-security-fixes).
+# Es un ajuste del repositorio, no de este fichero: si se desactiva, este comentario deja de ser
+# cierto. Los PR de seguridad pasan por el mismo CI obligatorio y triage que el resto.
 # Los cambios de manifest (package.json, pyproject.toml) siguen siendo competencia del Developer
 # (CLAUDE.md §0.3): el Orquestador los asigna como ticket; Dependabot solo los propone.
 # =============================================================================
@@ -38,17 +42,27 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
-  # Imágenes base de los Dockerfile
+  # Imágenes base de TODOS los Dockerfile del repositorio (RSK-OPS-025, TKT-OPS-006, DEC-AUTO-254):
+  # /infra/db contiene ahora el digest de postgres (ya no está en compose.yaml). Dependabot no
+  # resuelve ARG en FROM: los Dockerfile llevan la imagen LITERAL en FROM. Un Dockerfile nuevo debe
+  # añadirse aquí (lo comprueba el paso "Dependabot cubre todos los Dockerfile" del CI).
+  # Grupo "postgres": el servidor (infra/db) y el cliente de copias (infra/backup) deben llevar el
+  # MISMO digest (ADR-DB-004): se actualizan juntos en un único PR.
   - package-ecosystem: "docker"
-    directories: ["/infra/docker", "/infra/proxy", "/infra/backup"]
+    directories: ["/infra/db", "/infra/docker", "/infra/proxy", "/infra/backup"]
     schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}
     open-pull-requests-limit: 2
     commit-message: {prefix: "chore(deps-docker)"}
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+    groups:
+      postgres:
+        patterns: ["postgres"]
 
-  # Imágenes fijadas en compose.yaml (postgres para db / init-volumes)
+  # compose*.yaml: hoy no fija imágenes de terceros (todas son brujula/*, construidas desde los
+  # Dockerfile de arriba; postgres pasó a infra/db/Dockerfile, TKT-OPS-005). Se mantiene para que una
+  # imagen de terceros que se añada a compose quede vigilada.
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule: {interval: "weekly", day: "monday", time: "06:00", timezone: "Europe/Madrid"}

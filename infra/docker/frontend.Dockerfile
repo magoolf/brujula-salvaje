@@ -8,12 +8,13 @@
 #   angular.json con SSR (outputMode server) y nombre de proyecto = ANGULAR_PROJECT,
 #   src/server.ts con GET /healthz y aplicación del nonce recibido en X-CSP-Nonce.
 # =============================================================================
-ARG NODE_IMAGE=node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe
+# Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
+# no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
 
 # ---------------------------------------------------------------------------
 # deps: instalación reproducible desde package-lock.json (npm ci falla si no cuadra)
 # ---------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS deps
+FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS deps
 ENV NG_CLI_ANALYTICS=false \
     npm_config_fund=false \
     npm_config_audit=false \
@@ -40,7 +41,7 @@ RUN npx --no-install ng build --configuration production \
 # el sistema de archivos se APLANA en una sola capa (FROM scratch + COPY /) para que sus bytes
 # tampoco queden en capas inferiores de la imagen. Se re-declaran las ENV de la imagen base.
 # ---------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS node-sin-pm
+FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS node-sin-pm
 RUN set -eu; \
     rm -rf /usr/local/lib/node_modules \
            /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \

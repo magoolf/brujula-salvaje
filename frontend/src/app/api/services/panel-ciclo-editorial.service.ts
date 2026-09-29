@@ -9,8 +9,11 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { AnalisisPublicacion } from '../models/analisis-publicacion';
 import { ImpactoRetiro } from '../models/impacto-retiro';
 import { PaginaRevisionResumen } from '../models/pagina-revision-resumen';
+import { panelAnalizarPublicacion } from '../fn/panel-ciclo-editorial/panel-analizar-publicacion';
+import { PanelAnalizarPublicacion$Params } from '../fn/panel-ciclo-editorial/panel-analizar-publicacion';
 import { panelListarRevisiones } from '../fn/panel-ciclo-editorial/panel-listar-revisiones';
 import { PanelListarRevisiones$Params } from '../fn/panel-ciclo-editorial/panel-listar-revisiones';
 import { panelObtenerImpactoRetiro } from '../fn/panel-ciclo-editorial/panel-obtener-impacto-retiro';
@@ -43,9 +46,15 @@ export class PanelCicloEditorialService extends BaseService {
   static readonly PanelPublicarContenidoPath = '/api/v1/panel/contenidos/{tipo}/{id}/publicar';
 
   /**
-   * BORRADOR → PUBLICADO con validación completa.
+   * BORRADOR → PUBLICADO con validación completa (co-publicación destino + tipos, CHG-API-005).
    *
-   * Valida RULE-002..006, 009, 023..027 según el tipo; si falla, 422 publicacion_invalida con `errors` por campo (lista enlazable a los campos, ALT-018). Si pasa: fija el slug, crea la instantánea (DATA-026) en la misma transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409 transicion_invalida. Páginas legales: solo Administrador.
+   * Valida RULE-002..006, 009, 023..027 según el tipo; si falla, 422 publicacion_invalida con `errors` por campo (lista enlazable a los campos, ALT-018) y `errores_por_entidad` agrupados por entidad (CHG-API-005, DEC-AUTO-266). Si pasa: fija el slug, crea la instantánea (DATA-026) en la misma transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409 transicion_invalida. Páginas legales: solo Administrador.
+   *
+   * **Co-publicación (solo destinos; CHG-BP-001, DEC-AUTO-912, DEC-AUTO-265).** `copublicar_tipos` debe contener EXACTAMENTE los tipos del destino (`tipos_ids`, incluido `tipo_principal_id`) que están en BORRADOR, cada uno con la `version` que el editor vio (ALT-016). El cliente obtiene esa lista de `panelAnalizarPublicacion`. La validación evalúa el estado RESULTANTE de la operación completa: el destino cuenta como "destino publicado" de cada tipo co-publicado (RULE-025), y cada tipo se valida con sus propias reglas (RULE-006, RULE-009, RULE-025 checklist, RULE-027…). Todo o nada: el destino y los tipos pasan a PUBLICADO en una única transacción, con una instantánea y una auditoría PUBLICAR por entidad; si algo falla, ninguna entidad cambia de estado (AC-124, AC-125). La respuesta 200 enumera en `entidades` TODAS las entidades publicadas (principal + co-publicadas). Idempotente con `Idempotency-Key` (ALT-017): la huella incluye `copublicar_tipos`.
+   *
+   * Errores específicos (DEC-AUTO-266, dentro de `errores_por_entidad[].errores[].code`): `tipo_retirado` (un tipo del destino está RETIRADO: "Reactiva primero el tipo {nombre}", con enlace en `referencias`; AC-124, AC-130) · `tipo_no_publicado` (tipo en BORRADOR no incluido en `copublicar_tipos`) · `copublicacion_tipo_no_asociado` (id de `copublicar_tipos` que no es tipo del destino o no existe) · `copublicacion_tipo_no_borrador` (tipo listado que ya está PUBLICADO) · `tipo_sin_destino_publicado` (publicar un TIPO por sí solo con 0 destinos publicados, RULE-025, AC-126: `referencias` = destinos en BORRADOR que tienen asociado el tipo) · `itinerario_tipo_no_publicado` (itinerario con algún tipo no PUBLICADO, RULE-003, DEC-AUTO-914; no hay co-publicación desde el itinerario). `copublicar_tipos` no vacío en un contenido que no es destino → 400 campo_no_permitido.
+   *
+   * Orden de evaluación (DEC-AUTO-269): 400 formato → 403 permiso → 404 principal → 409 transicion_invalida → 409 conflicto_version (principal o cualquier tipo listado; `entidades_en_conflicto`) → 422 publicacion_invalida (todas las entidades, agrupadas). Bloqueo: FOR UPDATE del destino y de TODOS sus tipos en orden ascendente de id antes de validar.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelPublicarContenido()` instead.
@@ -58,9 +67,15 @@ export class PanelCicloEditorialService extends BaseService {
   }
 
   /**
-   * BORRADOR → PUBLICADO con validación completa.
+   * BORRADOR → PUBLICADO con validación completa (co-publicación destino + tipos, CHG-API-005).
    *
-   * Valida RULE-002..006, 009, 023..027 según el tipo; si falla, 422 publicacion_invalida con `errors` por campo (lista enlazable a los campos, ALT-018). Si pasa: fija el slug, crea la instantánea (DATA-026) en la misma transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409 transicion_invalida. Páginas legales: solo Administrador.
+   * Valida RULE-002..006, 009, 023..027 según el tipo; si falla, 422 publicacion_invalida con `errors` por campo (lista enlazable a los campos, ALT-018) y `errores_por_entidad` agrupados por entidad (CHG-API-005, DEC-AUTO-266). Si pasa: fija el slug, crea la instantánea (DATA-026) en la misma transacción y audita PUBLICAR. Estado distinto de BORRADOR: 409 transicion_invalida. Páginas legales: solo Administrador.
+   *
+   * **Co-publicación (solo destinos; CHG-BP-001, DEC-AUTO-912, DEC-AUTO-265).** `copublicar_tipos` debe contener EXACTAMENTE los tipos del destino (`tipos_ids`, incluido `tipo_principal_id`) que están en BORRADOR, cada uno con la `version` que el editor vio (ALT-016). El cliente obtiene esa lista de `panelAnalizarPublicacion`. La validación evalúa el estado RESULTANTE de la operación completa: el destino cuenta como "destino publicado" de cada tipo co-publicado (RULE-025), y cada tipo se valida con sus propias reglas (RULE-006, RULE-009, RULE-025 checklist, RULE-027…). Todo o nada: el destino y los tipos pasan a PUBLICADO en una única transacción, con una instantánea y una auditoría PUBLICAR por entidad; si algo falla, ninguna entidad cambia de estado (AC-124, AC-125). La respuesta 200 enumera en `entidades` TODAS las entidades publicadas (principal + co-publicadas). Idempotente con `Idempotency-Key` (ALT-017): la huella incluye `copublicar_tipos`.
+   *
+   * Errores específicos (DEC-AUTO-266, dentro de `errores_por_entidad[].errores[].code`): `tipo_retirado` (un tipo del destino está RETIRADO: "Reactiva primero el tipo {nombre}", con enlace en `referencias`; AC-124, AC-130) · `tipo_no_publicado` (tipo en BORRADOR no incluido en `copublicar_tipos`) · `copublicacion_tipo_no_asociado` (id de `copublicar_tipos` que no es tipo del destino o no existe) · `copublicacion_tipo_no_borrador` (tipo listado que ya está PUBLICADO) · `tipo_sin_destino_publicado` (publicar un TIPO por sí solo con 0 destinos publicados, RULE-025, AC-126: `referencias` = destinos en BORRADOR que tienen asociado el tipo) · `itinerario_tipo_no_publicado` (itinerario con algún tipo no PUBLICADO, RULE-003, DEC-AUTO-914; no hay co-publicación desde el itinerario). `copublicar_tipos` no vacío en un contenido que no es destino → 400 campo_no_permitido.
+   *
+   * Orden de evaluación (DEC-AUTO-269): 400 formato → 403 permiso → 404 principal → 409 transicion_invalida → 409 conflicto_version (principal o cualquier tipo listado; `entidades_en_conflicto`) → 422 publicacion_invalida (todas las entidades, agrupadas). Bloqueo: FOR UPDATE del destino y de TODOS sus tipos en orden ascendente de id antes de validar.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelPublicarContenido$Response()` instead.
@@ -72,13 +87,86 @@ export class PanelCicloEditorialService extends BaseService {
     return resp.then((r: StrictHttpResponse<ResultadoTransicion>): ResultadoTransicion => r.body);
   }
 
+  /** Path part for operation `panelAnalizarPublicacion()` */
+  static readonly PanelAnalizarPublicacionPath = '/api/v1/panel/contenidos/{tipo}/{id}/analisis-publicacion';
+
+  /**
+   * Análisis previo (sin efectos) de "Publicar" o "Actualizar publicación" multi-entidad (SCR-038).
+   *
+   * Operación NUEVA de solo lectura (CHG-API-005, DEC-AUTO-267): no persiste, no audita, no crea instantáneas. Es POST porque recibe el estado propuesto de los tipos del formulario y requiere CSRF como toda operación POST del panel. Alimenta el diálogo SCR-038.
+   *
+   * - Contenido en BORRADOR → `operacion: PUBLICAR`. Evalúa el estado GUARDADO: `entidad` contiene la
+   *   validación completa de publicación del principal y, si es un destino, `copublicacion` lista los
+   *   tipos en BORRADOR con su propia validación ("Se publicarán también") y `copublicar_tipos` trae la
+   *   lista exacta `{id, version}` que el cliente debe enviar a `panelPublicarContenido`. Los tipos
+   *   RETIRADOS aparecen como error `tipo_retirado` del principal (no confirmable).
+   *
+   * - Destino PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION`. Si el cuerpo trae `tipos_ids` /
+   *   `tipo_principal_id` (valores del formulario sin guardar), se evalúa ese estado propuesto; si no,
+   *   el guardado. Devuelve la co-publicación de los tipos añadidos en BORRADOR, los `tipos_en_cascada`
+   *   (tipos que quedarían con 0 destinos publicados al quitarlos, RULE-025, AC-128) y los
+   *   `bloqueos_cascada` (itinerarios PUBLICADOS que usan esos tipos). La validación de los demás campos
+   *   del destino la da `panelVistaPreviaDestino` (`requisitos_publicacion`) y, de forma definitiva, el
+   *   PUT; aquí `entidad` solo contiene las reglas multi-entidad (tipos).
+   *
+   * - Otro contenido PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION` sin efectos multi-entidad (listas
+   *   vacías). RETIRADO → 409 transicion_invalida.
+   *
+   *
+   * `tipos_ids` / `tipo_principal_id` solo se admiten en un destino PUBLICADO; en otro caso 400 campo_no_permitido. `version` distinta de la actual → 409 conflicto_version. El resultado es orientativo: la operación de escritura vuelve a validar todo bajo bloqueo (el estado puede cambiar entre el análisis y la confirmación; ver `cascada_confirmada` e `impacto_modificado`).
+   *
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `panelAnalizarPublicacion()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  panelAnalizarPublicacion$Response(params: PanelAnalizarPublicacion$Params, context?: HttpContext): Promise<StrictHttpResponse<AnalisisPublicacion>> {
+    const obs = panelAnalizarPublicacion(this.http, this.rootUrl, params, context);
+    return firstValueFrom(obs);
+  }
+
+  /**
+   * Análisis previo (sin efectos) de "Publicar" o "Actualizar publicación" multi-entidad (SCR-038).
+   *
+   * Operación NUEVA de solo lectura (CHG-API-005, DEC-AUTO-267): no persiste, no audita, no crea instantáneas. Es POST porque recibe el estado propuesto de los tipos del formulario y requiere CSRF como toda operación POST del panel. Alimenta el diálogo SCR-038.
+   *
+   * - Contenido en BORRADOR → `operacion: PUBLICAR`. Evalúa el estado GUARDADO: `entidad` contiene la
+   *   validación completa de publicación del principal y, si es un destino, `copublicacion` lista los
+   *   tipos en BORRADOR con su propia validación ("Se publicarán también") y `copublicar_tipos` trae la
+   *   lista exacta `{id, version}` que el cliente debe enviar a `panelPublicarContenido`. Los tipos
+   *   RETIRADOS aparecen como error `tipo_retirado` del principal (no confirmable).
+   *
+   * - Destino PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION`. Si el cuerpo trae `tipos_ids` /
+   *   `tipo_principal_id` (valores del formulario sin guardar), se evalúa ese estado propuesto; si no,
+   *   el guardado. Devuelve la co-publicación de los tipos añadidos en BORRADOR, los `tipos_en_cascada`
+   *   (tipos que quedarían con 0 destinos publicados al quitarlos, RULE-025, AC-128) y los
+   *   `bloqueos_cascada` (itinerarios PUBLICADOS que usan esos tipos). La validación de los demás campos
+   *   del destino la da `panelVistaPreviaDestino` (`requisitos_publicacion`) y, de forma definitiva, el
+   *   PUT; aquí `entidad` solo contiene las reglas multi-entidad (tipos).
+   *
+   * - Otro contenido PUBLICADO → `operacion: ACTUALIZAR_PUBLICACION` sin efectos multi-entidad (listas
+   *   vacías). RETIRADO → 409 transicion_invalida.
+   *
+   *
+   * `tipos_ids` / `tipo_principal_id` solo se admiten en un destino PUBLICADO; en otro caso 400 campo_no_permitido. `version` distinta de la actual → 409 conflicto_version. El resultado es orientativo: la operación de escritura vuelve a validar todo bajo bloqueo (el estado puede cambiar entre el análisis y la confirmación; ver `cascada_confirmada` e `impacto_modificado`).
+   *
+   * This method provides access only to the response body.
+   * To access the full response (for headers, for example), `panelAnalizarPublicacion$Response()` instead.
+   *
+   * This method sends `application/json` and handles request body of type `application/json`.
+   */
+  panelAnalizarPublicacion(params: PanelAnalizarPublicacion$Params, context?: HttpContext): Promise<AnalisisPublicacion> {
+    const resp = this.panelAnalizarPublicacion$Response(params, context);
+    return resp.then((r: StrictHttpResponse<AnalisisPublicacion>): AnalisisPublicacion => r.body);
+  }
+
   /** Path part for operation `panelObtenerImpactoRetiro()` */
   static readonly PanelObtenerImpactoRetiroPath = '/api/v1/panel/contenidos/{tipo}/{id}/impacto-retiro';
 
   /**
    * Análisis de impacto antes de retirar (cascada, colecciones, destacados, enlaces entrantes).
    *
-   *
+   * Sin efectos. Para un destino (CHG-API-005, DEC-AUTO-268): `itinerarios_en_cascada` (sus itinerarios PUBLICADOS), `tipos_en_cascada` (tipos PUBLICADOS del destino cuyo ÚNICO destino publicado es este, que se retirarían en la misma operación, RULE-025/RULE-007, AC-127) y `bloqueos_cascada` (por cada tipo en cascada, los itinerarios PUBLICADOS que lo usan y que NO se retiran en la misma operación, es decir, de otro destino; RULE-003, DEC-AUTO-914, ALT-019, AC-128). `colecciones` y `destacados` incluyen los de la entidad principal y los de las entidades en cascada. `bloqueos` mantiene los usos de RULE-007 (p. ej. retirar un tipo usado por destinos publicados: nunca de forma directa; se resuelve retirando el último destino). `retirable` = false si `bloqueos` o `bloqueos_cascada` no están vacíos. Guías, colecciones, destacados y relacionados que referencian un tipo en cascada NO bloquean (RULE-001). El cliente envía los elementos de `itinerarios_en_cascada` y `tipos_en_cascada` como `cascada_confirmada` en `panelRetirarContenido`.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelObtenerImpactoRetiro()` instead.
@@ -93,7 +181,7 @@ export class PanelCicloEditorialService extends BaseService {
   /**
    * Análisis de impacto antes de retirar (cascada, colecciones, destacados, enlaces entrantes).
    *
-   *
+   * Sin efectos. Para un destino (CHG-API-005, DEC-AUTO-268): `itinerarios_en_cascada` (sus itinerarios PUBLICADOS), `tipos_en_cascada` (tipos PUBLICADOS del destino cuyo ÚNICO destino publicado es este, que se retirarían en la misma operación, RULE-025/RULE-007, AC-127) y `bloqueos_cascada` (por cada tipo en cascada, los itinerarios PUBLICADOS que lo usan y que NO se retiran en la misma operación, es decir, de otro destino; RULE-003, DEC-AUTO-914, ALT-019, AC-128). `colecciones` y `destacados` incluyen los de la entidad principal y los de las entidades en cascada. `bloqueos` mantiene los usos de RULE-007 (p. ej. retirar un tipo usado por destinos publicados: nunca de forma directa; se resuelve retirando el último destino). `retirable` = false si `bloqueos` o `bloqueos_cascada` no están vacíos. Guías, colecciones, destacados y relacionados que referencian un tipo en cascada NO bloquean (RULE-001). El cliente envía los elementos de `itinerarios_en_cascada` y `tipos_en_cascada` como `cascada_confirmada` en `panelRetirarContenido`.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelObtenerImpactoRetiro$Response()` instead.
@@ -109,9 +197,13 @@ export class PanelCicloEditorialService extends BaseService {
   static readonly PanelRetirarContenidoPath = '/api/v1/panel/contenidos/{tipo}/{id}/retirar';
 
   /**
-   * PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios).
+   * PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios + tipos sin destinos publicados).
    *
-   * Si el destino tiene itinerarios publicados y `confirmar_cascada` es false: 409 dependencia_bloqueante con `usos`. Con confirmación, retira en cascada con una instantánea y una entrada de auditoría RETIRAR por entidad (AC-112). Páginas institucionales: 409 transicion_invalida.
+   * Cascada atómica (RULE-007, RULE-025, CHG-BP-001, DEC-AUTO-268): retirar un destino retira en la MISMA transacción sus itinerarios PUBLICADOS y los tipos PUBLICADOS que se quedarían con 0 destinos publicados, con una instantánea y una auditoría RETIRAR por entidad (AC-112, AC-127). El motivo de auditoría de los tipos en cascada es "Cascada: sin destinos publicados (RULE-025)"; el de los itinerarios, el `motivo` recibido. La respuesta 200 enumera en `entidades` la principal y TODAS las entidades retiradas en cascada (`origen: CASCADA`).
+   *
+   * Errores 409 (ProblemaConUsos): `cascada_bloqueada` si algún tipo en cascada lo usa un itinerario PUBLICADO que no se retira en la misma operación (itinerario de otro destino, RULE-003, DEC-AUTO-914): nada cambia; `usos` y `bloqueos_cascada` listan esos itinerarios (el editor les quita el tipo y repite; ALT-019, AC-128). `cascada_sin_confirmar` si hay cascada (itinerarios o tipos) y `confirmar_cascada` es false, con `impacto_cascada` (sustituye al antiguo `dependencia_bloqueante` de este caso: ADR-API-002 §21, excepción documentada). `impacto_modificado` si se envía `cascada_confirmada` y no coincide con la cascada calculada bajo bloqueo, con `impacto_cascada` actualizado (el cliente vuelve a mostrar el impacto). `dependencia_bloqueante` queda solo para los usos de RULE-007 (tipo, categoría, país, región, licencia o medio en uso por contenido publicado; un tipo en uso por destinos publicados nunca se retira de forma directa). Páginas institucionales: 409 transicion_invalida.
+   *
+   * Orden de evaluación (DEC-AUTO-269): 400 → 403 → 404 → 409 transicion_invalida → 409 conflicto_version → 409 dependencia_bloqueante → 409 cascada_bloqueada → 409 cascada_sin_confirmar / impacto_modificado. Bloqueo: FOR UPDATE del destino, sus itinerarios publicados y sus tipos en orden ascendente de id antes de calcular la cascada (evita que dos retiros concurrentes dejen un tipo PUBLICADO con 0 destinos). Si la cascada superase 200 entidades → 422 regla_negocio (límite de `afectados`; no esperado con los datos del producto).
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelRetirarContenido()` instead.
@@ -124,9 +216,13 @@ export class PanelCicloEditorialService extends BaseService {
   }
 
   /**
-   * PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios).
+   * PUBLICADO → RETIRADO (motivo obligatorio; cascada destino → itinerarios + tipos sin destinos publicados).
    *
-   * Si el destino tiene itinerarios publicados y `confirmar_cascada` es false: 409 dependencia_bloqueante con `usos`. Con confirmación, retira en cascada con una instantánea y una entrada de auditoría RETIRAR por entidad (AC-112). Páginas institucionales: 409 transicion_invalida.
+   * Cascada atómica (RULE-007, RULE-025, CHG-BP-001, DEC-AUTO-268): retirar un destino retira en la MISMA transacción sus itinerarios PUBLICADOS y los tipos PUBLICADOS que se quedarían con 0 destinos publicados, con una instantánea y una auditoría RETIRAR por entidad (AC-112, AC-127). El motivo de auditoría de los tipos en cascada es "Cascada: sin destinos publicados (RULE-025)"; el de los itinerarios, el `motivo` recibido. La respuesta 200 enumera en `entidades` la principal y TODAS las entidades retiradas en cascada (`origen: CASCADA`).
+   *
+   * Errores 409 (ProblemaConUsos): `cascada_bloqueada` si algún tipo en cascada lo usa un itinerario PUBLICADO que no se retira en la misma operación (itinerario de otro destino, RULE-003, DEC-AUTO-914): nada cambia; `usos` y `bloqueos_cascada` listan esos itinerarios (el editor les quita el tipo y repite; ALT-019, AC-128). `cascada_sin_confirmar` si hay cascada (itinerarios o tipos) y `confirmar_cascada` es false, con `impacto_cascada` (sustituye al antiguo `dependencia_bloqueante` de este caso: ADR-API-002 §21, excepción documentada). `impacto_modificado` si se envía `cascada_confirmada` y no coincide con la cascada calculada bajo bloqueo, con `impacto_cascada` actualizado (el cliente vuelve a mostrar el impacto). `dependencia_bloqueante` queda solo para los usos de RULE-007 (tipo, categoría, país, región, licencia o medio en uso por contenido publicado; un tipo en uso por destinos publicados nunca se retira de forma directa). Páginas institucionales: 409 transicion_invalida.
+   *
+   * Orden de evaluación (DEC-AUTO-269): 400 → 403 → 404 → 409 transicion_invalida → 409 conflicto_version → 409 dependencia_bloqueante → 409 cascada_bloqueada → 409 cascada_sin_confirmar / impacto_modificado. Bloqueo: FOR UPDATE del destino, sus itinerarios publicados y sus tipos en orden ascendente de id antes de calcular la cascada (evita que dos retiros concurrentes dejen un tipo PUBLICADO con 0 destinos). Si la cascada superase 200 entidades → 422 regla_negocio (límite de `afectados`; no esperado con los datos del producto).
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelRetirarContenido$Response()` instead.
@@ -144,7 +240,7 @@ export class PanelCicloEditorialService extends BaseService {
   /**
    * RETIRADO → BORRADOR (conserva el slug).
    *
-   *
+   * Solo afecta a la entidad indicada: `entidades` contiene únicamente la principal. Reactivar un destino NO reactiva sus tipos ni sus itinerarios retirados en cascada (FLOW-012, AC-130). Para volver a publicar un destino cuyos tipos siguen RETIRADOS hay que reactivar antes esos tipos (quedan en BORRADOR) y publicarlos por co-publicación con el destino (`panelPublicarContenido`, `copublicar_tipos`); mientras tanto la publicación del destino falla con `tipo_retirado`. Un tipo reactivado solo vuelve a PUBLICADO mediante co-publicación (RULE-025).
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelReactivarContenido()` instead.
@@ -159,7 +255,7 @@ export class PanelCicloEditorialService extends BaseService {
   /**
    * RETIRADO → BORRADOR (conserva el slug).
    *
-   *
+   * Solo afecta a la entidad indicada: `entidades` contiene únicamente la principal. Reactivar un destino NO reactiva sus tipos ni sus itinerarios retirados en cascada (FLOW-012, AC-130). Para volver a publicar un destino cuyos tipos siguen RETIRADOS hay que reactivar antes esos tipos (quedan en BORRADOR) y publicarlos por co-publicación con el destino (`panelPublicarContenido`, `copublicar_tipos`); mientras tanto la publicación del destino falla con `tipo_retirado`. Un tipo reactivado solo vuelve a PUBLICADO mediante co-publicación (RULE-025).
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelReactivarContenido$Response()` instead.

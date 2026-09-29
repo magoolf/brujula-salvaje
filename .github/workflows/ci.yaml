@@ -43,6 +43,7 @@ env:
   BANDIT_VERSION: "1.9.4"
   PIP_AUDIT_VERSION: "2.10.1"
   SCHEMATHESIS_VERSION: "4.28.0"
+  PYYAML_VERSION: "6.0.3"
   DB_CI_HOST_PORT: "5432"
 
 jobs:
@@ -50,6 +51,7 @@ jobs:
   detect:
     name: detectar código
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       backend: ${{ steps.d.outputs.backend }}
       frontend: ${{ steps.d.outputs.frontend }}
@@ -65,6 +67,7 @@ jobs:
   infra:
     name: infraestructura (compose + secret scan)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false, fetch-depth: 0}
@@ -76,6 +79,31 @@ jobs:
           docker compose --profile ops config --quiet
           docker compose -f compose.yaml -f compose.ci.yaml config --quiet
           docker compose -f compose.yaml -f compose.debug.yaml config --quiet
+      # RSK-OPS-025 (TKT-OPS-006, DEC-AUTO-254): todo Dockerfile del repositorio está en el ecosistema
+      # "docker" de .github/dependabot.yml y sus FROM de imágenes externas son literales (Dependabot
+      # no resuelve ARG en FROM: con "FROM ${X}" la imagen base quedaría sin vigilar).
+      - name: "Dependabot: controles de cobertura (FROM con variable, minúsculas, Containerfile)"
+        timeout-minutes: 5
+        run: bash infra/ci/dependabot_cobertura_controles.sh infra/ci/dependabot_cobertura.sh
+      - name: "Dependabot cubre todos los Dockerfile/Containerfile (directorio listado, FROM sin ARG)"
+        timeout-minutes: 5
+        run: bash infra/ci/dependabot_cobertura.sh .
+      # RSK-OPS-001 / QA-OPS005-04 / QA-OPS006-01/02/03 (TKT-OPS-006, DEC-AUTO-252/256/258, DEC-AUTO-915):
+      # política de trivy por LISTA BLANCA (infra/ci/politica_trivy.py; lista en DEVOPS_HANDOFF §19.14).
+      # Carga los workflows con PyYAML (valores run: resueltos), analiza cada run: y cada *.sh como shell
+      # (continuaciones, comentarios, comillas, expansiones) y exige que TODA aparición de trivy sea
+      # 'trivy image' con solo flags y valores permitidos. Primero sus controles (positivos y negativos).
+      - name: "política de trivy: PyYAML aislado (venv efímero)"
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/politica"
+          "${RUNNER_TEMP}/politica/bin/pip" install --disable-pip-version-check -q "pyyaml==${PYYAML_VERSION}"
+          echo "PYTHON=${RUNNER_TEMP}/politica/bin/python" >> "$GITHUB_ENV"
+      - name: "política de trivy: controles (una línea, multilínea, comentarios, YAML, trivy-action)"
+        timeout-minutes: 5
+        run: bash infra/ci/politica_trivy_controles.sh infra/ci/politica_trivy.sh
+      - name: "política de trivy y de .trivyignore (formato, caducidad, sin vías paralelas)"
+        timeout-minutes: 5
+        run: bash infra/ci/politica_trivy.sh .
       # OBS-QA-OPS002-04 / DEC-AUTO-192: las reglas p/docker-compose de semgrep solo se aplican a YAML
       # con clave "version:" y no resuelven anclas/merge keys (<<: *hardening). Se escanea la salida
       # RESUELTA de "docker compose config" (con version: prepended) en $RUNNER_TEMP: contiene los
@@ -117,6 +145,7 @@ jobs:
     needs: [detect, infra]
     if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults: {run: {working-directory: backend}}
     env:
       DJANGO_SETTINGS_MODULE: config.settings
@@ -169,8 +198,14 @@ jobs:
       #      media types y propiedades de respuesta (recursivo) ⊆ contrato; escribe el contrato FILTRADO
       #      a las operaciones implementadas (una ruta implementada en parte no cuenta como eliminada).
       #   2) "oasdiff breaking" contrato filtrado -> implementación con --fail-on WARN.
-      # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004).
+      # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004); N13 (objeto
+      # abierto vs cerrado), N14 (esquema sin tipo vs tipado) y A1..A7 (autorreferenciados, recorrido
+      # memoizado): §19 (TKT-OPS-006, DEC-AUTO-250/251). timeout-minutes acota cualquier regresión.
+      - name: "contrato: controles del gate (sintéticos: N1..N14, autorreferenciados A1..A7)"
+        timeout-minutes: 5
+        run: uv run --frozen python ../infra/ci/gate_contrato_controles.py ../infra/ci/gate_contrato.py
       - name: "contrato: gate por operación + oasdiff (implementado vs contracts/openapi.yaml)"
+        timeout-minutes: 5
         run: |
           curl -fsSLo /tmp/oasdiff.tgz "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
           echo "${OASDIFF_SHA256}  /tmp/oasdiff.tgz" | sha256sum -c -
@@ -198,6 +233,7 @@ jobs:
     needs: [detect, infra]
     if: needs.detect.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults: {run: {working-directory: frontend}}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -229,6 +265,7 @@ jobs:
     needs: [detect, backend, frontend]
     if: needs.detect.outputs.backend == 'true' && needs.detect.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
@@ -250,45 +287,19 @@ jobs:
       # las de .trivyignore (CVE Debian 13.7 SIN parche, una por línea, cada una con exp:AAAA-MM-DD).
       # Una entrada caducada deja de suprimir -> el job vuelve a fallar. Prohibidos --ignore-unfixed,
       # comodines, --ignore-policy y la supresión por paquete.
-      - name: "política de .trivyignore (formato, caducidad obligatoria, sin comodines ni configuración paralela)"
-        run: |
-          test -f .trivyignore || { echo "::error::falta .trivyignore"; exit 1; }
-          # QA-OPS005-03: ninguna vía alternativa de configurar o suprimir hallazgos de trivy
-          otros="$(find . -path ./.git -prune -o -type f \( -name 'trivy.yaml' -o -name 'trivy.yml' -o -name '.trivyignore.yaml' -o -name '.trivyignore.yml' \) -print)"
-          test -z "$otros" || { echo "::error::configuración de trivy no permitida:"; echo "$otros"; exit 1; }
-          if grep -rnE 'TRIVY_(CONFIG|VEX|SEVERITY|IGNOREFILE|IGNORE_UNFIXED|IGNORE_STATUS|IGNORE_POLICY|SKIP_[A-Z_]*)[[:space:]]*[:=]' .github/workflows/; then
-            echo "::error::variable TRIVY_* prohibida por RSK-OPS-001"; exit 1
-          fi
-          # Toda invocación real de trivy image/fs/rootfs (no comentarios) usa exactamente --severity CRITICAL,HIGH
-          # y ninguna de --config/-c, --vex, --ignore-status. "[t]rivy" evita que esta línea coincida consigo misma.
-          invocaciones="$(grep -rhE '^[^#]*[t]rivy (image|fs|rootfs)[[:space:]]' .github/workflows/ || true)"
-          test -n "$invocaciones" || { echo "::error::no se encontró ninguna invocación de trivy"; exit 1; }
-          while IFS= read -r l; do
-            if ! grep -qE -- '--severity CRITICAL,HIGH( |$)' <<<"$l" || grep -qE -- '(--config|[[:space:]]-c[[:space:]]|--vex|--ignore-status)' <<<"$l"; then
-              echo "::error::invocación de trivy fuera de política: $l"; exit 1
-            fi
-          done <<<"$invocaciones"
-          malas="$(grep -vE '^[[:space:]]*(#|$)' .trivyignore | grep -vE '^(CVE-[0-9]{4}-[0-9]{4,}|GHSA(-[23456789cfghjmpqrvwx]{4}){3}) exp:[0-9]{4}-[0-9]{2}-[0-9]{2}$' || true)"
-          test -z "$malas" || { echo "::error::entradas de .trivyignore fuera de política:"; echo "$malas"; exit 1; }
-          # (patrones escritos para no coincidir consigo mismos)
-          if grep -rnE 'trivy (image|fs|rootfs|config)[^#]*--(ignore-unfixed|ignore-policy|skip-(pkgs|files|dirs))|TRIVY_(IGNORE_UNFIXED|IGNORE_POLICY|SKIP_)[A-Z_]*[:=]' .github/workflows/; then
-            echo "::error::opción de trivy prohibida por RSK-OPS-001"; exit 1
-          fi
-          hoy="$(date -u +%F)"
-          grep -oE 'exp:[0-9-]+' .trivyignore | cut -d: -f2 | sort -u | while read -r d; do
-            if [[ "$d" < "$hoy" ]]; then echo "::warning::excepciones de .trivyignore CADUCADAS ($d): trivy las tratará como hallazgos"; fi
-          done
-          echo "excepciones vigentes: $(grep -cE '^(CVE|GHSA)-' .trivyignore)"
+      # La POLÍTICA de .trivyignore y sus controles se ejecutan en el job "infra" (siempre, fail-fast;
+      # TKT-OPS-006 ciclo 2, DEC-AUTO-256).
       - name: image scan (trivy CRITICAL/HIGH = fail; excepciones solo en .trivyignore con aprobación humana)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
           mkdir -p reports
           rc=0
+          # Objetivo SIEMPRE "brujula/…" entre comillas dobles: la política (lista blanca, DEC-AUTO-258)
+          # solo admite expansiones en el objetivo si empieza por "brujula/" literal.
           for s in backend frontend proxy scheduler backup db; do
-            img="brujula/${s}:${APP_VERSION}"
             # JSON completo (sin .trivyignore) como evidencia; el gate aplica .trivyignore y muestra lo suprimido
-            trivy image --scanners vuln --severity CRITICAL,HIGH --format json --output "reports/trivy-${s}.json" "$img"
-            trivy image --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1 "$img" || rc=1
+            trivy image --scanners vuln --severity CRITICAL,HIGH --format json --output "reports/trivy-${s}.json" "brujula/${s}:${APP_VERSION}"
+            trivy image --scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1 "brujula/${s}:${APP_VERSION}" || rc=1
           done
           exit $rc
       # Control negativo: con TODAS las caducidades en el pasado, el gate debe fallar (prueba de que la
@@ -297,6 +308,8 @@ jobs:
       - name: "control negativo: .trivyignore caducado -> el gate falla"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
+          # Única excepción de la política (DEC-AUTO-258): --ignorefile /tmp/trivyignore-caducado solo
+          # como condición de "if …; then … exit 1" y con este mismo generador sed en este run.
           sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/trivyignore-caducado
           if ! grep -qE '^(CVE|GHSA)-' /tmp/trivyignore-caducado; then echo "sin excepciones: control no aplicable"; exit 0; fi
           # backend (excepciones Debian comunes) y db (además libxml2, 2.ª decisión humana)
@@ -304,7 +317,7 @@ jobs:
             if trivy image -q --scanners vuln --severity CRITICAL,HIGH --ignorefile /tmp/trivyignore-caducado --exit-code 1 --format json --output "/tmp/neg-${s}.json" "brujula/${s}:${APP_VERSION}"; then
               echo "::error::el gate NO falló con excepciones caducadas (${s})"; exit 1
             fi
-            echo "OK (${s}): con las excepciones caducadas trivy falla (exit 1)"
+            echo "OK (${s}): con las excepciones caducadas el escáner falla (exit 1)"
           done
       - name: SBOM (syft, CycloneDX JSON)
         if: always()
@@ -373,6 +386,15 @@ jobs:
           problema 404 "$B/media/privado/x.jpg"
           problema 403 -X POST "$B/"
           problema 400 "$B/api/v1/publico/inicio?q=$q"
+          # OBS-QA-OPS004-03 (TKT-OPS-006, DEC-AUTO-253): método no admitido sobre una imagen pública ->
+          # 405 metodo_no_permitido con Allow y SIN el Cache-Control immutable de las imágenes.
+          for m in PUT DELETE PATCH; do
+            problema 405 -X "$m" "$B/media/publico/x/y.jpg"
+            grep -qi '^allow: GET, HEAD' /tmp/cab.txt || { echo "::error::405 sin Allow: GET, HEAD"; exit 1; }
+            grep -qi '^cache-control: no-store' /tmp/cab.txt || { echo "::error::405 sin Cache-Control no-store"; exit 1; }
+            if grep -qi 'immutable' /tmp/cab.txt; then echo "::error::405 con caché inmutable"; exit 1; fi
+            grep -q '"code":"metodo_no_permitido"' /tmp/cuerpo.json || { echo "::error::405 sin code metodo_no_permitido"; exit 1; }
+          done
           seq 1 120 | xargs -P 1 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$B/health/live" > /tmp/salud_normal.txt
           sort /tmp/salud_normal.txt | uniq -c
           test "$(grep -vc '^200$' /tmp/salud_normal.txt)" = 0 || { echo "::error::/health recibe no-200 a ritmo de sondeo"; exit 1; }
@@ -450,6 +472,7 @@ jobs:
     needs: [images]
     if: vars.COSIGN_KEYLESS_ENABLED == 'true' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write

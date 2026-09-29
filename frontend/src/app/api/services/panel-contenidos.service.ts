@@ -10,6 +10,7 @@ import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
 import { ColeccionPanel } from '../models/coleccion-panel';
+import { DestinoGuardado } from '../models/destino-guardado';
 import { DestinoPanel } from '../models/destino-panel';
 import { GuiaPanel } from '../models/guia-panel';
 import { ItinerarioPanel } from '../models/itinerario-panel';
@@ -212,14 +213,18 @@ export class PanelContenidosService extends BaseService {
   /**
    * Guardar borrador o actualizar publicación de un destino.
    *
+   * BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con validación completa (ADR-API-002 §4). RETIRADO → 409 transicion_invalida.
    *
+   * Multi-entidad en "Actualizar publicación" (CHG-BP-001, CHG-API-005, DEC-AUTO-265/268): (a) si el cambio AÑADE tipos en BORRADOR, se co-publican en la misma operación: `copublicar_tipos` debe contener exactamente esos tipos con su `version` (misma semántica y errores que `panelPublicarContenido`; AC-124, AC-125). (b) Si el cambio QUITA un tipo (de `tipos_ids` o como principal) y ese tipo se queda con 0 destinos publicados, el tipo se retira en cascada en la misma transacción (auditoría RETIRAR con motivo "Cascada: sin destinos publicados (RULE-025)", una instantánea por entidad; AC-128). Exige `confirmar_cascada: true` (si no, 409 cascada_sin_confirmar con `impacto_cascada`) y, si se envía `cascada_confirmada`, que coincida con la calculada (si no, 409 impacto_modificado). Si el tipo lo usa algún itinerario PUBLICADO (este destino no retira itinerarios al actualizar), 409 cascada_bloqueada con la lista y nada cambia (RULE-003, DEC-AUTO-914). El impacto se obtiene antes con `panelAnalizarPublicacion` enviando los `tipos_ids` del formulario. La respuesta 200 incluye en `entidades_afectadas` los tipos co-publicados y retirados en cascada.
+   *
+   * En BORRADOR, un `copublicar_tipos` no vacío, `confirmar_cascada: true` o un `cascada_confirmada` no vacío → 400 campo_no_permitido (los tipos se validan al publicar). Orden de evaluación y bloqueos: los de `panelPublicarContenido` y `panelRetirarContenido` (DEC-AUTO-269); 422 publicacion_invalida se evalúa antes que 409 cascada_bloqueada / cascada_sin_confirmar.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelActualizarDestino()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  panelActualizarDestino$Response(params: PanelActualizarDestino$Params, context?: HttpContext): Promise<StrictHttpResponse<DestinoPanel>> {
+  panelActualizarDestino$Response(params: PanelActualizarDestino$Params, context?: HttpContext): Promise<StrictHttpResponse<DestinoGuardado>> {
     const obs = panelActualizarDestino(this.http, this.rootUrl, params, context);
     return firstValueFrom(obs);
   }
@@ -227,16 +232,20 @@ export class PanelContenidosService extends BaseService {
   /**
    * Guardar borrador o actualizar publicación de un destino.
    *
+   * BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con validación completa (ADR-API-002 §4). RETIRADO → 409 transicion_invalida.
    *
+   * Multi-entidad en "Actualizar publicación" (CHG-BP-001, CHG-API-005, DEC-AUTO-265/268): (a) si el cambio AÑADE tipos en BORRADOR, se co-publican en la misma operación: `copublicar_tipos` debe contener exactamente esos tipos con su `version` (misma semántica y errores que `panelPublicarContenido`; AC-124, AC-125). (b) Si el cambio QUITA un tipo (de `tipos_ids` o como principal) y ese tipo se queda con 0 destinos publicados, el tipo se retira en cascada en la misma transacción (auditoría RETIRAR con motivo "Cascada: sin destinos publicados (RULE-025)", una instantánea por entidad; AC-128). Exige `confirmar_cascada: true` (si no, 409 cascada_sin_confirmar con `impacto_cascada`) y, si se envía `cascada_confirmada`, que coincida con la calculada (si no, 409 impacto_modificado). Si el tipo lo usa algún itinerario PUBLICADO (este destino no retira itinerarios al actualizar), 409 cascada_bloqueada con la lista y nada cambia (RULE-003, DEC-AUTO-914). El impacto se obtiene antes con `panelAnalizarPublicacion` enviando los `tipos_ids` del formulario. La respuesta 200 incluye en `entidades_afectadas` los tipos co-publicados y retirados en cascada.
+   *
+   * En BORRADOR, un `copublicar_tipos` no vacío, `confirmar_cascada: true` o un `cascada_confirmada` no vacío → 400 campo_no_permitido (los tipos se validan al publicar). Orden de evaluación y bloqueos: los de `panelPublicarContenido` y `panelRetirarContenido` (DEC-AUTO-269); 422 publicacion_invalida se evalúa antes que 409 cascada_bloqueada / cascada_sin_confirmar.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelActualizarDestino$Response()` instead.
    *
    * This method sends `application/json` and handles request body of type `application/json`.
    */
-  panelActualizarDestino(params: PanelActualizarDestino$Params, context?: HttpContext): Promise<DestinoPanel> {
+  panelActualizarDestino(params: PanelActualizarDestino$Params, context?: HttpContext): Promise<DestinoGuardado> {
     const resp = this.panelActualizarDestino$Response(params, context);
-    return resp.then((r: StrictHttpResponse<DestinoPanel>): DestinoPanel => r.body);
+    return resp.then((r: StrictHttpResponse<DestinoGuardado>): DestinoGuardado => r.body);
   }
 
   /** Path part for operation `panelEliminarDestino()` */
@@ -410,7 +419,7 @@ export class PanelContenidosService extends BaseService {
   /**
    * Guardar borrador o actualizar publicación de un itinerario.
    *
-   *
+   * BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con validación completa. RETIRADO → 409 transicion_invalida. Desde CHG-API-005 (RULE-003 v1.1, DEC-AUTO-914) un itinerario PUBLICADO exige que TODOS sus tipos estén PUBLICADOS: añadir un tipo en BORRADOR o RETIRADO → 422 publicacion_invalida con `errores_por_entidad[].errores[].code` `itinerario_tipo_no_publicado` (o `tipo_retirado`) en el campo `tipos_ids`. No hay co-publicación desde el itinerario: el tipo se publica antes con un destino. Quitar un tipo de un itinerario nunca provoca cascada (RULE-025 solo cuenta destinos); es la vía para desbloquear una `cascada_bloqueada`. Bloqueo: FOR SHARE de los tipos referenciados (orden ascendente de id) para no competir con una cascada concurrente.
    *
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `panelActualizarItinerario()` instead.
@@ -425,7 +434,7 @@ export class PanelContenidosService extends BaseService {
   /**
    * Guardar borrador o actualizar publicación de un itinerario.
    *
-   *
+   * BORRADOR → guarda el borrador (validación de formato). PUBLICADO → "Actualizar publicación" con validación completa. RETIRADO → 409 transicion_invalida. Desde CHG-API-005 (RULE-003 v1.1, DEC-AUTO-914) un itinerario PUBLICADO exige que TODOS sus tipos estén PUBLICADOS: añadir un tipo en BORRADOR o RETIRADO → 422 publicacion_invalida con `errores_por_entidad[].errores[].code` `itinerario_tipo_no_publicado` (o `tipo_retirado`) en el campo `tipos_ids`. No hay co-publicación desde el itinerario: el tipo se publica antes con un destino. Quitar un tipo de un itinerario nunca provoca cascada (RULE-025 solo cuenta destinos); es la vía para desbloquear una `cascada_bloqueada`. Bloqueo: FOR SHARE de los tipos referenciados (orden ascendente de id) para no competir con una cascada concurrente.
    *
    * This method provides access only to the response body.
    * To access the full response (for headers, for example), `panelActualizarItinerario$Response()` instead.

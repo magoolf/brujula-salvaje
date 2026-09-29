@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 # Reverse proxy de mismo origen (TKT-F6-001). Contexto de build: infra/proxy
 # nginx 1.30.5 (rama stable) sin privilegios: uid 101, puerto 8080.
-ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5
-FROM ${NGINX_IMAGE}
+# Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
+# no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
+FROM nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5
 
 LABEL org.opencontainers.image.title="brujula-proxy" \
       org.opencontainers.image.description="Reverse proxy de mismo origen (SSR Angular + API Django)" \

@@ -163,6 +163,8 @@ export type { PanelVistaPreviaPaginaInstitucional$Params as PanelVistaPreviaPagi
 export { panelVistaPreviaPaginaInstitucional as panelVistaPreviaPaginaInstitucional } from './fn/panel-contenidos/panel-vista-previa-pagina-institucional';
 export type { PanelPublicarContenido$Params as PanelPublicarContenido$Params } from './fn/panel-ciclo-editorial/panel-publicar-contenido';
 export { panelPublicarContenido as panelPublicarContenido } from './fn/panel-ciclo-editorial/panel-publicar-contenido';
+export type { PanelAnalizarPublicacion$Params as PanelAnalizarPublicacion$Params } from './fn/panel-ciclo-editorial/panel-analizar-publicacion';
+export { panelAnalizarPublicacion as panelAnalizarPublicacion } from './fn/panel-ciclo-editorial/panel-analizar-publicacion';
 export type { PanelObtenerImpactoRetiro$Params as PanelObtenerImpactoRetiro$Params } from './fn/panel-ciclo-editorial/panel-obtener-impacto-retiro';
 export { panelObtenerImpactoRetiro as panelObtenerImpactoRetiro } from './fn/panel-ciclo-editorial/panel-obtener-impacto-retiro';
 export type { PanelRetirarContenido$Params as PanelRetirarContenido$Params } from './fn/panel-ciclo-editorial/panel-retirar-contenido';

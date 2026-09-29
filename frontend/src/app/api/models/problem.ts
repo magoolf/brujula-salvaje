@@ -9,10 +9,12 @@
  * 401 no_autenticado, sesion_expirada, credenciales_invalidas, mfa_requerido, mfa_invalido ·
  * 403 permiso_denegado, csrf_invalido, cambio_credencial_requerido, autorizacion_requerida, configuracion_mfa_requerida ·
  * 404 no_encontrado, pagina_fuera_de_rango · 405 metodo_no_permitido ·
- * 409 conflicto_version, transicion_invalida, slug_inmutable, slug_en_uso, duplicado, dependencia_bloqueante, medio_en_uso, ultimo_administrador, operacion_sobre_si_mismo, mfa_obligatorio, idempotencia_en_curso, idempotencia_respuesta_no_reproducible ·
+ * 409 conflicto_version, transicion_invalida, slug_inmutable, slug_en_uso, duplicado, dependencia_bloqueante, cascada_bloqueada, cascada_sin_confirmar, impacto_modificado, medio_en_uso, ultimo_administrador, operacion_sobre_si_mismo, mfa_obligatorio, idempotencia_en_curso, idempotencia_respuesta_no_reproducible ·
  * 410 retirado · 413 carga_demasiado_grande · 415 tipo_medio_no_soportado ·
  * 422 publicacion_invalida, regla_negocio, idempotencia_conflicto ·
  * 429 limite_tasa, acceso_bloqueado_temporalmente · 500 error_interno · 503 servicio_no_disponible.
+ * Los códigos por entidad y campo de una publicación (p. ej. tipo_retirado) NO son `code` de Problem:
+ * van en `ErrorRegla.code` (CHG-API-005).
  */
 export interface Problem {
   code: string;
