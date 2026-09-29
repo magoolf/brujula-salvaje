@@ -446,14 +446,14 @@ tickets:
   - id: TKT-OPS-011
     titulo: "DevOps: excepción quirúrgica y nombrada en el gate oasdiff (--err-ignore o mecanismo equivalente) para el único error restante de TKT-006: request-body-type-changed en POST /api/v1/panel/medios (multipart/form-data vs string/binary del contrato, DEC-AUTO-920). No relajar nada más; documentar motivo, alcance exacto (una sola operación) y referencia a TKT-012 para revisarlo si el contrato de subida de medios cambia"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [DEC-AUTO-196, DEC-AUTO-920, TKT-006]
     depende_de: [TKT-OPS-010]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado a devops, worktree/rama nueva tkt-ops-011-err-ignore"]
     actualizado: 2026-09-29
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~608 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias"
