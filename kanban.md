@@ -170,15 +170,15 @@ tickets:
   - id: TKT-006
     titulo: "Backend API del panel: contenidos (CRUD, vista previa, publicar/retirar/reactivar, revisiones, bloqueo optimista), medios (subida segura, derivados, publico/privado), taxonomías, inicio, configuración, tablero"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-010, MOD-011, MOD-012, FEAT-033..044, FEAT-047, FEAT-049, FEAT-050]
     depende_de: [TKT-005]
     archivos_permitidos: ["backend/config/urls.py", "backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/catalogos/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["PR #24 @ 5b6f270 (base main 3e042e8), rama tkt-006-panel-editorial; CI en curso (run 36513898298)", "Developer: pytest 674 passed/3 skipped, mypy sin issues (176 archivos), ruff limpio, manage.py check --deploy sin hallazgos", "DEC-AUTO-917: 3 códigos Problem Details de CHG-API-005 registrados vía apps.py::ready() en el propio dominio contenido (apps/core/problemas.py fuera de archivos_permitidos), reversible", "7 bugs de producción corregidos durante TDD (ver audit_log.md); GAP declarado por el Developer: sin tests HTTP/E2E de panel_views.py ni medición de cobertura pytest-cov -> a validar por QA"]
-    actualizado: 2026-09-28
+    evidencia: ["PR #24 @ 5b6f270 (base main 3e042e8), rama tkt-006-panel-editorial", "Developer: pytest 674 passed/3 skipped, mypy sin issues (176 archivos), ruff limpio, manage.py check --deploy sin hallazgos", "DEC-AUTO-917: 3 códigos Problem Details de CHG-API-005 registrados vía apps.py::ready() en el propio dominio contenido (apps/core/problemas.py fuera de archivos_permitidos), reversible", "GAP declarado por el Developer: sin tests HTTP/E2E de panel_views.py ni medición de cobertura pytest-cov -> a validar por QA", "Verificación tras reinicio 2026-09-29: CI run 36513898298 terminó en FAIL (no 'en curso' como registraba el kanban); lint/typecheck/tests/check --deploy en verde, pero el gate de contrato (oasdiff, paso 14) falló con 77 errores -> no es READY_FOR_VALIDATION real; se devuelve al Developer sobre la misma rama, no es Botón de Pánico"]
+    actualizado: 2026-09-29
   - id: TKT-007
     titulo: "Semilla de contenido: comando cargar_semilla (24 destinos reales, itinerarios, guías, 12 tipos, colecciones, glosario, páginas legales, config de inicio, medios propios con licencia) vía servicio de publicación"
     fase: F7
