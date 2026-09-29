@@ -16,6 +16,7 @@ from apps.auditoria.models import (
     MotivoRevision,
     RevisionContenido,
 )
+from apps.busqueda.models import BusquedaDocumento
 from apps.contenido import services
 from apps.contenido.models import Contenido, EstadoEditorial, TipoContenido
 from apps.contenido.tests import publicos
@@ -301,6 +302,123 @@ def test_AC_TKT006_02_copublicacion_destino_y_tipo(actor: int) -> None:
     assert EventoAuditoria.objects.filter(
         accion=AccionAuditoria.PUBLICAR, entidad_id=tipo_contenido.pk
     ).exists()
+
+
+# ---------------------------------------------------------------------------
+# TKT-013 (regresión): el reindexado vivía DENTRO de _confirmar_publicacion_entidad y se disparaba
+# por entidad en el momento exacto en que CADA UNA pasaba a PUBLICADO. En una co-publicación
+# Destino+Tipo, el destino se confirmaba (y reindexaba) primero, con su tipo_principal todavía en
+# BORRADOR; como la visibilidad del destino exige tipo_principal ya PUBLICADO (AC-129) y nada
+# volvía a reindexarlo después, quedaba fuera del índice de búsqueda de forma permanente pese a
+# estar PUBLICADO en BD. Se verifica el índice REAL (`BusquedaDocumento`, mismo mecanismo que
+# apps/busqueda/tests/test_ac_tkt005_03_busqueda.py), sin ningún reindexado externo posterior.
+# ---------------------------------------------------------------------------
+def test_AC_TKT013_publicar_copublicacion_destino_queda_visible_en_indice_de_inmediato(
+    actor: int,
+) -> None:
+    _rellenar_relacionados()
+    portada = publicos.medio()
+    galeria_medios = [publicos.medio() for _ in range(3)]
+
+    tipo_contenido = services.crear_borrador(
+        T.TIPO, actor, {**_datos_tipo_validos(), "portada_id": portada.pk}
+    )
+    destino_contenido = services.crear_borrador(
+        T.DESTINO,
+        actor,
+        {
+            **_datos_destino_validos(),
+            # Requerido para la VISIBILIDAD en el índice (q_visible), aunque reglas.py no lo exige
+            # para publicar: sin país, el destino nunca sería indexable y el test no probaría nada.
+            "pais_id": publicos.pais().pk,
+            "tipos_ids": [tipo_contenido.pk],
+            "tipo_principal_id": tipo_contenido.pk,
+            "portada_id": portada.pk,
+            "galeria_ids": [m.pk for m in galeria_medios],
+        },
+    )
+
+    services.publicar(
+        T.DESTINO,
+        destino_contenido.pk,
+        actor,
+        version=1,
+        copublicar_tipos=[{"id": tipo_contenido.pk, "version": 1}],
+    )
+
+    # Sin ningún reindexado externo: el propio `publicar()` debe dejar ambas entidades visibles.
+    assert BusquedaDocumento.objects.filter(contenido=destino_contenido).exists()
+    assert BusquedaDocumento.objects.filter(contenido=tipo_contenido).exists()
+
+
+def test_AC_TKT013_actualizar_publicacion_copublicacion_destino_queda_visible_en_indice(
+    actor: int,
+) -> None:
+    """Segundo sitio del mismo bug: `_actualizar_publicacion` reindexaba el destino ANTES de
+    confirmar los tipos co-publicados en la misma actualización (p. ej. cambiar el tipo_principal
+    de un destino ya publicado a un tipo nuevo, co-publicándolo en la misma llamada)."""
+    _rellenar_relacionados()
+    portada = publicos.medio()
+    galeria_medios = [publicos.medio() for _ in range(3)]
+
+    tipo_inicial = services.crear_borrador(
+        T.TIPO, actor, {**_datos_tipo_validos(titulo="Tipo inicial"), "portada_id": portada.pk}
+    )
+    destino_contenido = services.crear_borrador(
+        T.DESTINO,
+        actor,
+        {
+            **_datos_destino_validos(),
+            # Requerido para la VISIBILIDAD en el índice (q_visible); ver comentario equivalente
+            # en el test anterior.
+            "pais_id": publicos.pais().pk,
+            "tipos_ids": [tipo_inicial.pk],
+            "tipo_principal_id": tipo_inicial.pk,
+            "portada_id": portada.pk,
+            "galeria_ids": [m.pk for m in galeria_medios],
+        },
+    )
+    services.publicar(
+        T.DESTINO,
+        destino_contenido.pk,
+        actor,
+        version=1,
+        copublicar_tipos=[{"id": tipo_inicial.pk, "version": 1}],
+    )
+    destino_contenido.refresh_from_db()
+
+    tipo_nuevo = services.crear_borrador(
+        T.TIPO,
+        actor,
+        {
+            **_datos_tipo_validos(titulo="Tipo nuevo", seo_descripcion="SEO única del tipo nuevo"),
+            "portada_id": portada.pk,
+        },
+    )
+
+    resultado = services.actualizar(
+        T.DESTINO,
+        destino_contenido.pk,
+        actor,
+        {
+            **_datos_destino_validos(),
+            "tipos_ids": [tipo_inicial.pk, tipo_nuevo.pk],
+            "tipo_principal_id": tipo_nuevo.pk,
+            "portada_id": portada.pk,
+            "galeria_ids": [m.pk for m in galeria_medios],
+            "copublicar_tipos": [{"id": tipo_nuevo.pk, "version": 1}],
+        },
+        version=destino_contenido.version,
+    )
+
+    assert resultado.contenido.estado_editorial == E.PUBLICADO
+    tipo_nuevo.refresh_from_db()
+    assert tipo_nuevo.estado_editorial == E.PUBLICADO
+
+    # Sin ningún reindexado externo: el propio `actualizar()` debe dejar ambas entidades visibles,
+    # con el destino apuntando ya a su nuevo tipo_principal co-publicado.
+    assert BusquedaDocumento.objects.filter(contenido=resultado.contenido).exists()
+    assert BusquedaDocumento.objects.filter(contenido=tipo_nuevo).exists()
 
 
 def test_AC_TKT006_02_publicar_destino_con_tipo_retirado_falla(actor: int) -> None:
