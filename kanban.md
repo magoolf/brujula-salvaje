@@ -453,7 +453,7 @@ tickets:
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado a devops, worktree/rama nueva tkt-ops-011-err-ignore"]
+    evidencia: ["Despachado a devops, worktree/rama nueva tkt-ops-011-err-ignore", "PR #26 entregado: infra/ci/oasdiff_err_ignore.txt + flag --err-ignore en ci.yaml; formato del mecanismo investigado contra el código fuente real de oasdiff v1.32.1 (discrepancia encontrada: el ejemplo oficial dice 'regex' pero la implementación real exige coincidencia exacta de ruta+método+texto). CI del PR verde, pero solo prueba que no rompe nada sobre las 50 operaciones ya en main (TKT-006 aún no fusionado, el caso real de multipart no se ejerce en este PR). QA despachado (ciclo 1/3) para verificación independiente del mecanismo"]
     actualizado: 2026-09-29
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~608 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias"
