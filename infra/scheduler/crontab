@@ -25,3 +25,9 @@
 
 # Semanal (domingo 03:30 UTC): reindexación completa e idempotente (REINDEX_BUSQUEDA)
 30 3 * * 0  python manage.py reindexar_busqueda
+
+# Cada 15 min: alerta de tamaño de app.cache_limites (VIGILANCIA_CACHE_LIMITES, RSK-QA004-02/RSK-OPS-032).
+# Cadencia más alta que las tareas diarias porque cache_limites es una tabla UNLOGGED efímera de
+# throttling (TTL <= 1h, DEVOPS_HANDOFF.md §19.3.6): un umbral superado debe detectarse dentro de esa
+# misma hora, no al día siguiente.
+*/15 * * * * python manage.py vigilar_cache_limites

@@ -9,6 +9,7 @@ Actualizado por **TKT-OPS-007** (F7, QA-OPS005-02: `restore-local.sh` restaura s
 Actualizado por **TKT-OPS-006** (F7, mejoras LOW: gate de contrato memoizado + objeto abierto/sin tipo, `timeout-minutes`, 405 de medios en Problem Details, Dependabot sobre todos los Dockerfile, política de trivy multilínea, alerta de tamaño de `cache_limites`, 2026-09-28): ver §19.
 Actualizado por **TKT-OPS-010** (F7, gate de contrato: `oasdiff breaking --fail-on WARN` → `--fail-on ERR`, decisión del usuario, 2026-09-29): ver §20. Línea de índice añadida por TKT-OPS-011 (omitida en la entrega original de TKT-OPS-010; corrección de consistencia documental menor, sin cambio de contenido de §20).
 Actualizado por **TKT-OPS-011** (F7, gate de contrato: excepción puntual `--err-ignore` para `request-body-type-changed` en `POST /api/v1/panel/medios`, decisión del usuario DEC-AUTO-920, 2026-09-29): ver §21.
+Actualizado por **TKT-OPS-012** (F7, línea de `infra/scheduler/crontab` para `vigilar_cache_limites` (TKT-011, DONE) cada 15 min; cierra RSK-OPS-032, 2026-09-29): ver §22.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -1511,8 +1512,8 @@ PostgreSQL 18.6 desechable (misma imagen y digest que `infra/db`, 256 MiB) con l
 | RSK-OPS-021 | Security updates de Dependabot | LOW | Activadas (DEC-AUTO-230) y comentario corregido | CERRADO |
 | RSK-OPS-025 | Dependabot no vigilaba `/infra/db` y, en realidad, ninguna imagen base (`ARG` en `FROM`) | MEDIUM | `FROM` literal + los 5 directorios + paso de cobertura en CI | MITIGADO (se confirma con el primer PR `dependabot/docker/*`) |
 | RSK-OPS-031 | Los PR de Dependabot docker cambiarán el SO base (digest de `postgres`, imágenes de runtime) y, con él, las CVE que cubre `.trivyignore` | LOW | Pasan por el CI completo (trivy con `.trivyignore` caducable) y por QA. El `.trivyignore` solo lo cambia una decisión humana (RSK-OPS-001) | ABIERTO (proceso) |
-| RSK-OPS-032 | La alerta de `cache_limites` solo se puede ejecutar a mano hasta que exista el comando `vigilar_cache_limites` (Developer) | LOW | Ticket al Developer (§19.3.6) + línea de crontab | ABIERTO (ticket) |
-| RSK-QA004-02 | Nadie vigila el tamaño de `cache_limites` | LOW | Consulta y umbrales documentados y probados (§19.3.6) | MITIGADO (manual) |
+| RSK-OPS-032 | La alerta de `cache_limites` solo se podía ejecutar a mano hasta que existiera el comando `vigilar_cache_limites` (Developer) | LOW | TKT-011 (Developer, DONE) entregó el comando; TKT-OPS-012 añadió la línea `*/15 * * * * python manage.py vigilar_cache_limites` a `infra/scheduler/crontab` (§22) | CERRADO |
+| RSK-QA004-02 | Nadie vigila el tamaño de `cache_limites` | LOW | Consulta y umbrales documentados y probados (§19.3.6); ejecución programada cada 15 min desde TKT-OPS-012 (§22) | MITIGADO (programado) |
 
 ### 19.11 Archivos modificados
 - `infra/ci/gate_contrato.py`
@@ -1886,3 +1887,67 @@ Sin cambios: `oasdiff` sigue en `1.32.1` (sha256 ya verificado en el paso, TKT-O
 2. Si TKT-006 (panel editorial) sigue abierto, asegurarse de que su rama incorpore este cambio (rebase/merge de `main` tras integrar este ticket) antes de su siguiente ejecución de CI o de pasar a QA.
 3. Registrar DEC-AUTO-920 (ya referenciada aquí como decisión previa del Orquestador) y RSK-OPS-038/039 en `audit_log.md`/`kanban.md`.
 4. Mantener TKT-012 como seguimiento de la deuda de modelado del contrato (ahora también para el caso multipart, RSK-OPS-039).
+
+## 22. TKT-OPS-012 — línea de `infra/scheduler/crontab` para `vigilar_cache_limites` (cierra RSK-OPS-032) (F7, soporte)
+
+### 22.1 Estado
+**COMPLETADO.** Cambio mínimo y acotado de una sola línea de infraestructura (más comentario descriptivo), en la rama `tkt-ops-012-crontab-cache-limites`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 22.2 Objetivo
+TKT-011 (Developer, DONE, PR #31 integrado en `main` @ `8babd75`) entregó el comando de gestión `vigilar_cache_limites` (alerta de tamaño de `app.cache_limites`, RSK-QA004-02) con QA_VERDICT PASS. La propuesta de §19.3.6 quedaba pendiente de un paso final que sí es de DevOps: añadir la línea al planificador (`infra/scheduler/crontab`, RSK-OPS-032). Este ticket cierra ese pendiente.
+
+### 22.3 Cambios realizados
+- **`infra/scheduler/crontab`**: una línea nueva, siguiendo el mismo estilo que las 6 líneas existentes (comentario descriptivo en mayúsculas con nombre de tarea + justificación, luego la línea cron):
+  ```
+  # Cada 15 min: alerta de tamaño de app.cache_limites (VIGILANCIA_CACHE_LIMITES, RSK-QA004-02/RSK-OPS-032).
+  # Cadencia más alta que las tareas diarias porque cache_limites es una tabla UNLOGGED efímera de
+  # throttling (TTL <= 1h, DEVOPS_HANDOFF.md §19.3.6): un umbral superado debe detectarse dentro de esa
+  # misma hora, no al día siguiente.
+  */15 * * * * python manage.py vigilar_cache_limites
+  ```
+  - Frecuencia y comando exactos según la especificación de §19.3.6 (sin inventar umbrales ni cadencia distintos): `*/15 * * * * python manage.py vigilar_cache_limites`.
+  - El comando ya implementa `pg_try_advisory_lock` y registro en `ops_ejecucion_tarea` (mismo patrón que el resto de `TRABAJOS`, verificado por QA de TKT-011): no requiere ningún cambio adicional en el crontab (sin `flock` externo, igual que las demás líneas).
+  - Ninguna otra línea del archivo se tocó.
+- **`docs/05_operacion/DEVOPS_HANDOFF.md`**: línea de índice de cabecera (§0) para este ticket; fila `RSK-OPS-032` de §19.10 pasa de "ABIERTO (ticket)" a "CERRADO"; fila `RSK-QA004-02` de §19.10 se actualiza a "MITIGADO (programado)" (antes "MITIGADO (manual)"); esta sección §22.
+- **Ningún archivo de `backend/apps/ops/**` tocado** (eso ya lo hizo el Developer en TKT-011, DONE). Verificado con `git status`/`git diff --stat`: solo los dos archivos de §22.9 aparecen modificados.
+
+### 22.4 Versiones aprobadas
+Sin cambios de versión. Se reconstruyó la imagen real `brujula/scheduler:0.0.0-dev-brujula` (`infra/docker/backend.Dockerfile`, target `scheduler`) para la validación de §22.6: mismo `supercronic` `v0.2.49` ya fijado por sha256 (§4), sin cambios.
+
+### 22.5 Infraestructura
+Sin cambios de topología, redes, imágenes, healthchecks ni recursos. El servicio `scheduler` de `compose.yaml` (perfil `ops`) ya montaba `infra/scheduler/crontab` en la imagen (`COPY --from=infra ... scheduler/crontab /etc/brujula/crontab`); esta línea nueva viaja con la siguiente reconstrucción de esa imagen, sin cambios en `compose.yaml` ni en el Dockerfile.
+
+### 22.6 Validaciones ejecutadas (2026-09-29, Docker Engine 29.6.1, Compose v5.2.0)
+- **Precondición confirmada por lectura directa** (no solo por el kanban): `backend/apps/ops/management/commands/vigilar_cache_limites.py` existe en `main` (heredado del merge de TKT-011 @ `8babd75`) y define `nombre = "vigilar_cache_limites"`.
+- **VALIDADO — sintaxis real del crontab con el binario real**: como el formato lo consume `supercronic` (comentario de cabecera del propio archivo) y no hay binario `supercronic` instalado sueltamente en este entorno local (Windows, no es una de las herramientas de `VERSIONS.md` §"Toolchain local"), se optó por construir la imagen real del servicio `scheduler` (`docker compose build scheduler`, éxito, incluye la descarga y verificación por sha256 de `supercronic v0.2.49` y el `COPY` del `infra/scheduler/crontab` real, las 12 líneas con la nueva) y ejecutar el binario real dentro del contenedor:
+  ```
+  MSYS_NO_PATHCONV=1 docker run --rm --entrypoint supercronic brujula/scheduler:0.0.0-dev-brujula -test /etc/brujula/crontab
+  ```
+  Resultado: `level=info msg="read crontab: /etc/brujula/crontab"` seguido de `level=info msg="crontab is valid"`, código de salida 0. Esto es una validación real del archivo tal como quedará en la imagen de producción del scheduler (no una aproximación ni una lectura manual), con el mismo binario y la misma ruta que usa `CMD ["supercronic", "-json", "-passthrough-logs", "/etc/brujula/crontab"]` en tiempo de ejecución.
+  - Nota de entorno: la primera invocación sin `MSYS_NO_PATHCONV=1` falló (`open C:/Program Files/Git/etc/brujula/crontab: no such file or directory`) porque Git Bash/MSYS reescribe la ruta absoluta del contenedor como si fuera una ruta de Windows — el mismo comportamiento ya documentado en §5.2 para otros comandos con rutas absolutas. No es un defecto del crontab; se repitió con la variable de entorno correcta y funcionó.
+- **NO VALIDADO** — ejecución real de `vigilar_cache_limites` disparada por `supercronic` en tiempo (esperar a que pase un intervalo de 15 min con BD real conectada): fuera de alcance de este cambio de una línea; el comportamiento en tiempo de ejecución del comando en sí ya lo validó QA de forma independiente en TKT-011 (reproducción con datos reales bajo el rol `app_rw` real). Este ticket solo valida que el planificador **parsea y acepta** la línea nueva, no una ejecución end-to-end del propio comando vía cron.
+- **VALIDADO** — `git status`/`git diff --stat` tras todos los cambios: solo `infra/scheduler/crontab` y `docs/05_operacion/DEVOPS_HANDOFF.md` aparecen modificados; nada bajo `backend/`.
+- **NO APLICABLE** — `docker compose config`: este cambio no toca ningún `compose*.yaml`.
+- Limpieza: no se eliminó la imagen `brujula/scheduler:0.0.0-dev-brujula` construida para la validación (es la misma etiqueta de desarrollo que ya usan otros tickets/compose local de este proyecto, RSK-OPS-010; reconstruir a partir de la misma base no tiene coste ni efecto colateral). Se generó un `.env` local con `scripts/ops/init-env.sh` (nunca sobrescribe uno existente; gitignored, no llega al repositorio) porque `docker compose build` lo exige.
+
+### 22.7 Seguridad
+- Sin secretos: solo se añadió un comentario y una línea de comando ya usada por el resto del crontab (sin argumentos, sin credenciales).
+- Sin cambios de superficie de red, imágenes ni contenedores. El comando se ejecuta con el rol `app_rw` (nunca `app_migrator`), igual que el resto de tareas del planificador (comentario de cabecera del propio archivo, sin cambios).
+- Sin cambios de privilegios: la imagen `scheduler` sigue ejecutándose como uid 10001 (sin root), y `supercronic` no requiere ningún cambio de configuración para la tarea nueva.
+
+### 22.8 Riesgos / pendientes
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-032 | La alerta de `cache_limites` solo se podía ejecutar a mano hasta que existiera el comando `vigilar_cache_limites` (Developer) | LOW | TKT-011 (Developer, DONE) entregó el comando; esta línea de crontab lo programa cada 15 min | CERRADO |
+
+Sin riesgos nuevos: es un cambio de una línea sobre un mecanismo (`supercronic` + `ops_ejecucion_tarea` + `pg_try_advisory_lock`) ya validado por 6 tareas previas y por QA de TKT-011.
+
+### 22.9 Archivos modificados
+- `infra/scheduler/crontab`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 22.10 Próximo agente
+**Orquestador**, que debe:
+1. Registrar el cierre de RSK-OPS-032 y la actualización de RSK-QA004-02 en `audit_log.md`/`kanban.md`.
+2. Marcar TKT-OPS-012 DONE tras confirmar el CI real del PR (build de la imagen `scheduler` y cualquier smoke que la ejercite).
+3. Sin tickets dependientes conocidos: `vigilar_cache_limites` ya corre programada; el runbook de §19.3.6 sigue vigente sin cambios.
