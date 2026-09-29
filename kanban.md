@@ -489,7 +489,7 @@ tickets:
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado con análisis del Orquestador: confirmado que DEC-AUTO-912(a) ya acepta el estado 'destino PUBLICADO con tipo_principal no PUBLICADO' como posible y lo trata como invisible en la API; el único bug real es que el índice de búsqueda no se actualiza para reflejarlo, no falta ninguna regla de negocio nueva -- fix acotado a reindexar dependientes, no a bloquear/cascada el retiro de T.TIPO"]
     actualizado: 2026-09-29
 ```
 
