@@ -446,14 +446,14 @@ tickets:
   - id: TKT-OPS-011
     titulo: "DevOps: excepción quirúrgica y nombrada en el gate oasdiff (--err-ignore o mecanismo equivalente) para el único error restante de TKT-006: request-body-type-changed en POST /api/v1/panel/medios (multipart/form-data vs string/binary del contrato, DEC-AUTO-920). No relajar nada más; documentar motivo, alcance exacto (una sola operación) y referencia a TKT-012 para revisarlo si el contrato de subida de medios cambia"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [DEC-AUTO-196, DEC-AUTO-920, TKT-006]
     depende_de: [TKT-OPS-010]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado a devops, worktree/rama nueva tkt-ops-011-err-ignore", "PR #26 entregado: infra/ci/oasdiff_err_ignore.txt + flag --err-ignore en ci.yaml; formato del mecanismo investigado contra el código fuente real de oasdiff v1.32.1 (discrepancia encontrada: el ejemplo oficial dice 'regex' pero la implementación real exige coincidencia exacta de ruta+método+texto). CI del PR verde, pero solo prueba que no rompe nada sobre las 50 operaciones ya en main (TKT-006 aún no fusionado, el caso real de multipart no se ejerce en este PR). QA despachado (ciclo 1/3) para verificación independiente del mecanismo"]
+    evidencia: ["Despachado a devops, worktree/rama nueva tkt-ops-011-err-ignore", "PR #26 entregado: infra/ci/oasdiff_err_ignore.txt + flag --err-ignore en ci.yaml; formato del mecanismo investigado contra el código fuente real de oasdiff v1.32.1 (discrepancia encontrada: el ejemplo oficial dice 'regex' pero la implementación real exige coincidencia exacta de ruta+método+texto). CI del PR verde, pero solo prueba que no rompe nada sobre las 50 operaciones ya en main (TKT-006 aún no fusionado, el caso real de multipart no se ejerce en este PR). QA despachado (ciclo 1/3) para verificación independiente del mecanismo", "QA_VERDICT PASS ciclo 1/3: QA reconstruyó el algoritmo y el mensaje exacto desde el código fuente de oasdiff v1.32.1 de forma independiente (sin reutilizar el trabajo de DevOps), coincide carácter a carácter con el hallazgo real de CI. gitleaks/semgrep limpios. PR #26 integrado con git merge --no-ff @ dfe6ee0. TKT-OPS-011 DONE. Rama tkt-006-panel-editorial actualizada con main (gh pr update-branch); pendiente confirmar en su CI real que el error de multipart por fin deja de bloquear"]
     actualizado: 2026-09-29
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~608 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias"
