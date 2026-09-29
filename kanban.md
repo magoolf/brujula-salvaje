@@ -470,14 +470,26 @@ tickets:
   - id: TKT-013
     titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-007, AC-129, CHG-API-005]
     depende_de: [TKT-006]
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["Despachado con análisis del Orquestador: mismo patrón de bug en publicar() (1212+1214-1216) y _actualizar_publicacion() (939+941-943); _reindexar() vive dentro de _confirmar_publicacion_entidad (línea 1074), se ejecuta por entidad en vez de una vez al final de la operación completa", "Entregado @ d4a0487, PR #28. _reindexar() sacado de _confirmar_publicacion_entidad, invocado explícitamente al final de publicar() y _actualizar_publicacion() para destino+tipos co-publicados. 2 tests de regresión nuevos confirmados por el Developer con git stash (fallan sin el fix, pasan con él). Suite completa 699 passed/1 failed (preexistente THREAT-019)/3 skipped. TKT-005/006/007 sin regresiones (227 tests). retirar()/reactivar() no tocados (análisis: sin ventana de incoherencia en esa dirección). CI real (run 36611073364) en verde completo. QA despachado", "QA_VERDICT PASS ciclo 1/3: verificación completamente independiente (worktree propio, Postgres real efímero) -- reprodujo el bug ANTES del fix con datos reales (no solo tests), revirtió el fix con git checkout HEAD~1 y confirmó que los 2 tests nuevos fallan sin él y pasan con él, confirmó por grep que los 3 sitios de producción y cargar_semilla.py conservan su reindexado. Suite completa propia: 700 passed/3 skipped/0 failed (ni siquiera reprodujo el flake THREAT-019). gate_contrato.py 128/128 propio; CI real (oasdiff) confirmado SUCCESS vía gh. gitleaks/semgrep limpios. PR #28 integrado con git merge --no-ff @ 5fb4eae. TKT-013 DONE. QA encontró un bug DISTINTO y real durante la verificación (no introducido por este diff, confirmado): retirar(T.TIPO,...) no reindexa los Destinos que lo tienen como tipo_principal -- quedan visibles en búsqueda con 404 al abrirlos. Se abre TKT-014"]
+    actualizado: 2026-09-29
+  - id: TKT-014
+    titulo: "BUG: apps/contenido/services.py retirar(T.TIPO, ...) no reindexa los Destinos que tienen ese Tipo como tipo_principal; el propio Destino sigue PUBLICADO en BD pero deja de cumplir AC-129 (tipo_principal ya no PUBLICADO) sin que su fila en BusquedaDocumento se borre o actualice -- queda visible en resultados de búsqueda pública y devuelve 404 al abrirlo. Encontrado y reproducido con datos reales por QA durante la verificación de TKT-013 (no introducido por ese diff, confirmado preexistente); _confirmar_retiro_entidad solo reindexa la entidad que se retira, nunca las que dependen de ella"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-013, AC-129]
+    depende_de: [TKT-006]
+    archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado con análisis del Orquestador: mismo patrón de bug en publicar() (1212+1214-1216) y _actualizar_publicacion() (939+941-943); _reindexar() vive dentro de _confirmar_publicacion_entidad (línea 1074), se ejecuta por entidad en vez de una vez al final de la operación completa", "Entregado @ d4a0487, PR #28. _reindexar() sacado de _confirmar_publicacion_entidad, invocado explícitamente al final de publicar() y _actualizar_publicacion() para destino+tipos co-publicados. 2 tests de regresión nuevos confirmados por el Developer con git stash (fallan sin el fix, pasan con él). Suite completa 699 passed/1 failed (preexistente THREAT-019)/3 skipped. TKT-005/006/007 sin regresiones (227 tests). retirar()/reactivar() no tocados (análisis: sin ventana de incoherencia en esa dirección). CI real (run 36611073364) en verde completo. QA despachado"]
+    evidencia: []
     actualizado: 2026-09-29
 ```
 
