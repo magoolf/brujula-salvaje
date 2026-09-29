@@ -17,6 +17,7 @@ from apps.auditoria.models import (
     RevisionContenido,
 )
 from apps.busqueda.models import BusquedaDocumento
+from apps.busqueda.services import reindexar_todo
 from apps.contenido import services
 from apps.contenido.models import Contenido, EstadoEditorial, TipoContenido
 from apps.contenido.tests import publicos
@@ -542,3 +543,99 @@ def test_AC_TKT006_02_impacto_retiro_sin_efectos(actor: int) -> None:
     assert {c["id"] for c in impacto["tipos_en_cascada"]} == {tipo_exclusivo.pk}
     destino_.contenido.refresh_from_db()
     assert destino_.contenido.estado_editorial == E.PUBLICADO
+
+
+# ---------------------------------------------------------------------------
+# TKT-014 (regresión): `retirar()` solo tenía una rama de cascada explícita para tipo ==
+# T.DESTINO (líneas ~1418-1465), que reindexa las entidades que ELLA MISMA retira (itinerarios y
+# tipos "sin destinos publicados", RULE-025). Pero al retirar un T.TIPO DIRECTAMENTE (no vía esa
+# cascada), el código solo llamaba a `_confirmar_retiro_entidad(contenido, ...)` para ese Tipo:
+# ningún Destino que lo tuviera como `tipo_principal` ni ningún Itinerario que lo usara cambiaba de
+# estado_editorial (siguen PUBLICADOS en BD, correcto), pero SÍ pierden visibilidad pública
+# (AC-129 y la regla equivalente de itinerarios: q_visible()/es_visible() exigen tipo_principal
+# PUBLICADO para un Destino y ≥1 tipo PUBLICADO para un Itinerario). Nada volvía a reindexarlos:
+# quedaban en BusquedaDocumento de forma permanente pese a ser ya invisibles/404 en la API pública.
+#
+# El bug fue detectado por QA durante la verificación de TKT-013 (que resolvió el problema
+# simétrico de publicación, no éste). El fix añade `_reindexar_dependientes_de_tipo`, invocada
+# explícitamente tras confirmar el retiro directo del Tipo, mismo patrón que TKT-013 (reindexar
+# DESPUÉS de confirmar el estado, nunca dentro de `_confirmar_retiro_entidad`).
+#
+# Se verifica el índice REAL (`BusquedaDocumento`) inmediatamente después de `retirar()`, sin
+# ningún reindexado externo posterior, igual que los tests de TKT-013.
+# ---------------------------------------------------------------------------
+def test_AC_TKT014_retirar_tipo_directo_reindexa_destino_con_tipo_principal(actor: int) -> None:
+    tipo_ = publicos.tipo("Tipo principal retirado directo")
+    destino_ = publicos.destino("Destino con tipo principal retirado", tipos=[tipo_])
+    reindexar_todo()
+    assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+
+    services.retirar(
+        T.TIPO,
+        tipo_.pk,
+        actor,
+        version=tipo_.contenido.version,
+        motivo="Ya no se ofrece",
+        confirmar_cascada=False,
+        cascada_confirmada=None,
+    )
+
+    # Sin ningún reindexado externo: el propio `retirar()` debe sacar al destino dependiente del
+    # índice, aunque su propio estado_editorial no haya cambiado.
+    assert not BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+    destino_.contenido.refresh_from_db()
+    assert destino_.contenido.estado_editorial == E.PUBLICADO
+    tipo_.contenido.refresh_from_db()
+    assert tipo_.contenido.estado_editorial == E.RETIRADO
+    assert not BusquedaDocumento.objects.filter(contenido=tipo_.contenido).exists()
+
+
+def test_AC_TKT014_retirar_tipo_directo_reindexa_itinerario_dependiente(actor: int) -> None:
+    tipo_del_destino = publicos.tipo("Tipo del destino TKT-014")
+    tipo_del_itinerario = publicos.tipo("Tipo exclusivo del itinerario TKT-014")
+    destino_ = publicos.destino("Destino con itinerario TKT-014", tipos=[tipo_del_destino])
+    itinerario_ = publicos.itinerario(
+        "Ruta dependiente TKT-014", destino_, tipos=[tipo_del_itinerario]
+    )
+    reindexar_todo()
+    assert BusquedaDocumento.objects.filter(contenido=itinerario_.contenido).exists()
+
+    services.retirar(
+        T.TIPO,
+        tipo_del_itinerario.pk,
+        actor,
+        version=tipo_del_itinerario.contenido.version,
+        motivo="Ya no se ofrece",
+        confirmar_cascada=False,
+        cascada_confirmada=None,
+    )
+
+    # El itinerario pierde su único tipo publicado: deja de ser visible (q_visible) aunque nadie
+    # haya tocado su estado_editorial. Sin reindexado externo, el índice debe reflejarlo de
+    # inmediato.
+    assert not BusquedaDocumento.objects.filter(contenido=itinerario_.contenido).exists()
+    itinerario_.contenido.refresh_from_db()
+    assert itinerario_.contenido.estado_editorial == E.PUBLICADO
+    # El destino no depende de este tipo (su tipo_principal es otro): sigue visible.
+    assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+
+
+def test_AC_TKT014_retirar_tipo_sin_dependientes_no_falla(actor: int) -> None:
+    """Caso base: un Tipo sin ningún Destino ni Itinerario dependiente se retira sin error (la
+    consulta de dependientes de `_reindexar_dependientes_de_tipo` simplemente no encuentra nada)."""
+    tipo_huerfano = publicos.tipo("Tipo sin dependientes TKT-014")
+    reindexar_todo()
+
+    contenido, afectadas = services.retirar(
+        T.TIPO,
+        tipo_huerfano.pk,
+        actor,
+        version=tipo_huerfano.contenido.version,
+        motivo="Sin uso",
+        confirmar_cascada=False,
+        cascada_confirmada=None,
+    )
+
+    assert contenido.estado_editorial == E.RETIRADO
+    assert len(afectadas) == 1
+    assert afectadas[0]["origen"] == "PRINCIPAL"
