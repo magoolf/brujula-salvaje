@@ -1,0 +1,306 @@
+"""Serializers de inicio, configuración del sitio y tablero (contracts/openapi.yaml, tags
+panel-configuracion y panel-tablero). Solo forma y validación (Skill_Backend Regla 02)."""
+
+from __future__ import annotations
+
+import copy
+from typing import Any
+
+from django.core.validators import MaxLengthValidator
+from drf_spectacular.utils import extend_schema_field
+from rest_framework import serializers
+
+from apps.contenido.models import TipoContenido
+from apps.core.api.serializers import EntradaEstricta, IdSerializerField
+
+
+def _con_limite(campo: Any, *, max_length: int | None = None) -> Any:
+    """Ídem `apps.contenido.api.panel_serializers._con_limite` (duplicada a propósito,
+    Skill_Backend §5; ver ahí el porqué completo, RONDA 5): reconstruye el `ListSerializer` con
+    `validators=` como kwarg del constructor -- mutar `campo.validators` después de construir el
+    campo no sobrevive al `copy.deepcopy(self._declared_fields)` que DRF hace en cada
+    instanciación del serializer padre. Solo `max_length` aquí: ninguno de los campos de este
+    archivo necesitó `minItems`."""
+    if max_length is None:
+        return campo
+    validadores = [*(campo._kwargs.get("validators") or []), MaxLengthValidator(max_length)]
+    kwargs = dict(campo._kwargs)
+    kwargs["child"] = copy.deepcopy(kwargs["child"])
+    kwargs["validators"] = validadores
+    return campo.__class__(*campo._args, **kwargs)
+
+
+@extend_schema_field({"type": "string", "enum": list(TipoContenido.values)})
+class _CampoTipoEntidadConEnum(serializers.ChoiceField):
+    """`ChoiceField` de `tipo` (TipoEntidadContenido) con el enum inline (TKT-006, ciclo oasdiff:
+    enum removed in revision); ver la misma clase en `apps.contenido.api.panel_serializers`
+    (duplicada a propósito, Skill_Backend §5)."""
+
+
+def _tipo_entidad_field() -> serializers.ChoiceField:
+    return _CampoTipoEntidadConEnum(choices=TipoContenido.choices)
+
+
+@extend_schema_field({"type": "string", "enum": ["BORRADOR", "PUBLICADO", "RETIRADO"]})
+class _CampoEstadoEditorial(serializers.ChoiceField):
+    """`ChoiceField` de `estado_editorial` (EstadoEditorial) con el enum inline."""
+
+
+def _campo_estado_editorial(**kwargs: Any) -> serializers.ChoiceField:
+    return _CampoEstadoEditorial(choices=["BORRADOR", "PUBLICADO", "RETIRADO"], **kwargs)
+
+
+def _id_lista(minimo: int, maximo: int) -> serializers.ListField:
+    return serializers.ListField(child=IdSerializerField(), min_length=minimo, max_length=maximo)
+
+
+class ConfigInicioEntradaSerializer(EntradaEstricta):
+    hero_titular = serializers.CharField(min_length=1, max_length=80)
+    hero_subtitulo = serializers.CharField(min_length=1, max_length=160)
+    hero_medio_id = IdSerializerField()
+    destinos_ids = _id_lista(6, 12)
+    itinerarios_ids = _id_lista(3, 6)
+    guias_ids = _id_lista(3, 6)
+
+    def _validar_unicos(self, nombre: str, valor: list[int]) -> list[int]:
+        if len(set(valor)) != len(valor):
+            raise serializers.ValidationError(f"{nombre}: no puede haber ids repetidos.")
+        return valor
+
+    def validate_destinos_ids(self, valor: list[int]) -> list[int]:
+        return self._validar_unicos("destinos_ids", valor)
+
+    def validate_itinerarios_ids(self, valor: list[int]) -> list[int]:
+        return self._validar_unicos("itinerarios_ids", valor)
+
+    def validate_guias_ids(self, valor: list[int]) -> list[int]:
+        return self._validar_unicos("guias_ids", valor)
+
+
+@extend_schema_field({"type": ["integer", "null"], "format": "int64"})
+class _CampoIdNuloInt64(serializers.IntegerField):
+    """components.schemas.ActorRef.id: entero int64 nullable ("sistema" cuando es null); ver
+    `apps.contenido.api.panel_serializers` (duplicada a propósito, Skill_Backend §5)."""
+
+
+class ActorRefSerializer(serializers.Serializer[Any]):
+    """components.schemas.ActorRef con `ref_name` propio (evita colisión entre dominios,
+    Skill_Backend §5: cada capa API define sus propios serializers de salida)."""
+
+    id = _CampoIdNuloInt64(allow_null=True)
+    etiqueta = serializers.CharField(max_length=60)
+
+    class Meta:
+        ref_name = "ActorRefInicio"
+
+
+class MedioMiniaturaSerializer(serializers.Serializer[Any]):
+    id = IdSerializerField()
+    estado = serializers.CharField()
+    texto_alternativo = serializers.CharField(allow_null=True)
+    licencia_codigo = serializers.CharField(allow_null=True)
+    url_miniatura = serializers.CharField()
+
+
+class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoRefPanel. `ref_name` propio (Skill_Backend §5): cada capa API
+    define sus propios serializers de referencia sin importar entre dominios."""
+
+    tipo = _tipo_entidad_field()
+    id = IdSerializerField()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = _campo_estado_editorial()
+
+    class Meta:
+        ref_name = "ContenidoRefPanelInicio"
+
+
+class ReferenciasConfigInicioSerializer(serializers.Serializer[Any]):
+    """`ConfigInicioPanel.referencias` (esquema en línea del contrato)."""
+
+    medios = MedioMiniaturaSerializer(many=True, required=False)
+    contenidos = ContenidoRefPanelSerializer(many=True, required=False)
+
+
+class ConfigInicioPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ConfigInicioPanel. Declara los campos (Skill_Backend Regla 13,
+    TKT-006 ciclo oasdiff): un `to_representation` propio sin campos declarados no genera
+    ninguna propiedad en el esquema drf-spectacular."""
+
+    hero_titular = serializers.CharField(min_length=1, max_length=80)
+    hero_subtitulo = serializers.CharField(min_length=1, max_length=160)
+    hero_medio_id = IdSerializerField()
+    destinos_ids = _id_lista(6, 12)
+    itinerarios_ids = _id_lista(3, 6)
+    guias_ids = _id_lista(3, 6)
+    actualizado_en = serializers.DateTimeField()
+    actualizado_por = ActorRefSerializer()
+    referencias = ReferenciasConfigInicioSerializer()
+
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        from apps.inicio import selectors
+
+        config = instance
+        return {
+            "hero_titular": config.hero_titular,
+            "hero_subtitulo": config.hero_subtitulo,
+            "hero_medio_id": config.hero_medio_id,
+            "destinos_ids": selectors.ids_destacados("DESTINOS"),
+            "itinerarios_ids": selectors.ids_destacados("ITINERARIOS"),
+            "guias_ids": selectors.ids_destacados("GUIAS"),
+            "actualizado_en": config.actualizado_en,
+            "actualizado_por": {
+                "id": config.actualizado_por_id,
+                "etiqueta": f"#{config.actualizado_por_id}"
+                if config.actualizado_por_id
+                else "sistema",
+            },
+            "referencias": {"medios": [], "contenidos": []},
+        }
+
+
+class ConfiguracionSitioEntradaSerializer(EntradaEstricta):
+    nombre_marca = serializers.CharField(min_length=1, max_length=60)
+    lema = serializers.CharField(max_length=120, required=False, allow_null=True)
+    texto_descargo = serializers.CharField(min_length=1, max_length=5000, trim_whitespace=False)
+    responsable_nombre = serializers.CharField(max_length=150, required=False, allow_null=True)
+    responsable_identificacion = serializers.CharField(
+        max_length=40, required=False, allow_null=True
+    )
+    responsable_domicilio = serializers.CharField(max_length=200, required=False, allow_null=True)
+    responsable_canal_atencion = serializers.CharField(
+        max_length=200, required=False, allow_null=True
+    )
+
+
+class ConfiguracionSitioSerializer(serializers.Serializer[Any]):
+    nombre_marca = serializers.CharField(max_length=60)
+    lema = serializers.CharField(allow_null=True)
+    texto_descargo = serializers.CharField()
+    responsable_nombre = serializers.CharField(allow_null=True)
+    responsable_identificacion = serializers.CharField(allow_null=True)
+    responsable_domicilio = serializers.CharField(allow_null=True)
+    responsable_canal_atencion = serializers.CharField(allow_null=True)
+    actualizado_en = serializers.DateTimeField()
+
+
+class ContenidoResumenTableroSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoResumenPanel (`Tablero.recientes`). Declara los campos
+    (Skill_Backend Regla 13, TKT-006 ciclo oasdiff): un `to_representation` propio sin campos
+    declarados no genera ninguna propiedad en el esquema drf-spectacular (el componente vacío se
+    descarta y `recientes` desaparece del esquema, gate: property present in base, missing in
+    revision)."""
+
+    id = IdSerializerField()
+    tipo = _tipo_entidad_field()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = _campo_estado_editorial()
+    version = serializers.IntegerField(min_value=1)
+    fecha_ultima_revision = serializers.DateField(allow_null=True, required=False)
+    actualizado_en = serializers.DateTimeField()
+    actualizado_por = ActorRefSerializer()
+    publicado = serializers.BooleanField()
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
+
+    def to_representation(self, instance: Any) -> dict[str, Any]:
+        from apps.contenido import services
+
+        contenido = instance
+        return {
+            "id": contenido.pk,
+            "tipo": contenido.tipo,
+            "titulo": contenido.titulo,
+            "slug": contenido.slug,
+            "estado_editorial": contenido.estado_editorial,
+            "version": contenido.version,
+            "fecha_ultima_revision": contenido.fecha_ultima_revision,
+            "actualizado_en": contenido.actualizado_en,
+            "actualizado_por": {
+                "id": contenido.actualizado_por_id,
+                "etiqueta": f"#{contenido.actualizado_por_id}"
+                if contenido.actualizado_por_id
+                else "sistema",
+            },
+            "publicado": contenido.estado_editorial == "PUBLICADO",
+            "url_publica": services._url_publica(contenido),
+        }
+
+
+class ConteoTipoSerializer(serializers.Serializer[Any]):
+    tipo = _tipo_entidad_field()
+    borrador = serializers.IntegerField(min_value=0)
+    publicado = serializers.IntegerField(min_value=0)
+    retirado = serializers.IntegerField(min_value=0)
+
+
+class AlertaTableroSerializer(serializers.Serializer[Any]):
+    code = serializers.ChoiceField(
+        choices=["responsable_sin_definir", "destacado_retirado", "coleccion_bajo_minimo"]
+    )
+    mensaje = serializers.CharField(max_length=300)
+    enlace = serializers.RegexField(r"^/panel(/[a-z0-9/-]*)?$", allow_null=True, required=False)
+
+
+@extend_schema_field(
+    {
+        # Sin 'null' aquí: `allow_null=True` en el uso (`SaludEditorialSerializer(allow_null=True,
+        # ...)` en `TableroSerializer`) hace que `append_meta` lo añada una sola vez a `type`;
+        # declararlo también aquí duplicaba la entrada (ver mismo caso en `apps.medios.api`).
+        "type": "object",
+        "properties": {
+            "revisiones_antiguas": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+            "medios_pendientes_metadatos": {"type": "integer", "minimum": 0},
+            "medios_sin_uso": {"type": "integer", "minimum": 0},
+            "colecciones_bajo_minimo": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+            "destacados_bajo_minimo": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {"type": "string", "enum": ["DESTINOS", "ITINERARIOS", "GUIAS"]},
+            },
+            "contenidos_con_pocos_relacionados": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+        },
+    }
+)
+class SaludEditorialSerializer(serializers.Serializer[Any]):
+    """`Tablero.salud_editorial` (EXP-001, COULD): null mientras no esté implementado.
+
+    `extend_schema_field` con el literal completo del contrato (TKT-006 ciclo oasdiff,
+    `response-property-one-of-added`): el contrato declara `salud_editorial` como objeto en
+    línea nullable (`type: ['object', 'null']`, sin `oneOf`), pero al usar este serializer como
+    campo anidado con `allow_null=True`, `append_meta` (drf-spectacular, OAS 3.1) envuelve
+    cualquier `$ref` nullable en `oneOf: [{$ref}, {type: 'null'}]` -- forma válida pero distinta
+    a la que el contrato documenta. El override también fija los `maxItems` de sus 4 arrays
+    (50/50/3/50, contrato) que de otro modo drf-spectacular no puede derivar de un
+    `ListSerializer` (ver `_con_limite`) y que aquí, al escribir el literal a mano, cuestan lo
+    mismo declarar bien."""
+
+    revisiones_antiguas = ContenidoRefPanelSerializer(many=True, required=False)
+    medios_pendientes_metadatos = serializers.IntegerField(min_value=0, required=False)
+    medios_sin_uso = serializers.IntegerField(min_value=0, required=False)
+    colecciones_bajo_minimo = ContenidoRefPanelSerializer(many=True, required=False)
+    destacados_bajo_minimo = serializers.ListField(
+        child=serializers.ChoiceField(choices=["DESTINOS", "ITINERARIOS", "GUIAS"]),
+        required=False,
+    )
+    contenidos_con_pocos_relacionados = ContenidoRefPanelSerializer(many=True, required=False)
+
+
+class TableroSerializer(serializers.Serializer[Any]):
+    conteos = _con_limite(ConteoTipoSerializer(many=True), max_length=7)
+    recientes = _con_limite(ContenidoResumenTableroSerializer(many=True), max_length=10)
+    alertas = _con_limite(AlertaTableroSerializer(many=True), max_length=20)
+    salud_editorial = SaludEditorialSerializer(allow_null=True, required=False)

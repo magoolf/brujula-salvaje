@@ -13,6 +13,16 @@ DEC-AUTO-196) compare significado y no forma:
    explícitamente (serializers de apps/core/api), se emiten como `allOf` sobre Problem. Las
    respuestas NO se reasignan por código de estado (OBS-QA004-09).
 4. Páginas: `allOf` de PaginaMeta + `resultados` (DEC-AUTO-104).
+5. Recursos del panel (DEC-AUTO-918, TKT-006 ciclo oasdiff): el contrato compone los schemas
+   Panel/Entrada/Actualizacion/VistaPrevia de los 7 tipos de contenido y Pais/Region de
+   taxonomías como `allOf` de componentes con nombre (ContenidoPanelMeta, ContenidoComunCampos,
+   {Tipo}Campos, VersionCampo, IdOpcionalCampo, CamposOperacionPublicada). drf-spectacular no
+   genera `allOf` a partir de herencia de clases Python (verificado empíricamente): los
+   serializers Python declaran esos mismos campos por herencia múltiple de Mixins compartidos
+   (apps/contenido/api/panel_serializers.py, apps/catalogos/api/serializers.py), así que el
+   esquema aplanado ya trae, con tipo/formato/patrón correctos, la unión exacta de propiedades
+   que el contrato reparte en esas ramas; aquí solo se reparte esa unión ya generada en los
+   mismos sub-componentes, igual mecanismo que `_paginas` generalizado (`_dividir_en_allof`).
 Es infraestructura (Skill_Backend Regla 10): no importa ninguna app.
 """
 
@@ -111,6 +121,259 @@ def _sin_envoltorio_readonly(nodo: Any) -> Any:
     return {clave: _sin_envoltorio_readonly(valor) for clave, valor in nodo.items()}
 
 
+# ---------------------------------------------------------------------------------------------
+# Composición allOf de los recursos del panel (DEC-AUTO-918, punto 5 del docstring del módulo).
+# ---------------------------------------------------------------------------------------------
+# Nombres de campo de cada "capa" compartida (contracts/openapi.yaml): coinciden con los Mixin de
+# Python que las declaran (ComunesMixin, VersionMixin, IdOpcionalMixin, OperacionPublicadaMixin,
+# ContenidoPanelMetaSerializer) — nunca hay que tocar esto si solo cambian tipo/formato/patrón de
+# un campo (drf-spectacular ya los genera bien); solo si el contrato o los Mixin AÑADEN o QUITAN
+# un campo de una de estas capas.
+_CONTENIDO_PANEL_META = frozenset(
+    {
+        "id", "tipo", "estado_editorial", "version", "slug_bloqueado", "primera_publicacion_en",
+        "publicado_actualizado_en", "retirado_en", "motivo_retiro", "creado_en", "actualizado_en",
+        "creado_por", "actualizado_por", "url_publica", "requisitos_publicacion", "referencias",
+    }
+)  # fmt: skip
+_CONTENIDO_PANEL_META_REQUERIDO = (
+    "id", "tipo", "estado_editorial", "version", "slug_bloqueado", "creado_en", "actualizado_en",
+    "creado_por", "actualizado_por", "requisitos_publicacion", "referencias",
+)  # fmt: skip
+_CONTENIDO_COMUN_CAMPOS = frozenset(
+    {
+        "titulo", "slug", "fecha_ultima_revision", "seo_titulo", "seo_descripcion", "relaciones",
+        "terminos_ids", "fuentes",
+    }
+)  # fmt: skip
+_VERSION_CAMPO = frozenset({"version"})
+_ID_OPCIONAL_CAMPO = frozenset({"id"})
+_CAMPOS_OPERACION_PUBLICADA = frozenset(
+    {"copublicar_tipos", "confirmar_cascada", "cascada_confirmada"}
+)
+
+# Rama = (nombre_de_componente | None, campos_exactos | None, requerido_de_la_rama | None).
+#   - nombre + campos: crea/reusa un componente con nombre con exactamente esos campos.
+#   - nombre + campos=None ("resto"): idem, con los campos que no caen en ninguna otra rama --
+#     para la parte específica del tipo ({Tipo}Campos), sin enumerar aquí sus nombres.
+#   - nombre=None: rama anónima sin $ref, con exactamente esos campos (composiciones inline del
+#     contrato: el `id` de Pais/Region, los campos de solo lectura de Guia/TerminoGlosario/
+#     PaginaInstitucional Panel).
+# Como máximo una rama "resto" por composición.
+Rama = tuple[str | None, frozenset[str] | None, tuple[str, ...] | None]
+
+_META: Rama = ("ContenidoPanelMeta", _CONTENIDO_PANEL_META, _CONTENIDO_PANEL_META_REQUERIDO)
+_COMUN: Rama = ("ContenidoComunCampos", _CONTENIDO_COMUN_CAMPOS, None)
+_VERSION: Rama = ("VersionCampo", _VERSION_CAMPO, ("version",))
+_ID_OPC: Rama = ("IdOpcionalCampo", _ID_OPCIONAL_CAMPO, None)
+_OPERACION_PUBLICADA: Rama = ("CamposOperacionPublicada", _CAMPOS_OPERACION_PUBLICADA, None)
+
+
+def _resto(nombre_componente: str) -> Rama:
+    return (nombre_componente, None, None)
+
+
+def _anon(campos: frozenset[str], requerido: tuple[str, ...] | None = None) -> Rama:
+    return (None, campos, requerido)
+
+
+# (nombre generado por drf-spectacular, ramas en el mismo orden que el contrato, requerido a
+# nivel superior o None). Los nombres de request llevan el sufijo "Request" que añade
+# COMPONENT_SPLIT_REQUEST=True cuando el serializer solo se usa como cuerpo de petición
+# (verificado leyendo el esquema generado, no supuesto).
+_COMPOSICIONES: tuple[tuple[str, tuple[Rama, ...], tuple[str, ...] | None], ...] = (
+    # --- Destino ---
+    ("DestinoPanel", (_META, _COMUN, _resto("DestinoCampos")), None),
+    ("DestinoEntradaRequest", (_COMUN, _resto("DestinoCampos")), ("titulo",)),
+    (
+        "DestinoActualizacionRequest",
+        (_COMUN, _resto("DestinoCampos"), _VERSION, _OPERACION_PUBLICADA),
+        ("titulo", "version"),
+    ),
+    (
+        "DestinoVistaPreviaRequest",
+        (_COMUN, _resto("DestinoCampos"), _ID_OPC),
+        ("titulo",),
+    ),
+    # --- Itinerario ---
+    ("ItinerarioPanel", (_META, _COMUN, _resto("ItinerarioCampos")), None),
+    ("ItinerarioEntradaRequest", (_COMUN, _resto("ItinerarioCampos")), ("titulo",)),
+    (
+        "ItinerarioActualizacionRequest",
+        (_COMUN, _resto("ItinerarioCampos"), _VERSION),
+        ("titulo", "version"),
+    ),
+    (
+        "ItinerarioVistaPreviaRequest",
+        (_COMUN, _resto("ItinerarioCampos"), _ID_OPC),
+        ("titulo",),
+    ),
+    # --- Guía (Panel: rama anónima final "palabras", solo lectura) ---
+    (
+        "GuiaPanel",
+        (_META, _COMUN, _resto("GuiaCampos"), _anon(frozenset({"palabras"}))),
+        None,
+    ),
+    ("GuiaEntradaRequest", (_COMUN, _resto("GuiaCampos")), ("titulo",)),
+    (
+        "GuiaActualizacionRequest",
+        (_COMUN, _resto("GuiaCampos"), _VERSION),
+        ("titulo", "version"),
+    ),
+    ("GuiaVistaPreviaRequest", (_COMUN, _resto("GuiaCampos"), _ID_OPC), ("titulo",)),
+    # --- Tipo de aventura ---
+    ("TipoAventuraPanel", (_META, _COMUN, _resto("TipoAventuraCampos")), None),
+    ("TipoAventuraEntradaRequest", (_COMUN, _resto("TipoAventuraCampos")), ("titulo",)),
+    (
+        "TipoAventuraActualizacionRequest",
+        (_COMUN, _resto("TipoAventuraCampos"), _VERSION),
+        ("titulo", "version"),
+    ),
+    (
+        "TipoAventuraVistaPreviaRequest",
+        (_COMUN, _resto("TipoAventuraCampos"), _ID_OPC),
+        ("titulo",),
+    ),
+    # --- Colección ---
+    ("ColeccionPanel", (_META, _COMUN, _resto("ColeccionCampos")), None),
+    ("ColeccionEntradaRequest", (_COMUN, _resto("ColeccionCampos")), ("titulo",)),
+    (
+        "ColeccionActualizacionRequest",
+        (_COMUN, _resto("ColeccionCampos"), _VERSION),
+        ("titulo", "version"),
+    ),
+    (
+        "ColeccionVistaPreviaRequest",
+        (_COMUN, _resto("ColeccionCampos"), _ID_OPC),
+        ("titulo",),
+    ),
+    # --- Término de glosario (sin ContenidoComunCampos: TerminoGlosarioCampos ya trae titulo) ---
+    (
+        "TerminoGlosarioPanel",
+        (
+            _META,
+            _resto("TerminoGlosarioCampos"),
+            _anon(frozenset({"vinculado_en"}), ("vinculado_en",)),
+        ),
+        None,
+    ),
+    ("TerminoGlosarioEntradaRequest", (_resto("TerminoGlosarioCampos"),), ("titulo",)),
+    (
+        "TerminoGlosarioActualizacionRequest",
+        (_resto("TerminoGlosarioCampos"), _VERSION),
+        ("titulo", "version"),
+    ),
+    # --- Página institucional (sin ContenidoComunCampos ni Entrada: no se crean, AC-033) ---
+    (
+        "PaginaInstitucionalPanel",
+        (
+            _META,
+            _resto("PaginaInstitucionalCampos"),
+            _anon(frozenset({"clave", "solo_administrador"}), ("clave", "solo_administrador")),
+        ),
+        None,
+    ),
+    (
+        "PaginaInstitucionalActualizacionRequest",
+        (_resto("PaginaInstitucionalCampos"), _VERSION),
+        ("titulo", "cuerpo", "version_documento", "vigente_desde", "version"),
+    ),
+    (
+        "PaginaInstitucionalVistaPreviaRequest",
+        (_resto("PaginaInstitucionalCampos"), _ID_OPC),
+        ("titulo",),
+    ),
+    # --- Taxonomías: Región y País (composición propia, sin ContenidoPanelMeta) ---
+    ("Region", (_anon(frozenset({"id"}), ("id",)), _resto("RegionCampos")), None),
+    (
+        "RegionEntradaRequest",
+        (_resto("RegionCampos"),),
+        ("nombre", "slug", "continente", "orden", "activo"),
+    ),
+    ("Pais", (_anon(frozenset({"id"}), ("id",)), _resto("PaisCampos")), None),
+    (
+        "PaisEntradaRequest",
+        (_resto("PaisCampos"),),
+        ("nombre", "slug", "codigo_iso2", "region_id", "activo"),
+    ),
+)
+
+
+def _rama_schema(
+    esquemas: dict[str, Any],
+    propiedades: dict[str, Any],
+    ref_nombre: str | None,
+    campos: frozenset[str],
+    requerido: tuple[str, ...] | None,
+) -> dict[str, Any]:
+    cuerpo: dict[str, Any] = {
+        "type": "object",
+        "properties": {nombre: propiedades[nombre] for nombre in sorted(campos)},
+    }
+    if requerido:
+        cuerpo["required"] = list(requerido)
+    if ref_nombre is None:
+        return cuerpo
+    esquemas.setdefault(ref_nombre, cuerpo)
+    return {"$ref": f"{_REF}{ref_nombre}"}
+
+
+def _dividir_en_allof(
+    esquemas: dict[str, Any],
+    nombre: str,
+    ramas: tuple[Rama, ...],
+    requerido_top: tuple[str, ...] | None,
+) -> None:
+    """Reescribe `esquemas[nombre]` (un objeto plano ya generado por drf-spectacular) como
+    `allOf` de `ramas`, replicando la composición del contrato para ese componente. No reescribe
+    si el conjunto de propiedades generado no coincide EXACTAMENTE con la unión de las ramas
+    (mismo criterio de seguridad que `_paginas`): evita enmascarar una diferencia real de campos
+    entre la implementación y el contrato en vez de corregirla."""
+    if nombre not in esquemas:
+        return
+    esquema = esquemas[nombre]
+    propiedades = esquema.get("properties") or {}
+    nombres_propiedades = set(propiedades)
+
+    con_campos: list[tuple[str | None, frozenset[str], tuple[str, ...] | None]] = [
+        (ref, campos, req) for ref, campos, req in ramas if campos is not None
+    ]
+    num_resto = sum(1 for _ref, campos, _req in ramas if campos is None)
+    if num_resto > 1:
+        return  # composición mal declarada (más de un "resto"): no reescribir
+
+    asignadas: set[str] = set()
+    for _ref, campos, _req in con_campos:
+        if campos & asignadas:
+            return  # ramas solapadas: no reescribir
+        asignadas |= campos
+    if not asignadas <= nombres_propiedades:
+        return  # el generado no tiene todos los campos esperados: posible diferencia real
+
+    resto = nombres_propiedades - asignadas
+    if num_resto and not resto:
+        return  # se esperaban campos propios del tipo y no queda ninguno sin asignar
+    if not num_resto and resto:
+        return  # sobran propiedades sin asignar a ninguna rama: no coincide
+
+    resto_congelado = frozenset(resto)
+    ramas_finales = [
+        _rama_schema(
+            esquemas, propiedades, ref, campos if campos is not None else resto_congelado, req
+        )
+        for ref, campos, req in ramas
+    ]
+    nuevo: dict[str, Any] = {"allOf": ramas_finales}
+    if requerido_top:
+        nuevo["required"] = list(requerido_top)
+    esquemas[nombre] = nuevo
+
+
+def _recursos_del_panel(esquemas: dict[str, Any]) -> None:
+    for nombre, ramas, requerido_top in _COMPOSICIONES:
+        _dividir_en_allof(esquemas, nombre, ramas, requerido_top)
+
+
 def _paginas(esquemas: dict[str, Any]) -> None:
     for nombre, esquema in list(esquemas.items()):
         propiedades = esquema.get("properties") or {}
@@ -136,6 +399,7 @@ def alinear_con_contrato(
     rutas = result.get("paths") or {}
     esquemas = result.setdefault("components", {}).setdefault("schemas", {})
     _paginas(esquemas)
+    _recursos_del_panel(esquemas)
     # Solo se reescribe la DEFINICIÓN de los componentes que las vistas declaran explícitamente
     # (OBS-QA004-09): una respuesta documentada con otro esquema no se toca y el gate la compara.
     if "ProblemaValidacion" in esquemas:

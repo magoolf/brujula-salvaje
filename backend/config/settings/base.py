@@ -261,6 +261,30 @@ SPECTACULAR_SETTINGS = {
         "EstadoCuenta": "apps.cuentas.models.EstadoCuenta",
         "AccionAuditoria": "apps.auditoria.models.AccionAuditoria",
         "ResultadoAuditoria": "apps.auditoria.models.ResultadoAuditoria",
+        # DEC-AUTO-919 (TKT-006, ciclo "unit tests + cobertura": check --deploy con
+        # drf_spectacular.W001). Los 4 overrides de arriba apuntan a una clase TextChoices real
+        # porque drf-spectacular calcula el hash de colisión a partir de sus pares (valor,
+        # etiqueta) reales. Los 5 de abajo son conjuntos de choices AD-HOC (sin clase de modelo
+        # propia, o cuya clase real tiene etiquetas en mayúscula/minúscula que no coinciden con
+        # el valor): varios serializers de dominios distintos comparten el mismo NOMBRE de campo
+        # ("tipo", "origen", "rol", "tipo_contenido", "destacados"/"destacados_bajo_minimo") para
+        # conjuntos de choices distintos o para el mismo conjunto con nombres distintos, y
+        # drf-spectacular no puede darles un nombre de componente estable sin ayuda. Se listan
+        # como lista literal de valores (no una ruta de cadena): el hash de colisión se calcula
+        # igual que en un choice set con etiqueta = valor (sin clase Choices detrás).
+        "TipoEntidadContenido": [
+            "DESTINO",
+            "ITINERARIO",
+            "GUIA",
+            "TIPO",
+            "COLECCION",
+            "TERMINO",
+            "PAGINA",
+        ],
+        "TipoRelacionable": ["DESTINO", "ITINERARIO", "GUIA", "TIPO", "COLECCION"],
+        "TipoElementoColeccion": ["DESTINO", "ITINERARIO"],
+        "RolEntidadOperacion": ["PRINCIPAL", "COPUBLICACION", "CASCADA"],
+        "AreaDestacada": ["DESTINOS", "ITINERARIOS", "GUIAS"],
     },
 }
 

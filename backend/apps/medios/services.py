@@ -1,0 +1,390 @@
+"""Subida, catalogación y ciclo de vida de medios (STATE-002, RULE-005, DEC-AUTO-044/084/110).
+
+Procesamiento síncrono (sin broker, ADR-DB-005): por archivo se verifica el tipo por contenido
+(nunca por la extensión ni el `Content-Type` declarado, THREAT-006), el tamaño y las dimensiones
+ANTES de decodificar por completo, se recodifica para eliminar metadatos (EXIF/XMP/IPTC,
+THREAT-007) y se generan derivados responsivos. Los archivos se guardan con un nombre generado
+por el sistema (la huella sha256), nunca con el nombre original del cliente (THREAT-023), en
+`MEDIA_ROOT/medios/**` (fuera de cualquier ruta servida como código).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import structlog
+from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+from PIL import Image, UnidentifiedImageError
+
+from apps.core.exceptions import ErrorApi, NoEncontrado
+from apps.medios.models import (
+    LADO_MAYOR_MINIMO_PX,
+    PESO_MAXIMO_BYTES,
+    PIXELES_MAXIMOS,
+    EstadoMedio,
+    FormatoDerivado,
+    FormatoOrigen,
+    Medio,
+    MedioDerivado,
+)
+
+logger = structlog.get_logger("brujula.medios")
+
+_FORMATOS_ORIGEN_PIL = {
+    "JPEG": FormatoOrigen.JPEG,
+    "PNG": FormatoOrigen.PNG,
+    "WEBP": FormatoOrigen.WEBP,
+}
+ANCHOS_DERIVADOS = (400, 800, 1200, 1600, 2000)
+FORMATOS_DERIVADOS = (FormatoDerivado.WEBP, FormatoDerivado.JPEG, FormatoDerivado.AVIF)
+
+
+class MedioEnUso(ErrorApi):
+    codigo = "medio_en_uso"
+
+
+class TransicionInvalida(ErrorApi):
+    codigo = "transicion_invalida"
+
+
+@dataclass(frozen=True)
+class ResultadoArchivo:
+    nombre_archivo: str
+    resultado: str  # ACEPTADO | RECHAZADO | DUPLICADO
+    medio: Medio | None = None
+    medio_existente_id: int | None = None
+    motivo: dict[str, str] | None = None
+
+
+def _ruta_absoluta(relativa: str) -> Path:
+    return Path(settings.MEDIA_ROOT) / relativa
+
+
+def _guardar_bytes(relativa: str, contenido: bytes) -> None:
+    ruta = _ruta_absoluta(relativa)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_bytes(contenido)
+
+
+def _sha256(contenido: bytes) -> str:
+    return hashlib.sha256(contenido).hexdigest()
+
+
+def _validar_formato_y_tamano(contenido: bytes) -> tuple[str, Image.Image]:
+    """Abre la imagen y valida el formato real (por contenido) y el tamaño antes de decodificar
+    por completo (`Image.open` es perezoso: solo lee la cabecera hasta `load()`/`verify()`)."""
+    if len(contenido) < 1 or len(contenido) > PESO_MAXIMO_BYTES:
+        raise _rechazo("tamano_excedido", "El archivo supera los 10 MB permitidos.")
+    try:
+        imagen = Image.open(io.BytesIO(contenido))
+        formato = imagen.format
+    except (UnidentifiedImageError, OSError) as exc:
+        raise _rechazo("archivo_corrupto", "El archivo no es una imagen válida.") from exc
+    if formato not in _FORMATOS_ORIGEN_PIL:
+        raise _rechazo("formato_no_permitido", "Solo se admiten imágenes JPEG, PNG o WebP.")
+    ancho, alto = imagen.size
+    if ancho <= 0 or alto <= 0:
+        raise _rechazo("archivo_corrupto", "El archivo no es una imagen válida.")
+    if ancho * alto > PIXELES_MAXIMOS:
+        raise _rechazo("megapixeles_excedidos", "La imagen supera los 40 megapíxeles permitidos.")
+    if max(ancho, alto) < LADO_MAYOR_MINIMO_PX:
+        raise _rechazo(
+            "dimensiones_insuficientes",
+            f"El lado mayor debe ser de al menos {LADO_MAYOR_MINIMO_PX}px.",
+        )
+    try:
+        imagen.load()
+    except OSError as exc:
+        raise _rechazo("archivo_corrupto", "El archivo no es una imagen válida.") from exc
+    return formato, imagen
+
+
+class _RechazadoError(Exception):
+    def __init__(self, code: str, detalle: str) -> None:
+        self.code = code
+        self.detalle = detalle
+        super().__init__(detalle)
+
+
+def _rechazo(code: str, detalle: str) -> _RechazadoError:
+    return _RechazadoError(code, detalle)
+
+
+def _resanear(imagen: Image.Image) -> tuple[bytes, str, str]:
+    """Recodifica sin EXIF/XMP/IPTC (THREAT-007): un `Image.new` a partir de los píxeles
+    descarta cualquier metadato del archivo original. Devuelve (contenido, sha256, extensión)."""
+    modo = "RGB" if imagen.mode not in ("RGB", "RGBA") else imagen.mode
+    limpia = Image.new(modo, imagen.size)
+    limpia.putdata(imagen.convert(modo).get_flattened_data())
+    salida = io.BytesIO()
+    extension = "jpg" if modo == "RGB" else "png"
+    limpia.save(salida, format="JPEG" if modo == "RGB" else "PNG", quality=92)
+    contenido = salida.getvalue()
+    return contenido, _sha256(contenido), extension
+
+
+def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
+    derivados: list[MedioDerivado] = []
+    ancho_original, alto_original = imagen.size
+    anchos = sorted({a for a in ANCHOS_DERIVADOS if a <= ancho_original} | {ancho_original})
+    base = imagen.convert("RGB")
+    for ancho in anchos:
+        alto = round(alto_original * (ancho / ancho_original))
+        redimensionada = base.resize((ancho, alto), Image.Resampling.LANCZOS)
+        for formato in FORMATOS_DERIVADOS:
+            buffer = io.BytesIO()
+            try:
+                redimensionada.save(buffer, format=str(formato))
+            except (OSError, ValueError, KeyError):
+                # El soporte de escritura AVIF depende de que Pillow esté compilado con
+                # libavif; si no está disponible se omite ese derivado (se registra y se sigue).
+                logger.warning("derivado_omitido", formato=str(formato), ancho=ancho)
+                continue
+            contenido = buffer.getvalue()
+            sha = _sha256(contenido)
+            ruta = f"medios/derivados/{huella}-{ancho}.{str(formato).lower()}"
+            _guardar_bytes(ruta, contenido)
+            derivados.append(
+                MedioDerivado(
+                    formato=formato,
+                    ancho_px=ancho,
+                    alto_px=alto,
+                    ruta=ruta,
+                    peso_bytes=len(contenido),
+                    sha256=sha,
+                )
+            )
+    return derivados
+
+
+def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
+    resultados: list[ResultadoArchivo] = []
+    for archivo in archivos:
+        nombre = archivo.name or "archivo"
+        contenido = archivo.read()
+        try:
+            formato, imagen = _validar_formato_y_tamano(contenido)
+        except _RechazadoError as exc:
+            resultados.append(
+                ResultadoArchivo(
+                    nombre_archivo=nombre,
+                    resultado="RECHAZADO",
+                    motivo={"code": exc.code, "detalle": exc.detalle},
+                )
+            )
+            continue
+
+        huella = _sha256(contenido)
+        existente = Medio.objects.filter(huella_sha256=huella).first()
+        if existente is not None:
+            resultados.append(
+                ResultadoArchivo(
+                    nombre_archivo=nombre, resultado="DUPLICADO", medio_existente_id=existente.pk
+                )
+            )
+            continue
+
+        with transaction.atomic():
+            saneado, sha_saneado, extension = _resanear(imagen)
+            ruta_relativa = f"medios/originales/{huella}.{extension}"
+            try:
+                medio = Medio.objects.create(
+                    archivo_saneado_ruta=ruta_relativa,
+                    formato_origen=_FORMATOS_ORIGEN_PIL[formato],
+                    ancho_px=imagen.width,
+                    alto_px=imagen.height,
+                    peso_bytes=len(contenido),
+                    huella_sha256=huella,
+                    sha256_saneado=sha_saneado,
+                    subido_por_id=actor_id,
+                )
+            except IntegrityError:
+                existente = Medio.objects.filter(huella_sha256=huella).first()
+                resultados.append(
+                    ResultadoArchivo(
+                        nombre_archivo=nombre,
+                        resultado="DUPLICADO",
+                        medio_existente_id=existente.pk if existente else None,
+                    )
+                )
+                continue
+            _guardar_bytes(ruta_relativa, saneado)
+            derivados = _generar_derivados(imagen, huella)
+            # `bulk_create` inserta `char(64)` por una expresión UNNEST que Postgres/psycopg
+            # castea a `char[]` (longitud 1 por omisión) y trunca cada huella a un carácter: se
+            # crea cada derivado por separado, como ya hace `apps.contenido.tests.publicos`.
+            for derivado in derivados:
+                derivado.medio = medio
+                derivado.save()
+        resultados.append(
+            ResultadoArchivo(nombre_archivo=nombre, resultado="ACEPTADO", medio=medio)
+        )
+    return resultados
+
+
+def obtener(medio_id: int) -> Medio:
+    medio = Medio.objects.select_related("licencia").filter(pk=medio_id).first()
+    if medio is None:
+        raise NoEncontrado()
+    return medio
+
+
+def _pendientes_catalogacion(medio: Medio, *, licencia_compatible: bool | None) -> list[str]:
+    pendientes = []
+    if not medio.texto_alternativo:
+        pendientes.append("texto_alternativo")
+    if not medio.autor_credito:
+        pendientes.append("autor_credito")
+    if medio.licencia_id is None:
+        pendientes.append("licencia")
+    elif not licencia_compatible:
+        pendientes.append("licencia_incompatible")
+    return pendientes
+
+
+def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
+    from apps.catalogos.models import Licencia
+
+    with transaction.atomic():
+        medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
+        if medio is None:
+            raise NoEncontrado()
+        for campo in (
+            "titulo_interno",
+            "texto_alternativo",
+            "pie_de_foto",
+            "autor_credito",
+            "fuente_url",
+        ):
+            if campo in datos:
+                setattr(medio, campo, datos[campo])
+        if "licencia_id" in datos:
+            medio.licencia_id = datos["licencia_id"]
+        licencia_compatible = (
+            Licencia.objects.filter(pk=medio.licencia_id, compatible_publicacion=True).exists()
+            if medio.licencia_id is not None
+            else None
+        )
+        pendientes = _pendientes_catalogacion(medio, licencia_compatible=licencia_compatible)
+        if medio.estado == EstadoMedio.PENDIENTE_METADATOS and not pendientes:
+            medio.estado = EstadoMedio.DISPONIBLE
+        elif (
+            medio.estado == EstadoMedio.DISPONIBLE
+            and "licencia_incompatible" in pendientes
+            and _en_uso_publicado(medio.pk)
+        ):
+            raise ErrorApi(
+                codigo="regla_negocio",
+                errors={
+                    "licencia_id": [
+                        "Licencia incompatible: el medio está en uso por contenido publicado."
+                    ]
+                },
+            )
+        medio.actualizado_en = timezone.now()
+        medio.save()
+        from apps.auditoria import services as auditoria
+        from apps.auditoria.models import AccionAuditoria
+
+        auditoria.registrar_evento(
+            accion=AccionAuditoria.EDITAR_MEDIO,
+            actor_id=actor_id,
+            tipo_entidad="MEDIO",
+            entidad_id=medio.pk,
+        )
+        return medio
+
+
+def _en_uso_publicado(medio_id: int) -> bool:
+    from apps.contenido.models import Contenido, ContenidoMedio, EstadoEditorial
+    from apps.inicio.models import ConfigInicio
+
+    en_contenido = Contenido.objects.filter(
+        portada_id=medio_id, estado_editorial=EstadoEditorial.PUBLICADO
+    ).exists()
+    en_galeria = ContenidoMedio.objects.filter(
+        medio_id=medio_id, contenido__estado_editorial=EstadoEditorial.PUBLICADO
+    ).exists()
+    en_hero = ConfigInicio.objects.filter(hero_medio_id=medio_id).exists()
+    return en_contenido or en_galeria or en_hero
+
+
+def usos(medio_id: int) -> list[dict[str, Any]]:
+    from apps.contenido.models import Contenido, ContenidoMedio
+    from apps.inicio.models import ConfigInicio
+
+    filas: list[dict[str, Any]] = []
+    for c in Contenido.objects.filter(portada_id=medio_id):
+        filas.append(
+            {
+                "tipo_contenido": c.tipo,
+                "contenido_id": c.pk,
+                "titulo": c.titulo,
+                "estado_editorial": c.estado_editorial,
+                "rol": "PORTADA",
+            }
+        )
+    for cm in ContenidoMedio.objects.filter(medio_id=medio_id).select_related("contenido"):
+        filas.append(
+            {
+                "tipo_contenido": cm.contenido.tipo,
+                "contenido_id": cm.contenido_id,
+                "titulo": cm.contenido.titulo,
+                "estado_editorial": cm.contenido.estado_editorial,
+                "rol": "GALERIA",
+            }
+        )
+    if ConfigInicio.objects.filter(hero_medio_id=medio_id).exists():
+        filas.append(
+            {
+                "tipo_contenido": "CONFIG_INICIO",
+                "contenido_id": medio_id,
+                "titulo": "Portada de inicio",
+                "estado_editorial": None,
+                "rol": "HERO",
+            }
+        )
+    return filas
+
+
+def retirar(medio_id: int, actor_id: int) -> Medio:
+    with transaction.atomic():
+        medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
+        if medio is None:
+            raise NoEncontrado()
+        if _en_uso_publicado(medio_id):
+            usos_actuales = usos(medio_id)
+            raise MedioEnUso(extra={"usos": usos_actuales, "total_usos": len(usos_actuales)})
+        medio.estado = EstadoMedio.RETIRADO
+        medio.actualizado_en = timezone.now()
+        medio.save()
+        from apps.auditoria import services as auditoria
+        from apps.auditoria.models import AccionAuditoria
+
+        auditoria.registrar_evento(
+            accion=AccionAuditoria.RETIRAR_MEDIO,
+            actor_id=actor_id,
+            tipo_entidad="MEDIO",
+            entidad_id=medio.pk,
+        )
+        return medio
+
+
+def reactivar(medio_id: int, actor_id: int) -> Medio:
+    with transaction.atomic():
+        medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
+        if medio is None:
+            raise NoEncontrado()
+        if medio.estado != EstadoMedio.RETIRADO:
+            raise TransicionInvalida()
+        medio.estado = EstadoMedio.PENDIENTE_METADATOS
+        medio.actualizado_en = timezone.now()
+        medio.save()
+        return medio
