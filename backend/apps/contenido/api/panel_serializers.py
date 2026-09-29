@@ -84,6 +84,11 @@ class _CampoIdNuloInt64(serializers.IntegerField):
     response-property-type-changed, formato int64 -> none)."""
 
 
+@extend_schema_field({"type": "string", "format": "uri-reference"})
+class _CampoUriReferencia(serializers.CharField):
+    """components.schemas.MedioMiniatura.url_miniatura: uri-reference (ruta relativa)."""
+
+
 @extend_schema_field({"type": ["integer", "null"], "format": "int64"})
 class _CampoIdOpcionalInt64(serializers.IntegerField):
     """`tipo_principal_id` (Id opcional/nullable) con `format: int64` explícito."""
@@ -132,8 +137,16 @@ def _id_lista(maximo: int) -> serializers.ListField:
 # ---------------------------------------------------------------------------
 # Comunes (ContenidoComunCampos / entrada)
 # ---------------------------------------------------------------------------
+@extend_schema_field(
+    {"type": "string", "enum": ["DESTINO", "ITINERARIO", "GUIA", "TIPO", "COLECCION"]}
+)
+class _CampoTipoRelacionable(serializers.ChoiceField):
+    """`RelacionEntrada.tipo`: subconjunto de TipoEntidadContenido (sin TERMINO ni PAGINA, que no
+    son relacionables) con el enum inline (TKT-006, ciclo oasdiff: enum removed en `_CampoTipo`)."""
+
+
 class RelacionEntradaSerializer(EntradaEstricta):
-    tipo = _tipo_field([T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION])
+    tipo = _CampoTipoRelacionable(choices=[T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION])
     id = IdSerializerField()
 
 
@@ -419,8 +432,13 @@ class TipoAventuraVistaPreviaSerializer(
 # ---------------------------------------------------------------------------
 # Colección
 # ---------------------------------------------------------------------------
+@extend_schema_field({"type": "string", "enum": ["DESTINO", "ITINERARIO"]})
+class _CampoTipoElementoColeccion(serializers.ChoiceField):
+    """`ElementoColeccionEntrada.tipo_contenido` con el enum inline."""
+
+
 class ElementoColeccionEntradaSerializer(EntradaEstricta):
-    tipo_contenido = _tipo_field([T.DESTINO, T.ITINERARIO])
+    tipo_contenido = _CampoTipoElementoColeccion(choices=[T.DESTINO, T.ITINERARIO])
     contenido_id = IdSerializerField()
     orden = serializers.IntegerField(min_value=0, max_value=1000)
     nota_editorial = _texto(300)
@@ -559,14 +577,19 @@ class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
     estado_editorial = _campo_estado_editorial()
 
 
+@extend_schema_field({"type": "string", "enum": list(EstadoMedio.values)})
+class _CampoEstadoMedio(serializers.ChoiceField):
+    """`MedioMiniatura.estado` con el enum inline (TKT-006, ciclo oasdiff)."""
+
+
 class MedioRefPanelSerializer(serializers.Serializer[Any]):
     """components.schemas.MedioMiniatura (`ContenidoPanelMeta.referencias.medios[]`)."""
 
     id = IdSerializerField()
-    estado = _CampoTipo(choices=EstadoMedio.choices)  # esquema en línea: evita colisión W001
+    estado = _CampoEstadoMedio(choices=EstadoMedio.choices)
     texto_alternativo = serializers.CharField(max_length=250, allow_null=True, required=False)
     licencia_codigo = serializers.CharField(max_length=40, allow_null=True, required=False)
-    url_miniatura = serializers.CharField()
+    url_miniatura = _CampoUriReferencia()
 
     class Meta:
         ref_name = "MedioMiniaturaContenido"
@@ -715,10 +738,10 @@ class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):
     estado_editorial = _campo_estado_editorial()
     version = serializers.IntegerField(min_value=1)
     slug_bloqueado = serializers.BooleanField()
-    primera_publicacion_en = serializers.DateTimeField(allow_null=True)
-    publicado_actualizado_en = serializers.DateTimeField(allow_null=True)
-    retirado_en = serializers.DateTimeField(allow_null=True)
-    motivo_retiro = serializers.CharField(allow_null=True, max_length=300)
+    primera_publicacion_en = serializers.DateTimeField(allow_null=True, required=False)
+    publicado_actualizado_en = serializers.DateTimeField(allow_null=True, required=False)
+    retirado_en = serializers.DateTimeField(allow_null=True, required=False)
+    motivo_retiro = serializers.CharField(allow_null=True, max_length=300, required=False)
     creado_en = serializers.DateTimeField()
     actualizado_en = serializers.DateTimeField()
     creado_por = ActorRefSerializer()
@@ -798,7 +821,14 @@ def _comunes_representacion(contenido: Any) -> dict[str, Any]:
     }
 
 
-class DestinoPanelSerializer(ContenidoPanelMetaSerializer):
+class DestinoPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, DestinoCamposMixin):
+    """Herencia múltiple de los mismos Mixin que ya usa `DestinoEntradaSerializer` (TKT-006,
+    ciclo oasdiff): declara los campos de ContenidoComunCampos/DestinoCampos para que
+    drf-spectacular los vea (antes solo estaban en `to_representation`, nunca como atributos de
+    clase, así que el esquema generado no tenía ninguno). `to_representation` sigue siendo el
+    único responsable de la serialización real; esta herencia es solo para introspección de
+    esquema (Skill_Backend Regla 02: sin lógica nueva)."""
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         destino = instance.destino
@@ -832,6 +862,10 @@ class DestinoPanelSerializer(ContenidoPanelMetaSerializer):
 
 
 class DestinoGuardadoSerializer(DestinoPanelSerializer):
+    entidades_afectadas = EntidadTransitadaSerializer(  # type: ignore[call-arg]
+        many=True, max_length=24
+    )
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         contenido, entidades_afectadas = instance
         base = super().to_representation(contenido)
@@ -839,7 +873,7 @@ class DestinoGuardadoSerializer(DestinoPanelSerializer):
         return base
 
 
-class ItinerarioPanelSerializer(ContenidoPanelMetaSerializer):
+class ItinerarioPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, ItinerarioCamposMixin):
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         itinerario = instance.itinerario
@@ -880,7 +914,9 @@ class ItinerarioPanelSerializer(ContenidoPanelMetaSerializer):
         return base
 
 
-class GuiaPanelSerializer(ContenidoPanelMetaSerializer):
+class GuiaPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, GuiaCamposMixin):
+    palabras = serializers.IntegerField(min_value=0, allow_null=True, read_only=True)
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         guia = instance.guia
@@ -900,7 +936,9 @@ class GuiaPanelSerializer(ContenidoPanelMetaSerializer):
         return base
 
 
-class TipoAventuraPanelSerializer(ContenidoPanelMetaSerializer):
+class TipoAventuraPanelSerializer(
+    ContenidoPanelMetaSerializer, ComunesMixin, TipoAventuraCamposMixin
+):
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         tipo = instance.tipo_aventura
@@ -921,7 +959,7 @@ class TipoAventuraPanelSerializer(ContenidoPanelMetaSerializer):
         return base
 
 
-class ColeccionPanelSerializer(ContenidoPanelMetaSerializer):
+class ColeccionPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, ColeccionCamposMixin):
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         coleccion = instance.coleccion
@@ -945,7 +983,11 @@ class ColeccionPanelSerializer(ContenidoPanelMetaSerializer):
         return base
 
 
-class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer):
+class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer, TerminoGlosarioCamposMixin):
+    vinculado_en = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
+        many=True, read_only=True, max_length=200
+    )
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         termino = instance.termino_glosario
@@ -969,7 +1011,20 @@ class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer):
         return base
 
 
-class PaginaInstitucionalPanelSerializer(ContenidoPanelMetaSerializer):
+class PaginaInstitucionalPanelSerializer(
+    ContenidoPanelMetaSerializer, PaginaInstitucionalCamposMixin
+):
+    clave = serializers.ChoiceField(
+        choices=[
+            ClavePagina.ACERCA_DE,
+            ClavePagina.POLITICA_DATOS,
+            ClavePagina.POLITICA_COOKIES,
+            ClavePagina.AVISO_LEGAL,
+        ],
+        read_only=True,
+    )
+    solo_administrador = serializers.BooleanField(read_only=True)
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
         pagina = instance.pagina
