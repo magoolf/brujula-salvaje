@@ -182,15 +182,15 @@ tickets:
   - id: TKT-007
     titulo: "Semilla de contenido: comando cargar_semilla (24 destinos reales, itinerarios, guías, 12 tipos, colecciones, glosario, páginas legales, config de inicio, medios propios con licencia) vía servicio de publicación"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-043, DEC-AUTO-007, DEC-AUTO-033, PRB-BP-002]
     depende_de: [TKT-006]
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-25
+    evidencia: ["Despachado tras integrar TKT-006 (main @ fa24f1e)"]
+    actualizado: 2026-09-29
   - id: TKT-008
     titulo: "Frontend público 1: inicio, explorar destinos (filtros en URL, mapa SVG, por mes, sorpréndeme), ficha de destino, guardados y compartir, SEO"
     fase: F7
