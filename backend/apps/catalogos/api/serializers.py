@@ -3,8 +3,10 @@ Solo forma y validación (Skill_Backend Regla 02); el guardado vive en `apps.cat
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+from django.core.validators import MaxLengthValidator, MinLengthValidator
 from rest_framework import serializers
 
 from apps.catalogos.models import Continente, Escala
@@ -12,6 +14,23 @@ from apps.core.api.serializers import EntradaEstricta, IdSerializerField, Pagina
 
 PATRON_SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 PATRON_NO_NUL = r"^[^\x00]*$"
+
+
+def _con_limite(campo: Any, *, max_length: int | None = None, min_length: int | None = None) -> Any:
+    """Ídem `apps.contenido.api.panel_serializers._con_limite` (duplicada a propósito,
+    Skill_Backend §5; ver ahí el porqué completo, RONDA 5): reconstruye el `ListSerializer` con
+    `validators=` como kwarg del constructor -- mutar `campo.validators` después de construir el
+    campo no sobrevive al `copy.deepcopy(self._declared_fields)` que DRF hace en cada
+    instanciación del serializer padre."""
+    validadores = list(campo._kwargs.get("validators") or [])
+    if max_length is not None:
+        validadores.append(MaxLengthValidator(max_length))
+    if min_length is not None:
+        validadores.append(MinLengthValidator(min_length))
+    kwargs = dict(campo._kwargs)
+    kwargs["child"] = copy.deepcopy(kwargs["child"])
+    kwargs["validators"] = validadores
+    return campo.__class__(*campo._args, **kwargs)
 
 
 class RegionEntradaSerializer(EntradaEstricta):
@@ -114,5 +133,5 @@ class NivelEscalaPanelSerializer(serializers.Serializer[Any]):
 
 
 class EscalasPanelSerializer(serializers.Serializer[Any]):
-    dificultad = NivelEscalaPanelSerializer(many=True)
-    presupuesto = NivelEscalaPanelSerializer(many=True)
+    dificultad = _con_limite(NivelEscalaPanelSerializer(many=True), max_length=5, min_length=5)
+    presupuesto = _con_limite(NivelEscalaPanelSerializer(many=True), max_length=4, min_length=4)

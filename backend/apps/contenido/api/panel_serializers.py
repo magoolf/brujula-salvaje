@@ -9,8 +9,10 @@ explícitos (Regla 13): nunca `__all__`.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+from django.core.validators import MaxLengthValidator, MinLengthValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -24,6 +26,41 @@ from apps.core.api.serializers import (
 from apps.medios.models import EstadoMedio
 
 T = TipoContenido
+
+
+def _con_limite(campo: Any, *, max_length: int | None = None, min_length: int | None = None) -> Any:
+    """Añade `MaxLengthValidator`/`MinLengthValidator` a un campo `many=True` (ListSerializer
+    generado por `SomeSerializer(many=True, ...)`, TKT-006 ciclo oasdiff) para que
+    drf-spectacular genere `maxItems`/`minItems` (`_insert_field_validators`, que solo lee
+    `field.validators`; `ListSerializer.max_length`/`.min_length` los aplica a mano en
+    `to_internal_value` sin pasar por `.validators`).
+
+    RONDA 5 -- la primera versión de este helper (`campo.validators.append(...)`, mutación
+    posterior a la construcción) NO SOBREVIVE: cada vez que el serializer padre se instancia,
+    `BaseSerializer.get_fields()` hace `copy.deepcopy(self._declared_fields)`, y
+    `Field.__deepcopy__` (rest_framework/fields.py) NO copia el estado del objeto -- reconstruye
+    el campo desde cero llamando a `self.__class__(*self._args, **self._kwargs)` con los
+    argumentos ORIGINALES de construcción (`_args`/`_kwargs`, guardados por `Field.__new__`).
+    Cualquier atributo mutado después de construir el campo (como `.validators.append(...)`) se
+    pierde en cada copia; por eso el hallazgo `*-items-unset` seguía apareciendo en el esquema
+    pese al `append`. La solución es reconstruir el `ListSerializer` con `validators=` como
+    kwarg del constructor (DRF trata `validators`, junto con `regex`, como inmutable y lo
+    reutiliza tal cual en cada `__deepcopy__`, en vez de copiarlo -- ver `Field.__deepcopy__`),
+    usando `campo._kwargs`/`campo._args` (los mismos que `many_init` ya calculó: `child` y
+    cualquier otro kwarg de `LIST_SERIALIZER_KWARGS` como `required`/`default`/`allow_null`) para
+    no tener que repetirlos en cada sitio de uso. `child` se deep-copia porque el `child` ya
+    guardado en `_kwargs` está `bind()`eado al `ListSerializer` original: reutilizarlo tal cual
+    en un `ListSerializer` nuevo dispara `AssertionError: redundant source=''` al volver a hacer
+    `bind()`."""
+    validadores = list(campo._kwargs.get("validators") or [])
+    if max_length is not None:
+        validadores.append(MaxLengthValidator(max_length))
+    if min_length is not None:
+        validadores.append(MinLengthValidator(min_length))
+    kwargs = dict(campo._kwargs)
+    kwargs["child"] = copy.deepcopy(kwargs["child"])
+    kwargs["validators"] = validadores
+    return campo.__class__(*campo._args, **kwargs)
 
 
 @extend_schema_field({"type": "string"})
@@ -92,6 +129,20 @@ class _CampoUriReferencia(serializers.CharField):
 @extend_schema_field({"type": ["integer", "null"], "format": "int64"})
 class _CampoIdOpcionalInt64(serializers.IntegerField):
     """`tipo_principal_id` (Id opcional/nullable) con `format: int64` explícito."""
+
+
+@extend_schema_field({"type": "integer", "format": "int64", "minimum": 1})
+class _CampoIdSinMaximo(serializers.IntegerField):
+    """components.schemas.Id tal como lo declara el contrato: `type: integer, format: int64,
+    minimum: 1`, SIN `maximum`. `IdSerializerField` (apps.core, fuera de archivos_permitidos)
+    fija siempre `max_value=2**63-1`, un límite que el contrato no documenta (TKT-006, ciclo
+    oasdiff: request-property-max-set en tipos_ids/copublicar_tipos[].id/cascada_confirmada[].id).
+    No cambia el rango real aceptado (2**63-1 ya es el máximo físico de un bigint de Postgres,
+    DB_HANDOFF): solo dónde se documenta ese límite."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("min_value", 1)
+        super().__init__(**kwargs)
 
 
 @extend_schema_field({"type": "string", "enum": ["PRINCIPAL", "COPUBLICACION", "CASCADA"]})
@@ -242,7 +293,7 @@ class TipoVersionadoEntradaSerializer(EntradaEstricta):
     vez a nivel de módulo y se reutiliza (nunca anidada) para que drf-spectacular no registre dos
     componentes distintos con el mismo nombre inferido (W001)."""
 
-    id = IdSerializerField()
+    id = _CampoIdSinMaximo()
     version = serializers.IntegerField(min_value=1)
 
 
@@ -250,7 +301,7 @@ class EntidadRefEntradaSerializer(EntradaEstricta):
     """EntidadRef de entrada: tipo + id (CHG-API-005). Ídem: definida una sola vez."""
 
     tipo = _tipo_entidad_field()
-    id = IdSerializerField()
+    id = _CampoIdSinMaximo()
 
 
 class OperacionPublicadaMixin(serializers.Serializer[Any]):
@@ -550,7 +601,14 @@ class RetiroEntradaSerializer(EntradaEstricta):
 
 class AnalisisPublicacionEntradaSerializer(EntradaEstricta):
     version = serializers.IntegerField(min_value=1)
-    tipos_ids = _id_lista(12)
+    # No usa `_id_lista(12)` (a diferencia de los demás `tipos_ids` del archivo): TKT-006 ciclo
+    # oasdiff detectó `request-property-max-set` solo aquí -- `_id_lista` usa `IdSerializerField`
+    # (siempre con `max_value`, DEC-AUTO no documentada por el contrato); este campo necesita el
+    # `child` sin `maximum` (`_CampoIdSinMaximo`) sin tocar `_id_lista`, compartida por otros campos
+    # donde ese hallazgo NO se reportó.
+    tipos_ids = serializers.ListField(
+        child=_CampoIdSinMaximo(), max_length=12, required=False, default=list
+    )
     tipo_principal_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
 
 
@@ -614,14 +672,12 @@ class ErrorReglaSerializer(serializers.Serializer[Any]):
     campo = serializers.CharField(max_length=100)
     code = serializers.RegexField(r"^[a-z][a-z0-9_]{2,63}$")
     mensaje = serializers.CharField(max_length=300)
-    referencias = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=50
-    )
+    referencias = _con_limite(ContenidoRefPanelSerializer(many=True, required=False), max_length=50)
 
 
 class RequisitosPublicacionSerializer(serializers.Serializer[Any]):
     cumple = serializers.BooleanField()
-    pendientes = ErrorReglaSerializer(many=True, max_length=200)  # type: ignore[call-arg]
+    pendientes = _con_limite(ErrorReglaSerializer(many=True), max_length=200)
 
 
 class EntidadTransitadaSerializer(ContenidoRefPanelSerializer):
@@ -638,38 +694,28 @@ class ResultadoTransicionSerializer(serializers.Serializer[Any]):
     version = serializers.IntegerField(min_value=1)
     numero_revision = serializers.IntegerField(min_value=1, allow_null=True)
     url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
-    afectados = ContenidoRefPanelSerializer(many=True, max_length=200)  # type: ignore[call-arg]
-    entidades = EntidadTransitadaSerializer(  # type: ignore[call-arg]
-        many=True, min_length=1, max_length=213
-    )
+    afectados = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=200)
+    entidades = _con_limite(EntidadTransitadaSerializer(many=True), max_length=213, min_length=1)
 
 
 class BloqueoCascadaSerializer(serializers.Serializer[Any]):
     tipo_aventura = ContenidoRefPanelSerializer()
-    itinerarios = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
-        many=True, min_length=1, max_length=100
-    )
+    itinerarios = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=100, min_length=1)
     total_itinerarios = serializers.IntegerField(min_value=1)
 
 
 class ImpactoRetiroSerializer(serializers.Serializer[Any]):
     retirable = serializers.BooleanField()
-    itinerarios_en_cascada = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
-        many=True, max_length=200
-    )
-    tipos_en_cascada = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
-        many=True, max_length=12
-    )
-    bloqueos_cascada = BloqueoCascadaSerializer(many=True, max_length=12)  # type: ignore[call-arg]
-    colecciones = ContenidoRefPanelSerializer(many=True, max_length=200)  # type: ignore[call-arg]
+    itinerarios_en_cascada = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=200)
+    tipos_en_cascada = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=12)
+    bloqueos_cascada = _con_limite(BloqueoCascadaSerializer(many=True), max_length=12)
+    colecciones = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=200)
     destacados = serializers.ListField(
         child=serializers.ChoiceField(choices=["DESTINOS", "ITINERARIOS", "GUIAS"]),
         max_length=3,
     )
     enlaces_entrantes = serializers.IntegerField(min_value=0)
-    bloqueos = ReferenciaUsoSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=100
-    )
+    bloqueos = _con_limite(ReferenciaUsoSerializer(many=True), max_length=100)
 
 
 class ValidacionEntidadSerializer(serializers.Serializer[Any]):
@@ -681,7 +727,7 @@ class ValidacionEntidadSerializer(serializers.Serializer[Any]):
     version = serializers.IntegerField(min_value=1)
     rol = _campo_rol_entidad_operacion()
     cumple = serializers.BooleanField()
-    pendientes = ErrorReglaSerializer(many=True, max_length=200)  # type: ignore[call-arg]
+    pendientes = _con_limite(ErrorReglaSerializer(many=True), max_length=200)
 
 
 class TipoVersionadoSerializer(serializers.Serializer[Any]):
@@ -693,10 +739,10 @@ class AnalisisPublicacionSerializer(serializers.Serializer[Any]):
     operacion = serializers.ChoiceField(choices=["PUBLICAR", "ACTUALIZAR_PUBLICACION"])
     confirmable = serializers.BooleanField()
     entidad = ValidacionEntidadSerializer()
-    copublicacion = ValidacionEntidadSerializer(many=True)
-    copublicar_tipos = TipoVersionadoSerializer(many=True)
-    tipos_en_cascada = ContenidoRefPanelSerializer(many=True)
-    bloqueos_cascada = BloqueoCascadaSerializer(many=True)
+    copublicacion = _con_limite(ValidacionEntidadSerializer(many=True), max_length=12)
+    copublicar_tipos = _con_limite(TipoVersionadoSerializer(many=True), max_length=12)
+    tipos_en_cascada = _con_limite(ContenidoRefPanelSerializer(many=True), max_length=12)
+    bloqueos_cascada = _con_limite(BloqueoCascadaSerializer(many=True), max_length=12)
 
 
 class RevisionResumenSerializer(serializers.Serializer[Any]):
@@ -862,9 +908,7 @@ class DestinoPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, Destino
 
 
 class DestinoGuardadoSerializer(DestinoPanelSerializer):
-    entidades_afectadas = EntidadTransitadaSerializer(  # type: ignore[call-arg]
-        many=True, max_length=24
-    )
+    entidades_afectadas = _con_limite(EntidadTransitadaSerializer(many=True), max_length=24)
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         contenido, entidades_afectadas = instance
@@ -984,8 +1028,8 @@ class ColeccionPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, Colec
 
 
 class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer, TerminoGlosarioCamposMixin):
-    vinculado_en = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
-        many=True, read_only=True, max_length=200
+    vinculado_en = _con_limite(
+        ContenidoRefPanelSerializer(many=True, read_only=True), max_length=200
     )
 
     def to_representation(self, instance: Any) -> dict[str, Any]:

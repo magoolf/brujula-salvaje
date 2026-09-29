@@ -3,13 +3,33 @@ validación de estructura (Skill_Backend Regla 02): el guardado vive en `apps.me
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+from django.core.validators import MaxLengthValidator, MinLengthValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
 from apps.medios.models import EstadoMedio, FormatoDerivado, FormatoOrigen
+
+
+def _con_limite(campo: Any, *, max_length: int | None = None, min_length: int | None = None) -> Any:
+    """Ídem `apps.contenido.api.panel_serializers._con_limite` (duplicada a propósito,
+    Skill_Backend §5; ver ahí el porqué completo, RONDA 5): reconstruye el `ListSerializer` con
+    `validators=` como kwarg del constructor -- mutar `campo.validators` después de construir el
+    campo no sobrevive al `copy.deepcopy(self._declared_fields)` que DRF hace en cada
+    instanciación del serializer padre, porque `Field.__deepcopy__` reconstruye el campo desde
+    `self._args`/`self._kwargs` (los originales) y descarta cualquier mutación posterior."""
+    validadores = list(campo._kwargs.get("validators") or [])
+    if max_length is not None:
+        validadores.append(MaxLengthValidator(max_length))
+    if min_length is not None:
+        validadores.append(MinLengthValidator(min_length))
+    kwargs = dict(campo._kwargs)
+    kwargs["child"] = copy.deepcopy(kwargs["child"])
+    kwargs["validators"] = validadores
+    return campo.__class__(*campo._args, **kwargs)
 
 
 @extend_schema_field({"type": ["integer", "null"], "format": "int64"})
@@ -33,8 +53,16 @@ class _CampoUriNulo(serializers.CharField):
 
 
 def _texto_sin_nul(max_length: int) -> serializers.RegexField:
+    """`allow_blank=True` (TKT-006 ciclo oasdiff, `request-property-min-length-set`): el contrato
+    no exige longitud mínima en estos campos (string vacío es válido, p.ej. para "borrar" un
+    texto alternativo). `allow_blank=False` (elección de una ronda anterior) hacía que
+    drf-spectacular inyectara `minLength: 1` automáticamente en el esquema de request
+    (`_get_serializer_field_meta`, COMPONENT_SPLIT_REQUEST) -- inofensivo en runtime porque
+    `CharField.run_validation` corta en corto para `''` cuando `allow_blank=True` (el patrón
+    `PATRON_NO_NUL` nunca llega a evaluarse sobre un string vacío), así que esto solo cambia lo
+    que se documenta, no el rango real ya aceptado."""
     return serializers.RegexField(
-        PATRON_NO_NUL, max_length=max_length, required=False, allow_null=True, allow_blank=False
+        PATRON_NO_NUL, max_length=max_length, required=False, allow_null=True, allow_blank=True
     )
 
 
@@ -48,13 +76,43 @@ class MedioCatalogacionEntradaSerializer(EntradaEstricta):
     texto_alternativo = _texto_sin_nul(250)
     pie_de_foto = _texto_sin_nul(300)
     autor_credito = _texto_sin_nul(150)
+    # Ídem `_texto_sin_nul`: el contrato tampoco exige longitud mínima aquí (sin `minLength` en
+    # `MedioCatalogacionEntrada.fuente_url`); `allow_blank=True` es seguro porque
+    # `CharField.run_validation` corta en corto para `''` antes de evaluar `PATRON_URL_HTTP`.
     fuente_url = serializers.RegexField(
-        PATRON_URL_HTTP, max_length=500, required=False, allow_null=True, allow_blank=False
+        PATRON_URL_HTTP, max_length=500, required=False, allow_null=True, allow_blank=True
     )
     licencia_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
 
 
+@extend_schema_field(
+    {
+        # Sin 'null' aquí: `allow_null=True` en el uso (`LicenciaRefSerializer(allow_null=True)`)
+        # hace que `append_meta` (drf-spectacular) lo añada una sola vez a `type`; declararlo
+        # también aquí duplicaba la entrada (`['object', 'null', 'null']`).
+        "type": "object",
+        "required": ["id", "codigo", "nombre", "compatible_publicacion"],
+        "properties": {
+            # Inline, no `$ref`: drf-spectacular no registra un componente `Id` propio
+            # (`IdSerializerField` usa `extend_schema_field` inline, apps.core, fuera de
+            # archivos_permitidos); mismo literal que `components.schemas.Id` del contrato.
+            "id": {"type": "integer", "format": "int64", "minimum": 1},
+            "codigo": {"type": "string", "maxLength": 40},
+            "nombre": {"type": "string", "maxLength": 120},
+            "compatible_publicacion": {"type": "boolean"},
+        },
+    }
+)
 class LicenciaRefSerializer(serializers.Serializer[Any]):
+    """`MedioPanel.licencia` (TKT-006 ciclo oasdiff, `response-property-one-of-added`): el
+    contrato lo declara como objeto EN LÍNEA nullable (`type: ['object', 'null']`, sin `$ref` a
+    un componente propio). Usar este serializer como `LicenciaRefSerializer(allow_null=True)`
+    genera en cambio un `$ref` a un componente nombrado que `append_meta` (OAS 3.1) envuelve en
+    `oneOf: [{$ref}, {type: 'null'}]` -- forma válida pero distinta a la del contrato.
+    `extend_schema_field` con el literal exacto evita el `$ref`/`oneOf` y coincide byte a byte
+    con `MedioPanel.licencia`. `MedioPanelSerializer.to_representation` ya construye este campo
+    a mano (dict literal), así que el override no cambia ningún comportamiento en runtime."""
+
     id = IdSerializerField()
     codigo = serializers.CharField(max_length=40)
     nombre = serializers.CharField(max_length=120)
@@ -102,7 +160,7 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
     ancho_px = serializers.IntegerField(min_value=1)
     alto_px = serializers.IntegerField(min_value=1)
     peso_bytes = serializers.IntegerField(min_value=1)
-    derivados = DerivadoImagenSerializer(many=True, max_length=24)  # type: ignore[call-arg]
+    derivados = _con_limite(DerivadoImagenSerializer(many=True), max_length=24)
     numero_usos = serializers.IntegerField(min_value=0)
     en_uso_publicado = serializers.BooleanField()
     subido_por = ActorRefSerializer()
@@ -179,8 +237,34 @@ class PaginaMedioPanelSerializer(PaginaMetaSerializer):
     resultados = MedioPanelSerializer(many=True)
 
 
+@extend_schema_field(
+    {
+        # Sin 'null' aquí: ídem `LicenciaRefSerializer`, `allow_null=True` en el uso
+        # (`MotivoRechazoMedioSerializer(..., allow_null=True)`) lo añade una sola vez.
+        "type": "object",
+        "required": ["code", "detalle"],
+        "properties": {
+            "code": {
+                "type": "string",
+                "enum": [
+                    "formato_no_permitido",
+                    "tamano_excedido",
+                    "dimensiones_insuficientes",
+                    "megapixeles_excedidos",
+                    "archivo_corrupto",
+                ],
+            },
+            "detalle": {"type": "string", "maxLength": 300},
+        },
+    }
+)
 class MotivoRechazoMedioSerializer(serializers.Serializer[Any]):
-    """`ResultadoSubida.resultados[].motivo` (esquema en línea del contrato: {code, detalle})."""
+    """`ResultadoSubida.resultados[].motivo` (esquema en línea del contrato: {code, detalle}).
+    `extend_schema_field` (TKT-006 ciclo oasdiff, `response-property-one-of-added`): mismo caso
+    que `LicenciaRefSerializer` -- el contrato lo declara inline nullable, no como `$ref`
+    envuelto en `oneOf`. `ResultadoArchivoSerializer.motivo` no tiene `to_representation` propio,
+    pero DRF serializa un `dict` de entrada (`{"code":..., "detalle":...}` o `None`) igual con o
+    sin este override: el override solo cambia el esquema, no la introspección de atributos."""
 
     code = serializers.ChoiceField(
         choices=[
@@ -203,7 +287,7 @@ class ResultadoArchivoSerializer(serializers.Serializer[Any]):
 
 
 class ResultadoSubidaSerializer(serializers.Serializer[Any]):
-    resultados = ResultadoArchivoSerializer(many=True)
+    resultados = _con_limite(ResultadoArchivoSerializer(many=True), max_length=10, min_length=1)
 
 
 class UsoMedioSerializer(serializers.Serializer[Any]):

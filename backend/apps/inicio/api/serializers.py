@@ -3,13 +3,31 @@ panel-configuracion y panel-tablero). Solo forma y validación (Skill_Backend Re
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
+from django.core.validators import MaxLengthValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.contenido.models import TipoContenido
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField
+
+
+def _con_limite(campo: Any, *, max_length: int | None = None) -> Any:
+    """Ídem `apps.contenido.api.panel_serializers._con_limite` (duplicada a propósito,
+    Skill_Backend §5; ver ahí el porqué completo, RONDA 5): reconstruye el `ListSerializer` con
+    `validators=` como kwarg del constructor -- mutar `campo.validators` después de construir el
+    campo no sobrevive al `copy.deepcopy(self._declared_fields)` que DRF hace en cada
+    instanciación del serializer padre. Solo `max_length` aquí: ninguno de los campos de este
+    archivo necesitó `minItems`."""
+    if max_length is None:
+        return campo
+    validadores = [*(campo._kwargs.get("validators") or []), MaxLengthValidator(max_length)]
+    kwargs = dict(campo._kwargs)
+    kwargs["child"] = copy.deepcopy(kwargs["child"])
+    kwargs["validators"] = validadores
+    return campo.__class__(*campo._args, **kwargs)
 
 
 @extend_schema_field({"type": "string", "enum": list(TipoContenido.values)})
@@ -225,8 +243,50 @@ class AlertaTableroSerializer(serializers.Serializer[Any]):
     enlace = serializers.RegexField(r"^/panel(/[a-z0-9/-]*)?$", allow_null=True, required=False)
 
 
+@extend_schema_field(
+    {
+        # Sin 'null' aquí: `allow_null=True` en el uso (`SaludEditorialSerializer(allow_null=True,
+        # ...)` en `TableroSerializer`) hace que `append_meta` lo añada una sola vez a `type`;
+        # declararlo también aquí duplicaba la entrada (ver mismo caso en `apps.medios.api`).
+        "type": "object",
+        "properties": {
+            "revisiones_antiguas": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+            "medios_pendientes_metadatos": {"type": "integer", "minimum": 0},
+            "medios_sin_uso": {"type": "integer", "minimum": 0},
+            "colecciones_bajo_minimo": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+            "destacados_bajo_minimo": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {"type": "string", "enum": ["DESTINOS", "ITINERARIOS", "GUIAS"]},
+            },
+            "contenidos_con_pocos_relacionados": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {"$ref": "#/components/schemas/ContenidoRefPanelInicio"},
+            },
+        },
+    }
+)
 class SaludEditorialSerializer(serializers.Serializer[Any]):
-    """`Tablero.salud_editorial` (EXP-001, COULD): null mientras no esté implementado."""
+    """`Tablero.salud_editorial` (EXP-001, COULD): null mientras no esté implementado.
+
+    `extend_schema_field` con el literal completo del contrato (TKT-006 ciclo oasdiff,
+    `response-property-one-of-added`): el contrato declara `salud_editorial` como objeto en
+    línea nullable (`type: ['object', 'null']`, sin `oneOf`), pero al usar este serializer como
+    campo anidado con `allow_null=True`, `append_meta` (drf-spectacular, OAS 3.1) envuelve
+    cualquier `$ref` nullable en `oneOf: [{$ref}, {type: 'null'}]` -- forma válida pero distinta
+    a la que el contrato documenta. El override también fija los `maxItems` de sus 4 arrays
+    (50/50/3/50, contrato) que de otro modo drf-spectacular no puede derivar de un
+    `ListSerializer` (ver `_con_limite`) y que aquí, al escribir el literal a mano, cuestan lo
+    mismo declarar bien."""
 
     revisiones_antiguas = ContenidoRefPanelSerializer(many=True, required=False)
     medios_pendientes_metadatos = serializers.IntegerField(min_value=0, required=False)
@@ -240,7 +300,7 @@ class SaludEditorialSerializer(serializers.Serializer[Any]):
 
 
 class TableroSerializer(serializers.Serializer[Any]):
-    conteos = ConteoTipoSerializer(many=True)
-    recientes = ContenidoResumenTableroSerializer(many=True)
-    alertas = AlertaTableroSerializer(many=True)
+    conteos = _con_limite(ConteoTipoSerializer(many=True), max_length=7)
+    recientes = _con_limite(ContenidoResumenTableroSerializer(many=True), max_length=10)
+    alertas = _con_limite(AlertaTableroSerializer(many=True), max_length=20)
     salud_editorial = SaludEditorialSerializer(allow_null=True, required=False)
