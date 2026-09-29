@@ -546,78 +546,212 @@ def test_AC_TKT006_02_impacto_retiro_sin_efectos(actor: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# TKT-014 (regresión): `retirar()` solo tenía una rama de cascada explícita para tipo ==
-# T.DESTINO (líneas ~1418-1465), que reindexa las entidades que ELLA MISMA retira (itinerarios y
-# tipos "sin destinos publicados", RULE-025). Pero al retirar un T.TIPO DIRECTAMENTE (no vía esa
-# cascada), el código solo llamaba a `_confirmar_retiro_entidad(contenido, ...)` para ese Tipo:
-# ningún Destino que lo tuviera como `tipo_principal` ni ningún Itinerario que lo usara cambiaba de
-# estado_editorial (siguen PUBLICADOS en BD, correcto), pero SÍ pierden visibilidad pública
-# (AC-129 y la regla equivalente de itinerarios: q_visible()/es_visible() exigen tipo_principal
-# PUBLICADO para un Destino y ≥1 tipo PUBLICADO para un Itinerario). Nada volvía a reindexarlos:
-# quedaban en BusquedaDocumento de forma permanente pese a ser ya invisibles/404 en la API pública.
+# TKT-014 (histórico) → TKT-015 (regla correcta): `retirar()` solo tenía una rama de cascada
+# explícita para tipo == T.DESTINO (líneas ~1418-1465), que reindexa las entidades que ELLA MISMA
+# retira (itinerarios y tipos "sin destinos publicados", RULE-025). Al retirar un T.TIPO
+# DIRECTAMENTE (no vía esa cascada) mientras seguía en uso por contenido publicado, TKT-014
+# solo evitó el drift de índice (reindexando el Destino/Itinerario dependiente para que dejara de
+# ser visible), pero permitió que la operación se completara. Eso violaba RULE-007/FLOW-012 del
+# Blueprint ("no se puede retirar un Tipo... en uso por contenido publicado... nunca de forma
+# directa") y el propio contrato (`dependencia_bloqueante` ya documentado para este caso exacto en
+# contracts/openapi.yaml). TKT-015 añade el bloqueo real con `DependenciaBloqueante` ANTES de
+# tocar nada: la operación se rechaza entera y ninguna entidad cambia de estado. Como consecuencia,
+# los dos escenarios que antes ejercitaban el reindexado de TKT-014 (un Tipo que SÍ tiene
+# dependientes publicados) ahora nunca llegan a `_confirmar_retiro_entidad`/
+# `_reindexar_dependientes_de_tipo`: se convierten en pruebas de bloqueo. `_reindexar_dependientes_
+# de_tipo` sigue siendo necesaria como defensa en profundidad (p. ej. una publicación concurrente
+# que agregue un nuevo dependiente entre la comprobación de `_usos_publicados_de_tipo` y el commit
+# de este `retirar()`, ya que solo se bloquea con `select_for_update()` la fila del propio Tipo, no
+# las de sus potenciales dependientes) y sigue cubierta por el caso "sin dependientes" más abajo,
+# que sí llega al camino feliz.
 #
-# El bug fue detectado por QA durante la verificación de TKT-013 (que resolvió el problema
-# simétrico de publicación, no éste). El fix añade `_reindexar_dependientes_de_tipo`, invocada
-# explícitamente tras confirmar el retiro directo del Tipo, mismo patrón que TKT-013 (reindexar
-# DESPUÉS de confirmar el estado, nunca dentro de `_confirmar_retiro_entidad`).
-#
-# Se verifica el índice REAL (`BusquedaDocumento`) inmediatamente después de `retirar()`, sin
-# ningún reindexado externo posterior, igual que los tests de TKT-013.
+# CORRECCIÓN QA (ciclo_qa 2/3): la primera versión de `_usos_publicados_de_tipo` solo miraba
+# `tipo_principal` en el caso de un Destino, no el M2M `tipos_aventura` completo. QA lo reprodujo
+# con datos reales: un Destino PUBLICADO con el tipo como SECUNDARIO permitía retirar ese tipo de
+# forma directa sin bloqueo, dejando una fila `DestinoTipoAventura` viva apuntando a un Tipo ya
+# RETIRADO — un estado que RULE-002/AC-124 declara imposible en cualquier operación normal
+# ("ningún Destino PUBLICADO referencia un Tipo no PUBLICADO", sin distinguir principal de
+# secundario) y que AC-129 solo contempla como inconsistencia FORZADA en datos de prueba, nunca
+# como algo alcanzable por el panel. Además era inconsistente con el propio archivo:
+# `_destinos_publicados_de_tipo` y `_tipos_en_cascada` (usadas por la rama T.DESTINO de `retirar()`
+# para RULE-025) ya interpretan "un destino tiene este tipo en uso" como pertenencia al M2M
+# `tipos_aventura` completo, no solo como `tipo_principal`. `_usos_publicados_de_tipo` (y, por
+# consistencia, `_reindexar_dependientes_de_tipo`) se corrigieron para usar el mismo criterio
+# amplio; el test que antes documentaba el alcance estrecho como intencional se invirtió más abajo.
 # ---------------------------------------------------------------------------
-def test_AC_TKT014_retirar_tipo_directo_reindexa_destino_con_tipo_principal(actor: int) -> None:
-    tipo_ = publicos.tipo("Tipo principal retirado directo")
-    destino_ = publicos.destino("Destino con tipo principal retirado", tipos=[tipo_])
+def test_AC_TKT015_retirar_tipo_directo_bloqueado_si_es_tipo_principal_de_destino_publicado(
+    actor: int,
+) -> None:
+    tipo_ = publicos.tipo("Tipo principal en uso TKT-015")
+    destino_ = publicos.destino("Destino con tipo principal en uso TKT-015", tipos=[tipo_])
     reindexar_todo()
     assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
 
-    services.retirar(
-        T.TIPO,
-        tipo_.pk,
-        actor,
-        version=tipo_.contenido.version,
-        motivo="Ya no se ofrece",
-        confirmar_cascada=False,
-        cascada_confirmada=None,
-    )
+    with pytest.raises(services.DependenciaBloqueante) as exc:
+        services.retirar(
+            T.TIPO,
+            tipo_.pk,
+            actor,
+            version=tipo_.contenido.version,
+            motivo="Ya no se ofrece",
+            confirmar_cascada=False,
+            cascada_confirmada=None,
+        )
+    usos = exc.value.extra["usos"]
+    assert exc.value.extra["total_usos"] == 1
+    assert usos == [
+        {
+            "tipo_entidad": "DESTINO",
+            "id": destino_.contenido_id,
+            "titulo": destino_.contenido.titulo,
+            "estado_editorial": E.PUBLICADO,
+        }
+    ]
 
-    # Sin ningún reindexado externo: el propio `retirar()` debe sacar al destino dependiente del
-    # índice, aunque su propio estado_editorial no haya cambiado.
-    assert not BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+    # Nada cambia: ni el destino, ni el tipo, ni el índice de búsqueda de ninguno de los dos.
     destino_.contenido.refresh_from_db()
     assert destino_.contenido.estado_editorial == E.PUBLICADO
     tipo_.contenido.refresh_from_db()
-    assert tipo_.contenido.estado_editorial == E.RETIRADO
-    assert not BusquedaDocumento.objects.filter(contenido=tipo_.contenido).exists()
+    assert tipo_.contenido.estado_editorial == E.PUBLICADO
+    assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+    assert BusquedaDocumento.objects.filter(contenido=tipo_.contenido).exists()
+    assert not EventoAuditoria.objects.filter(
+        accion=AccionAuditoria.RETIRAR, entidad_id=tipo_.contenido_id
+    ).exists()
 
 
-def test_AC_TKT014_retirar_tipo_directo_reindexa_itinerario_dependiente(actor: int) -> None:
-    tipo_del_destino = publicos.tipo("Tipo del destino TKT-014")
-    tipo_del_itinerario = publicos.tipo("Tipo exclusivo del itinerario TKT-014")
-    destino_ = publicos.destino("Destino con itinerario TKT-014", tipos=[tipo_del_destino])
+def test_AC_TKT015_retirar_tipo_directo_bloqueado_si_lo_usa_itinerario_publicado(
+    actor: int,
+) -> None:
+    tipo_del_destino = publicos.tipo("Tipo del destino TKT-015")
+    tipo_del_itinerario = publicos.tipo("Tipo exclusivo del itinerario TKT-015")
+    destino_ = publicos.destino("Destino con itinerario TKT-015", tipos=[tipo_del_destino])
     itinerario_ = publicos.itinerario(
-        "Ruta dependiente TKT-014", destino_, tipos=[tipo_del_itinerario]
+        "Ruta dependiente TKT-015", destino_, tipos=[tipo_del_itinerario]
     )
     reindexar_todo()
     assert BusquedaDocumento.objects.filter(contenido=itinerario_.contenido).exists()
 
-    services.retirar(
+    with pytest.raises(services.DependenciaBloqueante) as exc:
+        services.retirar(
+            T.TIPO,
+            tipo_del_itinerario.pk,
+            actor,
+            version=tipo_del_itinerario.contenido.version,
+            motivo="Ya no se ofrece",
+            confirmar_cascada=False,
+            cascada_confirmada=None,
+        )
+    usos = exc.value.extra["usos"]
+    assert exc.value.extra["total_usos"] == 1
+    assert usos == [
+        {
+            "tipo_entidad": "ITINERARIO",
+            "id": itinerario_.contenido_id,
+            "titulo": itinerario_.contenido.titulo,
+            "estado_editorial": E.PUBLICADO,
+        }
+    ]
+
+    itinerario_.contenido.refresh_from_db()
+    assert itinerario_.contenido.estado_editorial == E.PUBLICADO
+    tipo_del_itinerario.contenido.refresh_from_db()
+    assert tipo_del_itinerario.contenido.estado_editorial == E.PUBLICADO
+    assert BusquedaDocumento.objects.filter(contenido=itinerario_.contenido).exists()
+    # El destino no depende de este tipo (su tipo_principal es otro): tampoco cambia.
+    assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+
+
+def test_AC_TKT015_retirar_tipo_directo_bloqueado_lista_ambos_usos(actor: int) -> None:
+    """Un Tipo que es a la vez `tipo_principal` de un Destino publicado Y está en `tipos_aventura`
+    de un Itinerario publicado (de OTRO destino) acumula los dos usos en la misma lista."""
+    tipo_ = publicos.tipo("Tipo con doble uso TKT-015")
+    destino_principal = publicos.destino(
+        "Destino que lo tiene como principal TKT-015", tipos=[tipo_]
+    )
+    otro_tipo = publicos.tipo("Otro tipo TKT-015")
+    otro_destino = publicos.destino("Otro destino TKT-015", tipos=[otro_tipo])
+    itinerario_ = publicos.itinerario("Itinerario con el tipo TKT-015", otro_destino, tipos=[tipo_])
+
+    with pytest.raises(services.DependenciaBloqueante) as exc:
+        services.retirar(
+            T.TIPO,
+            tipo_.pk,
+            actor,
+            version=tipo_.contenido.version,
+            motivo="Ya no se ofrece",
+            confirmar_cascada=False,
+            cascada_confirmada=None,
+        )
+    assert exc.value.extra["total_usos"] == 2
+    entidades = {(u["tipo_entidad"], u["id"]) for u in exc.value.extra["usos"]}
+    assert entidades == {
+        ("DESTINO", destino_principal.contenido_id),
+        ("ITINERARIO", itinerario_.contenido_id),
+    }
+
+
+def test_AC_TKT015_retirar_tipo_directo_bloqueado_si_es_solo_secundario_de_destino_publicado(
+    actor: int,
+) -> None:
+    """RULE-002/AC-124: ningún Destino PUBLICADO puede referenciar un Tipo no PUBLICADO, sea
+    `tipo_principal` o cualquier otro miembro de `tipos_aventura`. Retirar directamente un Tipo que
+    es SOLO secundario (no principal) de un Destino publicado debe bloquear igual que si fuera el
+    principal: el destino quedaría con un tipo no publicado en su lista, un estado que AC-129 solo
+    contempla como inconsistencia forzada en datos de prueba, nunca alcanzable por el panel."""
+    principal = publicos.tipo("Tipo principal TKT-015")
+    secundario = publicos.tipo("Tipo secundario TKT-015")
+    destino_ = publicos.destino(
+        "Destino con tipo secundario TKT-015", tipos=[principal, secundario]
+    )
+
+    with pytest.raises(services.DependenciaBloqueante) as exc:
+        services.retirar(
+            T.TIPO,
+            secundario.pk,
+            actor,
+            version=secundario.contenido.version,
+            motivo="Ya no se ofrece",
+            confirmar_cascada=False,
+            cascada_confirmada=None,
+        )
+    assert exc.value.extra["total_usos"] == 1
+    assert exc.value.extra["usos"] == [
+        {
+            "tipo_entidad": "DESTINO",
+            "id": destino_.contenido_id,
+            "titulo": destino_.contenido.titulo,
+            "estado_editorial": E.PUBLICADO,
+        }
+    ]
+
+    destino_.contenido.refresh_from_db()
+    assert destino_.contenido.estado_editorial == E.PUBLICADO
+    secundario.contenido.refresh_from_db()
+    assert secundario.contenido.estado_editorial == E.PUBLICADO
+    # El tipo_principal (distinto del retirado) no se ve afectado por este intento bloqueado.
+    destino_.refresh_from_db()
+    assert destino_.tipo_principal_id == principal.pk
+
+
+def test_AC_TKT015_retirar_tipo_directo_no_bloqueado_si_los_dependientes_no_estan_publicados(
+    actor: int,
+) -> None:
+    """Un Tipo que es `tipo_principal` de un Destino en BORRADOR o RETIRADO (no PUBLICADO) no
+    bloquea: RULE-007 solo protege el contenido publicado."""
+    tipo_borrador = publicos.tipo("Tipo de destino en borrador TKT-015")
+    publicos.destino("Destino en borrador TKT-015", tipos=[tipo_borrador], estado=E.BORRADOR)
+
+    contenido, _ = services.retirar(
         T.TIPO,
-        tipo_del_itinerario.pk,
+        tipo_borrador.pk,
         actor,
-        version=tipo_del_itinerario.contenido.version,
+        version=tipo_borrador.contenido.version,
         motivo="Ya no se ofrece",
         confirmar_cascada=False,
         cascada_confirmada=None,
     )
-
-    # El itinerario pierde su único tipo publicado: deja de ser visible (q_visible) aunque nadie
-    # haya tocado su estado_editorial. Sin reindexado externo, el índice debe reflejarlo de
-    # inmediato.
-    assert not BusquedaDocumento.objects.filter(contenido=itinerario_.contenido).exists()
-    itinerario_.contenido.refresh_from_db()
-    assert itinerario_.contenido.estado_editorial == E.PUBLICADO
-    # El destino no depende de este tipo (su tipo_principal es otro): sigue visible.
-    assert BusquedaDocumento.objects.filter(contenido=destino_.contenido).exists()
+    assert contenido.estado_editorial == E.RETIRADO
 
 
 def test_AC_TKT014_retirar_tipo_sin_dependientes_no_falla(actor: int) -> None:
