@@ -1534,6 +1534,67 @@ PostgreSQL 18.6 desechable (misma imagen y digest que `infra/db`, 256 MiB) con l
 2. Registrar DEC-AUTO-250 a DEC-AUTO-255 y RSK-OPS-031/032, y cerrar RSK-OPS-021.
 3. Emitir el ticket del Developer `vigilar_cache_limites` (RSK-OPS-032).
 
+## 20. TKT-OPS-010 — gate de contrato: `oasdiff breaking --fail-on WARN` → `--fail-on ERROR` (decisión del usuario) (F7, soporte)
+
+### 20.1 Estado
+**COMPLETADO.** Cambio mínimo y acotado de CI, en la rama `tkt-ops-010-gate-error`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5); no activa ninguna Puerta Humana adicional porque la decisión humana que autoriza este cambio ya se tomó (audit_log.md, 2026-09-29).
+
+### 20.2 Objetivo
+Durante TKT-006 (panel editorial, ~128 operaciones), el paso "contrato: gate por operación + oasdiff" del job `backend` se ejecutó por primera vez hasta el final contra una superficie de API grande y encontró 677 diferencias entre `contracts/openapi.yaml` (API-first, escrito a mano) y el esquema generado por drf-spectacular a partir de la implementación real: 69 de severidad `error` y 608 de severidad `warning`. Tras cuatro rondas de corrección del Developer sin convergencia (el conteo de hallazgos empeoró de 296 a 677 entre la ronda 2 y la 4, porque corregir el `allOf` de paginación permitió que oasdiff recorriera más profundidad y revelara una capa nueva de hallazgos de bajo nivel: 177 `pattern`, 199 `maxItems`, 58 `max`, 36 `tipo`, 32 `uniqueItems`, 60 `content-media-type`, 28 `required`, etc.), el Orquestador presentó la situación al usuario, que decidió explícitamente: **relajar el gate para que solo los hallazgos de severidad `error` bloqueen el CI**, no los `warning`.
+
+Los `warning` son abrumadoramente de fidelidad de formato/patrón/límites en campos anidados (`pattern`, `maxItems`, `minItems`, `content-media-type`, `uniqueItems`) — diferencias de documentación del esquema, no rupturas de compatibilidad real: DRF no aplica esas anotaciones como validación en tiempo de ejecución. Los `error` (`max/min-items` añadidos o quitados, `one-of-added`, `min-length/max` añadidos, una propiedad que pasa a opcional, tipo de body cambiado) sí son señales de posibles rupturas reales de compatibilidad y **siguen bloqueando**.
+
+### 20.3 Cambios realizados
+- **`.github/workflows/ci.yaml`, job `backend`, paso "contrato: gate por operación + oasdiff"**: el único cambio funcional es el flag del comando `oasdiff breaking`:
+  - Antes: `oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on WARN`
+  - Ahora: `oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on ERROR`
+  - Ningún otro flag de ese comando, ni de los pasos vecinos, cambia. El paso anterior de la misma etapa (`infra/ci/gate_contrato.py`, controles N1-N14) es un gate distinto y separado, ya en 0 errores, y no se toca.
+  - Se actualiza también el comentario explicativo que precede al paso (líneas ~194-200), que documentaba literalmente `--fail-on WARN` como parte del gate: ahora documenta `--fail-on ERROR` y referencia esta sección.
+- **`infra/ci/gate_contrato.py`**: el docstring (líneas 1-33) menciona el flag dos veces como parte del contrato documentado del propio script (uso en la cabecera y en el punto 5). Se actualizan ambas menciones a `--fail-on ERROR`, con nota de que antes era `WARN` y referencia a TKT-OPS-010. **Ningún cambio de lógica**: el script sigue siendo el mismo gate N1-N14, byte a byte salvo esos dos comentarios.
+- **Búsqueda de consistencia (obligatoria por el ticket)**: se buscó `--fail-on WARN` y `oasdiff breaking` en todo el repositorio. Aparecen además en `docs/adr/ADR-API-002.md`, `backend/apps/core/esquema.py` y `backend/apps/core/tests/test_ac_tkt004_09_contrato.py` — los tres fuera de `archivos_permitidos` de este ticket (`.github/workflows/**`, `docs/05_operacion/**`); no se tocan, quedan como referencia histórica/del Developer. No hay ningún otro workflow ni script en `infra/ci/**` que invoque `oasdiff breaking` de forma independiente: es una única invocación real en todo el pipeline (la de `ci.yaml`), ya corregida.
+- **Ninguna migración de datos, ninguna imagen, ninguna dependencia ni lockfile.**
+
+### 20.4 Versiones aprobadas
+Sin cambios: `oasdiff` sigue en `1.32.1` (verificado con sha256 en el propio paso), PyYAML del lock del backend.
+
+### 20.5 Infraestructura
+Sin cambios de topología, redes, healthchecks ni contenedores. Cambio exclusivamente de un flag de un paso de CI.
+
+### 20.6 Dependencias
+Ninguna.
+
+### 20.7 Variables de entorno
+Ninguna nueva ni modificada.
+
+### 20.8 Validaciones ejecutadas
+- **VALIDADO** — sintaxis YAML: `.github/workflows/ci.yaml` se parseó con éxito con PyYAML 6.0.3 (venv efímero local) tras el cambio; el paso "contrato: gate por operación + oasdiff" se extrajo del árbol resultante y su `run:` contiene exactamente `oasdiff breaking /tmp/contrato-filtrado.yaml /tmp/generado.yaml --fail-on ERROR`, sin alterar ningún otro flag ni línea vecina.
+- **NO VALIDADO** — `actionlint`: no está disponible en este entorno local en el momento de este cambio (`actionlint: command not found`; tampoco se encontró el binario en el PATH esperado). VERSIONS.md registra su uso en TKT-OPS-006 (ciclo 3), pero no está instalado ahora. No se afirma una validación de esquema de GitHub Actions que no se ejecutó.
+- **NO VALIDADO** — `docker compose config`: no aplica a este cambio (no toca ningún `compose*.yaml`), tal como indicó el ticket.
+- **NO APLICABLE / pendiente de confirmación separada** — ejecución real del pipeline de CI con el flag nuevo: este PR, al abrirse contra `main`, dispara su propio CI (que usará `--fail-on ERROR`); no hay ninguna superficie de API grande en `main` todavía (TKT-006 no está fusionado) para observar el efecto completo del cambio (pasar de 677 a solo los `error`). Si el PR de TKT-006 se beneficia de este cambio, se confirmará por separado cuando se re-ejecute su CI, tal como pidió el Orquestador.
+- **NO NECESARIO A JUICIO DE DEVOPS** — QA formal (Skill_QA): es un cambio de un único flag de un comando de CI ya existente, sin lógica nueva, sin superficie de ataque nueva y sin cambio de comportamiento de la aplicación; el propio pipeline de CI del PR (que ejecutará el paso con el flag nuevo) sirve de validación funcional del cambio. Se deja constancia explícita por si el Orquestador prefiere pasarlo de todos modos por QA.
+
+### 20.9 Seguridad
+- Sin secretos, sin cambios de superficie de red ni de imágenes.
+- **Riesgo aceptado por el usuario** (registrado en `audit_log.md`, 2026-09-29): a partir de este cambio, la documentación de contrato pierde precisión de formato/patrón/límites (`pattern`, `maxItems`, `minItems`, `content-media-type`, `uniqueItems`) frente a lo realmente implementado, hasta que se cierre TKT-012. Esto no relaja ninguna validación en tiempo de ejecución de DRF (esas anotaciones no se aplican como validación real), solo la fidelidad de la especificación publicada.
+- Lo que sigue bloqueando el CI sin cambios: los 69 hallazgos de severidad `error` (posibles rupturas reales de compatibilidad: `max/min-items` añadidos o quitados, `one-of-added`, `min-length/max` añadidos, propiedad que pasa a opcional, tipo de body cambiado) y el gate `gate_contrato.py` (N1-N14, operaciones/códigos/media types/propiedades no documentados), que sigue en 0 errores.
+
+### 20.10 Riesgos / pendientes
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-035 | Los 608 hallazgos `warning` (fidelidad de formato/patrón/límites) dejan de bloquear el CI y quedan como deuda técnica hasta que se cierren | LOW | TKT-012 (Backend, deuda técnica, seguimiento) | ABIERTO (ticket) |
+| RSK-OPS-036 | `actionlint` no está disponible en este entorno local; el YAML del workflow solo se validó como sintaxis (PyYAML), no contra el esquema de GitHub Actions | LOW | Instalar `actionlint` (versión fijada en VERSIONS.md) antes del próximo cambio de `.github/workflows/**`, o confiar en el propio CI del PR como validación de esquema | ABIERTO |
+
+### 20.11 Archivos modificados
+- `.github/workflows/ci.yaml`
+- `infra/ci/gate_contrato.py` (solo comentarios del docstring, sin cambio de lógica)
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 20.12 Próximo agente
+**Orquestador**, que debe:
+1. Abrir el PR de la rama `tkt-ops-010-gate-error` contra `main` y esperar su CI (verde esperado: `--fail-on ERROR` no debería encontrar nuevos hallazgos `error` en la superficie actual de `main`, sin operaciones del panel de TKT-006).
+2. Cuando TKT-006 re-ejecute su CI con este cambio ya integrado (o mediante rebase/merge de `main`), confirmar si los 69 hallazgos `error` restantes siguen bloqueando y si el Developer necesita una quinta ronda de corrección, o si ya puede pasar a QA.
+3. Mantener TKT-012 (deuda técnica de los 608 `warning`) en el backlog, con trazabilidad a TKT-006 y TKT-OPS-010.
+
 ### 19.13 Ciclo 2 (QA_VERDICT FAIL, ciclo_qa 1/3): política de trivy con parser YAML, OBS-1/3/4/5
 
 **Estado:** COMPLETADO, pendiente de re-QA. En el ciclo 1 pasaron el gate, el 405, Dependabot, el SQL y el CI. Esta sección sustituye a §19.3.3 en lo que difiera.

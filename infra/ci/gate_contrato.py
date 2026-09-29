@@ -1,7 +1,9 @@
 """Gate de contrato INCREMENTAL por OPERACIÓN (DEC-AUTO-196; TKT-OPS-004, DEC-AUTO-211).
 
 Uso:  python gate_contrato.py CONTRATO GENERADO CONTRATO_FILTRADO
-      (luego: oasdiff breaking CONTRATO_FILTRADO GENERADO --fail-on WARN)
+      (luego: oasdiff breaking CONTRATO_FILTRADO GENERADO --fail-on ERROR)
+      Antes --fail-on WARN; relajado por decisión del usuario 2026-09-29 (TKT-OPS-010,
+      DEVOPS_HANDOFF.md §20).
 
 El contrato (API-first) tiene todas las operaciones escritas a mano; drf-spectacular solo genera lo
 implementado. Este paso comprueba lo que "oasdiff breaking" no ve y prepara su entrada:
@@ -26,7 +28,7 @@ implementado. Este paso comprueba lo que "oasdiff breaking" no ve y prepara su e
   5) Escribe CONTRATO_FILTRADO: el contrato con SOLO las operaciones implementadas
      (filtrado por operación, no por ruta), para que oasdiff no marque como
      eliminadas las operaciones aún no implementadas de una ruta parcial         (N11)
-     y compare el resto (N3-N8, N12) con --fail-on WARN.
+     y compare el resto (N3-N8, N12) con --fail-on ERROR (antes WARN; TKT-OPS-010).
 
 Salida 1 si cualquier comprobación falla (anotaciones ::error:: de GitHub Actions).
 Solo depende de PyYAML (presente en el entorno del backend vía drf-spectacular).
