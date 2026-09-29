@@ -1395,18 +1395,28 @@ def _confirmar_retiro_entidad(
 
 
 def _reindexar_dependientes_de_tipo(tipo_aventura_id: int) -> None:
-    """TKT-014: al retirar un Tipo DIRECTAMENTE (fuera de la cascada RULE-025 de `retirar()` con
+    """TKT-014 (criterio de "destino dependiente" corregido en TKT-015, ver `_usos_publicados_de_
+    tipo`): al retirar un Tipo DIRECTAMENTE (fuera de la cascada RULE-025 de `retirar()` con
     tipo == T.DESTINO, que ya reindexa explícitamente cada entidad que ella misma retira), ese
-    Tipo puede seguir siendo `tipo_principal` de un Destino PUBLICADO o estar entre los tipos de
-    un Itinerario PUBLICADO. Ninguna de esas dos entidades cambia su propio estado_editorial, así
-    que `_confirmar_retiro_entidad` (que solo reindexa la entidad que retira, es decir, el propio
-    Tipo) nunca las toca. Pero su visibilidad pública SÍ cambia: q_visible()/es_visible() exige
-    tipo_principal PUBLICADO para un Destino (AC-129) y al menos un tipo PUBLICADO para un
-    Itinerario, así que ambas dejan de ser visibles (RULE-001) sin que BusquedaDocumento se entere
-    por sí solo. Se reindexan explícitamente aquí, igual que TKT-013 reindexa explícitamente tras
-    confirmar el estado de todas las entidades de una operación."""
+    Tipo puede seguir estando en `tipos_aventura` (principal o secundario, RULE-002/AC-124) de un
+    Destino PUBLICADO o estar entre los tipos de un Itinerario PUBLICADO. Ninguna de esas dos
+    entidades cambia su propio estado_editorial, así que `_confirmar_retiro_entidad` (que solo
+    reindexa la entidad que retira, es decir, el propio Tipo) nunca las toca. Pero su visibilidad
+    o su contenido indexado público SÍ cambian: q_visible()/es_visible() exige tipo_principal
+    PUBLICADO para un Destino (AC-129, 404 si falta) y al menos un tipo PUBLICADO para un
+    Itinerario; y, aunque el tipo sea solo secundario, RULE-001 v1.1 exige que la relación deje de
+    exponerse en el Destino igualmente. Ninguno de los dos casos lo refleja BusquedaDocumento por
+    sí solo. Se reindexan explícitamente aquí, igual que TKT-013 reindexa explícitamente tras
+    confirmar el estado de todas las entidades de una operación.
+
+    En el camino normal, `_usos_publicados_de_tipo` ya bloquea (TKT-015, RULE-007) cualquier
+    retiro directo mientras exista un destino o itinerario publicado dependiente, así que esta
+    función solo se alcanza con 0 dependientes (no encuentra nada) salvo por una publicación
+    concurrente entre esa comprobación y este commit (`select_for_update()` solo bloquea la fila
+    del propio Tipo): se conserva como defensa en profundidad para esa ventana de carrera, con el
+    mismo criterio amplio de "destino dependiente" que `_usos_publicados_de_tipo`."""
     destinos_afectados = Destino.objects.filter(
-        tipo_principal_id=tipo_aventura_id, contenido__estado_editorial=E.PUBLICADO
+        tipos_aventura=tipo_aventura_id, contenido__estado_editorial=E.PUBLICADO
     ).values_list("pk", flat=True)
     for destino_id in destinos_afectados:
         _reindexar(destino_id)
@@ -1415,6 +1425,36 @@ def _reindexar_dependientes_de_tipo(tipo_aventura_id: int) -> None:
     ).values_list("pk", flat=True)
     for itinerario_id in itinerarios_afectados:
         _reindexar(itinerario_id)
+
+
+def _usos_publicados_de_tipo(tipo_aventura_id: int) -> list[dict[str, Any]]:
+    """Usos de un Tipo por contenido PUBLICADO (RULE-007, FLOW-012): retirarlo DIRECTAMENTE (fuera
+    de la cascada de `retirar()` con tipo == T.DESTINO, que verifica sus propios tipos en cascada
+    con `_bloqueos_de_cascada` antes de llegar aquí y nunca pasa por esta función) se bloquea si
+    está en `tipos_aventura` de algún Destino PUBLICADO (principal O secundario: RULE-002/AC-124
+    exige que TODOS los tipos de un destino publicado estén publicados, no solo el principal;
+    FLOW-012 solo tolera sin bloquear las relaciones de guías/colecciones/destacados/relacionados,
+    nunca las de un destino) o de algún Itinerario PUBLICADO. Mismo criterio "destino ⇒ tipo en
+    uso" que ya usan `_destinos_publicados_de_tipo` y `_tipos_en_cascada` (M2M `tipos_aventura`
+    completo, no solo `tipo_principal`) y que `_reindexar_dependientes_de_tipo` (TKT-014) también
+    adopta desde TKT-015, para que las tres funciones respondan igual a la misma pregunta de
+    negocio. Formato ReferenciaUso (contracts/openapi.yaml) para el `extra` de
+    `DependenciaBloqueante`."""
+    destinos = Contenido.objects.filter(
+        destino__tipos_aventura=tipo_aventura_id, estado_editorial=E.PUBLICADO
+    ).order_by("id")
+    itinerarios = Contenido.objects.filter(
+        itinerario__tipos_aventura=tipo_aventura_id, estado_editorial=E.PUBLICADO
+    ).order_by("id")
+    return [
+        {
+            "tipo_entidad": c.tipo,
+            "id": c.pk,
+            "titulo": c.titulo,
+            "estado_editorial": c.estado_editorial,
+        }
+        for c in list(destinos) + list(itinerarios)
+    ]
 
 
 def retirar(
@@ -1435,6 +1475,14 @@ def retirar(
             raise TransicionInvalida()
         if contenido.version != version:
             raise ConflictoVersion(extra={"entidades_en_conflicto": [_referencia(contenido)]})
+
+        # RULE-007: un Tipo en uso por contenido publicado nunca se retira de forma DIRECTA (solo
+        # mediante la cascada de retiro de su último Destino, rama T.DESTINO más abajo). Se evalúa
+        # antes de tocar nada (DEC-AUTO-269: dependencia_bloqueante precede a cascada_bloqueada).
+        if tipo == T.TIPO:
+            usos = _usos_publicados_de_tipo(contenido.pk)
+            if usos:
+                raise DependenciaBloqueante(extra={"usos": usos, "total_usos": len(usos)})
 
         itinerarios: list[Contenido] = []
         tipos_cascada: list[TipoAventura] = []
