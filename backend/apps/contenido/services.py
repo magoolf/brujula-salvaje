@@ -936,7 +936,6 @@ def _actualizar_publicacion(
         campos=cambiados,
         ip=ip,
     )
-    _reindexar(contenido.pk)
 
     for tipo_co in copublicados:
         _confirmar_publicacion_entidad(tipo_co.contenido, actor_id, ip)
@@ -946,6 +945,14 @@ def _actualizar_publicacion(
             entidad, actor_id, "Cascada: sin destinos publicados (RULE-025)", ip
         )
         entidades_afectadas.append(_entidad_transitada(entidad, origen="CASCADA"))
+
+    # Reindexar DESPUÉS de confirmar TODAS las entidades de la operación (TKT-013, mismo patrón
+    # que publicar()): el destino podía cambiar de tipo_principal a un tipo recién co-publicado en
+    # la misma llamada; reindexarlo antes de confirmar ese tipo lo dejaba fuera del índice de
+    # forma permanente (AC-129).
+    _reindexar(contenido.pk)
+    for tipo_co in copublicados:
+        _reindexar(tipo_co.contenido.pk)
 
     return ResultadoGuardado(contenido=contenido, entidades_afectadas=entidades_afectadas)
 
@@ -1061,6 +1068,12 @@ def _url_publica(contenido: Contenido) -> str | None:
 
 
 def _confirmar_publicacion_entidad(contenido: Contenido, actor_id: int, ip: str | None) -> None:
+    """Confirma el estado PUBLICADO de UNA entidad. No reindexa (TKT-013): cuando una operación
+    co-publica varias entidades relacionadas (p. ej. Destino + tipo_principal), reindexar aquí
+    reindexaría cada una con las demás todavía en BORRADOR, y la visibilidad del Destino exige que
+    su tipo_principal ya esté PUBLICADO (AC-129) -- el índice quedaría incoherente de forma
+    permanente. El llamador reindexa explícitamente TODAS las entidades afectadas, una vez cada
+    una, después de confirmar el estado de TODAS ellas."""
     ahora = timezone.now()
     if contenido.primera_publicacion_en is None:
         contenido.primera_publicacion_en = ahora
@@ -1071,7 +1084,6 @@ def _confirmar_publicacion_entidad(contenido: Contenido, actor_id: int, ip: str 
     contenido.save()
     _crear_revision(contenido, MotivoRevision.PUBLICACION, actor_id)
     _auditar(accion=AccionAuditoria.PUBLICAR, actor_id=actor_id, contenido=contenido, ip=ip)
-    _reindexar(contenido.pk)
 
 
 def _resolver_copublicacion(
@@ -1214,6 +1226,14 @@ def publicar(
         for tipo_co in copublicados:
             _confirmar_publicacion_entidad(tipo_co.contenido, actor_id, ip)
             afectadas.append(_entidad_transitada(tipo_co.contenido, origen="COPUBLICACION"))
+
+        # Reindexar DESPUÉS de confirmar TODAS las entidades de la operación (TKT-013): si el
+        # destino se reindexara justo tras su propia confirmación (antes de este punto), su
+        # tipo_principal co-publicado seguiría en BORRADOR y el destino quedaría marcado como no
+        # visible en el índice de forma permanente (AC-129), pese a estar PUBLICADO en BD.
+        _reindexar(contenido.pk)
+        for tipo_co in copublicados:
+            _reindexar(tipo_co.contenido.pk)
         return contenido, afectadas
 
 
