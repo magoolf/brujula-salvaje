@@ -147,7 +147,13 @@ class ArchivoMedio(_VistaMedios):
     @extend_schema(
         operation_id="panelObtenerArchivoMedio",
         tags=["panel-medios"],
-        responses={200: OpenApiTypes.BINARY},
+        # Media types explícitos (TKT-006, gate_contrato.py N8): sin ellos drf-spectacular declara
+        # un único 200 application/json que el contrato no documenta (solo binario en 3 formatos).
+        responses={
+            (200, "image/avif"): OpenApiTypes.BINARY,
+            (200, "image/webp"): OpenApiTypes.BINARY,
+            (200, "image/jpeg"): OpenApiTypes.BINARY,
+        },
     )
     def get(self, request: Request, id: int) -> HttpResponse:
         validar_parametros(request.query_params, {"ancho", "formato"})

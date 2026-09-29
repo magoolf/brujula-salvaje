@@ -160,8 +160,36 @@ class AlertaTableroSerializer(serializers.Serializer[Any]):
     enlace = serializers.CharField(allow_null=True, required=False)
 
 
+class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoRefPanel. `ref_name` propio (Skill_Backend §5): cada capa API
+    define sus propios serializers de referencia sin importar entre dominios."""
+
+    tipo = serializers.CharField()
+    id = IdSerializerField()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = serializers.CharField()
+
+    class Meta:
+        ref_name = "ContenidoRefPanelInicio"
+
+
+class SaludEditorialSerializer(serializers.Serializer[Any]):
+    """`Tablero.salud_editorial` (EXP-001, COULD): null mientras no esté implementado."""
+
+    revisiones_antiguas = ContenidoRefPanelSerializer(many=True, required=False)
+    medios_pendientes_metadatos = serializers.IntegerField(min_value=0, required=False)
+    medios_sin_uso = serializers.IntegerField(min_value=0, required=False)
+    colecciones_bajo_minimo = ContenidoRefPanelSerializer(many=True, required=False)
+    destacados_bajo_minimo = serializers.ListField(
+        child=serializers.ChoiceField(choices=["DESTINOS", "ITINERARIOS", "GUIAS"]),
+        required=False,
+    )
+    contenidos_con_pocos_relacionados = ContenidoRefPanelSerializer(many=True, required=False)
+
+
 class TableroSerializer(serializers.Serializer[Any]):
     conteos = ConteoTipoSerializer(many=True)
     recientes = ContenidoResumenTableroSerializer(many=True)
     alertas = AlertaTableroSerializer(many=True)
-    salud_editorial = serializers.DictField(allow_null=True, required=False)
+    salud_editorial = SaludEditorialSerializer(allow_null=True, required=False)

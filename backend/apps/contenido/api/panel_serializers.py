@@ -15,7 +15,13 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.contenido.models import ClavePagina, TipoContenido
-from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
+from apps.core.api.serializers import (
+    EntradaEstricta,
+    IdSerializerField,
+    PaginaMetaSerializer,
+    ReferenciaUsoSerializer,
+)
+from apps.medios.models import EstadoMedio
 
 T = TipoContenido
 
@@ -36,6 +42,16 @@ class _CampoTipo(serializers.ChoiceField):
 
 def _tipo_field(choices: Any) -> serializers.ChoiceField:
     return _CampoTipo(choices=choices)
+
+
+@extend_schema_field({"type": "object"})
+class _ObjetoOpacoField(serializers.DictField):
+    """Documento estructurado de forma libre (`instantanea` de una revisión, `datos` de una
+    restauración): el contrato lo declara `{type: object}` SIN `additionalProperties` (objeto
+    CERRADO sin propiedades fijas, gate_contrato.py N13). `DictField` por sí solo genera
+    `additionalProperties: {}` (objeto ABIERTO), que el gate rechaza cuando el contrato lo cierra;
+    `extend_schema_field` sobre la clase fuerza el esquema exacto del contrato sin tocar la
+    validación/serialización real de `DictField` (TKT-006, ciclo de corrección del gate CI)."""
 
 
 def _tipo_entidad_field() -> serializers.ChoiceField:
@@ -500,6 +516,34 @@ class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
     estado_editorial = serializers.CharField()
 
 
+class MedioRefPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.MedioMiniatura (`ContenidoPanelMeta.referencias.medios[]`)."""
+
+    id = IdSerializerField()
+    estado = _CampoTipo(choices=EstadoMedio.choices)  # esquema en línea: evita colisión W001
+    texto_alternativo = serializers.CharField(max_length=250, allow_null=True, required=False)
+    licencia_codigo = serializers.CharField(max_length=40, allow_null=True, required=False)
+    url_miniatura = serializers.CharField()
+
+    class Meta:
+        ref_name = "MedioMiniaturaContenido"
+
+
+class TerminoRefPanelSerializer(serializers.Serializer[Any]):
+    """`ContenidoPanelMeta.referencias.terminos[]` (esquema en línea: {id, termino})."""
+
+    id = IdSerializerField()
+    termino = serializers.CharField(max_length=150)
+
+
+class TaxonomiaRefPanelSerializer(serializers.Serializer[Any]):
+    """`ContenidoPanelMeta.referencias.taxonomias[]` (esquema en línea: {clase, id, nombre})."""
+
+    clase = serializers.ChoiceField(choices=["PAIS", "TIPO", "CATEGORIA"])
+    id = IdSerializerField()
+    nombre = serializers.CharField(max_length=150)
+
+
 class ErrorReglaSerializer(serializers.Serializer[Any]):
     campo = serializers.CharField(max_length=100)
     code = serializers.RegexField(r"^[a-z][a-z0-9_]{2,63}$")
@@ -544,7 +588,7 @@ class ImpactoRetiroSerializer(serializers.Serializer[Any]):
     colecciones = ContenidoRefPanelSerializer(many=True)
     destacados = serializers.ListField(child=serializers.CharField())
     enlaces_entrantes = serializers.IntegerField(min_value=0)
-    bloqueos = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    bloqueos = ReferenciaUsoSerializer(many=True, required=False)
 
 
 class ValidacionEntidadSerializer(serializers.Serializer[Any]):
@@ -582,13 +626,13 @@ class RevisionResumenSerializer(serializers.Serializer[Any]):
 
 
 class RevisionDetalleSerializer(RevisionResumenSerializer):
-    instantanea = serializers.DictField()
+    instantanea = _ObjetoOpacoField()
 
 
 class RestauracionRevisionSerializer(serializers.Serializer[Any]):
     numero_revision = serializers.IntegerField(min_value=1)
     version_actual = serializers.IntegerField(min_value=1)
-    datos = serializers.DictField()
+    datos = _ObjetoOpacoField()
 
 
 class PaginaRevisionResumenSerializer(PaginaMetaSerializer):
@@ -599,10 +643,10 @@ class PaginaRevisionResumenSerializer(PaginaMetaSerializer):
 # Salidas Panel por tipo (ContenidoPanelMeta + ContenidoComunCampos + {Tipo}Campos)
 # ---------------------------------------------------------------------------
 class ReferenciasPanelSerializer(serializers.Serializer[Any]):
-    medios = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    medios = MedioRefPanelSerializer(many=True, required=False)
     contenidos = ContenidoRefPanelSerializer(many=True, required=False)
-    terminos = serializers.ListField(child=serializers.DictField(), required=False, default=list)
-    taxonomias = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    terminos = TerminoRefPanelSerializer(many=True, required=False)
+    taxonomias = TaxonomiaRefPanelSerializer(many=True, required=False)
 
 
 class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):

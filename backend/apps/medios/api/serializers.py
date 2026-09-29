@@ -40,11 +40,14 @@ class LicenciaRefSerializer(serializers.Serializer[Any]):
 class DerivadoImagenSerializer(serializers.Serializer[Any]):
     """components.schemas.DerivadoImagen con `ref_name` propio: `apps.contenido.api.serializers`
     ya define un `DerivadoImagenSerializer` público con otro `Meta` (sin licencia ni credenciales
-    del panel); mismo nombre de clase en dominios distintos por Skill_Backend §5."""
+    del panel); mismo nombre de clase en dominios distintos por Skill_Backend §5.
+
+    Campos `ancho`/`alto` (no `ancho_px`/`alto_px`, TKT-006 ciclo de corrección del gate CI):
+    el contrato nombra así `DerivadoImagen.ancho`/`.alto` (requerido/opcional respectivamente)."""
 
     formato = serializers.ChoiceField(choices=FormatoDerivado.choices)
-    ancho_px = serializers.IntegerField(min_value=1)
-    alto_px = serializers.IntegerField(min_value=1)
+    ancho = serializers.IntegerField(min_value=1)
+    alto = serializers.IntegerField(min_value=1)
     url = serializers.CharField()
 
     class Meta:
@@ -112,8 +115,8 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
             "derivados": [
                 {
                     "formato": d.formato,
-                    "ancho_px": d.ancho_px,
-                    "alto_px": d.alto_px,
+                    "ancho": d.ancho_px,
+                    "alto": d.alto_px,
                     "url": (
                         f"/api/v1/panel/medios/{medio.pk}/archivo"
                         f"?ancho={d.ancho_px}&formato={d.formato}"
@@ -142,12 +145,27 @@ class PaginaMedioPanelSerializer(PaginaMetaSerializer):
     resultados = MedioPanelSerializer(many=True)
 
 
+class MotivoRechazoMedioSerializer(serializers.Serializer[Any]):
+    """`ResultadoSubida.resultados[].motivo` (esquema en línea del contrato: {code, detalle})."""
+
+    code = serializers.ChoiceField(
+        choices=[
+            "formato_no_permitido",
+            "tamano_excedido",
+            "dimensiones_insuficientes",
+            "megapixeles_excedidos",
+            "archivo_corrupto",
+        ]
+    )
+    detalle = serializers.CharField(max_length=300)
+
+
 class ResultadoArchivoSerializer(serializers.Serializer[Any]):
     nombre_archivo = serializers.CharField(max_length=255)
     resultado = serializers.ChoiceField(choices=["ACEPTADO", "RECHAZADO", "DUPLICADO"])
     medio = MedioPanelSerializer(allow_null=True, required=False)
     medio_existente_id = serializers.IntegerField(min_value=1, allow_null=True, required=False)
-    motivo = serializers.DictField(required=False, allow_null=True)
+    motivo = MotivoRechazoMedioSerializer(required=False, allow_null=True)
 
 
 class ResultadoSubidaSerializer(serializers.Serializer[Any]):
