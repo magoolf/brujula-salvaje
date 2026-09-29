@@ -381,7 +381,7 @@ tickets:
     archivos_permitidos: ["backend/apps/ops/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado con especificación exacta de DEVOPS_HANDOFF.md §19.3.6 (umbrales, patrón de infra/ops/cache_limites_tamano.sql) y plantilla de código (apps/ops/services.py::verificar_busqueda, mismo patrón Resultado(exito=bool))"]
+    evidencia: ["Despachado con especificación exacta de DEVOPS_HANDOFF.md §19.3.6 (umbrales, patrón de infra/ops/cache_limites_tamano.sql) y plantilla de código (apps/ops/services.py::verificar_busqueda, mismo patrón Resultado(exito=bool))", "Entregado @ b9cd19a, PR #31. vigilar_cache_limites() añadida a TRABAJOS, mismo patrón que verificar_busqueda(); recuento exacto por COUNT(*) (verificado que app_rw tiene acceso directo, no necesita el fallback de estimación del script SQL de DevOps). Migración 0002 (expand, reversible) amplía el CHECK del campo tarea. 6 tests nuevos, suite completa 712 passed/0 failed/3 skipped, cobertura 89.79%. CI en curso. Pendiente: DevOps debe añadir la línea al crontab después de integrar"]
     actualizado: 2026-09-29
   - id: TKT-F3-002
     titulo: "CHG-BP-001: enmienda de RULE-025/RULE-002 (co-publicación de tipos y destinos, invariante: destino publicado solo con tipos publicados) en el Blueprint (DEC-AUTO-912)"
