@@ -501,7 +501,7 @@ tickets:
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado: TKT-014 integrado, ya no hay solapamiento de archivo. Reutilizar _destinos_publicados_de_tipo() y el patrón de _bloqueos_de_cascada() ya existentes para construir la lista de usos"]
+    evidencia: ["Despachado: TKT-014 integrado, ya no hay solapamiento de archivo. Reutilizar _destinos_publicados_de_tipo() y el patrón de _bloqueos_de_cascada() ya existentes para construir la lista de usos", "Entregado @ 3c9b8cb, PR #30. _usos_publicados_de_tipo() añadida; retirar() con tipo==T.TIPO ahora levanta DependenciaBloqueante(usos/total_usos) antes de confirmar, si el tipo es tipo_principal de un destino publicado o lo usa un itinerario publicado. Rama T.DESTINO/cascada sin tocar. 5 tests nuevos (706 passed total, 0 failed). Alcance documentado explícitamente: NO bloquea si el tipo es solo secundario (no principal) de un destino publicado -- riesgo residual bajo, mitigado por RULE-001 v1.1, con test propio que lo deja trazado en vez de oculto. CI en curso"]
     actualizado: 2026-09-29
 ```
 
