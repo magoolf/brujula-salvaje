@@ -182,14 +182,14 @@ tickets:
   - id: TKT-007
     titulo: "Semilla de contenido: comando cargar_semilla (24 destinos reales, itinerarios, guías, 12 tipos, colecciones, glosario, páginas legales, config de inicio, medios propios con licencia) vía servicio de publicación"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [REQ-040, REQ-043, DEC-AUTO-007, DEC-AUTO-033, PRB-BP-002]
     depende_de: [TKT-006]
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**", "backend/pyproject.toml", "backend/uv.lock"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado tras integrar TKT-006 (main @ fa24f1e)"]
+    evidencia: ["Despachado tras integrar TKT-006 (main @ fa24f1e)", "Entregado @ 4863fc7, PR #27. 24/24 destinos PUBLICADO, 12/12 tipos, 10/10 itinerarios, 10/10 guías, 4/4 colecciones, 12/12 términos, 4/4 páginas institucionales, ConfigInicio completo, 133 medios 100% con licencia/autor/alt (código PROPIA). Idempotencia verificada con 2 ejecuciones reales contra Postgres (no solo declarada): 2ª ejecución 0 creados/97 reutilizados en <2s. RULE-025, RULE-006 y PRB-BP-002 (Surf->Galápagos, Ciclismo de montaña->Queenstown, ambos secundarios) verificados por consulta real a BD. Suite completa 697 passed/1 failed (preexistente, no relacionado, mismo patrón que OBS-QA-TKT005-C2-01 de artefacto Git-Bash/MSYS en Windows)/3 skipped, cobertura 89.25%. Gate de contrato intacto (128/128, 0 errores, no se tocó ninguna vista/serializer). 3 decisiones documentadas: arranque de RULE-006 con clique mínimo de 4 (reutiliza reglas.py real, no lo modifica), creación directa de PaginaInstitucional/ConfigInicio por ausencia de servicio real (services.py fuera de su alcance), y GAP-DEV-003 -- bug real preexistente encontrado en apps/contenido/services.py (publicar() reindexa el destino ANTES de confirmar sus tipos co-publicados, dejándolo transitoriamente fuera de búsqueda) mitigado con un reindexado final sin tocar el archivo. QA despachado"]
     actualizado: 2026-09-29
   - id: TKT-008
     titulo: "Frontend público 1: inicio, explorar destinos (filtros en URL, mapa SVG, por mes, sorpréndeme), ficha de destino, guardados y compartir, SEO"
@@ -463,6 +463,18 @@ tickets:
     trazabilidad: [TKT-006, TKT-OPS-010]
     depende_de: [TKT-006, TKT-OPS-010]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-29
+  - id: TKT-013
+    titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-007, AC-129, CHG-API-005]
+    depende_de: [TKT-006]
+    archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
