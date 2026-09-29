@@ -374,15 +374,15 @@ tickets:
   - id: TKT-011
     titulo: "Backend: comando de gestión vigilar_cache_limites (alerta de tamaño de cache_limites, DEVOPS_HANDOFF §19.3.6) + línea en el crontab vía DevOps"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [RSK-QA004-02, RSK-OPS-032]
     depende_de: [TKT-005, TKT-OPS-006]
     archivos_permitidos: ["backend/apps/ops/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-28
+    evidencia: ["Despachado con especificación exacta de DEVOPS_HANDOFF.md §19.3.6 (umbrales, patrón de infra/ops/cache_limites_tamano.sql) y plantilla de código (apps/ops/services.py::verificar_busqueda, mismo patrón Resultado(exito=bool))"]
+    actualizado: 2026-09-29
   - id: TKT-F3-002
     titulo: "CHG-BP-001: enmienda de RULE-025/RULE-002 (co-publicación de tipos y destinos, invariante: destino publicado solo con tipos publicados) en el Blueprint (DEC-AUTO-912)"
     fase: F3
