@@ -194,15 +194,15 @@ tickets:
   - id: TKT-008
     titulo: "Frontend público 1: inicio, explorar destinos (filtros en URL, mapa SVG, por mes, sorpréndeme), ficha de destino, guardados y compartir, SEO"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, MOD-003, MOD-006, MOD-008]
     depende_de: [TKT-002, TKT-007]
     archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/guardados/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-25
+    evidencia: ["Despachado. Primer ticket de frontend de esta sesión; TKT-002 (base) ya construyó cliente API generado, shared/ui (tarjeta-contenido, medidor-dificultad/presupuesto, paginacion, migas-de-pan, etc.), core/layout (cabecera/pie/menu-movil/banner-sin-conexion, páginas de error 404/410/500), core/seo -- se instruyó inventariar antes de construir, por Skill_Frontend.md ETAPA 1"]
+    actualizado: 2026-09-29
   - id: TKT-009
     titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
     fase: F7
