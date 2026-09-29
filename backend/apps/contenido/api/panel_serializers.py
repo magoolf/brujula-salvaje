@@ -54,8 +54,49 @@ class _ObjetoOpacoField(serializers.DictField):
     validación/serialización real de `DictField` (TKT-006, ciclo de corrección del gate CI)."""
 
 
+@extend_schema_field({"type": "string", "enum": list(TipoContenido.values)})
+class _CampoTipoEntidadConEnum(serializers.ChoiceField):
+    """`ChoiceField` de `tipo` (TipoEntidadContenido, 7 valores) con el enum inline en vez de un
+    componente nombrado: evita la colisión W001 de `_CampoTipo` (esquema fijo sin `enum`) SIN
+    perder los valores válidos que el contrato sí documenta (gate oasdiff: enum removed in
+    revision). Al ser un esquema literal por `extend_schema_field` (no un `$ref` reconciliado),
+    reusarlo en múltiples campos `tipo` no reintroduce la colisión de nombre."""
+
+
 def _tipo_entidad_field() -> serializers.ChoiceField:
-    return _CampoTipo(choices=TipoContenido.choices)
+    return _CampoTipoEntidadConEnum(choices=TipoContenido.choices)
+
+
+@extend_schema_field({"type": "string", "enum": ["BORRADOR", "PUBLICADO", "RETIRADO"]})
+class _CampoEstadoEditorial(serializers.ChoiceField):
+    """`ChoiceField` de `estado_editorial` (EstadoEditorial) con el enum inline; mismo motivo que
+    `_CampoTipoEntidadConEnum`."""
+
+
+def _campo_estado_editorial(**kwargs: Any) -> serializers.ChoiceField:
+    return _CampoEstadoEditorial(choices=["BORRADOR", "PUBLICADO", "RETIRADO"], **kwargs)
+
+
+@extend_schema_field({"type": ["integer", "null"], "format": "int64"})
+class _CampoIdNuloInt64(serializers.IntegerField):
+    """components.schemas.ActorRef.id: entero int64 nullable ("sistema" cuando es null); un
+    `IntegerField` sin anotar no declara `format: int64` (TKT-006, ciclo oasdiff:
+    response-property-type-changed, formato int64 -> none)."""
+
+
+@extend_schema_field({"type": ["integer", "null"], "format": "int64"})
+class _CampoIdOpcionalInt64(serializers.IntegerField):
+    """`tipo_principal_id` (Id opcional/nullable) con `format: int64` explícito."""
+
+
+@extend_schema_field({"type": "string", "enum": ["PRINCIPAL", "COPUBLICACION", "CASCADA"]})
+class _CampoRolEntidadOperacion(serializers.ChoiceField):
+    """components.schemas.RolEntidadOperacion con el enum inline (`origen`/`rol` de las
+    entidades multi-entidad, CHG-API-005); mismo motivo que `_CampoTipoEntidadConEnum`."""
+
+
+def _campo_rol_entidad_operacion() -> serializers.ChoiceField:
+    return _CampoRolEntidadOperacion(choices=["PRINCIPAL", "COPUBLICACION", "CASCADA"])
 
 
 PATRON_SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -140,7 +181,7 @@ class DestinoCamposMixin(serializers.Serializer[Any]):
     resumen = _texto(300)
     descripcion_experta = _html()
     tipos_ids = _id_lista(12)
-    tipo_principal_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tipo_principal_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
     dificultad = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
     meses_mejor_epoca = serializers.ListField(
         child=serializers.IntegerField(min_value=1, max_value=12),
@@ -480,7 +521,9 @@ class PublicacionEntradaSerializer(EntradaEstricta):
 
 class RetiroEntradaSerializer(EntradaEstricta):
     version = serializers.IntegerField(min_value=1)
-    motivo = serializers.CharField(min_length=1, max_length=300, trim_whitespace=False)
+    motivo = serializers.RegexField(
+        PATRON_NO_NUL, min_length=1, max_length=300, trim_whitespace=False
+    )
     confirmar_cascada = serializers.BooleanField(required=False, default=False)
     cascada_confirmada = EntidadRefEntradaSerializer(  # type: ignore[call-arg]
         many=True, required=False, max_length=212
@@ -490,7 +533,7 @@ class RetiroEntradaSerializer(EntradaEstricta):
 class AnalisisPublicacionEntradaSerializer(EntradaEstricta):
     version = serializers.IntegerField(min_value=1)
     tipos_ids = _id_lista(12)
-    tipo_principal_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tipo_principal_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +544,7 @@ class ActorRefSerializer(serializers.Serializer[Any]):
     con los `ActorRefSerializer` de otros dominios (apps.auditoria, apps.medios, apps.inicio),
     cada uno definido en su propia capa API por Skill_Backend §5 (sin importar entre dominios)."""
 
-    id = serializers.IntegerField(allow_null=True)
+    id = _CampoIdNuloInt64(allow_null=True)
     etiqueta = serializers.CharField(max_length=60)
 
     class Meta:
@@ -509,11 +552,11 @@ class ActorRefSerializer(serializers.Serializer[Any]):
 
 
 class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
-    tipo = serializers.CharField()
+    tipo = _tipo_entidad_field()
     id = IdSerializerField()
     titulo = serializers.CharField(max_length=150)
     slug = serializers.CharField(max_length=120, allow_null=True, required=False)
-    estado_editorial = serializers.CharField()
+    estado_editorial = _campo_estado_editorial()
 
 
 class MedioRefPanelSerializer(serializers.Serializer[Any]):
@@ -548,59 +591,74 @@ class ErrorReglaSerializer(serializers.Serializer[Any]):
     campo = serializers.CharField(max_length=100)
     code = serializers.RegexField(r"^[a-z][a-z0-9_]{2,63}$")
     mensaje = serializers.CharField(max_length=300)
-    referencias = ContenidoRefPanelSerializer(many=True, required=False)
+    referencias = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
+        many=True, required=False, max_length=50
+    )
 
 
 class RequisitosPublicacionSerializer(serializers.Serializer[Any]):
     cumple = serializers.BooleanField()
-    pendientes = ErrorReglaSerializer(many=True)
+    pendientes = ErrorReglaSerializer(many=True, max_length=200)  # type: ignore[call-arg]
 
 
 class EntidadTransitadaSerializer(ContenidoRefPanelSerializer):
     version = serializers.IntegerField(min_value=1)
     numero_revision = serializers.IntegerField(min_value=1, allow_null=True)
-    url_publica = serializers.CharField(allow_null=True, required=False)
-    origen = serializers.ChoiceField(choices=["PRINCIPAL", "COPUBLICACION", "CASCADA"])
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
+    origen = _campo_rol_entidad_operacion()
 
 
 class ResultadoTransicionSerializer(serializers.Serializer[Any]):
     id = IdSerializerField()
-    tipo = serializers.CharField()
-    estado_editorial = serializers.CharField()
+    tipo = _tipo_entidad_field()
+    estado_editorial = _campo_estado_editorial()
     version = serializers.IntegerField(min_value=1)
     numero_revision = serializers.IntegerField(min_value=1, allow_null=True)
-    url_publica = serializers.CharField(allow_null=True, required=False)
-    afectados = ContenidoRefPanelSerializer(many=True)
-    entidades = EntidadTransitadaSerializer(many=True)
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
+    afectados = ContenidoRefPanelSerializer(many=True, max_length=200)  # type: ignore[call-arg]
+    entidades = EntidadTransitadaSerializer(  # type: ignore[call-arg]
+        many=True, min_length=1, max_length=213
+    )
 
 
 class BloqueoCascadaSerializer(serializers.Serializer[Any]):
     tipo_aventura = ContenidoRefPanelSerializer()
-    itinerarios = ContenidoRefPanelSerializer(many=True)
+    itinerarios = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
+        many=True, min_length=1, max_length=100
+    )
     total_itinerarios = serializers.IntegerField(min_value=1)
 
 
 class ImpactoRetiroSerializer(serializers.Serializer[Any]):
     retirable = serializers.BooleanField()
-    itinerarios_en_cascada = ContenidoRefPanelSerializer(many=True)
-    tipos_en_cascada = ContenidoRefPanelSerializer(many=True)
-    bloqueos_cascada = BloqueoCascadaSerializer(many=True)
-    colecciones = ContenidoRefPanelSerializer(many=True)
-    destacados = serializers.ListField(child=serializers.CharField())
+    itinerarios_en_cascada = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
+        many=True, max_length=200
+    )
+    tipos_en_cascada = ContenidoRefPanelSerializer(  # type: ignore[call-arg]
+        many=True, max_length=12
+    )
+    bloqueos_cascada = BloqueoCascadaSerializer(many=True, max_length=12)  # type: ignore[call-arg]
+    colecciones = ContenidoRefPanelSerializer(many=True, max_length=200)  # type: ignore[call-arg]
+    destacados = serializers.ListField(
+        child=serializers.ChoiceField(choices=["DESTINOS", "ITINERARIOS", "GUIAS"]),
+        max_length=3,
+    )
     enlaces_entrantes = serializers.IntegerField(min_value=0)
-    bloqueos = ReferenciaUsoSerializer(many=True, required=False)
+    bloqueos = ReferenciaUsoSerializer(  # type: ignore[call-arg]
+        many=True, required=False, max_length=100
+    )
 
 
 class ValidacionEntidadSerializer(serializers.Serializer[Any]):
-    tipo = serializers.CharField()
+    tipo = _tipo_entidad_field()
     id = IdSerializerField()
     titulo = serializers.CharField(max_length=150)
     slug = serializers.CharField(max_length=120, allow_null=True, required=False)
-    estado_editorial = serializers.CharField()
+    estado_editorial = _campo_estado_editorial()
     version = serializers.IntegerField(min_value=1)
-    rol = serializers.ChoiceField(choices=["PRINCIPAL", "COPUBLICACION", "CASCADA"])
+    rol = _campo_rol_entidad_operacion()
     cumple = serializers.BooleanField()
-    pendientes = ErrorReglaSerializer(many=True)
+    pendientes = ErrorReglaSerializer(many=True, max_length=200)  # type: ignore[call-arg]
 
 
 class TipoVersionadoSerializer(serializers.Serializer[Any]):
@@ -620,7 +678,9 @@ class AnalisisPublicacionSerializer(serializers.Serializer[Any]):
 
 class RevisionResumenSerializer(serializers.Serializer[Any]):
     numero_revision = serializers.IntegerField(min_value=1)
-    motivo = serializers.CharField()
+    motivo = serializers.ChoiceField(
+        choices=["PUBLICACION", "ACTUALIZACION", "RETIRO", "RESTAURACION"]
+    )
     creado_en = serializers.DateTimeField()
     creado_por = ActorRefSerializer()
 
@@ -651,8 +711,8 @@ class ReferenciasPanelSerializer(serializers.Serializer[Any]):
 
 class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):
     id = IdSerializerField()
-    tipo = serializers.CharField()
-    estado_editorial = serializers.CharField()
+    tipo = _tipo_entidad_field()
+    estado_editorial = _campo_estado_editorial()
     version = serializers.IntegerField(min_value=1)
     slug_bloqueado = serializers.BooleanField()
     primera_publicacion_en = serializers.DateTimeField(allow_null=True)
@@ -663,7 +723,7 @@ class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):
     actualizado_en = serializers.DateTimeField()
     creado_por = ActorRefSerializer()
     actualizado_por = ActorRefSerializer()
-    url_publica = serializers.CharField(allow_null=True, required=False)
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
     requisitos_publicacion = RequisitosPublicacionSerializer()
     referencias = ReferenciasPanelSerializer()
 
@@ -930,6 +990,23 @@ class PaginaInstitucionalPanelSerializer(ContenidoPanelMetaSerializer):
 
 
 class ContenidoResumenPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoResumenPanel. Declara los campos (Skill_Backend Regla 13,
+    TKT-006 ciclo oasdiff): un `to_representation` propio sin campos declarados no genera
+    ninguna propiedad en el esquema drf-spectacular (`serializer.fields` queda vacío y el
+    componente se descarta por no tener `properties`), aunque la respuesta real sea correcta."""
+
+    id = IdSerializerField()
+    tipo = _tipo_entidad_field()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = _campo_estado_editorial()
+    version = serializers.IntegerField(min_value=1)
+    fecha_ultima_revision = serializers.DateField(allow_null=True, required=False)
+    actualizado_en = serializers.DateTimeField()
+    actualizado_por = ActorRefSerializer()
+    publicado = serializers.BooleanField()
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         from apps.contenido import services
 
@@ -992,3 +1069,23 @@ VISTA_PREVIA_SERIALIZER: dict[str, type[serializers.Serializer[Any]]] = {
     T.COLECCION: ColeccionVistaPreviaSerializer,
     T.PAGINA: PaginaInstitucionalVistaPreviaSerializer,
 }
+
+
+class VistaPreviaSerializer(serializers.Serializer[Any]):
+    """components.schemas.VistaPrevia (respuesta de POST .../vista-previa, TKT-006 ciclo
+    oasdiff): antes sin esquema (`OpenApiResponse(description=...)` sin `response=`), por lo que
+    drf-spectacular no documentaba ningún `content` para el 200 (response-media-type-removed)."""
+
+    marca = serializers.ChoiceField(choices=["VISTA PREVIA – NO PUBLICADO"])
+    forma = serializers.ChoiceField(
+        choices=[
+            "DestinoDetalle",
+            "ItinerarioDetalle",
+            "GuiaDetalle",
+            "TipoAventuraDetalle",
+            "ColeccionDetalle",
+            "PaginaInstitucionalPublica",
+        ]
+    )
+    datos = _ObjetoOpacoField()
+    requisitos_publicacion = RequisitosPublicacionSerializer()

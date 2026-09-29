@@ -6,13 +6,64 @@ from __future__ import annotations
 from typing import Any
 
 from django.urls import path, register_converter
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 
 from apps.contenido.api import panel_serializers as s
 from apps.contenido.api import panel_views as v
 from apps.contenido.models import TipoContenido
 
 T = TipoContenido
+
+# components.parameters.{EstadoEditorialFiltro,TextoFiltro,Pagina} (contracts/openapi.yaml):
+# duplicados aquí como OpenApiParameter porque drf-spectacular no auto-documenta los query
+# params de `PaginacionNumerada` (no implementa `get_schema_operation_parameters`) ni los que
+# `validar_parametros()` valida en runtime (TKT-006, ciclo oasdiff: request-parameter-removed).
+PARAMETROS_LISTADO = [
+    OpenApiParameter(
+        "estado",
+        str,
+        OpenApiParameter.QUERY,
+        required=False,
+        enum=["BORRADOR", "PUBLICADO", "RETIRADO"],
+    ),
+    OpenApiParameter(
+        "q",
+        str,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Filtro de texto del panel (título, alt, crédito según el recurso).",
+    ),
+    OpenApiParameter(
+        "pagina",
+        int,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Número de página (base 1). Fuera de rango → 404 pagina_fuera_de_rango.",
+    ),
+]
+PARAMETRO_PAGINA = [PARAMETROS_LISTADO[2]]
+# components.parameters.IdempotencyKey / VersionQuery (contracts/openapi.yaml).
+PARAMETRO_IDEMPOTENCY_KEY = [
+    OpenApiParameter(
+        "Idempotency-Key",
+        str,
+        OpenApiParameter.HEADER,
+        required=False,
+        description=(
+            "UUID opcional (DEC-AUTO-107, CHG-API-001): repetir la misma clave devuelve la "
+            "misma respuesta 2xx confirmada (24 h)."
+        ),
+    )
+]
+PARAMETRO_VERSION_QUERY = [
+    OpenApiParameter(
+        "version",
+        int,
+        OpenApiParameter.QUERY,
+        required=True,
+        description="Versión conocida por el cliente (bloqueo optimista, DEC-AUTO-050).",
+    )
+]
 
 
 class TipoContenidoRuta:
@@ -45,11 +96,13 @@ def _lista(tipo: str, nombre: str) -> type[v.ListaContenidoPorTipo]:
     get = extend_schema(
         operation_id=v.OPERACION_LISTAR[tipo],
         tags=["panel-contenidos"],
-        responses={200: OpenApiResponse(description="Página de contenidos.")},
+        parameters=PARAMETROS_LISTADO,
+        responses={200: s.PaginaContenidoResumenSerializer},
     )(get)
     post = extend_schema(
         operation_id=v.OPERACION_CREAR[tipo],
         tags=["panel-contenidos"],
+        parameters=PARAMETRO_IDEMPOTENCY_KEY,
         request=s.ENTRADA_SERIALIZER[tipo],
         responses={201: s.PANEL_SERIALIZER[tipo]},
     )(post)
@@ -80,6 +133,7 @@ def _detalle(tipo: str, nombre: str) -> type[v.DetalleContenidoPorTipo]:
     delete = extend_schema(
         operation_id=v.OPERACION_ELIMINAR[tipo],
         tags=["panel-contenidos"],
+        parameters=PARAMETRO_VERSION_QUERY,
         request=None,
         responses={204: OpenApiResponse(description="Borrador eliminado.")},
     )(delete)
@@ -98,7 +152,7 @@ def _vista_previa(tipo: str, nombre: str) -> type[v.VistaPreviaContenido]:
         operation_id=v.OPERACION_VISTA_PREVIA[tipo],
         tags=["panel-contenidos"],
         request=s.VISTA_PREVIA_SERIALIZER[tipo],
-        responses={200: OpenApiResponse(description="Vista previa.")},
+        responses={200: s.VistaPreviaSerializer},
     )(post)
     return type(nombre, (v.VistaPreviaContenido,), {"tipo": tipo, "post": post})
 

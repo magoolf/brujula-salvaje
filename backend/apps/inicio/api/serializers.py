@@ -12,18 +12,24 @@ from apps.contenido.models import TipoContenido
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField
 
 
-@extend_schema_field({"type": "string"})
-class _CampoTipo(serializers.ChoiceField):
-    """`ChoiceField` con esquema en línea sin clave `enum` nombrada. `extend_schema_field` debe
-    aplicarse sobre la CLASE (no sobre la instancia): `Field.__deepcopy__` de DRF reconstruye la
-    instancia vía `self.__class__(*args, **kwargs)` al enlazar el serializer y descarta cualquier
-    atributo puesto solo sobre la instancia. Evita que drf-spectacular reconcilie un componente de
-    enum compartido entre dominios (W001); ver la misma clase en
-    `apps.contenido.api.panel_serializers` (duplicada a propósito, Skill_Backend §5)."""
+@extend_schema_field({"type": "string", "enum": list(TipoContenido.values)})
+class _CampoTipoEntidadConEnum(serializers.ChoiceField):
+    """`ChoiceField` de `tipo` (TipoEntidadContenido) con el enum inline (TKT-006, ciclo oasdiff:
+    enum removed in revision); ver la misma clase en `apps.contenido.api.panel_serializers`
+    (duplicada a propósito, Skill_Backend §5)."""
 
 
 def _tipo_entidad_field() -> serializers.ChoiceField:
-    return _CampoTipo(choices=TipoContenido.choices)
+    return _CampoTipoEntidadConEnum(choices=TipoContenido.choices)
+
+
+@extend_schema_field({"type": "string", "enum": ["BORRADOR", "PUBLICADO", "RETIRADO"]})
+class _CampoEstadoEditorial(serializers.ChoiceField):
+    """`ChoiceField` de `estado_editorial` (EstadoEditorial) con el enum inline."""
+
+
+def _campo_estado_editorial(**kwargs: Any) -> serializers.ChoiceField:
+    return _CampoEstadoEditorial(choices=["BORRADOR", "PUBLICADO", "RETIRADO"], **kwargs)
 
 
 def _id_lista(minimo: int, maximo: int) -> serializers.ListField:
@@ -53,11 +59,17 @@ class ConfigInicioEntradaSerializer(EntradaEstricta):
         return self._validar_unicos("guias_ids", valor)
 
 
+@extend_schema_field({"type": ["integer", "null"], "format": "int64"})
+class _CampoIdNuloInt64(serializers.IntegerField):
+    """components.schemas.ActorRef.id: entero int64 nullable ("sistema" cuando es null); ver
+    `apps.contenido.api.panel_serializers` (duplicada a propósito, Skill_Backend §5)."""
+
+
 class ActorRefSerializer(serializers.Serializer[Any]):
     """components.schemas.ActorRef con `ref_name` propio (evita colisión entre dominios,
     Skill_Backend §5: cada capa API define sus propios serializers de salida)."""
 
-    id = serializers.IntegerField(allow_null=True)
+    id = _CampoIdNuloInt64(allow_null=True)
     etiqueta = serializers.CharField(max_length=60)
 
     class Meta:
@@ -72,7 +84,42 @@ class MedioMiniaturaSerializer(serializers.Serializer[Any]):
     url_miniatura = serializers.CharField()
 
 
+class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoRefPanel. `ref_name` propio (Skill_Backend §5): cada capa API
+    define sus propios serializers de referencia sin importar entre dominios."""
+
+    tipo = _tipo_entidad_field()
+    id = IdSerializerField()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = _campo_estado_editorial()
+
+    class Meta:
+        ref_name = "ContenidoRefPanelInicio"
+
+
+class ReferenciasConfigInicioSerializer(serializers.Serializer[Any]):
+    """`ConfigInicioPanel.referencias` (esquema en línea del contrato)."""
+
+    medios = MedioMiniaturaSerializer(many=True, required=False)
+    contenidos = ContenidoRefPanelSerializer(many=True, required=False)
+
+
 class ConfigInicioPanelSerializer(serializers.Serializer[Any]):
+    """components.schemas.ConfigInicioPanel. Declara los campos (Skill_Backend Regla 13,
+    TKT-006 ciclo oasdiff): un `to_representation` propio sin campos declarados no genera
+    ninguna propiedad en el esquema drf-spectacular."""
+
+    hero_titular = serializers.CharField(min_length=1, max_length=80)
+    hero_subtitulo = serializers.CharField(min_length=1, max_length=160)
+    hero_medio_id = IdSerializerField()
+    destinos_ids = _id_lista(6, 12)
+    itinerarios_ids = _id_lista(3, 6)
+    guias_ids = _id_lista(3, 6)
+    actualizado_en = serializers.DateTimeField()
+    actualizado_por = ActorRefSerializer()
+    referencias = ReferenciasConfigInicioSerializer()
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         from apps.inicio import selectors
 
@@ -121,6 +168,24 @@ class ConfiguracionSitioSerializer(serializers.Serializer[Any]):
 
 
 class ContenidoResumenTableroSerializer(serializers.Serializer[Any]):
+    """components.schemas.ContenidoResumenPanel (`Tablero.recientes`). Declara los campos
+    (Skill_Backend Regla 13, TKT-006 ciclo oasdiff): un `to_representation` propio sin campos
+    declarados no genera ninguna propiedad en el esquema drf-spectacular (el componente vacío se
+    descarta y `recientes` desaparece del esquema, gate: property present in base, missing in
+    revision)."""
+
+    id = IdSerializerField()
+    tipo = _tipo_entidad_field()
+    titulo = serializers.CharField(max_length=150)
+    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
+    estado_editorial = _campo_estado_editorial()
+    version = serializers.IntegerField(min_value=1)
+    fecha_ultima_revision = serializers.DateField(allow_null=True, required=False)
+    actualizado_en = serializers.DateTimeField()
+    actualizado_por = ActorRefSerializer()
+    publicado = serializers.BooleanField()
+    url_publica = serializers.RegexField(r"^/[a-z0-9/-]*$", allow_null=True, required=False)
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         from apps.contenido import services
 
@@ -157,21 +222,7 @@ class AlertaTableroSerializer(serializers.Serializer[Any]):
         choices=["responsable_sin_definir", "destacado_retirado", "coleccion_bajo_minimo"]
     )
     mensaje = serializers.CharField(max_length=300)
-    enlace = serializers.CharField(allow_null=True, required=False)
-
-
-class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
-    """components.schemas.ContenidoRefPanel. `ref_name` propio (Skill_Backend §5): cada capa API
-    define sus propios serializers de referencia sin importar entre dominios."""
-
-    tipo = serializers.CharField()
-    id = IdSerializerField()
-    titulo = serializers.CharField(max_length=150)
-    slug = serializers.CharField(max_length=120, allow_null=True, required=False)
-    estado_editorial = serializers.CharField()
-
-    class Meta:
-        ref_name = "ContenidoRefPanelInicio"
+    enlace = serializers.RegexField(r"^/panel(/[a-z0-9/-]*)?$", allow_null=True, required=False)
 
 
 class SaludEditorialSerializer(serializers.Serializer[Any]):

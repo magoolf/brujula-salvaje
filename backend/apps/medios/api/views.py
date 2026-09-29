@@ -9,7 +9,7 @@ from typing import Any, cast
 from django.conf import settings
 from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.request import Request
@@ -26,6 +26,8 @@ from apps.medios import selectors_panel, services
 from apps.medios.api.serializers import (
     MedioCatalogacionEntradaSerializer,
     MedioPanelSerializer,
+    PaginaMedioPanelSerializer,
+    PaginaUsoMedioSerializer,
     ResultadoSubidaSerializer,
     UsoMedioSerializer,
 )
@@ -34,6 +36,54 @@ from apps.medios.models import EstadoMedio, FormatoDerivado, MedioDerivado
 ID_MAXIMO = 2**63 - 1
 CONTENT_TYPE_POR_FORMATO = {"AVIF": "image/avif", "WEBP": "image/webp", "JPEG": "image/jpeg"}
 MAXIMO_ARCHIVOS = 10
+
+# components.parameters (contracts/openapi.yaml): drf-spectacular no auto-documenta los query
+# params de `PaginacionNumerada` ni los que `validar_parametros()` valida en runtime (TKT-006,
+# ciclo oasdiff: request-parameter-removed).
+PARAMETRO_PAGINA = [
+    OpenApiParameter(
+        "pagina",
+        int,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Número de página (base 1). Fuera de rango → 404 pagina_fuera_de_rango.",
+    )
+]
+PARAMETROS_LISTA_MEDIOS = [
+    OpenApiParameter(
+        "estado", str, OpenApiParameter.QUERY, required=False, enum=EstadoMedio.values
+    ),
+    OpenApiParameter(
+        "licencia", str, OpenApiParameter.QUERY, required=False, description="Código de licencia."
+    ),
+    OpenApiParameter("en_uso", bool, OpenApiParameter.QUERY, required=False),
+    OpenApiParameter(
+        "q",
+        str,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Filtro de texto del panel (título, alt, crédito según el recurso).",
+    ),
+    *PARAMETRO_PAGINA,
+]
+PARAMETROS_ARCHIVO_MEDIO = [
+    OpenApiParameter("ancho", int, OpenApiParameter.QUERY, required=True),
+    OpenApiParameter(
+        "formato", str, OpenApiParameter.QUERY, required=True, enum=FormatoDerivado.values
+    ),
+]
+PARAMETRO_IDEMPOTENCY_KEY = [
+    OpenApiParameter(
+        "Idempotency-Key",
+        str,
+        OpenApiParameter.HEADER,
+        required=False,
+        description=(
+            "UUID opcional (DEC-AUTO-107, CHG-API-001): repetir la misma clave devuelve la "
+            "misma respuesta 2xx confirmada (24 h)."
+        ),
+    )
+]
 
 
 def _id(id: int) -> int:
@@ -66,7 +116,8 @@ class ListaMedios(_VistaMediosMixta):
     @extend_schema(
         operation_id="panelListarMedios",
         tags=["panel-medios"],
-        responses={200: OpenApiResponse(description="Página de medios.")},
+        parameters=PARAMETROS_LISTA_MEDIOS,
+        responses={200: PaginaMedioPanelSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"estado", "licencia", "en_uso", "q", "pagina"})
@@ -92,6 +143,7 @@ class ListaMedios(_VistaMediosMixta):
     @extend_schema(
         operation_id="panelSubirMedios",
         tags=["panel-medios"],
+        parameters=PARAMETRO_IDEMPOTENCY_KEY,
         request={"multipart/form-data": OpenApiTypes.BINARY},
         responses={200: ResultadoSubidaSerializer},
     )
@@ -147,6 +199,7 @@ class ArchivoMedio(_VistaMedios):
     @extend_schema(
         operation_id="panelObtenerArchivoMedio",
         tags=["panel-medios"],
+        parameters=PARAMETROS_ARCHIVO_MEDIO,
         # Media types explícitos (TKT-006, gate_contrato.py N8): sin ellos drf-spectacular declara
         # un único 200 application/json que el contrato no documenta (solo binario en 3 formatos).
         responses={
@@ -180,7 +233,8 @@ class UsosMedio(_VistaMedios):
     @extend_schema(
         operation_id="panelListarUsosMedio",
         tags=["panel-medios"],
-        responses={200: OpenApiResponse(description="Página de usos.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaUsoMedioSerializer},
     )
     def get(self, request: Request, id: int) -> Response:
         validar_parametros(request.query_params, {"pagina"})

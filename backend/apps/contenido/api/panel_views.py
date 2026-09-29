@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.request import Request
@@ -25,8 +25,11 @@ from apps.contenido.api.panel_serializers import (
     AnalisisPublicacionSerializer,
     DestinoGuardadoSerializer,
     ImpactoRetiroSerializer,
+    PaginaContenidoResumenSerializer,
+    PaginaRevisionResumenSerializer,
     PublicacionEntradaSerializer,
     RestauracionRevisionSerializer,
+    ResultadoTransicionSerializer,
     RetiroEntradaSerializer,
     RevisionDetalleSerializer,
     TransicionEntradaSerializer,
@@ -41,6 +44,29 @@ from apps.cuentas.permisos import SesionPanel, cuenta_de
 
 T = TipoContenido
 ID_MAXIMO = 2**63 - 1
+# components.parameters.Pagina (contracts/openapi.yaml): ver panel_urls.PARAMETROS_LISTADO.
+PARAMETRO_PAGINA = [
+    OpenApiParameter(
+        "pagina",
+        int,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Número de página (base 1). Fuera de rango → 404 pagina_fuera_de_rango.",
+    )
+]
+# components.parameters.IdempotencyKey (contracts/openapi.yaml): ver panel_urls.py.
+PARAMETRO_IDEMPOTENCY_KEY = [
+    OpenApiParameter(
+        "Idempotency-Key",
+        str,
+        OpenApiParameter.HEADER,
+        required=False,
+        description=(
+            "UUID opcional (DEC-AUTO-107, CHG-API-001): repetir la misma clave devuelve la "
+            "misma respuesta 2xx confirmada (24 h)."
+        ),
+    )
+]
 TIPOS_CON_CREACION = (T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION, T.TERMINO)
 OPERACION_CREAR: dict[str, str] = {
     T.DESTINO: "panelCrearDestino",
@@ -177,7 +203,8 @@ class ListaPaginasInstitucionales(_VistaPanelContenido):
     @extend_schema(
         operation_id="panelListarPaginasInstitucionales",
         tags=["panel-contenidos"],
-        responses={200: OpenApiResponse(description="Página de contenidos.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaContenidoResumenSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"pagina"})
@@ -286,8 +313,9 @@ class PublicarContenido(_VistaPanelContenido):
     @extend_schema(
         operation_id="panelPublicarContenido",
         tags=["panel-ciclo-editorial"],
+        parameters=PARAMETRO_IDEMPOTENCY_KEY,
         request=PublicacionEntradaSerializer,
-        responses={200: OpenApiResponse(description="Publicado.")},
+        responses={200: ResultadoTransicionSerializer},
     )
     def post(self, request: Request, tipo: str, id: int) -> Response:
         entrada = PublicacionEntradaSerializer(data=request.data)
@@ -385,8 +413,9 @@ class RetirarContenido(_VistaPanelContenido):
     @extend_schema(
         operation_id="panelRetirarContenido",
         tags=["panel-ciclo-editorial"],
+        parameters=PARAMETRO_IDEMPOTENCY_KEY,
         request=RetiroEntradaSerializer,
-        responses={200: OpenApiResponse(description="Retirado.")},
+        responses={200: ResultadoTransicionSerializer},
     )
     def post(self, request: Request, tipo: str, id: int) -> Response:
         entrada = RetiroEntradaSerializer(data=request.data)
@@ -429,8 +458,9 @@ class ReactivarContenido(_VistaPanelContenido):
     @extend_schema(
         operation_id="panelReactivarContenido",
         tags=["panel-ciclo-editorial"],
+        parameters=PARAMETRO_IDEMPOTENCY_KEY,
         request=TransicionEntradaSerializer,
-        responses={200: OpenApiResponse(description="Reactivado.")},
+        responses={200: ResultadoTransicionSerializer},
     )
     def post(self, request: Request, tipo: str, id: int) -> Response:
         entrada = TransicionEntradaSerializer(data=request.data)
@@ -467,7 +497,8 @@ class ListaRevisiones(_VistaPanelContenido):
     @extend_schema(
         operation_id="panelListarRevisiones",
         tags=["panel-ciclo-editorial"],
-        responses={200: OpenApiResponse(description="Página de revisiones.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaRevisionResumenSerializer},
     )
     def get(self, request: Request, tipo: str, id: int) -> Response:
         validar_parametros(request.query_params, {"pagina"})

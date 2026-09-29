@@ -11,6 +11,7 @@ from apps.catalogos.models import Continente, Escala
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
 
 PATRON_SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+PATRON_NO_NUL = r"^[^\x00]*$"
 
 
 class RegionEntradaSerializer(EntradaEstricta):
@@ -100,8 +101,8 @@ class PaginaLicenciaSerializer(PaginaMetaSerializer):
 
 
 class NivelEscalaEntradaSerializer(EntradaEstricta):
-    etiqueta = serializers.CharField(min_length=1, max_length=40)
-    descripcion = serializers.CharField(min_length=1, max_length=400)
+    etiqueta = serializers.RegexField(PATRON_NO_NUL, min_length=1, max_length=40)
+    descripcion = serializers.RegexField(PATRON_NO_NUL, min_length=1, max_length=400)
 
 
 class NivelEscalaPanelSerializer(serializers.Serializer[Any]):

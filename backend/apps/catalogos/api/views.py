@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -20,6 +20,10 @@ from apps.catalogos.api.serializers import (
     LicenciaSerializer,
     NivelEscalaEntradaSerializer,
     NivelEscalaPanelSerializer,
+    PaginaCategoriaGuiaPanelSerializer,
+    PaginaLicenciaSerializer,
+    PaginaPaisSerializer,
+    PaginaRegionSerializer,
     PaisEntradaSerializer,
     PaisSerializer,
     RegionEntradaSerializer,
@@ -32,6 +36,22 @@ from apps.core.parametros import validar_parametros
 from apps.cuentas.permisos import SesionPanel, SoloAdministrador, cuenta_de
 
 ID_MAXIMO = 2**63 - 1
+
+# components.parameters.Pagina (contracts/openapi.yaml): drf-spectacular no auto-documenta los
+# query params de `PaginacionNumerada` (TKT-006, ciclo oasdiff: request-parameter-removed).
+PARAMETRO_PAGINA = [
+    OpenApiParameter(
+        "pagina",
+        int,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="Número de página (base 1). Fuera de rango → 404 pagina_fuera_de_rango.",
+    )
+]
+PARAMETROS_LISTA_PAISES = [
+    OpenApiParameter("region_id", int, OpenApiParameter.QUERY, required=False),
+    *PARAMETRO_PAGINA,
+]
 
 
 def _id(id: int) -> int:
@@ -66,7 +86,8 @@ class ListaRegiones(_VistaTaxonomiaMixta):
     @extend_schema(
         operation_id="panelListarRegiones",
         tags=["panel-configuracion"],
-        responses={200: OpenApiResponse(description="Página de regiones.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaRegionSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"pagina"})
@@ -127,7 +148,8 @@ class ListaPaises(_VistaTaxonomiaMixta):
     @extend_schema(
         operation_id="panelListarPaises",
         tags=["panel-configuracion"],
-        responses={200: OpenApiResponse(description="Página de países.")},
+        parameters=PARAMETROS_LISTA_PAISES,
+        responses={200: PaginaPaisSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"region_id", "pagina"})
@@ -192,7 +214,8 @@ class ListaCategoriasGuia(_VistaTaxonomiaMixta):
     @extend_schema(
         operation_id="panelListarCategoriasGuia",
         tags=["panel-configuracion"],
-        responses={200: OpenApiResponse(description="Página de categorías.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaCategoriaGuiaPanelSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"pagina"})
@@ -253,7 +276,8 @@ class ListaLicencias(_VistaTaxonomiaMixta):
     @extend_schema(
         operation_id="panelListarLicencias",
         tags=["panel-configuracion"],
-        responses={200: OpenApiResponse(description="Página de licencias.")},
+        parameters=PARAMETRO_PAGINA,
+        responses={200: PaginaLicenciaSerializer},
     )
     def get(self, request: Request) -> Response:
         validar_parametros(request.query_params, {"pagina"})
