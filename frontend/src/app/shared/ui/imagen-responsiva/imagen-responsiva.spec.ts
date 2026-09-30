@@ -17,6 +17,33 @@ describe('construirSrcset', () => {
   });
 });
 
+/**
+ * Espía mínimo de `IntersectionObserver` (TKT-018): jsdom no lo implementa (confirmado al ejecutar
+ * la suite sin este espía: el componente detecta `typeof IntersectionObserver === 'undefined'` y
+ * degrada a carga inmediata, que es exactamente lo que cubre el primer test de este describe). Este
+ * espía existe para poder probar el camino CON soporte: controla manualmente cuándo "interseca".
+ */
+class IntersectionObserverEspia {
+  static instancias: IntersectionObserverEspia[] = [];
+  observados: Element[] = [];
+  desconectado = false;
+  constructor(
+    readonly callback: (entradas: Pick<IntersectionObserverEntry, 'isIntersecting'>[]) => void,
+    readonly opciones?: IntersectionObserverInit,
+  ) {
+    IntersectionObserverEspia.instancias.push(this);
+  }
+  observe(el: Element): void {
+    this.observados.push(el);
+  }
+  disconnect(): void {
+    this.desconectado = true;
+  }
+  simularInterseccion(valor: boolean): void {
+    this.callback([{ isIntersecting: valor }]);
+  }
+}
+
 describe('ImagenResponsiva', () => {
   async function crear(entradas: Record<string, unknown>) {
     const fixture = TestBed.createComponent(ImagenResponsiva);
@@ -89,5 +116,67 @@ describe('ImagenResponsiva', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('[data-testid="imagen-fallida"]'),
     ).toBeNull();
+  });
+
+  describe('TKT-018: petición de red retenida hasta estar cerca del viewport', () => {
+    let original: typeof IntersectionObserver | undefined;
+
+    beforeEach(() => {
+      original = globalThis.IntersectionObserver;
+      IntersectionObserverEspia.instancias = [];
+      (globalThis as { IntersectionObserver: unknown }).IntersectionObserver =
+        IntersectionObserverEspia;
+    });
+
+    afterEach(() => {
+      if (original === undefined) {
+        delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+      } else {
+        globalThis.IntersectionObserver = original;
+      }
+    });
+
+    it('no prioritaria: sin src/srcset hasta que el observer confirma intersección', async () => {
+      const fixture = await crear({
+        src: '/media/publico/a-640.webp',
+        alt: 'Glaciar',
+        ancho: 640,
+        alto: 480,
+        derivados: [{ url: '/media/publico/a-320.webp', ancho: 320 }],
+      });
+      const img = (fixture.nativeElement as HTMLElement).querySelector('img') as HTMLImageElement;
+      // Antes de intersecar: el <img> existe (reserva ancho/alto, CLS 0) pero sin red.
+      expect(img).not.toBeNull();
+      expect(img.hasAttribute('src')).toBe(false);
+      expect(img.hasAttribute('srcset')).toBe(false);
+      expect(img.getAttribute('width')).toBe('640');
+      expect(img.getAttribute('height')).toBe('480');
+      expect(IntersectionObserverEspia.instancias).toHaveLength(1);
+
+      IntersectionObserverEspia.instancias[0].simularInterseccion(true);
+      await fixture.whenStable();
+
+      expect(img.getAttribute('src')).toBe('/media/publico/a-640.webp');
+      expect(img.getAttribute('srcset')).toBe('/media/publico/a-320.webp 320w');
+      expect(IntersectionObserverEspia.instancias[0].desconectado).toBe(true);
+    });
+
+    it('usa el margen de pre-carga documentado (TKT-018) como rootMargin', async () => {
+      await crear({ src: '/x.webp', alt: '', ancho: 10, alto: 10 });
+      expect(IntersectionObserverEspia.instancias[0].opciones?.rootMargin).toBe('300px 0px');
+    });
+
+    it('prioritaria: no crea observer, src/srcset disponibles de inmediato', async () => {
+      const fixture = await crear({
+        src: '/h.webp',
+        alt: 'Portada',
+        ancho: 1600,
+        alto: 900,
+        prioritaria: true,
+      });
+      const img = (fixture.nativeElement as HTMLElement).querySelector('img') as HTMLImageElement;
+      expect(img.getAttribute('src')).toBe('/h.webp');
+      expect(IntersectionObserverEspia.instancias).toHaveLength(0);
+    });
   });
 });
