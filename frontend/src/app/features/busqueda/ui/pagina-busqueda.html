@@ -1,0 +1,106 @@
+<section class="bs-contenedor pagina" data-testid="pagina-busqueda">
+  <div class="campo">
+    <app-campo-busqueda
+      variante="resultados"
+      idCampo="busqueda-resultados"
+      testId="busqueda-campo"
+      [valorInicial]="filtros().q"
+      [etiquetaOculta]="false"
+      [soloIcono]="false"
+    />
+  </div>
+
+  @if (filtros().q === '') {
+    <p>Escribe algo para buscar destinos, itinerarios, guías y tipos de aventura.</p>
+  } @else if (store.validacion(); as validacion) {
+    @if (!validacion.valida) {
+      <p role="alert" data-testid="busqueda-invalida">{{ validacion.mensaje }}</p>
+    } @else {
+      <header class="cabecera">
+        <h1>Resultados para «{{ filtros().q }}»</h1>
+        @if (totalTexto(); as total) {
+          <p role="status" aria-live="polite" data-testid="busqueda-total">{{ total }}</p>
+        }
+      </header>
+
+      @if (store.error(); as error) {
+        <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+      } @else if (filtros().tipo === null) {
+        @if (store.agrupada() === null) {
+          <app-estado-cargando forma="fila" [cantidad]="6" etiqueta="Buscando…" />
+        } @else if (store.agrupada(); as agrupada) {
+          @if (agrupada.total === 0) {
+            <app-estado-vacio [titulo]="'Sin resultados para «' + filtros().q + '»'" data-testid="busqueda-vacia">
+              <p>Revisa la ortografía o prueba con un término más general. También puedes explorar:</p>
+              <div estado-salidas>
+                <a routerLink="/destinos">Explorar destinos</a>
+                <a routerLink="/tipos-de-aventura">Ver tipos de aventura</a>
+              </div>
+            </app-estado-vacio>
+          } @else {
+            @for (grupo of grupos; track grupo) {
+              @if (agrupada.grupos[grupo].total > 0) {
+                <section [attr.aria-labelledby]="'grupo-' + grupo" data-testid="busqueda-grupo">
+                  <h2 [id]="'grupo-' + grupo">{{ etiqueta(grupo) }} ({{ agrupada.grupos[grupo].total }})</h2>
+                  <ul class="rejilla">
+                    @for (resultado of agrupada.grupos[grupo].resultados; track resultado.slug) {
+                      <li>
+                        <app-tarjeta-contenido
+                          [titulo]="resultado.titulo"
+                          [ruta]="resultado.ruta"
+                          [overline]="resultado.pais"
+                          [imagen]="resultado.imagen"
+                          [nivelTitulo]="3"
+                          testId="tarjeta-resultado"
+                        >
+                          @if (resultado.resumen) {
+                            <p>{{ resultado.resumen }}</p>
+                          }
+                        </app-tarjeta-contenido>
+                      </li>
+                    }
+                  </ul>
+                  @if (agrupada.grupos[grupo].total > agrupada.grupos[grupo].resultados.length) {
+                    <a [routerLink]="[]" [queryParams]="queryParamsGrupo(grupo)">
+                      Ver los {{ agrupada.grupos[grupo].total }} {{ etiqueta(grupo).toLowerCase() }}
+                    </a>
+                  }
+                </section>
+              }
+            }
+          }
+        }
+      } @else {
+        <a [routerLink]="[]" [queryParams]="queryParamsTodos()" data-testid="busqueda-volver">
+          Volver a todos los resultados
+        </a>
+        @if (store.grupo() === null) {
+          <app-estado-cargando forma="fila" [cantidad]="6" etiqueta="Buscando…" />
+        } @else if (store.grupo(); as p) {
+          @if (p.resultados.length === 0) {
+            <app-estado-vacio [titulo]="'Sin resultados para «' + filtros().q + '»'" data-testid="busqueda-vacia" />
+          } @else {
+            <ul class="rejilla">
+              @for (resultado of p.resultados; track resultado.slug) {
+                <li>
+                  <app-tarjeta-contenido
+                    [titulo]="resultado.titulo"
+                    [ruta]="resultado.ruta"
+                    [overline]="resultado.pais"
+                    [imagen]="resultado.imagen"
+                    testId="tarjeta-resultado"
+                  >
+                    @if (resultado.resumen) {
+                      <p>{{ resultado.resumen }}</p>
+                    }
+                  </app-tarjeta-contenido>
+                </li>
+              }
+            </ul>
+            <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+          }
+        }
+      }
+    }
+  }
+</section>

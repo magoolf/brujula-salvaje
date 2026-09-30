@@ -1,0 +1,83 @@
+@if (store.esNoEncontrado()) {
+  <app-pagina-no-encontrada />
+} @else if (store.esRetirado()) {
+  <app-pagina-contenido-retirado
+    [rutaListadoPadre]="store.retirado()?.rutaListadoPadre ?? '/colecciones'"
+    etiquetaListadoPadre="Volver a colecciones"
+  >
+    @for (alt of store.retirado()?.alternativas ?? []; track alt.slug) {
+      <app-tarjeta-contenido [titulo]="alt.titulo" [ruta]="alt.ruta" [imagen]="alt.imagen" [nivelTitulo]="4" />
+    }
+  </app-pagina-contenido-retirado>
+} @else if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.coleccion() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="tarjeta" [cantidad]="1" etiqueta="Cargando colección…" />
+  </div>
+} @else if (store.coleccion(); as c) {
+  <article class="bs-contenedor ficha" data-testid="pagina-coleccion">
+    <app-migas-de-pan [migas]="migas()" />
+
+    <header class="encabezado">
+      <h1>{{ c.titulo }}</h1>
+    </header>
+
+    @if (c.portada; as portada) {
+      <figure class="portada">
+        <app-imagen-responsiva
+          [src]="portada.src"
+          [alt]="portada.alt"
+          [ancho]="portada.ancho"
+          [alto]="portada.alto"
+          [derivados]="portada.derivados"
+          relacion="16 / 9"
+          sizes="100vw"
+          [prioritaria]="true"
+        />
+        <figcaption>Foto: {{ portada.autorCredito }} · {{ portada.licenciaNombre }}</figcaption>
+      </figure>
+    }
+
+    <p class="resumen">{{ c.resumen }}</p>
+    <div class="cuerpo-enriquecido" [innerHTML]="c.descripcion"></div>
+
+    <ol class="elementos" data-testid="coleccion-elementos">
+      @for (elemento of c.elementos; track elemento.orden) {
+        <li>
+          @if (elemento.tipo === 'DESTINO') {
+            <app-tarjeta-contenido
+              [titulo]="elemento.destino.titulo"
+              [ruta]="'/destinos/' + elemento.destino.slug"
+              [overline]="elemento.destino.pais.nombre"
+              [imagen]="elemento.destino.imagen"
+              [nivelTitulo]="2"
+            >
+              <app-medidor-dificultad [valor]="elemento.destino.dificultad" [compacto]="true" />
+            </app-tarjeta-contenido>
+          } @else {
+            <app-tarjeta-contenido
+              [titulo]="elemento.itinerario.titulo"
+              [ruta]="'/itinerarios/' + elemento.itinerario.slug"
+              [overline]="elemento.itinerario.destino.nombre"
+              [imagen]="elemento.itinerario.imagen"
+              [nivelTitulo]="2"
+            >
+              <app-medidor-dificultad [valor]="elemento.itinerario.dificultad" [compacto]="true" />
+              <p>{{ elemento.itinerario.duracionDias }} días</p>
+            </app-tarjeta-contenido>
+          }
+          @if (elemento.notaEditorial) {
+            <blockquote class="nota">
+              <p><strong>Nota del equipo editorial:</strong> {{ elemento.notaEditorial }}</p>
+            </blockquote>
+          }
+        </li>
+      }
+    </ol>
+
+    <p class="pie-navegacion"><a routerLink="/colecciones">Ver todas las colecciones</a></p>
+  </article>
+}
