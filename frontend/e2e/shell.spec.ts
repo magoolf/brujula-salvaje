@@ -73,6 +73,7 @@ test.describe('Shell global (GI-01..GI-04)', () => {
         'nav-tipos-de-aventura',
         'nav-itinerarios',
         'nav-guias',
+        'nav-colecciones',
         'nav-cuando-ir',
         'nav-guardados',
       ]);
@@ -100,9 +101,11 @@ test.describe('Shell global (GI-01..GI-04)', () => {
       await page.getByTestId('nav-guias').click();
     }
     await expect(page).toHaveURL(/\/guias$/);
-    // /guias aún no existe (TKT-010): el comodín muestra SCR-023 y el foco va a su h1.
+    // TKT-009 (QA ciclo 1/3): /guias ya es una página real (SCR-010, "Guías expertas"), no el
+    // comodín 404 como asumía esta prueba heredada de TKT-002/008. El foco sigue yendo al h1 de la
+    // vista (mecanismo genérico de cambio de ruta, core/layout/foco-ruta.ts).
     const h1 = page.getByRole('heading', { level: 1 });
-    await expect(h1).toHaveText('No encontramos esta página');
+    await expect(h1).toHaveText('Guías expertas');
     await expect(h1).toBeFocused();
     await expect(page.getByTestId('nav-guias')).toHaveAttribute('aria-current', 'page');
   });
