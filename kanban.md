@@ -566,14 +566,26 @@ tickets:
   - id: TKT-OPS-014
     titulo: "DevOps: infra/db/Dockerfile -- actualizar openssl, libssl3t64 y openssl-provider-legacy a 3.5.7-1~deb13u3 (DSA-6531-1, ya disponible en trixie-security), corrigiendo de raíz CVE-2026-84782 (DTLS info disclosure) y CVE-2026-75804 (QUIC DoS) sin necesitar ninguna excepción en .trivyignore. Reemplaza a TKT-OPS-013 (que proponía aceptar el riesgo con .trivyignore; DevOps verificó que la premisa 'sin parche' era falsa y rechazó esa ruta). Tras el fix, confirmar con build + trivy real que brujula/db queda con 0 hallazgos CRITICAL/HIGH nuevos y que el resto de .trivyignore (util-linux, acl, systemd, ncurses, perl-base, libxml2, exp:2026-10-26) no cambia"
     fase: F9
-    estado: TODO
+    estado: BLOCKED
     owner: devops
     trazabilidad: [RSK-OPS-001, TKT-OPS-013]
     depende_de: []
     archivos_permitidos: ["infra/db/Dockerfile"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir del diagnóstico de DevOps en TKT-OPS-013 (HANDOFF agente aa66cbe495cbba7b5): parche real ya disponible, verificado en vivo dentro de un contenedor construido desde el Dockerfile actual sin modificar nada."]
+    evidencia: ["Abierto a partir del diagnóstico de DevOps en TKT-OPS-013 (HANDOFF agente aa66cbe495cbba7b5): parche real ya disponible, verificado en vivo dentro de un contenedor construido desde el Dockerfile actual sin modificar nada.", "Entregado @ 958579a, PR #34. infra/db/Dockerfile: openssl/libssl3t64/openssl-provider-legacy fijados a 3.5.7-1~deb13u3 vía apt-get download + dpkg --force-depends -i (apt-get install --only-upgrade no resuelve por el purge de perl ya existente con --force-depends; mismo patrón que el Dockerfile ya usaba). Verificado local: build limpio, trivy con gate exacto de CI (brujula/db baseline 6 HIGH sin suprimir -> 0 sin suprimir + 52 suprimidos idénticos byte a byte al resto de .trivyignore), smoke test real (psql CRUD + CREATE EXTENSION pgcrypto/digest() ejercitando libssl/libcrypto, dpkg-query y ldd confirmando la versión y el enlazado). CI real (run 36708348909) confirma brujula/db con 0 hallazgos -- el fix de ESTE ticket es correcto y completo. PERO el job 'build + trivy + SBOM' del PR sigue en rojo porque el MISMO CVE (mismo DSA-6531-1, mismos 3 paquetes) también afecta a brujula/backend (6 sin suprimir), brujula/scheduler (6, comparte Dockerfile con backend por target), brujula/frontend (4) y brujula/backup (4) -- fuera de archivos_permitidos de TKT-OPS-014. DevOps no los tocó (correcto, REGLA 10 Skill_devops) y recomendó ticket de seguimiento. Se abre TKT-OPS-015 con el mismo patrón ya validado. TKT-OPS-014 BLOCKED (no BLOCKED_HUMAN: es una cuestión de alcance de ticket, no requiere nueva decisión del usuario) hasta que TKT-OPS-015 también esté listo y el PR completo pueda pasar CI."]
+    actualizado: 2026-09-30
+  - id: TKT-OPS-015
+    titulo: "DevOps: aplicar el mismo fix ya validado en TKT-OPS-014 (openssl/libssl3t64/openssl-provider-legacy -> 3.5.7-1~deb13u3, DSA-6531-1, vía apt-get download + dpkg --force-depends -i con versión fijada) a los Dockerfiles restantes que comparten el mismo drift de versión: infra/docker/backend.Dockerfile (cubre brujula/backend Y brujula/scheduler, mismo archivo con target distinto por etapa multi-stage) y infra/backup/Dockerfile (brujula/backup). infra/docker/frontend.Dockerfile también afectado (libssl3t64/openssl-provider-legacy, sin el paquete openssl). Revisar cada Dockerfile individualmente antes de aplicar el mismo comando a ciegas -- cada uno puede tener sus propias particularidades de purges/force-depends previos (igual que db tuvo el purge de perl). Verificar con build + trivy real (gate exacto de CI) que las 4 imágenes quedan con 0 hallazgos CRITICAL/HIGH nuevos y que .trivyignore no cambia. Objetivo final: PR #34 (o esta rama fusionada en ella) con el job 'build + trivy + SBOM' completo en verde"
+    fase: F9
+    estado: TODO
+    owner: devops
+    trazabilidad: [RSK-OPS-001, TKT-OPS-014]
+    depende_de: [TKT-OPS-014]
+    archivos_permitidos: ["infra/docker/backend.Dockerfile", "infra/docker/frontend.Dockerfile", "infra/backup/Dockerfile"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir del HANDOFF de TKT-OPS-014 (agente ab08ae70a201a9e18): mismo CVE/DSA confirmado en backend(6)/scheduler(6, mismo Dockerfile)/frontend(4)/backup(4) mediante el log real del job de CI del PR #34 (run 36708348909)."]
     actualizado: 2026-09-30
 ```
 
