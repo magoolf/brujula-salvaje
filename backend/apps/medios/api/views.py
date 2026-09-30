@@ -225,12 +225,25 @@ class ArchivoMedio(_VistaMedios):
         formato = request.query_params.get("formato")
         if not ancho or not ancho.isdigit() or formato not in FormatoDerivado.values:
             raise ParametroInvalido(errors={"ancho": ["Parámetros inválidos."]})
-        derivado = MedioDerivado.objects.filter(
-            medio_id=_id(id), ancho_px=int(ancho), formato=formato
-        ).first()
+        derivado = (
+            MedioDerivado.objects.select_related("medio")
+            .filter(medio_id=_id(id), ancho_px=int(ancho), formato=formato)
+            .first()
+        )
         if derivado is None:
             raise NoEncontrado()
-        ruta = Path(settings.MEDIA_ROOT) / derivado.ruta
+        # TKT-017/DEC-AUTO-147: el derivado vive físicamente en MEDIA_ROOT/publico/ si su medio
+        # está DISPONIBLE (estático público servido por nginx), o en MEDIA_ROOT/privado/ en
+        # cualquier otro estado (`apps.medios.services._mover_derivados` los mueve entre ambas
+        # raíces al cambiar el estado) -- este endpoint del panel debe poder leer las dos.
+        area = (
+            services.RAIZ_PUBLICA
+            if derivado.medio.estado == EstadoMedio.DISPONIBLE
+            else services.RAIZ_PRIVADA
+        )
+        ruta = Path(settings.MEDIA_ROOT) / area / derivado.ruta
+        if not ruta.is_file():
+            raise NoEncontrado()
         contenido = ruta.read_bytes()
         respuesta = HttpResponse(contenido, content_type=CONTENT_TYPE_POR_FORMATO[formato])
         respuesta["X-Content-Type-Options"] = "nosniff"
