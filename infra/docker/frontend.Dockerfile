@@ -41,8 +41,20 @@ RUN npx --no-install ng build --configuration production \
 # el sistema de archivos se APLANA en una sola capa (FROM scratch + COPY /) para que sus bytes
 # tampoco queden en capas inferiores de la imagen. Se re-declaran las ENV de la imagen base.
 # ---------------------------------------------------------------------------
+# TKT-OPS-015: mismo DSA-6531-1 que TKT-OPS-014 (infra/db/Dockerfile), aplicado aqui a
+# libssl3t64/openssl-provider-legacy (corrige CVE-2026-84782 -- DTLS info disclosure -- y
+# CVE-2026-75804 -- QUIC DoS --, ambos HIGH). Esta base no trae el paquete "openssl" (solo
+# libssl3t64 y openssl-provider-legacy). Esta etapa NO tiene ningun purge --force-depends previo:
+# "apt-get install --only-upgrade" con version fijada explicitamente (REGLA 3, cero versiones
+# ambiguas) resuelve sin necesidad de "apt-get download" + "dpkg --force-depends -i". Se aplica
+# en node-sin-pm, ANTES de aplanar el filesystem con FROM scratch + COPY /.
 FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS node-sin-pm
 RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --only-upgrade \
+      libssl3t64=3.5.7-1~deb13u3 \
+      openssl-provider-legacy=3.5.7-1~deb13u3; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
     rm -rf /usr/local/lib/node_modules \
            /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
            /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-v* \
@@ -50,7 +62,11 @@ RUN set -eu; \
     for pm in npm npx corepack yarn yarnpkg; do \
       if command -v "$pm" >/dev/null 2>&1; then echo "queda $pm en el runtime" >&2; exit 1; fi; \
     done; \
-    node --version
+    node --version; \
+    for p in libssl3t64 openssl-provider-legacy; do \
+      v="$(dpkg-query -W -f='${Version}' "$p")"; \
+      case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
+    done
 
 FROM scratch AS node-min
 COPY --from=node-sin-pm / /

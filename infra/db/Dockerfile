@@ -17,6 +17,20 @@
 #     perl-base (Essential) permanece.
 # Lo que NO se puede quitar: libxml2 (enlazada por el binario postgres: tipo xml, xmlparse...).
 #   Contexto de build: infra/db
+# -----------------------------------------------------------------------------------------------
+# TKT-OPS-014: DSA-6531-1 ya publicado en trixie-security para openssl/libssl3t64/
+# openssl-provider-legacy (corrige CVE-2026-84782 -- DTLS info disclosure -- y CVE-2026-75804 --
+# QUIC DoS --, ambos HIGH). Sustituye a TKT-OPS-013 (que proponía aceptar el riesgo vía
+# .trivyignore; se rechazó porque el parche ya existe: cero excepciones para CVE con fix real).
+# apt-get update/download son la ÚNICA parte de este Dockerfile que necesita red durante el build
+# (el resto opera solo sobre dpkg local); versión fijada explícita en la descarga (REGLA 3, cero
+# versiones ambiguas) para que el build siga siendo reproducible y no arrastre silenciosamente
+# futuras revisiones de paquete. Se usa "apt-get download" + "dpkg --force-depends -i" en vez de
+# "apt-get install": el purge de perl con --force-depends (arriba) ya deja postgresql-common,
+# postgresql-client-common y libjson-perl con la dependencia perl:any sin satisfacer a propósito
+# (imagen final, nadie instala paquetes encima); el solver de apt-get install se niega a operar
+# con ese estado aunque no toque esos paquetes, mismo patrón --force-depends que ya usa este
+# Dockerfile para el purge.
 # =============================================================================
 # Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
 # no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
@@ -38,6 +52,19 @@ RUN set -eu; \
       if [ -L "$f" ] && [ "$(readlink "$f")" = "../share/postgresql-common/pg_wrapper" ]; then rm -f "$f"; fi; \
     done; \
     dpkg --purge --force-depends perl libperl5.40 perl-modules-5.40; \
+    # DSA-6531-1 (TKT-OPS-014): actualiza openssl/libssl3t64/openssl-provider-legacy a la version
+    # parcheada de trixie-security, version fijada explicitamente (no flotante).
+    apt-get update; \
+    ( cd /tmp && \
+      apt-get download \
+        openssl=3.5.7-1~deb13u3 \
+        libssl3t64=3.5.7-1~deb13u3 \
+        openssl-provider-legacy=3.5.7-1~deb13u3 && \
+      dpkg --force-depends -i \
+        openssl_3.5.7-1~deb13u3_amd64.deb \
+        libssl3t64_3.5.7-1~deb13u3_amd64.deb \
+        openssl-provider-legacy_3.5.7-1~deb13u3_amd64.deb && \
+      rm -f ./*.deb ); \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /var/log/apt /var/log/dpkg.log; \
     # Controles: nada de lo retirado queda y las herramientas que se usan resuelven al binario 18.6
     for b in gosu gpg gpg-agent dirmngr; do \
@@ -52,7 +79,11 @@ RUN set -eu; \
       case "$p" in /usr/lib/postgresql/18/bin/*) ;; *) echo "$b resuelve a '$p'" >&2; exit 1 ;; esac; \
     done; \
     postgres --version | grep -q ' 18\.6'; \
-    ldd /usr/lib/postgresql/18/bin/postgres | grep -q 'libxml2'
+    ldd /usr/lib/postgresql/18/bin/postgres | grep -q 'libxml2'; \
+    for p in openssl libssl3t64 openssl-provider-legacy; do \
+      v="$(dpkg-query -W -f='${Version}' "$p")"; \
+      case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
+    done
 
 # Mismo usuario sin privilegios que la imagen oficial (postgres, uid 999). compose fija user 999:999
 # en db; init-volumes lo sobrescribe a 0:0 porque solo hace chown/chmod de volúmenes.
