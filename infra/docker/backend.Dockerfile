@@ -41,8 +41,22 @@ RUN find /src -name '__pycache__' -type d -prune -exec rm -rf {} +  && rm -rf /s
 # sola capa (FROM scratch + COPY /) para que sus bytes no queden en capas inferiores. La imagen
 # base no trae setuptools ni wheel (Python 3.13); /opt/venv (uv) tampoco trae pip.
 # ---------------------------------------------------------------------------
+# TKT-OPS-015: mismo DSA-6531-1 que TKT-OPS-014 (infra/db/Dockerfile), aplicado aqui a
+# openssl/libssl3t64/openssl-provider-legacy (corrige CVE-2026-84782 -- DTLS info disclosure -- y
+# CVE-2026-75804 -- QUIC DoS --, ambos HIGH). Esta etapa NO tiene ningun purge --force-depends
+# previo (a diferencia de infra/db/Dockerfile): "apt-get install --only-upgrade" con version
+# fijada explicitamente (REGLA 3, cero versiones ambiguas) resuelve sin necesidad de
+# "apt-get download" + "dpkg --force-depends -i". Se aplica en python-sin-pip, ANTES de aplanar
+# el filesystem con FROM scratch + COPY /, para que la version corregida llegue tanto a runtime
+# como a scheduler (ambos derivan de python-min).
 FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS python-sin-pip
 RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --only-upgrade \
+      openssl=3.5.7-1~deb13u3 \
+      libssl3t64=3.5.7-1~deb13u3 \
+      openssl-provider-legacy=3.5.7-1~deb13u3; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
     rm -rf /usr/local/lib/python3.13/site-packages/pip \
            /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
            /usr/local/lib/python3.13/ensurepip/_bundled \
@@ -53,7 +67,11 @@ RUN set -eu; \
         echo "queda $m en el runtime" >&2; exit 1; \
       fi; \
     done; \
-    python --version
+    python --version; \
+    for p in openssl libssl3t64 openssl-provider-legacy; do \
+      v="$(dpkg-query -W -f='${Version}' "$p")"; \
+      case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
+    done
 
 FROM scratch AS python-min
 COPY --from=python-sin-pip / /
