@@ -1,0 +1,42 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-10);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.cabecera {
+  display: grid;
+  gap: var(--bs-space-2);
+}
+
+.entradilla {
+  color: var(--bs-color-text-muted);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.medios {
+  display: grid;
+  gap: var(--bs-space-3);
+  margin: var(--bs-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.medio {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
+
+.miniatura {
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--bs-radius-md);
+  overflow: hidden;
+}
+
+.datos p {
+  margin: 0;
+  font-size: var(--bs-typography-body-sm-font-size);
+}

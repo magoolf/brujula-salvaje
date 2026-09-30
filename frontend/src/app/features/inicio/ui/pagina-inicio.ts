@@ -9,8 +9,22 @@ import { CampoBusqueda } from '../../../shared/ui/campo-busqueda/campo-busqueda'
 import { EstadoError } from '../../../shared/ui/estado-error/estado-error';
 import { MedidorDificultad } from '../../../shared/ui/medidor-dificultad/medidor-dificultad';
 import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-contenido';
-import { ACCESOS_MOSAICO, esInicioVacio } from '../domain/inicio';
+import { AccesoMosaico, ACCESOS_MOSAICO, esInicioVacio } from '../domain/inicio';
 import { InicioStore } from '../state/inicio.store';
+
+/**
+ * TKT-009 (QA ciclo 1/3, RULE-030): Colecciones ya existe (MOD-005) pero `ACCESOS_MOSAICO` vive en
+ * `domain/inicio.ts`, fuera de `archivos_permitidos` de este ticket (solo se amplió con
+ * `core/layout/navegacion.ts` y este componente). Se añade aquí, en la capa UI, en vez de tocar el
+ * dominio de la feature `inicio`. Sigue el orden de SCR-001/HANDOFF_UI_UX: «Mapa* · Cuándo ir* ·
+ * Colecciones* · Sorpréndeme*» (línea 66 y BLUEPRINT §10 línea 244).
+ */
+const ACCESO_COLECCIONES: AccesoMosaico = {
+  id: 'colecciones',
+  etiqueta: 'Colecciones',
+  descripcion: 'Selecciones curadas de destinos e itinerarios por nuestro equipo editorial.',
+  ruta: '/colecciones',
+};
 
 /** SCR-001 Inicio (FEAT-001/002/025/028/051, TPL-PUB-HOME). */
 @Component({
@@ -31,7 +45,7 @@ export class PaginaInicio {
   private readonly seo = inject(Seo);
 
   protected readonly marca = NOMBRE_MARCA;
-  protected readonly accesosMosaico = ACCESOS_MOSAICO;
+  protected readonly accesosMosaico: readonly AccesoMosaico[] = [...ACCESOS_MOSAICO, ACCESO_COLECCIONES];
   protected readonly buscandoSorpresa = signal(false);
 
   protected readonly vacio = computed(() => {

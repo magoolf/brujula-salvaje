@@ -26,9 +26,12 @@ describe('CabeceraSitio (GI-01)', () => {
       a.getAttribute('href'),
     ]);
     expect(enlaces).toEqual(NAVEGACION_PRINCIPAL.map((e) => [e.etiqueta, e.ruta]));
-    // TKT-008 implementa Cuándo ir y Guardados (ya aparecen); Colecciones sigue sin implementar
-    // (MOD-005, TKT-009) y RULE-030 exige que no tenga enlace hasta entonces.
-    expect(raiz.textContent).not.toMatch(/Colecciones/);
+    // TKT-008 implementa Cuándo ir y Guardados; TKT-009 implementa Colecciones (MOD-005) y la
+    // añade a NAVEGACION_PRINCIPAL (RULE-030): la comparación de `enlaces` de arriba ya exige que
+    // el enlace exista y esté en el orden exacto de HANDOFF_UI_UX GI-01, así que no hace falta una
+    // aserción negativa adicional. Glosario (COULD) sigue sin enlace en la navegación principal
+    // (alcanzable de forma contextual, ver navegacion.ts).
+    expect(raiz.textContent).not.toMatch(/Glosario/);
     expect(
       raiz.querySelector('form[role="search"][data-testid="cabecera-busqueda"]'),
     ).not.toBeNull();

@@ -1,0 +1,160 @@
+@if (store.esNoEncontrado()) {
+  <app-pagina-no-encontrada />
+} @else if (store.esRetirado()) {
+  <app-pagina-contenido-retirado
+    [rutaListadoPadre]="store.retirado()?.rutaListadoPadre ?? '/guias'"
+    etiquetaListadoPadre="Volver a guías"
+  >
+    @for (alt of store.retirado()?.alternativas ?? []; track alt.slug) {
+      <app-tarjeta-contenido [titulo]="alt.titulo" [ruta]="alt.ruta" [imagen]="alt.imagen" [nivelTitulo]="4" />
+    }
+  </app-pagina-contenido-retirado>
+} @else if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.guia() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="tarjeta" [cantidad]="1" etiqueta="Cargando guía…" />
+  </div>
+} @else if (store.guia(); as guia) {
+  <article class="bs-contenedor ficha" data-testid="pagina-guia">
+    <app-migas-de-pan [migas]="migas()" />
+
+    <header class="encabezado">
+      <p class="bs-overline">{{ guia.categoria.nombre }}</p>
+      <h1>{{ guia.titulo }}</h1>
+      <p class="meta">
+        <time [attr.datetime]="guia.fechaUltimaRevision">Última revisión: {{ fechaRevisionTexto() }}</time>
+        @if (lecturaTexto(); as lectura) {
+          <span> · {{ lectura }}</span>
+        }
+      </p>
+      <div class="acciones">
+        <app-boton-compartir
+          [titulo]="guia.titulo"
+          [soloIcono]="false"
+          [compartiendo]="compartiendo()"
+          testId="guia-boton-compartir"
+          (compartir)="compartir()"
+        />
+      </div>
+    </header>
+    @if (mensajeCompartir(); as mensaje) {
+      <p role="status" class="mensaje-compartir">{{ mensaje }}</p>
+    }
+
+    @if (guia.portada; as portada) {
+      <figure class="portada">
+        <app-imagen-responsiva
+          [src]="portada.src"
+          [alt]="portada.alt"
+          [ancho]="portada.ancho"
+          [alto]="portada.alto"
+          [derivados]="portada.derivados"
+          relacion="16 / 9"
+          sizes="100vw"
+          [prioritaria]="true"
+        />
+        <figcaption>Foto: {{ portada.autorCredito }} · {{ portada.licenciaNombre }}</figcaption>
+      </figure>
+    }
+
+    <p class="resumen">{{ guia.resumen }}</p>
+
+    <div class="cuerpo-enriquecido" [innerHTML]="guia.cuerpo"></div>
+
+    @if (guia.destinosRelacionados.length > 0 || guia.tiposRelacionados.length > 0) {
+      <section aria-labelledby="relacionados-directos-titulo">
+        <h2 id="relacionados-directos-titulo">Destinos y tipos relacionados</h2>
+        @if (guia.destinosRelacionados.length > 0) {
+          <ul class="rejilla">
+            @for (destino of guia.destinosRelacionados; track destino.slug) {
+              <li>
+                <app-tarjeta-contenido
+                  [titulo]="destino.titulo"
+                  [ruta]="'/destinos/' + destino.slug"
+                  [overline]="destino.pais.nombre"
+                  [imagen]="destino.imagen"
+                  [nivelTitulo]="3"
+                >
+                  <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
+                </app-tarjeta-contenido>
+              </li>
+            }
+          </ul>
+        }
+        @if (guia.tiposRelacionados.length > 0) {
+          <ul class="etiquetas">
+            @for (tipo of guia.tiposRelacionados; track tipo.slug) {
+              <li><a class="etiqueta" [routerLink]="['/tipos-de-aventura', tipo.slug]">{{ tipo.nombre }}</a></li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    @if (guia.terminos.length > 0) {
+      <section aria-labelledby="terminos-titulo">
+        <h2 id="terminos-titulo">Términos relacionados</h2>
+        <ul class="etiquetas">
+          @for (termino of guia.terminos; track termino.slug) {
+            <li><a class="etiqueta" [routerLink]="['/glosario']" [fragment]="termino.slug">{{ termino.termino }}</a></li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section aria-labelledby="fuentes-titulo" class="pie-ficha">
+      @if (guia.fuentes.length > 0) {
+        <div>
+          <h2 id="fuentes-titulo">Fuentes</h2>
+          <ul class="fuentes">
+            @for (fuente of guia.fuentes; track fuente.titulo) {
+              <li>
+                @if (fuente.url) {
+                  <a [href]="fuente.url" target="_blank" rel="noopener noreferrer"
+                    >{{ fuente.titulo }} <span class="bs-solo-lectores">(sitio externo)</span></a
+                  >
+                } @else {
+                  <span>{{ fuente.titulo }}</span>
+                }
+                @if (fuente.entidadEditora) {
+                  <span> · {{ fuente.entidadEditora }}</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      } @else if (guia.remiteAMetodologia) {
+        <p><a routerLink="/acerca-de">Ver la Metodología editorial</a></p>
+      }
+      <p class="autoria">{{ guia.autoria }} · Última revisión: {{ fechaRevisionTexto() }}</p>
+      @if (store.descargo(); as descargo) {
+        <p class="descargo" data-testid="descargo-responsabilidad">{{ descargo }}</p>
+      }
+    </section>
+
+    @if (guia.relacionados.length > 0) {
+      <section aria-labelledby="sigue-explorando-titulo">
+        <h2 id="sigue-explorando-titulo">Sigue explorando</h2>
+        <ul class="rejilla">
+          @for (relacionado of guia.relacionados; track relacionado.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="relacionado.titulo"
+                [ruta]="relacionado.ruta"
+                [imagen]="relacionado.imagen"
+                [nivelTitulo]="3"
+              >
+                @if (relacionado.resumen) {
+                  <p>{{ relacionado.resumen }}</p>
+                }
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </article>
+}

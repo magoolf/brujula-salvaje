@@ -1,0 +1,28 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-6);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.cabecera {
+  display: grid;
+  gap: var(--bs-space-2);
+}
+
+.entradilla {
+  color: var(--bs-color-text-muted);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--bs-grid-gutter-xs, var(--bs-space-4));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rejilla[aria-busy='true'] {
+  opacity: 0.6;
+}

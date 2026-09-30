@@ -1,0 +1,39 @@
+<section class="bs-contenedor pagina" data-testid="pagina-colecciones">
+  <header class="cabecera">
+    <h1>Colecciones</h1>
+    <p class="entradilla">Selecciones curadas por nuestro equipo editorial.</p>
+  </header>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="tarjeta" [cantidad]="6" etiqueta="Cargando colecciones…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay colecciones publicadas" data-testid="colecciones-vacio">
+        <p>Explora mientras tanto destinos e itinerarios:</p>
+        <div estado-salidas>
+          <a routerLink="/destinos">Explorar destinos</a>
+          <a routerLink="/itinerarios">Ver itinerarios</a>
+        </div>
+      </app-estado-vacio>
+    } @else {
+      <ul class="rejilla" [attr.aria-busy]="store.cargando()" data-testid="colecciones-rejilla">
+        @for (coleccion of p.resultados; track coleccion.slug) {
+          <li>
+            <app-tarjeta-contenido
+              [titulo]="coleccion.titulo"
+              [ruta]="'/colecciones/' + coleccion.slug"
+              [imagen]="coleccion.imagen"
+              testId="tarjeta-coleccion"
+            >
+              <p>{{ coleccion.resumen }}</p>
+              <p>{{ conteo(coleccion.numeroElementos) }}</p>
+            </app-tarjeta-contenido>
+          </li>
+        }
+      </ul>
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

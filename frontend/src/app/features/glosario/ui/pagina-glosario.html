@@ -1,0 +1,60 @@
+<section class="bs-contenedor pagina" data-testid="pagina-glosario">
+  <h1>Glosario</h1>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="linea" [cantidad]="10" etiqueta="Cargando glosario…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay términos publicados" data-testid="glosario-vacio">
+        <p>Vuelve más adelante o explora los contenidos:</p>
+        <div estado-salidas>
+          <a routerLink="/destinos">Explorar destinos</a>
+          <a routerLink="/guias">Ver guías</a>
+        </div>
+      </app-estado-vacio>
+    } @else {
+      <nav aria-label="Índice alfabético" class="indice">
+        <ul>
+          @for (letra of alfabeto; track letra) {
+            <li>
+              @if (letrasDisponibles().has(letra)) {
+                <a [href]="'#letra-' + letra">{{ letra }}</a>
+              } @else {
+                <span aria-hidden="true">{{ letra }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </nav>
+
+      @for (grupo of grupos(); track grupo.letra) {
+        <section [id]="'letra-' + grupo.letra" [attr.aria-labelledby]="'titulo-' + grupo.letra">
+          <h2 [id]="'titulo-' + grupo.letra">{{ grupo.letra }}</h2>
+          <dl>
+            @for (termino of grupo.terminos; track termino.slug) {
+              <div [id]="termino.slug" class="termino" tabindex="-1">
+                <dt>{{ termino.termino }}</dt>
+                <dd>
+                  <p>{{ termino.definicion }}</p>
+                  @if (termino.usadoEn.length > 0) {
+                    <p class="usado-en">
+                      Aparece en:
+                      @for (ref of termino.usadoEn; track ref.slug; let ultimo = $last) {
+                        <a [routerLink]="ref.ruta">{{ ref.titulo }}</a
+                        >{{ ultimo ? '' : ', ' }}
+                      }
+                    </p>
+                  }
+                </dd>
+              </div>
+            }
+          </dl>
+        </section>
+      }
+
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

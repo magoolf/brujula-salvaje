@@ -1,0 +1,61 @@
+@if (store.esNoEncontrado()) {
+  <app-pagina-no-encontrada />
+} @else if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.categoria() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="tarjeta" [cantidad]="1" etiqueta="Cargando categoría…" />
+  </div>
+} @else if (store.categoria(); as categoria) {
+  <section class="bs-contenedor pagina" data-testid="pagina-categoria-guias">
+    <app-migas-de-pan [migas]="migas()" />
+    <header class="cabecera">
+      <h1>{{ categoria.nombre }}</h1>
+      <p class="descripcion">{{ categoria.descripcion }}</p>
+    </header>
+
+    <div class="cuerpo">
+      <div class="lista">
+        @if (store.guias() === null) {
+          <app-estado-cargando forma="fila" [cantidad]="6" etiqueta="Cargando guías…" />
+        } @else if (store.guias(); as p) {
+          <ul class="filas" data-testid="categoria-guias-lista">
+            @for (guia of p.resultados; track guia.slug) {
+              <li>
+                <app-tarjeta-contenido
+                  [titulo]="guia.titulo"
+                  [ruta]="'/guias/' + guia.slug"
+                  [imagen]="guia.imagen"
+                  [nivelTitulo]="2"
+                  testId="tarjeta-guia"
+                >
+                  <p>{{ guia.resumen }}</p>
+                  <p class="meta">
+                    <time [attr.datetime]="guia.fechaUltimaRevision">{{ revisado(guia.fechaUltimaRevision) }}</time>
+                    @if (minutosLectura(guia.minutosLectura); as lectura) {
+                      <span> · {{ lectura }}</span>
+                    }
+                  </p>
+                </app-tarjeta-contenido>
+              </li>
+            }
+          </ul>
+          <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+        }
+      </div>
+
+      @if (store.otrasCategorias().length > 0) {
+        <nav aria-labelledby="otras-categorias-titulo" class="otras">
+          <h2 id="otras-categorias-titulo">Otras categorías</h2>
+          <ul class="chips">
+            @for (otra of store.otrasCategorias(); track otra.slug) {
+              <li><a [routerLink]="['/guias/categoria', otra.slug]" class="chip-enlace">{{ otra.nombre }}</a></li>
+            }
+          </ul>
+        </nav>
+      }
+    </div>
+  </section>
+}
