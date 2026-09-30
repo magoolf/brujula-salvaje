@@ -4,14 +4,21 @@ Procesamiento síncrono (sin broker, ADR-DB-005): por archivo se verifica el tip
 (nunca por la extensión ni el `Content-Type` declarado, THREAT-006), el tamaño y las dimensiones
 ANTES de decodificar por completo, se recodifica para eliminar metadatos (EXIF/XMP/IPTC,
 THREAT-007) y se generan derivados responsivos. Los archivos se guardan con un nombre generado
-por el sistema (la huella sha256), nunca con el nombre original del cliente (THREAT-023), en
-`MEDIA_ROOT/medios/**` (fuera de cualquier ruta servida como código).
+por el sistema (la huella sha256), nunca con el nombre original del cliente (THREAT-023).
+
+Layout físico bajo `MEDIA_ROOT` (DEVOPS_HANDOFF §6, DEC-AUTO-110/147, TKT-017): `publico/**` son
+los derivados de medios DISPONIBLES, servidos como estáticos por nginx en `MEDIA_PUBLIC_URL`;
+`privado/**` son el original saneado (nunca se sirve) y los derivados de medios no DISPONIBLES
+(solo alcanzables por sesión vía `GET /panel/medios/{id}/archivo`). `catalogar()`/`retirar()`
+mueven los derivados entre ambas raíces al cambiar el estado del medio (`_mover_derivados`).
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
+import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,6 +52,27 @@ _FORMATOS_ORIGEN_PIL = {
 ANCHOS_DERIVADOS = (400, 800, 1200, 1600, 2000)
 FORMATOS_DERIVADOS = (FormatoDerivado.WEBP, FormatoDerivado.JPEG, FormatoDerivado.AVIF)
 
+# TKT-017: layout físico de MEDIA_ROOT documentado en `docs/05_operacion/DEVOPS_HANDOFF.md` §6
+# (Dependencias y tareas del Developer) y DEC-AUTO-147, pero nunca implementado por TKT-006 --
+# esa es la causa raíz de los 404 en /media/publico/**: `apps.contenido.api.serializers`
+# construye la URL pública como `MEDIA_PUBLIC_URL + derivado.ruta` (fuera de
+# `archivos_permitidos`, no se toca), y nginx (`infra/proxy/nginx.conf`, tampoco se toca) solo
+# sirve archivos bajo `MEDIA_ROOT/publico/**`; este módulo guardaba todo bajo
+# `MEDIA_ROOT/medios/**`, una ruta que nginx nunca expone. `MedioDerivado.ruta` y
+# `Medio.archivo_saneado_ruta` se guardan SIN el prefijo de área (p. ej.
+# `derivados/<hash>-800.avif`, igual que ya asumían `apps/contenido/tests/publicos.py` y
+# `fabricas.py`); el área física
+# (`publico/` o `privado/`) se resuelve en tiempo de escritura/lectura a partir del estado del
+# medio, nunca se persiste en BD.
+RAIZ_PUBLICA = "publico"
+RAIZ_PRIVADA = "privado"
+# Permisos documentados en DEVOPS_HANDOFF §6 (FILE_UPLOAD_PERMISSIONS 0o640 privado / 0o644
+# publico; directorios 0o750 / 0o755). No hay una `FILE_UPLOAD_PERMISSIONS` global en settings
+# porque estos archivos no pasan por el manejador de subidas de Django (se escriben a mano tras
+# validarlos), así que el modo se fija aquí explícitamente.
+_MODO_ARCHIVO = {RAIZ_PUBLICA: 0o644, RAIZ_PRIVADA: 0o640}
+_MODO_DIRECTORIO = {RAIZ_PUBLICA: 0o755, RAIZ_PRIVADA: 0o750}
+
 
 class MedioEnUso(ErrorApi):
     codigo = "medio_en_uso"
@@ -63,14 +91,32 @@ class ResultadoArchivo:
     motivo: dict[str, str] | None = None
 
 
-def _ruta_absoluta(relativa: str) -> Path:
-    return Path(settings.MEDIA_ROOT) / relativa
+def _ruta_absoluta(area: str, relativa: str) -> Path:
+    return Path(settings.MEDIA_ROOT) / area / relativa
 
 
-def _guardar_bytes(relativa: str, contenido: bytes) -> None:
-    ruta = _ruta_absoluta(relativa)
-    ruta.parent.mkdir(parents=True, exist_ok=True)
+def _preparar_directorio(directorio: Path, area: str) -> None:
+    """Crea `directorio` si falta y le fija el modo de DEVOPS_HANDOFF §6 (0o755 publico / 0o750
+    privado) solo cuando esta llamada lo crea -- nunca reescribe el modo de un directorio ya
+    existente (p. ej. la raíz `publico/`/`privado/` que crea `init-volumes`, propiedad de 10001,
+    fuera del alcance de este ticket)."""
+    if directorio.exists():
+        return
+    directorio.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(directorio, _MODO_DIRECTORIO[area])
+    except OSError:  # pragma: no cover - defensivo (FS sin chmod POSIX real)
+        logger.warning("chmod_directorio_fallo", directorio=str(directorio))
+
+
+def _guardar_bytes(area: str, relativa: str, contenido: bytes) -> None:
+    ruta = _ruta_absoluta(area, relativa)
+    _preparar_directorio(ruta.parent, area)
     ruta.write_bytes(contenido)
+    try:
+        os.chmod(ruta, _MODO_ARCHIVO[area])
+    except OSError:  # pragma: no cover - defensivo (FS sin chmod POSIX real)
+        logger.warning("chmod_archivo_fallo", ruta=str(ruta))
 
 
 def _sha256(contenido: bytes) -> str:
@@ -149,8 +195,11 @@ def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
                 continue
             contenido = buffer.getvalue()
             sha = _sha256(contenido)
-            ruta = f"medios/derivados/{huella}-{ancho}.{str(formato).lower()}"
-            _guardar_bytes(ruta, contenido)
+            # Recién generado: el medio dueño siempre está en PENDIENTE_METADATOS (DEC-AUTO-110,
+            # ningún medio nace DISPONIBLE), así que el derivado empieza en `privado/`;
+            # `catalogar()` lo mueve a `publico/` si y cuando el medio pasa a DISPONIBLE.
+            ruta = f"derivados/{huella}-{ancho}.{str(formato).lower()}"
+            _guardar_bytes(RAIZ_PRIVADA, ruta, contenido)
             derivados.append(
                 MedioDerivado(
                     formato=formato,
@@ -162,6 +211,46 @@ def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
                 )
             )
     return derivados
+
+
+def _mover_derivados(medio: Medio, *, hacia: str) -> None:
+    """DEC-AUTO-147 / DEVOPS_HANDOFF §6: al pasar a DISPONIBLE (`catalogar`) o al retirarse
+    (`retirar`) los derivados YA GENERADOS se mueven físicamente entre `privado/` y `publico/`
+    (nunca se regeneran). `reactivar()` no llama a esta función: solo transiciona
+    RETIRADO -> PENDIENTE_METADATOS, y en ambos estados los derivados viven en `privado/`
+    (DEC-AUTO-110: solo DISPONIBLE es público) -- no hay nada que mover.
+
+    Se ejecuta de forma síncrona dentro de la misma transacción de BD, no diferida con
+    `transaction.on_commit()` (Skill_Backend Regla 05): un `shutil.move` en el mismo volumen
+    local no es de la categoría de efecto externo que esa regla obliga a diferir (email, Celery,
+    webhook, API externa) -- no hay entrega duplicada ni latencia de red que proteger. Además, en
+    cada función que la llama es la ÚLTIMA sentencia, después de guardar el estado y auditar: si
+    algo posterior fallara y revirtiera la transacción no se habría llegado aquí. Idempotente
+    (comprobación de destino/origen) para que una repetición de `cargar_semilla` o una doble
+    llamada no fallen si ya se movió antes."""
+    origen_area = RAIZ_PRIVADA if hacia == RAIZ_PUBLICA else RAIZ_PUBLICA
+    for derivado in medio.derivados.all():
+        origen = _ruta_absoluta(origen_area, derivado.ruta)
+        destino = _ruta_absoluta(hacia, derivado.ruta)
+        if destino.exists():
+            continue  # ya movido (idempotencia)
+        if not origen.exists():
+            # No debería ocurrir con datos consistentes (se registra pero no se aborta la
+            # transición de estado, ya confirmada en BD: un archivo perdido es un problema de
+            # infraestructura/volumen, no una razón para bloquear la catalogación/retiro).
+            logger.warning(
+                "derivado_no_encontrado_al_mover",
+                medio_id=medio.pk,
+                ruta=derivado.ruta,
+                origen_area=origen_area,
+            )
+            continue
+        _preparar_directorio(destino.parent, hacia)
+        shutil.move(str(origen), str(destino))
+        try:
+            os.chmod(destino, _MODO_ARCHIVO[hacia])
+        except OSError:  # pragma: no cover - defensivo (FS sin chmod POSIX real)
+            logger.warning("chmod_archivo_fallo", ruta=str(destino))
 
 
 def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
@@ -193,7 +282,10 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
 
         with transaction.atomic():
             saneado, sha_saneado, extension = _resanear(imagen)
-            ruta_relativa = f"medios/originales/{huella}.{extension}"
+            # El original saneado nunca se sirve (THREAT-023, ADR-API-002 §8): siempre vive en
+            # `privado/`, en todo estado del medio (no lo mueve `_mover_derivados`, que solo
+            # actúa sobre `MedioDerivado`).
+            ruta_relativa = f"originales/{huella}.{extension}"
             try:
                 medio = Medio.objects.create(
                     archivo_saneado_ruta=ruta_relativa,
@@ -215,7 +307,7 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                     )
                 )
                 continue
-            _guardar_bytes(ruta_relativa, saneado)
+            _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, saneado)
             derivados = _generar_derivados(imagen, huella)
             # `bulk_create` inserta `char(64)` por una expresión UNNEST que Postgres/psycopg
             # castea a `char[]` (longitud 1 por omisión) y trunca cada huella a un carácter: se
@@ -273,7 +365,8 @@ def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
             else None
         )
         pendientes = _pendientes_catalogacion(medio, licencia_compatible=licencia_compatible)
-        if medio.estado == EstadoMedio.PENDIENTE_METADATOS and not pendientes:
+        pasa_a_disponible = medio.estado == EstadoMedio.PENDIENTE_METADATOS and not pendientes
+        if pasa_a_disponible:
             medio.estado = EstadoMedio.DISPONIBLE
         elif (
             medio.estado == EstadoMedio.DISPONIBLE
@@ -299,6 +392,8 @@ def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
             tipo_entidad="MEDIO",
             entidad_id=medio.pk,
         )
+        if pasa_a_disponible:
+            _mover_derivados(medio, hacia=RAIZ_PUBLICA)
         return medio
 
 
@@ -374,10 +469,14 @@ def retirar(medio_id: int, actor_id: int) -> Medio:
             tipo_entidad="MEDIO",
             entidad_id=medio.pk,
         )
+        _mover_derivados(medio, hacia=RAIZ_PRIVADA)
         return medio
 
 
 def reactivar(medio_id: int, actor_id: int) -> Medio:
+    # RETIRADO -> PENDIENTE_METADATOS (abajo): ambos son estados "no DISPONIBLE", y `retirar()`
+    # ya dejó los derivados en `privado/` -- no hay nada que `_mover_derivados` deba hacer aquí
+    # (DEC-AUTO-110: solo DISPONIBLE es público).
     with transaction.atomic():
         medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
         if medio is None:
