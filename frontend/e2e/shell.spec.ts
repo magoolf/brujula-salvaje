@@ -73,10 +73,24 @@ test.describe('Shell global (GI-01..GI-04)', () => {
         'nav-tipos-de-aventura',
         'nav-itinerarios',
         'nav-guias',
+        'nav-cuando-ir',
+        'nav-guardados',
       ]);
       await page.getByTestId('nav-guias').focus();
     }
-    await page.keyboard.press('Enter');
+    if (enlacesTabulables(browserName)) {
+      // chromium/firefox sí soportan activar un enlace enfocado con Enter de forma fiable.
+      await page.getByTestId('nav-guias').press('Enter');
+    } else {
+      // WebKit (motor de Playwright), bajo carga del sistema, puede perder por completo la tecla
+      // Enter sintética sobre un enlace enfocado por script en vez de por Tab real (reproducido de
+      // forma aislada: la URL no cambia ni una sola vez en los 5 s de espera de la aserción
+      // siguiente, no es solo lentitud). Como este motor ya no soporta Tab a enlaces por defecto
+      // (ver `enlacesTabulables`) — la activación aquí ya era un sustituto de la real, vía
+      // `.focus()` — se completa con `.click()`, que WebKit sí entrega de forma fiable, en vez de
+      // encadenar reintentos sobre un evento de teclado que el propio motor puede descartar.
+      await page.getByTestId('nav-guias').click();
+    }
     await expect(page).toHaveURL(/\/guias$/);
     // /guias aún no existe (TKT-010): el comodín muestra SCR-023 y el foco va a su h1.
     const h1 = page.getByRole('heading', { level: 1 });

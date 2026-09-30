@@ -61,7 +61,7 @@
                   [queryParams]="queryParamsTipo(t.slug)"
                   queryParamsHandling="merge"
                   class="opcion"
-                  [attr.aria-pressed]="filtros().tipo.includes(t.slug)"
+                  [attr.aria-current]="filtros().tipo.includes(t.slug) ? 'true' : null"
                   >{{ t.nombre }}</a
                 >
               </li>
@@ -79,7 +79,7 @@
                   [queryParams]="queryParamsRegion(r.slug)"
                   queryParamsHandling="merge"
                   class="opcion"
-                  [attr.aria-pressed]="filtros().region === r.slug"
+                  [attr.aria-current]="filtros().region === r.slug ? 'true' : null"
                   >{{ r.nombre }}</a
                 >
               </li>
@@ -99,7 +99,7 @@
                       [queryParams]="queryParamsPais(p.slug)"
                       queryParamsHandling="merge"
                       class="opcion"
-                      [attr.aria-pressed]="filtros().pais === p.slug"
+                      [attr.aria-current]="filtros().pais === p.slug ? 'true' : null"
                       >{{ p.nombre }}</a
                     >
                   </li>
@@ -150,7 +150,7 @@
                   [queryParams]="queryParamsMes(m)"
                   queryParamsHandling="merge"
                   class="opcion opcion--mes"
-                  [attr.aria-pressed]="filtros().mes === m"
+                  [attr.aria-current]="filtros().mes === m ? 'true' : null"
                   [attr.aria-label]="nombreCompletoMes(m)"
                   >{{ abreviaturaMes(m) }}</a
                 >
@@ -169,7 +169,7 @@
                   [queryParams]="queryParamsDuracion(t.codigo)"
                   queryParamsHandling="merge"
                   class="opcion"
-                  [attr.aria-pressed]="filtros().duracion.includes(t.codigo)"
+                  [attr.aria-current]="filtros().duracion.includes(t.codigo) ? 'true' : null"
                   >{{ t.etiqueta }}</a
                 >
               </li>
@@ -187,7 +187,7 @@
                   [queryParams]="queryParamsPresupuesto(n.nivel)"
                   queryParamsHandling="merge"
                   class="opcion"
-                  [attr.aria-pressed]="filtros().presupuesto.includes(n.nivel)"
+                  [attr.aria-current]="filtros().presupuesto.includes(n.nivel) ? 'true' : null"
                 >
                   <app-medidor-presupuesto [valor]="n.nivel" [etiqueta]="n.etiqueta" [compacto]="true" />
                 </a>

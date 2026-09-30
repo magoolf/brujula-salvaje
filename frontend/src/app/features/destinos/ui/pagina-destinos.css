@@ -115,7 +115,7 @@
   text-decoration: none;
 }
 
-.opcion[aria-pressed='true'] {
+.opcion[aria-current='true'] {
   border-color: var(--bs-color-border-brand);
   background: var(--bs-color-action-selected-bg);
   color: var(--bs-color-text-brand);

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { esperarHidratacion, sinViolacionesGraves } from './utilidades';
+import { esperarFichaDestino, esperarHidratacion, sinViolacionesGraves } from './utilidades';
 
 /**
  * FLOW-009/FEAT-020/021 (RULE-013): guardar/quitar/compartir, 100 % en el navegador. Se limpia
@@ -35,7 +35,7 @@ test.describe('Guardados y compartir (MOD-006)', () => {
       .first()
       .getAttribute('href');
     await page.goto(href ?? '/destinos');
-    await esperarHidratacion(page);
+    await esperarFichaDestino(page);
 
     const botonGuardar = page.getByTestId('ficha-boton-guardar');
     await expect(botonGuardar).toHaveAttribute('aria-pressed', 'false');
@@ -65,9 +65,25 @@ test.describe('Guardados y compartir (MOD-006)', () => {
 
   test('AC_TKT008_09 compartir copia el enlace al portapapeles cuando no hay función nativa', async ({
     page,
-    context,
   }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    // `context.grantPermissions(['clipboard-read', 'clipboard-write'])` solo existe en Chromium
+    // (Firefox/WebKit lanzan "Unknown permission"): en vez de depender del modelo de permisos real
+    // del navegador (distinto en cada motor), se sustituye `navigator.clipboard.writeText` por un
+    // doble de prueba antes de que cargue cualquier script de la página, y se fuerza la ausencia de
+    // `navigator.share` para asegurar la vía de respaldo en los 3 proyectos por igual.
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, 'share', { value: undefined, configurable: true });
+      Object.defineProperty(window.navigator, 'clipboard', {
+        value: {
+          writeText: (texto: string) => {
+            (window as unknown as { __textoCopiado?: string }).__textoCopiado = texto;
+            return Promise.resolve();
+          },
+        },
+        configurable: true,
+      });
+    });
+
     const href = await page
       .getByTestId('tarjeta-destino')
       .first()
@@ -75,13 +91,13 @@ test.describe('Guardados y compartir (MOD-006)', () => {
       .first()
       .getAttribute('href');
     await page.goto(href ?? '/destinos');
-    await esperarHidratacion(page);
+    await esperarFichaDestino(page);
 
-    // jsdom/Chromium headless no expone navigator.share: se fuerza para asegurar la vía de respaldo.
-    await page.evaluate(() => {
-      Object.defineProperty(window.navigator, 'share', { value: undefined, configurable: true });
-    });
     await page.getByTestId('ficha-boton-compartir').click();
     await expect(page.getByText('Copiamos el enlace al portapapeles.')).toBeVisible();
+    const copiado = await page.evaluate(
+      () => (window as unknown as { __textoCopiado?: string }).__textoCopiado,
+    );
+    expect(copiado).toContain(href);
   });
 });

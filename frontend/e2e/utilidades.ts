@@ -56,3 +56,44 @@ export async function sinViolacionesGraves(page: Page): Promise<void> {
 export async function esperarHidratacion(page: Page): Promise<void> {
   await page.locator('html[data-app-lista="true"]').waitFor({ state: 'attached' });
 }
+
+/**
+ * Empieza a acumular Cumulative Layout Shift (misma métrica que Lighthouse/CrUX: suma de
+ * `value` de cada entrada `layout-shift` sin `hadRecentInput`) en `window`. Debe llamarse ANTES de
+ * `page.goto()` (con `page.addInitScript`) para no perder los desplazamientos del arranque/
+ * hidratación, que es justo la ventana donde ocurre el colapso de layout (Skill_UI_UX §47.2, CLS
+ * ≤ 0.1).
+ */
+export async function empezarMedicionCls(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as { __cls: number }).__cls = 0;
+    try {
+      new PerformanceObserver((lista) => {
+        for (const entrada of lista.getEntries()) {
+          const e = entrada as PerformanceEntry & { value: number; hadRecentInput: boolean };
+          if (!e.hadRecentInput) {
+            (window as unknown as { __cls: number }).__cls += e.value;
+          }
+        }
+      }).observe({ type: 'layout-shift', buffered: true });
+    } catch {
+      // Motor sin soporte de layout-shift (p. ej. WebKit/Firefox de Playwright): sin datos de CLS.
+    }
+  });
+}
+
+/** Lee el CLS acumulado desde `empezarMedicionCls`. `null` si el motor no soporta `layout-shift`. */
+export async function leerCls(page: Page): Promise<number | null> {
+  return page.evaluate(() => (window as unknown as { __cls?: number }).__cls ?? null);
+}
+
+/**
+ * Espera a que la ficha de destino termine de cargar sus datos (SCR-004). `esperarHidratacion`
+ * solo indica que la aplicación arrancó (bootstrap), no que ESTA ruta ya resolvió su petición: justo
+ * después de navegar, `<main>` puede seguir mostrando el esqueleto "Cargando destino…" (visto de
+ * forma reproducible en este entorno). Se espera explícitamente el contenido real con un margen
+ * mayor que el timeout por defecto, en vez de asumir que 5 s siempre alcanzan.
+ */
+export async function esperarFichaDestino(page: Page): Promise<void> {
+  await page.getByTestId('pagina-destino').waitFor({ state: 'visible', timeout: 15_000 });
+}
