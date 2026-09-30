@@ -1,0 +1,68 @@
+.bloque-estado {
+  padding-block: var(--bs-space-12);
+}
+
+.pagina {
+  display: grid;
+  gap: var(--bs-space-6);
+  padding-block: var(--bs-space-4) var(--bs-space-16);
+}
+
+.cabecera {
+  display: grid;
+  gap: var(--bs-space-2);
+}
+
+.descripcion {
+  color: var(--bs-color-text-muted);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.cuerpo {
+  display: grid;
+  gap: var(--bs-space-8);
+}
+
+.filas {
+  display: grid;
+  gap: var(--bs-space-4);
+  margin: 0 0 var(--bs-space-6);
+  padding: 0;
+  list-style: none;
+}
+
+.meta {
+  color: var(--bs-color-text-muted);
+  font-size: var(--bs-typography-body-sm-font-size);
+}
+
+.otras h2 {
+  margin-bottom: var(--bs-space-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip-enlace {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--bs-size-target);
+  padding-inline: var(--bs-space-3);
+  border: var(--bs-border-width-control) solid var(--bs-color-border-control);
+  border-radius: var(--bs-radius-pill);
+  color: var(--bs-color-text-default);
+  text-decoration: none;
+}
+
+@media (min-width: 64rem) {
+  .cuerpo {
+    grid-template-columns: 8fr 4fr;
+    align-items: start;
+  }
+}

@@ -4,8 +4,10 @@ import { TITULO_NO_ENCONTRADA } from './core/layout/paginas/titulos';
 
 /**
  * Rutas del sitio público (BLUEPRINT §10). TKT-008 añade Inicio, Destinos (listado, mapa, ficha),
- * Cuándo ir y Guardados; TKT-009/010 añaden el resto. El comodín (404) queda siempre al final.
- * `/destinos/mapa` va antes de `/destinos/:slug` para no ser capturada como slug.
+ * Cuándo ir y Guardados; TKT-009 añade Itinerarios, Tipos de aventura, Guías, Colecciones,
+ * Glosario, Búsqueda e Institucional (créditos incluidos). El comodín (404) queda siempre al
+ * final. `/destinos/mapa` va antes de `/destinos/:slug` para no ser capturada como slug; mismo
+ * criterio para `/guias/categoria/:slug` antes de `/guias/:slug`.
  */
 export const routes: Routes = [
   {
@@ -52,6 +54,116 @@ export const routes: Routes = [
     title: 'Mis aventuras guardadas',
     loadComponent: () =>
       import('./features/guardados/ui/pagina-guardados').then((m) => m.PaginaGuardados),
+  },
+  {
+    path: 'itinerarios',
+    title: 'Itinerarios',
+    loadComponent: () =>
+      import('./features/itinerarios/ui/pagina-itinerarios').then((m) => m.PaginaItinerarios),
+  },
+  {
+    path: 'itinerarios/:slug',
+    title: 'Itinerario',
+    loadComponent: () =>
+      import('./features/itinerarios/ui/pagina-itinerario').then((m) => m.PaginaItinerario),
+  },
+  {
+    path: 'tipos-de-aventura',
+    title: 'Tipos de aventura',
+    loadComponent: () =>
+      import('./features/tipos-aventura/ui/pagina-tipos-aventura').then(
+        (m) => m.PaginaTiposAventura,
+      ),
+  },
+  {
+    path: 'tipos-de-aventura/:slug',
+    title: 'Tipo de aventura',
+    loadComponent: () =>
+      import('./features/tipos-aventura/ui/pagina-tipo-aventura').then(
+        (m) => m.PaginaTipoAventura,
+      ),
+  },
+  {
+    path: 'guias',
+    title: 'Guías expertas',
+    loadComponent: () => import('./features/guias/ui/pagina-guias').then((m) => m.PaginaGuias),
+  },
+  {
+    path: 'guias/categoria/:slug',
+    title: 'Categoría de guías',
+    loadComponent: () =>
+      import('./features/guias/ui/pagina-categoria-guias').then((m) => m.PaginaCategoriaGuias),
+  },
+  {
+    path: 'guias/:slug',
+    title: 'Guía',
+    loadComponent: () => import('./features/guias/ui/pagina-guia').then((m) => m.PaginaGuia),
+  },
+  {
+    path: 'colecciones',
+    title: 'Colecciones',
+    loadComponent: () =>
+      import('./features/colecciones/ui/pagina-colecciones').then((m) => m.PaginaColecciones),
+  },
+  {
+    path: 'colecciones/:slug',
+    title: 'Colección',
+    loadComponent: () =>
+      import('./features/colecciones/ui/pagina-coleccion').then((m) => m.PaginaColeccion),
+  },
+  {
+    path: 'glosario',
+    title: 'Glosario',
+    loadComponent: () =>
+      import('./features/glosario/ui/pagina-glosario').then((m) => m.PaginaGlosario),
+  },
+  {
+    path: 'buscar',
+    title: 'Buscar',
+    loadComponent: () =>
+      import('./features/busqueda/ui/pagina-busqueda').then((m) => m.PaginaBusqueda),
+  },
+  {
+    path: 'acerca-de',
+    title: 'Acerca de',
+    data: { slug: 'acerca-de' },
+    loadComponent: () =>
+      import('./features/institucional/ui/pagina-institucional').then(
+        (m) => m.PaginaInstitucional,
+      ),
+  },
+  {
+    path: 'politica-de-tratamiento-de-datos',
+    title: 'Política de tratamiento de datos',
+    data: { slug: 'politica-de-tratamiento-de-datos' },
+    loadComponent: () =>
+      import('./features/institucional/ui/pagina-institucional').then(
+        (m) => m.PaginaInstitucional,
+      ),
+  },
+  {
+    path: 'politica-de-cookies',
+    title: 'Política de cookies',
+    data: { slug: 'politica-de-cookies' },
+    loadComponent: () =>
+      import('./features/institucional/ui/pagina-institucional').then(
+        (m) => m.PaginaInstitucional,
+      ),
+  },
+  {
+    path: 'aviso-legal',
+    title: 'Aviso legal',
+    data: { slug: 'aviso-legal' },
+    loadComponent: () =>
+      import('./features/institucional/ui/pagina-institucional').then(
+        (m) => m.PaginaInstitucional,
+      ),
+  },
+  {
+    path: 'creditos',
+    title: 'Créditos de imágenes',
+    loadComponent: () =>
+      import('./features/institucional/ui/pagina-creditos').then((m) => m.PaginaCreditos),
   },
   {
     path: '**',

@@ -1,0 +1,186 @@
+@if (store.esNoEncontrado()) {
+  <app-pagina-no-encontrada />
+} @else if (store.esRetirado()) {
+  <app-pagina-contenido-retirado
+    [rutaListadoPadre]="store.retirado()?.rutaListadoPadre ?? '/tipos-de-aventura'"
+    etiquetaListadoPadre="Volver a tipos de aventura"
+  >
+    @for (alt of store.retirado()?.alternativas ?? []; track alt.slug) {
+      <app-tarjeta-contenido [titulo]="alt.titulo" [ruta]="alt.ruta" [imagen]="alt.imagen" [nivelTitulo]="4" />
+    }
+  </app-pagina-contenido-retirado>
+} @else if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.tipo() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="tarjeta" [cantidad]="1" etiqueta="Cargando tipo de aventura…" />
+  </div>
+} @else if (store.tipo(); as tipo) {
+  <article class="bs-contenedor ficha" data-testid="pagina-tipo-aventura">
+    <app-migas-de-pan [migas]="migas()" />
+
+    <header class="encabezado">
+      <h1>{{ tipo.titulo }}</h1>
+    </header>
+
+    @if (tipo.portada; as portada) {
+      <figure class="portada">
+        <app-imagen-responsiva
+          [src]="portada.src"
+          [alt]="portada.alt"
+          [ancho]="portada.ancho"
+          [alto]="portada.alto"
+          [derivados]="portada.derivados"
+          relacion="16 / 9"
+          sizes="100vw"
+          [prioritaria]="true"
+        />
+        <figcaption>Foto: {{ portada.autorCredito }} · {{ portada.licenciaNombre }}</figcaption>
+      </figure>
+    }
+
+    <p class="resumen">{{ tipo.resumen }}</p>
+
+    <div class="cuerpo-enriquecido" [innerHTML]="tipo.descripcion"></div>
+
+    <div class="exigencia">
+      <app-medidor-dificultad [valor]="tipo.nivelExigencia" />
+      <a routerLink="/acerca-de" fragment="escala-de-dificultad">¿Qué significa?</a>
+    </div>
+
+    <section aria-labelledby="destinos-titulo">
+      <h2 id="destinos-titulo">Destinos</h2>
+      @if (tipo.destinos.length > 0) {
+        <ul class="rejilla">
+          @for (destino of tipo.destinos; track destino.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="destino.titulo"
+                [ruta]="'/destinos/' + destino.slug"
+                [overline]="destino.pais.nombre"
+                [imagen]="destino.imagen"
+                [nivelTitulo]="3"
+              >
+                <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      }
+      <p>
+        <a [routerLink]="['/destinos']" [queryParams]="{ tipo: [tipo.slug] }"
+          >Ver todos en Explorar ({{ conteo(tipo.destinosTotal) }})</a
+        >
+      </p>
+    </section>
+
+    @if (mostrarChecklist()) {
+      <section aria-labelledby="checklist-titulo">
+        <h2 id="checklist-titulo">Checklist de equipo</h2>
+        <div class="checklist">
+          @for (grupo of grupos(); track grupo.nombre ?? '_') {
+            <div class="grupo-checklist">
+              @if (grupo.nombre) {
+                <h3>{{ grupo.nombre }}</h3>
+              }
+              <ul>
+                @for (item of grupo.items; track item.texto) {
+                  <li>
+                    <span>{{ item.texto }}</span>
+                    @if (item.esencial) {
+                      <app-insignia variante="esencial">Esencial</app-insignia>
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    @if (tipo.guiasRelacionadas.length > 0) {
+      <section aria-labelledby="guias-titulo">
+        <h2 id="guias-titulo">Guías relacionadas</h2>
+        <ul class="rejilla">
+          @for (guia of tipo.guiasRelacionadas; track guia.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="guia.titulo"
+                [ruta]="'/guias/' + guia.slug"
+                [overline]="guia.categoria.nombre"
+                [imagen]="guia.imagen"
+                [nivelTitulo]="3"
+              >
+                <p>{{ guia.resumen }}</p>
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (tipo.terminos.length > 0) {
+      <section aria-labelledby="terminos-titulo">
+        <h2 id="terminos-titulo">Términos relacionados</h2>
+        <ul class="etiquetas">
+          @for (termino of tipo.terminos; track termino.slug) {
+            <li><a class="etiqueta" [routerLink]="['/glosario']" [fragment]="termino.slug">{{ termino.termino }}</a></li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section aria-labelledby="fuentes-titulo" class="pie-ficha">
+      @if (tipo.fuentes.length > 0) {
+        <div>
+          <h2 id="fuentes-titulo">Fuentes</h2>
+          <ul class="fuentes">
+            @for (fuente of tipo.fuentes; track fuente.titulo) {
+              <li>
+                @if (fuente.url) {
+                  <a [href]="fuente.url" target="_blank" rel="noopener noreferrer"
+                    >{{ fuente.titulo }} <span class="bs-solo-lectores">(sitio externo)</span></a
+                  >
+                } @else {
+                  <span>{{ fuente.titulo }}</span>
+                }
+                @if (fuente.entidadEditora) {
+                  <span> · {{ fuente.entidadEditora }}</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      <p class="autoria">{{ tipo.autoria }} · Última revisión: {{ fechaRevisionTexto() }}</p>
+      @if (store.descargo(); as descargo) {
+        <p class="descargo" data-testid="descargo-responsabilidad">{{ descargo }}</p>
+      }
+    </section>
+
+    @if (tipo.relacionados.length > 0) {
+      <section aria-labelledby="relacionados-titulo">
+        <h2 id="relacionados-titulo">Sigue explorando</h2>
+        <ul class="rejilla">
+          @for (relacionado of tipo.relacionados; track relacionado.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="relacionado.titulo"
+                [ruta]="relacionado.ruta"
+                [imagen]="relacionado.imagen"
+                [nivelTitulo]="3"
+              >
+                @if (relacionado.resumen) {
+                  <p>{{ relacionado.resumen }}</p>
+                }
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </article>
+}

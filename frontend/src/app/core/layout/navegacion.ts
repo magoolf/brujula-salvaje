@@ -1,8 +1,12 @@
 /**
  * Navegación global del sitio público (GI-01 y GI-02, BLUEPRINT §10 y §17).
  * RULE-030: solo se enlazan funcionalidades ya implementadas (sus rutas definitivas del sitemap,
- * DEC-AUTO-046). TKT-008 añade Cuándo ir (SHOULD) y Guardados (COULD); Colecciones* y Glosario*
- * (MOD-005, TKT-009) se añadirán cuando esa feature exista.
+ * DEC-AUTO-046). TKT-008 añade Cuándo ir (SHOULD) y Guardados (COULD). TKT-009 añade Colecciones
+ * (MOD-005, SHOULD) en el orden exacto de HANDOFF_UI_UX GI-01: «Destinos · Tipos de aventura ·
+ * Itinerarios · Guías · Colecciones* · Cuándo ir*» (línea 66). Glosario* (COULD) no se añade aquí:
+ * su alcanzabilidad prevista es contextual, desde los términos enlazados en el cuerpo editorial de
+ * itinerarios/guías/tipos, no desde la navegación principal (verificado con datos reales por QA en
+ * el ciclo 1/3 de TKT-009).
  */
 export interface EnlaceNavegacion {
   readonly etiqueta: string;
@@ -16,6 +20,7 @@ export const NAVEGACION_PRINCIPAL: readonly EnlaceNavegacion[] = [
   { etiqueta: 'Tipos de aventura', ruta: '/tipos-de-aventura', id: 'tipos-de-aventura' },
   { etiqueta: 'Itinerarios', ruta: '/itinerarios', id: 'itinerarios' },
   { etiqueta: 'Guías', ruta: '/guias', id: 'guias' },
+  { etiqueta: 'Colecciones', ruta: '/colecciones', id: 'colecciones' },
   { etiqueta: 'Cuándo ir', ruta: '/cuando-ir', id: 'cuando-ir' },
   { etiqueta: 'Guardados', ruta: '/guardados', id: 'guardados' },
 ];

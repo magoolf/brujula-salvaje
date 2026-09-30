@@ -1,0 +1,23 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-6);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.campo {
+  max-width: 36rem;
+}
+
+.cabecera {
+  display: grid;
+  gap: var(--bs-space-1);
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--bs-grid-gutter-xs, var(--bs-space-4));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  margin: var(--bs-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}

@@ -1,0 +1,49 @@
+<section class="bs-contenedor pagina" data-testid="pagina-guias">
+  <header class="cabecera">
+    <h1>Guías expertas</h1>
+    <p class="entradilla">Aprende por temas con el consejo de nuestro equipo editorial.</p>
+  </header>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="tarjeta" [cantidad]="8" etiqueta="Cargando guías…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay guías publicadas" data-testid="guias-vacio">
+        <p>Explora mientras tanto destinos y tipos de aventura:</p>
+        <div estado-salidas>
+          <a routerLink="/destinos">Explorar destinos</a>
+          <a routerLink="/tipos-de-aventura">Ver tipos de aventura</a>
+        </div>
+      </app-estado-vacio>
+    } @else {
+      @for (categoria of p.resultados; track categoria.slug) {
+        <section class="categoria" [attr.aria-labelledby]="'categoria-' + categoria.slug" data-testid="guias-categoria">
+          <h2 [id]="'categoria-' + categoria.slug">{{ categoria.nombre }}</h2>
+          <p class="descripcion">{{ categoria.descripcion }}</p>
+          <ul class="rejilla">
+            @for (guia of categoria.guiasRecientes; track guia.slug) {
+              <li>
+                <app-tarjeta-contenido
+                  [titulo]="guia.titulo"
+                  [ruta]="'/guias/' + guia.slug"
+                  [overline]="categoria.nombre"
+                  [imagen]="guia.imagen"
+                  [nivelTitulo]="3"
+                  testId="tarjeta-guia"
+                >
+                  <p>{{ guia.resumen }}</p>
+                </app-tarjeta-contenido>
+              </li>
+            }
+          </ul>
+          <a [routerLink]="['/guias/categoria', categoria.slug]" data-testid="guias-ver-todas"
+            >Ver todas las guías de {{ categoria.nombre }}</a
+          >
+        </section>
+      }
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

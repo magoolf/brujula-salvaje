@@ -1,0 +1,60 @@
+<section class="bs-contenedor pagina" data-testid="pagina-creditos">
+  <header class="cabecera">
+    <h1>Créditos de imágenes</h1>
+    <p class="entradilla">Autoría, licencia y fuente de todos los medios usados en el contenido publicado.</p>
+  </header>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="fila" [cantidad]="6" etiqueta="Cargando créditos…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay créditos que mostrar" data-testid="creditos-vacio" />
+    } @else {
+      @for (grupo of grupos(); track grupo.contenido.slug) {
+        <section [attr.aria-labelledby]="'contenido-' + grupo.contenido.slug" data-testid="creditos-grupo">
+          <p class="bs-overline">{{ grupo.contenido.tipo }}</p>
+          <h2 [id]="'contenido-' + grupo.contenido.slug">
+            <a [routerLink]="grupo.contenido.ruta">{{ grupo.contenido.titulo }}</a>
+          </h2>
+          <ul class="medios">
+            @for (medio of grupo.medios; track medio.src) {
+              <li class="medio">
+                <app-imagen-responsiva
+                  class="miniatura"
+                  [src]="medio.src"
+                  [alt]="medio.alt"
+                  [ancho]="64"
+                  [alto]="64"
+                  relacion="1 / 1"
+                  sizes="64px"
+                />
+                <div class="datos">
+                  <p>{{ medio.autorCredito }}</p>
+                  <p>
+                    @if (medio.licenciaUrl) {
+                      <a [href]="medio.licenciaUrl" target="_blank" rel="noopener noreferrer"
+                        >{{ medio.licenciaNombre }} <span class="bs-solo-lectores">(sitio externo)</span></a
+                      >
+                    } @else {
+                      {{ medio.licenciaNombre }}
+                    }
+                  </p>
+                  @if (medio.fuenteUrl) {
+                    <p>
+                      <a [href]="medio.fuenteUrl" target="_blank" rel="noopener noreferrer"
+                        >Fuente <span class="bs-solo-lectores">(sitio externo)</span></a
+                      >
+                    </p>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

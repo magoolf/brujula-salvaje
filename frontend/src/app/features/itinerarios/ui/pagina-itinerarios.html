@@ -1,0 +1,64 @@
+<section class="bs-contenedor pagina" data-testid="pagina-itinerarios">
+  <header class="cabecera">
+    <div>
+      <h1>Itinerarios</h1>
+      @if (store.pagina(); as p) {
+        <p class="recuento" role="status" aria-live="polite" data-testid="itinerarios-recuento">
+          {{ p.total }} {{ p.total === 1 ? 'itinerario' : 'itinerarios' }}
+        </p>
+      }
+    </div>
+  </header>
+
+  <nav aria-label="Ordenar por" class="orden">
+    <span class="orden-etiqueta" id="orden-etiqueta">Ordenar:</span>
+    <ul aria-labelledby="orden-etiqueta">
+      @for (o of ordenesDisponibles; track o) {
+        <li>
+          <a
+            [routerLink]="[]"
+            [queryParams]="queryParamsOrden(o)"
+            queryParamsHandling="merge"
+            [attr.aria-current]="filtros().orden === o ? 'true' : null"
+            [attr.data-testid]="'orden-' + o"
+            >{{ etiquetasOrden[o] }}</a
+          >
+        </li>
+      }
+    </ul>
+  </nav>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="tarjeta" [cantidad]="6" etiqueta="Cargando itinerarios…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay itinerarios publicados" data-testid="itinerarios-vacio">
+        <p>Explora mientras tanto destinos y guías:</p>
+        <div estado-salidas>
+          <a routerLink="/destinos">Explorar destinos</a>
+          <a routerLink="/guias">Ver guías</a>
+        </div>
+      </app-estado-vacio>
+    } @else {
+      <ul class="rejilla" [attr.aria-busy]="store.cargando()" data-testid="itinerarios-rejilla">
+        @for (itinerario of p.resultados; track itinerario.slug) {
+          <li>
+            <app-tarjeta-contenido
+              [titulo]="itinerario.titulo"
+              [ruta]="'/itinerarios/' + itinerario.slug"
+              [overline]="itinerario.destino.nombre"
+              [imagen]="itinerario.imagen"
+              testId="tarjeta-itinerario"
+            >
+              <app-medidor-dificultad [valor]="itinerario.dificultad" [compacto]="true" />
+              <p>{{ itinerario.duracionDias }} días</p>
+            </app-tarjeta-contenido>
+          </li>
+        }
+      </ul>
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

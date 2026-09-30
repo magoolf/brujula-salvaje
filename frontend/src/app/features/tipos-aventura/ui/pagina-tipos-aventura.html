@@ -1,0 +1,39 @@
+<section class="bs-contenedor pagina" data-testid="pagina-tipos-aventura">
+  <header class="cabecera">
+    <h1>Tipos de aventura</h1>
+    <p class="entradilla">Elige cómo quieres vivir la aventura.</p>
+  </header>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.pagina() === null) {
+    <app-estado-cargando forma="tarjeta" [cantidad]="8" etiqueta="Cargando tipos de aventura…" />
+  } @else if (store.pagina(); as p) {
+    @if (p.resultados.length === 0) {
+      <app-estado-vacio titulo="Aún no hay tipos de aventura publicados" data-testid="tipos-vacio">
+        <p>Explora mientras tanto destinos y guías:</p>
+        <div estado-salidas>
+          <a routerLink="/destinos">Explorar destinos</a>
+          <a routerLink="/guias">Ver guías</a>
+        </div>
+      </app-estado-vacio>
+    } @else {
+      <ul class="rejilla" [attr.aria-busy]="store.cargando()" data-testid="tipos-rejilla">
+        @for (tipo of p.resultados; track tipo.slug) {
+          <li>
+            <app-tarjeta-contenido
+              [titulo]="tipo.titulo"
+              [ruta]="'/tipos-de-aventura/' + tipo.slug"
+              [imagen]="tipo.imagen"
+              testId="tarjeta-tipo"
+            >
+              <app-medidor-dificultad [valor]="tipo.nivelExigencia" [compacto]="true" />
+              <p [attr.aria-label]="conteo(tipo.numeroDestinos)">{{ conteo(tipo.numeroDestinos) }}</p>
+            </app-tarjeta-contenido>
+          </li>
+        }
+      </ul>
+      <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+    }
+  }
+</section>

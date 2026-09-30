@@ -1,0 +1,116 @@
+@if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.pagina() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="linea" [cantidad]="6" etiqueta="Cargando página…" />
+  </div>
+} @else if (store.pagina(); as p) {
+  <article class="bs-contenedor pagina" data-testid="pagina-institucional">
+    <app-migas-de-pan [migas]="migas()" />
+
+    <header class="encabezado">
+      <h1>{{ p.titulo }}</h1>
+      @if (esLegal()) {
+        <p class="version" data-testid="institucional-version">
+          Versión {{ p.versionDocumento }} · Vigente desde {{ vigenteDesdeTexto() }}
+        </p>
+      }
+    </header>
+
+    <div class="cuerpo-enriquecido" [innerHTML]="p.cuerpo"></div>
+
+    @if (esTratamientoDatos()) {
+      <section aria-labelledby="responsable-titulo" data-testid="institucional-responsable">
+        <h2 id="responsable-titulo">Responsable del tratamiento</h2>
+        @if (store.configuracion() === null) {
+          <app-estado-cargando forma="linea" [cantidad]="3" etiqueta="Cargando datos del Responsable…" />
+        } @else if (store.configuracion(); as configuracion) {
+          @if (!configuracion.responsable.definido) {
+            <p class="marcador-pendiente" role="note">{{ marcadorPendiente }}</p>
+          } @else {
+            <dl>
+              @if (configuracion.responsable.nombre) {
+                <div>
+                  <dt>Nombre</dt>
+                  <dd>{{ configuracion.responsable.nombre }}</dd>
+                </div>
+              }
+              @if (configuracion.responsable.identificacion) {
+                <div>
+                  <dt>Identificación</dt>
+                  <dd>{{ configuracion.responsable.identificacion }}</dd>
+                </div>
+              }
+              @if (configuracion.responsable.domicilio) {
+                <div>
+                  <dt>Domicilio</dt>
+                  <dd>{{ configuracion.responsable.domicilio }}</dd>
+                </div>
+              }
+              @if (configuracion.responsable.canalAtencion) {
+                <div>
+                  <dt>Canal de atención</dt>
+                  <dd>{{ configuracion.responsable.canalAtencion }}</dd>
+                </div>
+              }
+            </dl>
+          }
+        }
+      </section>
+    }
+
+    @if (esAcercaDe()) {
+      @if (store.escalas() === null) {
+        <app-estado-cargando forma="linea" [cantidad]="6" etiqueta="Cargando escalas…" />
+      } @else if (store.escalas(); as escalas) {
+        <section id="escala-de-dificultad" aria-labelledby="escala-dificultad-titulo" class="escala">
+          <h2 id="escala-dificultad-titulo">Escala de dificultad</h2>
+          <table>
+            <caption class="bs-solo-lectores">Niveles de la escala de dificultad, de 1 a 5</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nivel</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (nivel of escalas.dificultad; track nivel.nivel) {
+                <tr>
+                  <td><app-medidor-dificultad [valor]="nivel.nivel" [compacto]="true" /></td>
+                  <td>{{ nivel.etiqueta }}</td>
+                  <td>{{ nivel.descripcion }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+
+        <section id="escala-de-presupuesto" aria-labelledby="escala-presupuesto-titulo" class="escala">
+          <h2 id="escala-presupuesto-titulo">Escala de presupuesto</h2>
+          <table>
+            <caption class="bs-solo-lectores">Niveles de la escala de presupuesto, de 1 a 4</caption>
+            <thead>
+              <tr>
+                <th scope="col">Nivel</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (nivel of escalas.presupuesto; track nivel.nivel) {
+                <tr>
+                  <td><app-medidor-presupuesto [valor]="nivel.nivel" [compacto]="true" /></td>
+                  <td>{{ nivel.etiqueta }}</td>
+                  <td>{{ nivel.descripcion }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    }
+  </article>
+}

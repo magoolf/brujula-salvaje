@@ -1,0 +1,230 @@
+@if (store.esNoEncontrado()) {
+  <app-pagina-no-encontrada />
+} @else if (store.esRetirado()) {
+  <app-pagina-contenido-retirado
+    [rutaListadoPadre]="store.retirado()?.rutaListadoPadre ?? '/itinerarios'"
+    etiquetaListadoPadre="Volver a itinerarios"
+  >
+    @for (alt of store.retirado()?.alternativas ?? []; track alt.slug) {
+      <app-tarjeta-contenido [titulo]="alt.titulo" [ruta]="alt.ruta" [imagen]="alt.imagen" [nivelTitulo]="4" />
+    }
+  </app-pagina-contenido-retirado>
+} @else if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.itinerario() === null) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-cargando forma="tarjeta" [cantidad]="1" etiqueta="Cargando itinerario…" />
+  </div>
+} @else if (store.itinerario(); as it) {
+  <article class="bs-contenedor ficha" data-testid="pagina-itinerario">
+    <app-migas-de-pan [migas]="migas()" />
+
+    <header class="encabezado">
+      <div>
+        <h1>{{ it.titulo }}</h1>
+        <p class="ubicacion">
+          <a [routerLink]="['/destinos', it.destino.slug]">{{ it.destino.titulo }}</a>
+        </p>
+      </div>
+      <div class="acciones">
+        <app-boton-compartir
+          [titulo]="it.titulo"
+          [soloIcono]="false"
+          [compartiendo]="compartiendo()"
+          testId="itinerario-boton-compartir"
+          (compartir)="compartir()"
+        />
+      </div>
+    </header>
+    @if (mensajeCompartir(); as mensaje) {
+      <p role="status" class="mensaje-compartir">{{ mensaje }}</p>
+    }
+
+    @if (it.portada; as portada) {
+      <figure class="portada">
+        <app-imagen-responsiva
+          [src]="portada.src"
+          [alt]="portada.alt"
+          [ancho]="portada.ancho"
+          [alto]="portada.alto"
+          [derivados]="portada.derivados"
+          relacion="16 / 9"
+          sizes="100vw"
+          [prioritaria]="true"
+        />
+        <figcaption>Foto: {{ portada.autorCredito }} · {{ portada.licenciaNombre }}</figcaption>
+      </figure>
+    }
+
+    <p class="resumen">{{ it.resumen }}</p>
+
+    <dl class="hechos-clave" aria-label="Datos clave">
+      <div>
+        <dt>Duración</dt>
+        <dd>{{ it.duracionDias }} {{ it.duracionDias === 1 ? 'día' : 'días' }}</dd>
+      </div>
+      <div>
+        <dt>Dificultad</dt>
+        <dd>
+          <app-medidor-dificultad [valor]="it.dificultad" />
+          <a routerLink="/acerca-de" fragment="escala-de-dificultad">¿Qué significa?</a>
+        </dd>
+      </div>
+      @if (tieneMetricas()) {
+        @if (it.distanciaTotalKm !== null) {
+          <div>
+            <dt>Distancia total</dt>
+            <dd>{{ it.distanciaTotalKm }} km</dd>
+          </div>
+        }
+        @if (it.desnivelAcumuladoM !== null) {
+          <div>
+            <dt>Desnivel acumulado</dt>
+            <dd>{{ it.desnivelAcumuladoM }} m</dd>
+          </div>
+        }
+      }
+    </dl>
+
+    @if (it.tipos.length > 0) {
+      <ul class="etiquetas">
+        @for (tipo of it.tipos; track tipo.slug) {
+          <li><a class="etiqueta" [routerLink]="['/tipos-de-aventura', tipo.slug]">{{ tipo.nombre }}</a></li>
+        }
+      </ul>
+    }
+
+    <section aria-labelledby="dias-titulo">
+      <h2 id="dias-titulo">Día a día</h2>
+      <ol class="dias">
+        @for (dia of it.dias; track dia.numeroDia) {
+          <li>
+            <article [attr.aria-labelledby]="'dia-' + dia.numeroDia">
+              <h3 [id]="'dia-' + dia.numeroDia">Día {{ dia.numeroDia }} · {{ dia.titulo }}</h3>
+              <div class="cuerpo-enriquecido" [innerHTML]="dia.actividades"></div>
+              @if (dia.distanciaKm !== null || dia.desnivelPositivoM !== null || dia.desnivelNegativoM !== null) {
+                <dl class="datos-dia" [attr.aria-label]="textoDesnivel(dia.desnivelPositivoM, dia.desnivelNegativoM)">
+                  @if (dia.distanciaKm !== null) {
+                    <div>
+                      <dt>Distancia</dt>
+                      <dd>{{ dia.distanciaKm }} km</dd>
+                    </div>
+                  }
+                  @if (dia.desnivelPositivoM !== null) {
+                    <div>
+                      <dt>Desnivel +</dt>
+                      <dd>{{ dia.desnivelPositivoM }} m</dd>
+                    </div>
+                  }
+                  @if (dia.desnivelNegativoM !== null) {
+                    <div>
+                      <dt>Desnivel −</dt>
+                      <dd>{{ dia.desnivelNegativoM }} m</dd>
+                    </div>
+                  }
+                </dl>
+              }
+              @if (dia.alojamientoOrientativo) {
+                <p class="alojamiento"><strong>Alojamiento orientativo:</strong> {{ dia.alojamientoOrientativo }}</p>
+              }
+              @if (dia.consejos) {
+                <p class="consejos"><strong>Consejos:</strong> {{ dia.consejos }}</p>
+              }
+            </article>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <section aria-labelledby="seguridad-titulo">
+      <h2 id="seguridad-titulo">Seguridad y riesgos</h2>
+      <app-banner variante="warning" titulo="Antes de ir">
+        <div class="cuerpo-enriquecido" [innerHTML]="it.riesgosSeguridad"></div>
+      </app-banner>
+    </section>
+
+    @if (it.galeria.length > 0) {
+      <section aria-labelledby="galeria-titulo">
+        <h2 id="galeria-titulo">Galería</h2>
+        <ul class="galeria">
+          @for (imagen of it.galeria; track imagen.src) {
+            <li>
+              <app-imagen-responsiva
+                [src]="imagen.src"
+                [alt]="imagen.alt"
+                [ancho]="imagen.ancho"
+                [alto]="imagen.alto"
+                [derivados]="imagen.derivados"
+                relacion="4 / 3"
+                sizes="(min-width: 48rem) 25vw, 50vw"
+              />
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (it.terminos.length > 0) {
+      <section aria-labelledby="terminos-titulo">
+        <h2 id="terminos-titulo">Términos relacionados</h2>
+        <ul class="etiquetas">
+          @for (termino of it.terminos; track termino.slug) {
+            <li><a class="etiqueta" [routerLink]="['/glosario']" [fragment]="termino.slug">{{ termino.termino }}</a></li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section aria-labelledby="fuentes-titulo" class="pie-ficha">
+      @if (it.fuentes.length > 0) {
+        <div>
+          <h2 id="fuentes-titulo">Fuentes</h2>
+          <ul class="fuentes">
+            @for (fuente of it.fuentes; track fuente.titulo) {
+              <li>
+                @if (fuente.url) {
+                  <a [href]="fuente.url" target="_blank" rel="noopener noreferrer"
+                    >{{ fuente.titulo }} <span class="bs-solo-lectores">(sitio externo)</span></a
+                  >
+                } @else {
+                  <span>{{ fuente.titulo }}</span>
+                }
+                @if (fuente.entidadEditora) {
+                  <span> · {{ fuente.entidadEditora }}</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+      <p class="autoria">{{ it.autoria }} · Última revisión: {{ fechaRevisionTexto() }}</p>
+      @if (store.descargo(); as descargo) {
+        <p class="descargo" data-testid="descargo-responsabilidad">{{ descargo }}</p>
+      }
+    </section>
+
+    @if (it.relacionados.length > 0) {
+      <section aria-labelledby="relacionados-titulo">
+        <h2 id="relacionados-titulo">Sigue explorando</h2>
+        <ul class="rejilla">
+          @for (relacionado of it.relacionados; track relacionado.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="relacionado.titulo"
+                [ruta]="relacionado.ruta"
+                [imagen]="relacionado.imagen"
+                [nivelTitulo]="3"
+              >
+                @if (relacionado.resumen) {
+                  <p>{{ relacionado.resumen }}</p>
+                }
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </article>
+}
