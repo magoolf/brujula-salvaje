@@ -2,13 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-09-27.
+> y `audit_log.md`. Última actualización: 2026-09-30.
 
 ## 1. Estado en una línea
 
-F1–F6 terminadas. En `main`: backend base (TKT-001), modelo de datos (TKT-003), frontend base (TKT-002) e
-infraestructura completa (TKT-OPS-001..005) con CI verde, incluido trivy con `.trivyignore` aprobado por el
-usuario. En QA final: TKT-004 (acceso al panel, PR #8, ciclo 3/3). Avance estimado ≈ 50 %.
+2026-09-30: F1–F6 terminadas; backend completo y frontend público completo en `main` (TKT-001..009, 011, 013..015, 017 y 018 DONE; `main` @ 764fa54). Pendiente: TKT-010 (panel `/panel`, el bloque grande), TKT-019 (mapa del sitio), TKT-016 (CLS), TKT-020 (imágenes AVIF sin respaldo y SSR sin JS), TKT-021 (LCP móvil), TKT-012 (deuda de cobertura), TKT-OPS-016 (limitador nginx con IP compartida, **condición de F9**), TKT-OPS-008/009, TKT-OPS-013 (BLOCKED_HUMAN) y después F9/F10. Avance estimado ≈ 75 %. El detalle de cada ticket está en `kanban.md`; las secciones 4.x son el plan original y conservan las filas ya DONE como referencia histórica.
 
 ## 2. Cómo reanudar tras un corte (verificar y corregir, no rehacer)
 
@@ -56,7 +54,7 @@ usuario. En QA final: TKT-004 (acceso al panel, PR #8, ciclo 3/3). Avance estima
 - **TKT-OPS-006**: gate de contrato con memoización y `timeout-minutes`; objeto abierto vs cerrado; 405 de medios en Problem Details; `/infra/db` en Dependabot; alerta de tamaño de `cache_limites`; política de trivy robusta a líneas de continuación.
 - **TKT-OPS-007**: `scripts/ops/restore-local.sh` con lista TOC filtrada (excluir `SCHEMA app/ext`, `pg_stat_statements`, ACL de `public`) para que el simulacro AC-054 pase sobre BD limpia. **Bloquea F9.**
 
-### 4.5 F9 — Release (tras todos los tickets DONE)
+### 4.5 F9 — Release (tras todos los tickets DONE, incluido TKT-OPS-016)
 1. DevOps: build final de las 6 imágenes, SBOM (syft), trivy con `.trivyignore` vigente, firma (cosign keyless opcional), simulacro de restauración (AC-054), pruebas de carga (p95).
 2. Orquestador: auditoría de seguridad completa con `security-audit-skill` en *Full audit mode*, perfil `standard`, salida en `~/security-audit-skill/<repo>/run-<N>`; cualquier `confirmed` CRITICAL/HIGH bloquea.
 3. Producción: **Puerta Humana**. Requiere decisión del usuario sobre plataforma, dominio, costes, secretos reales, responsable del tratamiento (Ley 1581, GAP-004) y revisión humana del contenido (GAP-008).
