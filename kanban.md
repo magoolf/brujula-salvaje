@@ -551,6 +551,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Despachado a devops", "Entregado @ b339a0a, PR #32. Línea de crontab exacta según DEVOPS_HANDOFF.md §19.3.6, validada con el binario real de supercronic reconstruyendo la imagen real del servicio scheduler ('crontab is valid', exit 0). CI real (run 36639252501) en verde completo. Verificación final hecha directamente por el Orquestador (diff mínimo de 2 archivos, sin QA formal por proporcionalidad -- DEC-AUTO, ver audit_log.md). PR #32 integrado con git merge (fast-forward) @ c127e8d. TKT-OPS-012 DONE. RSK-OPS-032 CERRADO"]
     actualizado: 2026-09-29
+  - id: TKT-OPS-013
+    titulo: "DevOps: añadir CVE-2026-84782 (HIGH, openssl/libssl3t64/openssl-provider-legacy, fallo de lógica de retransmisión DTLS, sin parche en Debian 13.7) a .trivyignore con exp:2026-10-30, bajo la misma política de TKT-OPS-005 (solo CVE de paquetes Debian sin parche publicado, con caducidad y justificación). Decisión humana registrada en audit_log.md (2026-09-30, GATE_HUMANO, RSK-OPS-001): 'Aceptar con lista y caducidad'. Detectado por trivy en brujula/db durante la verificación de CI de TKT-008 (run 36668871573); confirmado NO relacionado con ningún cambio de Dockerfile de ese ticket -- drift de la base de datos de vulnerabilidades de trivy entre dos runs del mismo branch en menos de 3h"
+    fase: F9
+    estado: TODO
+    owner: devops
+    trazabilidad: [RSK-OPS-001, TKT-OPS-005]
+    depende_de: []
+    archivos_permitidos: [".trivyignore"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: []
+    actualizado: 2026-09-30
 ```
 
 ## F5 — Reglas de stack inyectadas (Orquestador, leídas de los Contratos Técnicos el 2026-09-25)
