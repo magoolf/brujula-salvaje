@@ -1,0 +1,55 @@
+@if (store.mes() === null) {
+  <app-pagina-no-encontrada />
+} @else {
+  <section class="bs-contenedor pagina" data-testid="pagina-destinos-del-mes">
+    <app-migas-de-pan [migas]="migas()" />
+    <h1>Dónde ir en {{ nombreMesActual() }}</h1>
+
+    <nav aria-label="Otros meses" class="navegacion-meses">
+      <a [routerLink]="['/cuando-ir', mesAnterior()]">‹ {{ nombreDeMes(mesAnterior()!) }}</a>
+      <a [routerLink]="['/cuando-ir', mesSiguiente()]">{{ nombreDeMes(mesSiguiente()!) }} ›</a>
+    </nav>
+
+    @if (store.error(); as error) {
+      <app-estado-error [mensaje]="error.mensaje" />
+    } @else if (store.pagina() === null) {
+      <app-estado-cargando forma="tarjeta" [cantidad]="6" etiqueta="Cargando destinos…" />
+    } @else if (store.pagina(); as pagina) {
+      @if (pagina.resultados.length === 0) {
+        <app-estado-vacio [titulo]="'Aún no hay destinos recomendados para ' + nombreMesActual()">
+          <div estado-salidas>
+            <a [routerLink]="['/cuando-ir', mesAnterior()]">{{ nombreDeMes(mesAnterior()!) }}</a>
+            <a [routerLink]="['/cuando-ir', mesSiguiente()]">{{ nombreDeMes(mesSiguiente()!) }}</a>
+            <a routerLink="/destinos">Explorar destinos</a>
+          </div>
+        </app-estado-vacio>
+      } @else {
+        <ul class="rejilla">
+          @for (destino of pagina.resultados; track destino.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="destino.titulo"
+                [ruta]="'/destinos/' + destino.slug"
+                [overline]="destino.pais.nombre"
+                [imagen]="destino.imagen"
+              >
+                <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
+                <span tarjeta-accion>
+                  <app-boton-guardar
+                    [titulo]="destino.titulo"
+                    [guardado]="estaGuardado(destino.slug)"
+                    [deshabilitado]="!guardados.disponible"
+                    (alternar)="alternarGuardado(destino.slug, destino.titulo, destino.pais.nombre)"
+                  />
+                </span>
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+        <a [routerLink]="['/destinos']" [queryParams]="{ mes: store.mes() }">
+          Filtrar {{ nombreMesActual() }} en Explorar
+        </a>
+      }
+    }
+  </section>
+}

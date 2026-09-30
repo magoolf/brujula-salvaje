@@ -1,8 +1,8 @@
 /**
  * Navegación global del sitio público (GI-01 y GI-02, BLUEPRINT §10 y §17).
- * RULE-030: solo se enlazan funcionalidades MUST (sus rutas definitivas del sitemap, DEC-AUTO-046);
- * Colecciones*, Cuándo ir*, Guardados* y Glosario* (SHOULD/COULD) se añadirán cuando sus features
- * estén implementadas.
+ * RULE-030: solo se enlazan funcionalidades ya implementadas (sus rutas definitivas del sitemap,
+ * DEC-AUTO-046). TKT-008 añade Cuándo ir (SHOULD) y Guardados (COULD); Colecciones* y Glosario*
+ * (MOD-005, TKT-009) se añadirán cuando esa feature exista.
  */
 export interface EnlaceNavegacion {
   readonly etiqueta: string;
@@ -16,6 +16,8 @@ export const NAVEGACION_PRINCIPAL: readonly EnlaceNavegacion[] = [
   { etiqueta: 'Tipos de aventura', ruta: '/tipos-de-aventura', id: 'tipos-de-aventura' },
   { etiqueta: 'Itinerarios', ruta: '/itinerarios', id: 'itinerarios' },
   { etiqueta: 'Guías', ruta: '/guias', id: 'guias' },
+  { etiqueta: 'Cuándo ir', ruta: '/cuando-ir', id: 'cuando-ir' },
+  { etiqueta: 'Guardados', ruta: '/guardados', id: 'guardados' },
 ];
 
 export const NAVEGACION_INSTITUCIONAL: readonly EnlaceNavegacion[] = [

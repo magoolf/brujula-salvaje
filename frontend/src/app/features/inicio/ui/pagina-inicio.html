@@ -1,0 +1,153 @@
+@if (store.error(); as error) {
+  <div class="bs-contenedor bloque-estado">
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  </div>
+} @else if (store.inicio() === null) {
+  <div class="bs-contenedor bloque-estado" aria-busy="true">
+    <span class="bs-solo-lectores" role="status">Cargando inicio…</span>
+  </div>
+} @else if (vacio()) {
+  <section class="bs-contenedor vacio" data-testid="inicio-vacio">
+    <h1>Contenido en preparación</h1>
+    <p>Mientras tanto, conoce cómo trabajamos.</p>
+    <div class="salidas">
+      <a routerLink="/acerca-de">Acerca de</a>
+      <a routerLink="/mapa-del-sitio">Mapa del sitio</a>
+    </div>
+  </section>
+} @else if (store.inicio(); as inicio) {
+  <section class="bloque-principal" data-testid="inicio-bloque-principal">
+    @if (inicio.hero?.imagen; as imagen) {
+      <img class="imagen-principal" [src]="imagen.src" [alt]="imagen.alt" width="1920" height="1080" fetchpriority="high" />
+    }
+    <div class="scrim"></div>
+    <div class="bs-contenedor contenido-principal">
+      <p class="bs-overline overline-marca">{{ marca }}</p>
+      <h1 class="titular">{{ inicio.hero?.titular ?? 'Aventuras reales, contadas con honestidad' }}</h1>
+      <p class="subtitulo">
+        {{ inicio.hero?.subtitulo ?? 'Destinos, itinerarios y guías de aventura verificados por nuestro equipo editorial.' }}
+      </p>
+      <div class="cta">
+        <a routerLink="/destinos" appBoton variante="accent" tamano="lg" data-testid="inicio-cta-explorar">
+          Explorar destinos
+        </a>
+        <button
+          type="button"
+          appBoton
+          variante="ghost-inverse"
+          tamano="lg"
+          [cargando]="buscandoSorpresa()"
+          data-testid="inicio-cta-sorprendeme"
+          (click)="sorprenderme()"
+        >
+          Sorpréndeme
+        </button>
+      </div>
+      <div class="busqueda-principal">
+        <app-campo-busqueda
+          variante="grande"
+          idCampo="busqueda-inicio"
+          testId="inicio-busqueda"
+          [etiquetaOculta]="false"
+          [soloIcono]="false"
+        />
+      </div>
+    </div>
+  </section>
+
+  <div class="bs-contenedor secciones">
+    @if (inicio.tipos.length > 0) {
+      <section aria-labelledby="tipos-titulo">
+        <h2 id="tipos-titulo">Explora por tipo de aventura</h2>
+        <ul class="rejilla rejilla--tipos">
+          @for (tipo of inicio.tipos; track tipo.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="tipo.titulo"
+                [ruta]="'/tipos-de-aventura/' + tipo.slug"
+                [imagen]="tipo.imagen"
+                [nivelTitulo]="3"
+              >
+                <app-medidor-dificultad [valor]="tipo.nivelExigencia" [compacto]="true" etiqueta="Exigencia" />
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (inicio.destinos.length > 0) {
+      <section aria-labelledby="destinos-titulo">
+        <h2 id="destinos-titulo">Destinos destacados</h2>
+        <ul class="rejilla">
+          @for (destino of inicio.destinos; track destino.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="destino.titulo"
+                [ruta]="'/destinos/' + destino.slug"
+                [overline]="destino.pais.nombre"
+                [imagen]="destino.imagen"
+                [nivelTitulo]="3"
+              >
+                <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+        <a routerLink="/destinos">Ver todos los destinos</a>
+      </section>
+    }
+
+    @if (inicio.itinerarios.length > 0) {
+      <section aria-labelledby="itinerarios-titulo">
+        <h2 id="itinerarios-titulo">Itinerarios para planear</h2>
+        <ul class="rejilla">
+          @for (itinerario of inicio.itinerarios; track itinerario.slug) {
+            <li>
+              <app-tarjeta-contenido
+                [titulo]="itinerario.titulo"
+                [ruta]="'/itinerarios/' + itinerario.slug"
+                [imagen]="itinerario.imagen"
+                [nivelTitulo]="3"
+              >
+                <app-medidor-dificultad [valor]="itinerario.dificultad" [compacto]="true" />
+                <p>{{ itinerario.duracionDias }} días</p>
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+        <a routerLink="/itinerarios">Ver todos los itinerarios</a>
+      </section>
+    }
+
+    @if (inicio.guias.length > 0) {
+      <section aria-labelledby="guias-titulo">
+        <h2 id="guias-titulo">Guías expertas</h2>
+        <ul class="rejilla">
+          @for (guia of inicio.guias; track guia.slug) {
+            <li>
+              <app-tarjeta-contenido [titulo]="guia.titulo" [ruta]="'/guias/' + guia.slug" [imagen]="guia.imagen" [nivelTitulo]="3">
+                <p>{{ guia.resumen }}</p>
+              </app-tarjeta-contenido>
+            </li>
+          }
+        </ul>
+        <a routerLink="/guias">Ver todas las guías</a>
+      </section>
+    }
+
+    <section aria-labelledby="mosaico-titulo">
+      <h2 id="mosaico-titulo">Otras formas de explorar</h2>
+      <ul class="mosaico">
+        @for (acceso of accesosMosaico; track acceso.id) {
+          <li>
+            <a [routerLink]="acceso.ruta" class="acceso" [attr.data-testid]="'inicio-mosaico-' + acceso.id">
+              <span class="acceso-etiqueta">{{ acceso.etiqueta }}</span>
+              <span class="acceso-descripcion">{{ acceso.descripcion }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  </div>
+}

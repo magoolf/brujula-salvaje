@@ -1,0 +1,34 @@
+<section class="bs-contenedor pagina" data-testid="pagina-cuando-ir">
+  <h1>¿Dónde ir cada mes?</h1>
+  <p class="entradilla">Explora destinos según la mejor época del año para visitarlos.</p>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" />
+  } @else if (store.cargando() && store.meses().length === 0) {
+    <app-estado-cargando forma="tarjeta" [cantidad]="12" etiqueta="Cargando meses…" />
+  } @else {
+    <ol class="rejilla-meses">
+      @for (mes of store.meses(); track mes.mes) {
+        <li>
+          <a [routerLink]="['/cuando-ir', mes.mes]" class="tarjeta-mes" [attr.aria-label]="mes.nombre + ': ' + mes.numeroDestinos + ' destinos'">
+            @if (mes.destacado?.imagen; as imagen) {
+              <app-imagen-responsiva
+                [src]="imagen.src"
+                [alt]="''"
+                [ancho]="imagen.ancho"
+                [alto]="imagen.alto"
+                [derivados]="imagen.derivados"
+                relacion="4 / 3"
+                sizes="(min-width: 64rem) 16vw, 33vw"
+              />
+            } @else {
+              <div class="sin-imagen" aria-hidden="true">Sin destinos este mes</div>
+            }
+            <span class="nombre-mes">{{ mes.nombre }}</span>
+            <span class="conteo">{{ mes.numeroDestinos }} {{ mes.numeroDestinos === 1 ? 'destino' : 'destinos' }}</span>
+          </a>
+        </li>
+      }
+    </ol>
+  }
+</section>

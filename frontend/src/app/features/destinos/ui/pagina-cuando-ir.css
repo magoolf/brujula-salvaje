@@ -1,0 +1,69 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-6);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.entradilla {
+  color: var(--bs-color-text-muted);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.rejilla-meses {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--bs-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta-mes {
+  display: grid;
+  gap: var(--bs-space-2);
+  text-decoration: none;
+  color: var(--bs-color-text-default);
+}
+
+.tarjeta-mes app-imagen-responsiva,
+.sin-imagen {
+  border-radius: var(--bs-radius-lg);
+}
+
+.sin-imagen {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--bs-color-bg-sunken);
+  color: var(--bs-color-text-muted);
+  text-align: center;
+  padding: var(--bs-space-2);
+}
+
+.nombre-mes {
+  font-weight: var(--bs-font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.conteo {
+  color: var(--bs-color-text-muted);
+  font-size: var(--bs-typography-body-sm-font-size);
+}
+
+@media (min-width: 48rem) {
+  .rejilla-meses {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 64rem) {
+  .rejilla-meses {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 80rem) {
+  .rejilla-meses {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
