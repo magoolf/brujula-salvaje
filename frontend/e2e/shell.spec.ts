@@ -169,6 +169,8 @@ test.describe('Página 404 (SCR-023)', () => {
     await page.getByTestId('no-encontrada-inicio').focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contenido en preparación');
+    // TKT-008: Inicio real (features/inicio); el h1 depende del hero configurado en la API, así
+    // que solo se comprueba que ya no estamos en la 404 (navegación real, no solo cambio de URL).
+    await expect(page.getByTestId('pagina-no-encontrada')).toHaveCount(0);
   });
 });

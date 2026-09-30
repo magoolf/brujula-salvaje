@@ -1,0 +1,32 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-6);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.navegacion-meses {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+}
+
+.navegacion-meses a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--bs-size-target);
+  padding-inline: var(--bs-space-3);
+  border: var(--bs-border-width-control) solid var(--bs-color-border-control);
+  border-radius: var(--bs-radius-pill);
+  text-decoration: none;
+  color: var(--bs-color-text-default);
+  text-transform: capitalize;
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--bs-grid-gutter-xs, var(--bs-space-4));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
