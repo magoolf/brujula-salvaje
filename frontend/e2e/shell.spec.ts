@@ -79,8 +79,16 @@ test.describe('Shell global (GI-01..GI-04)', () => {
       await page.getByTestId('nav-guias').focus();
     }
     if (enlacesTabulables(browserName)) {
-      // chromium/firefox sí soportan activar un enlace enfocado con Enter de forma fiable.
-      await page.getByTestId('nav-guias').press('Enter');
+      // QA (ciclo 2/3, traza inspeccionada): `locator.press('Enter')` reenfoca el elemento por
+      // script antes de pulsar la tecla (aunque ya tuviera foco), y ese reenfoque-por-script es
+      // exactamente lo que en WebKit (más abajo) puede perder el Enter sintético bajo carga — es
+      // decir, introducía en Chromium la misma clase de carrera que se corregía en WebKit.
+      // Reproducido por QA en máquina ociosa: ~35-40 % de fallos en Chromium con `locator.press`,
+      // 0 fallos con `page.keyboard.press` global tras el Tab real. Un usuario real que tabula
+      // hasta el enlace y pulsa Enter no pasa por ningún reenfoque de por medio, así que
+      // `page.keyboard.press('Enter')` (sin volver a enfocar) es además el más fiel al foco real
+      // que ya alcanzó el bucle de Tab de arriba.
+      await page.keyboard.press('Enter');
     } else {
       // WebKit (motor de Playwright), bajo carga del sistema, puede perder por completo la tecla
       // Enter sintética sobre un enlace enfocado por script en vez de por Tab real (reproducido de
