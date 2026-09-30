@@ -39,6 +39,7 @@ ARG READLINE_DEB_VERSION=8.2-6
 ARG SUPERCRONIC_VERSION=v0.2.49
 ARG SUPERCRONIC_SHA256_AMD64=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1
 ARG SUPERCRONIC_SHA256_ARM64=02aa0cb229ba09050cba6638059dadb9eedc2276632ea43d6a57a2f8c1629dd5
+ARG OPENSSL_DEB_VERSION=3.5.7-1~deb13u3
 
 LABEL org.opencontainers.image.title="brujula-backup" \
       org.opencontainers.image.description="pg_dump 18.6 + copia de medios + manifiesto sha256, cifrado con age, rotación 30 días" \
@@ -47,14 +48,27 @@ LABEL org.opencontainers.image.title="brujula-backup" \
 
 # Dependencias de ejecución de pg_dump/pg_restore/psql (libpq: GSSAPI, LDAP; psql: readline).
 # libzstd1, liblz4-1, zlib1g, libssl3t64 y libxxhash0 ya están en la base slim.
+# TKT-OPS-015: mismo DSA-6531-1 que TKT-OPS-014 (infra/db/Dockerfile), aplicado aqui a
+# libssl3t64/openssl-provider-legacy (corrige CVE-2026-84782 -- DTLS info disclosure -- y
+# CVE-2026-75804 -- QUIC DoS --, ambos HIGH). Esta base no trae el paquete "openssl" (solo
+# libssl3t64 y openssl-provider-legacy). Version fijada explicitamente (REGLA 3, cero versiones
+# ambiguas) en el mismo "apt-get install" que ya fija el resto de dependencias: no hace falta
+# --only-upgrade porque estos dos paquetes ya vienen preinstalados en la base y apt-get install
+# con version explicita los actualiza igual (sin ningun purge --force-depends que lo impida).
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
       "age=${AGE_DEB_VERSION}" \
       "libgssapi-krb5-2=${KRB5_DEB_VERSION}" \
       "libldap2=${LDAP_DEB_VERSION}" \
-      "libreadline8t64=${READLINE_DEB_VERSION}"; \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+      "libreadline8t64=${READLINE_DEB_VERSION}" \
+      "libssl3t64=${OPENSSL_DEB_VERSION}" \
+      "openssl-provider-legacy=${OPENSSL_DEB_VERSION}"; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
+    for p in libssl3t64 openssl-provider-legacy; do \
+      v="$(dpkg-query -W -f='${Version}' "$p")"; \
+      case "$v" in "${OPENSSL_DEB_VERSION}") ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
+    done
 
 COPY --from=pgclient --chown=root:root /out/lib/ /usr/local/lib/
 COPY --from=pgclient --chown=root:root /out/bin/ /usr/local/bin/
