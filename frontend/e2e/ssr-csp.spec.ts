@@ -54,17 +54,21 @@ test.describe('SSR, CSP con nonce y healthz', () => {
       expect(html).not.toContain(NONCE);
     }
 
-    // Contenido principal en la respuesta inicial (CON-007) con el shell completo.
+    // Contenido principal en la respuesta inicial (CON-007) con el shell completo. TKT-008
+    // sustituyó la ruta raíz por Inicio (features/inicio): el contenido depende de la API, así
+    // que se comprueba que <main> no llega vacío (hero real, o el estado de error/vacío propios
+    // de la página, nunca una carga en blanco) en vez de un texto fijo del antiguo marcador.
     expect(html).toContain('<html lang="es"');
     for (const marca of [
       'data-testid="skip-link"',
       'data-testid="cabecera-sitio"',
       'id="contenido-principal"',
       'data-testid="pie-sitio"',
-      'Contenido en preparación',
     ]) {
       expect(html).toContain(marca);
     }
+    const cuerpoPrincipal = /<main[^>]*id="contenido-principal"[^>]*>([\s\S]*?)<\/main>/.exec(html)?.[1] ?? '';
+    expect(cuerpoPrincipal.replace(/<[^>]+>/g, '').trim().length).toBeGreaterThan(0);
 
     await page.setContent(html);
     const scripts = await page.locator('script').evaluateAll((nodos) =>

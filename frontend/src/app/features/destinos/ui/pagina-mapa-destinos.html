@@ -1,0 +1,113 @@
+<section class="bs-contenedor pagina-mapa" data-testid="pagina-mapa-destinos">
+  <h1>Mapa de destinos</h1>
+
+  <div class="presets" role="group" aria-label="Regiones">
+    <button
+      type="button"
+      class="preset"
+      [attr.aria-pressed]="regionActiva() === null"
+      data-testid="mapa-preset-mundo"
+      (click)="elegirRegion(null)"
+    >
+      Mundo
+    </button>
+    @for (region of regionesDisponibles(); track region.slug) {
+      <button
+        type="button"
+        class="preset"
+        [attr.aria-pressed]="regionActiva() === region.slug"
+        (click)="elegirRegion(region.slug)"
+      >
+        {{ region.nombre }}
+      </button>
+    }
+  </div>
+
+  <a routerLink="/destinos" data-testid="mapa-ver-listado">Ver como listado con filtros</a>
+  <a class="salto" href="#lista-destinos-mapa">Ir a la lista de destinos</a>
+
+  @if (store.error(); as error) {
+    <app-banner variante="info" titulo="El mapa no está disponible en este momento" testId="mapa-error">
+      <p>{{ error.mensaje }} Aquí tienes todos los destinos por región.</p>
+    </app-banner>
+  }
+
+  @if (store.cargando() && store.puntos().length === 0 && !store.error()) {
+    <app-estado-cargando forma="imagen" [cantidad]="1" etiqueta="Cargando mapa…" />
+  } @else if (store.puntos().length === 0 && !store.error()) {
+    <app-estado-vacio titulo="Aún no hay destinos publicados">
+      <div estado-salidas>
+        <a routerLink="/">Ir al inicio</a>
+        <a routerLink="/guias">Ver guías</a>
+      </div>
+    </app-estado-vacio>
+  } @else if (store.puntos().length > 0) {
+    <div class="lienzo">
+      @if (!store.error()) {
+        <section aria-label="Mapa interactivo" class="mapa" data-testid="mapa-lienzo">
+          <svg class="fondo" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <rect width="100" height="100" class="oceano" />
+            <line x1="0" y1="25" x2="100" y2="25" class="graticula" />
+            <line x1="0" y1="50" x2="100" y2="50" class="graticula graticula--ecuador" />
+            <line x1="0" y1="75" x2="100" y2="75" class="graticula" />
+            <line x1="25" y1="0" x2="25" y2="100" class="graticula" />
+            <line x1="50" y1="0" x2="50" y2="100" class="graticula" />
+            <line x1="75" y1="0" x2="75" y2="100" class="graticula" />
+          </svg>
+          @for (elemento of elementos(); track esCluster(elemento) ? 'c' + elemento.xPct + elemento.yPct : comoMarcador(elemento).punto.slug) {
+            @if (esCluster(elemento)) {
+              <button
+                type="button"
+                class="cluster"
+                [style.left.%]="elemento.xPct"
+                [style.top.%]="elemento.yPct"
+                [attr.aria-label]="elemento.puntos.length + ' destinos en ' + elemento.region + '. Acercar'"
+                (click)="elegirRegion(elemento.puntos[0].region.slug)"
+              >
+                {{ elemento.puntos.length }}
+              </button>
+            } @else {
+              <button
+                type="button"
+                class="marcador"
+                [class.marcador--activo]="marcadorActivo() === comoMarcador(elemento).punto.slug"
+                [style.left.%]="elemento.xPct"
+                [style.top.%]="elemento.yPct"
+                [attr.aria-label]="comoMarcador(elemento).punto.titulo + ', ' + comoMarcador(elemento).punto.pais"
+                [attr.aria-expanded]="marcadorActivo() === comoMarcador(elemento).punto.slug"
+                data-testid="mapa-marcador"
+                (click)="alternarMarcador(comoMarcador(elemento).punto.slug)"
+              ></button>
+            }
+          }
+          @if (puntoActivo(); as punto) {
+            <div class="minitarjeta" role="dialog" [attr.aria-label]="punto.titulo" data-testid="mapa-minitarjeta">
+              <button type="button" class="cerrar-mini" aria-label="Cerrar" (click)="cerrarMinitarjeta()">×</button>
+              <p class="mini-titulo">{{ punto.titulo }}</p>
+              <p class="mini-pais">{{ punto.pais }}</p>
+              <app-medidor-dificultad [valor]="punto.dificultad" [compacto]="true" />
+              <a [routerLink]="['/destinos', punto.slug]">Ver destino</a>
+            </div>
+          }
+        </section>
+      }
+
+      <section id="lista-destinos-mapa" class="lista" tabindex="-1" aria-label="Todos los destinos por región">
+        <h2>Todos los destinos por región</h2>
+        @for (grupo of gruposPorRegion(); track grupo.region.slug) {
+          <section>
+            <h3>{{ grupo.region.nombre }}</h3>
+            <ul>
+              @for (destino of grupo.destinos; track destino.slug) {
+                <li>
+                  <a [routerLink]="['/destinos', destino.slug]">{{ destino.titulo }}</a>
+                  <span class="mini-pais">{{ destino.pais }}</span>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </section>
+    </div>
+  }
+</section>

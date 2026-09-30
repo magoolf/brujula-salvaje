@@ -40,9 +40,16 @@ describe('App (shell global)', () => {
     const router = TestBed.inject(Router);
     await router.navigateByUrl('/');
     await fixture.whenStable();
+    // TKT-008: la raíz ahora resuelve a features/inicio (PaginaInicio), no al antiguo placeholder
+    // pagina-en-preparacion. Esta prueba unitaria no tiene backend real (a diferencia del e2e
+    // contra el stack de compose.yaml), así que PaginaInicio puede quedar en su estado de error de
+    // red (ST-ERROR: "No pudimos cargar esta sección") en vez del bloque principal con datos; por
+    // eso se comprueba la presencia del componente de la ruta real, no un testid que depende de una
+    // respuesta de red exitosa (mismo criterio ya aplicado en e2e/shell.spec.ts para este caso).
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-pagina-inicio')).not.toBeNull();
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pagina-en-preparacion"]'),
-    ).not.toBeNull();
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pagina-no-encontrada"]'),
+    ).toBeNull();
     await router.navigateByUrl('/ruta/que-no-existe');
     await fixture.whenStable();
     expect(

@@ -1,0 +1,261 @@
+<section class="bs-contenedor pagina" data-testid="pagina-destinos">
+  <header class="cabecera">
+    <div>
+      <h1>Explorar destinos</h1>
+      @if (store.pagina(); as p) {
+        <p class="recuento" role="status" aria-live="polite" data-testid="destinos-recuento">
+          {{ p.total }} {{ p.total === 1 ? 'destino' : 'destinos' }}
+        </p>
+      }
+    </div>
+    <a routerLink="/destinos/mapa" data-testid="destinos-ver-mapa">Ver en el mapa</a>
+  </header>
+
+  <nav aria-label="Ordenar por" class="orden">
+    <span class="orden-etiqueta" id="orden-etiqueta">Ordenar:</span>
+    <ul aria-labelledby="orden-etiqueta">
+      @for (o of ordenesDisponibles; track o) {
+        <li>
+          <a
+            [routerLink]="[]"
+            [queryParams]="queryParamsOrden(o)"
+            queryParamsHandling="merge"
+            [attr.aria-current]="filtros().orden === o ? 'true' : null"
+            [attr.data-testid]="'orden-' + o"
+            >{{ etiquetasOrden[o] }}</a
+          >
+        </li>
+      }
+    </ul>
+  </nav>
+
+  @if (hayActivos()) {
+    <div class="activos" aria-label="Filtros activos" data-testid="filtros-activos">
+      @for (f of filtrosActivos(); track f.clave) {
+        <a
+          [routerLink]="[]"
+          [queryParams]="f.queryParams"
+          queryParamsHandling="merge"
+          class="chip-enlace"
+          [attr.aria-label]="'Quitar filtro ' + f.etiqueta"
+        >
+          {{ f.etiqueta }} <span aria-hidden="true">×</span>
+        </a>
+      }
+      <a [routerLink]="[]" [queryParams]="limpiarQueryParams" queryParamsHandling="merge" class="limpiar">
+        Limpiar filtros
+      </a>
+    </div>
+  }
+
+  <div class="cuerpo">
+    <aside class="filtros" aria-label="Filtros de destinos" data-testid="filtros-destinos">
+      @if (store.facetas(); as facetas) {
+        <fieldset>
+          <legend>Tipo de aventura</legend>
+          <ul class="opciones">
+            @for (t of facetas.tipos; track t.slug) {
+              <li>
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="queryParamsTipo(t.slug)"
+                  queryParamsHandling="merge"
+                  class="opcion"
+                  [attr.aria-current]="filtros().tipo.includes(t.slug) ? 'true' : null"
+                  >{{ t.nombre }}</a
+                >
+              </li>
+            }
+          </ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Región</legend>
+          <ul class="opciones">
+            @for (r of facetas.regiones; track r.slug) {
+              <li>
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="queryParamsRegion(r.slug)"
+                  queryParamsHandling="merge"
+                  class="opcion"
+                  [attr.aria-current]="filtros().region === r.slug ? 'true' : null"
+                  >{{ r.nombre }}</a
+                >
+              </li>
+            }
+          </ul>
+        </fieldset>
+
+        @for (r of facetas.regiones; track r.slug) {
+          @if (r.slug === filtros().region && r.paises.length > 0) {
+            <fieldset>
+              <legend>País en {{ r.nombre }}</legend>
+              <ul class="opciones">
+                @for (p of r.paises; track p.slug) {
+                  <li>
+                    <a
+                      [routerLink]="[]"
+                      [queryParams]="queryParamsPais(p.slug)"
+                      queryParamsHandling="merge"
+                      class="opcion"
+                      [attr.aria-current]="filtros().pais === p.slug ? 'true' : null"
+                      >{{ p.nombre }}</a
+                    >
+                  </li>
+                }
+              </ul>
+            </fieldset>
+          }
+        }
+
+        <fieldset>
+          <legend>Dificultad</legend>
+          <form method="get" action="/destinos" class="rango-dificultad" data-testid="form-dificultad">
+            @for (campo of camposOcultosDificultad(); track campo.nombre + campo.valor) {
+              <input type="hidden" [name]="campo.nombre" [value]="campo.valor" />
+            }
+            <label>
+              Desde
+              <select name="dificultad_min">
+                <option value="">1</option>
+                @for (n of facetas.dificultad; track n.nivel) {
+                  <option [value]="n.nivel" [selected]="filtros().dificultadMin === n.nivel">
+                    {{ n.nivel }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label>
+              Hasta
+              <select name="dificultad_max">
+                @for (n of facetas.dificultad; track n.nivel) {
+                  <option [value]="n.nivel" [selected]="filtros().dificultadMax === n.nivel">
+                    {{ n.nivel }}
+                  </option>
+                }
+              </select>
+            </label>
+            <button type="submit" appBoton variante="secondary" tamano="sm">Aplicar</button>
+          </form>
+        </fieldset>
+
+        <fieldset>
+          <legend>Mes (mejor época)</legend>
+          <ul class="opciones opciones--mes">
+            @for (m of meses; track m) {
+              <li>
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="queryParamsMes(m)"
+                  queryParamsHandling="merge"
+                  class="opcion opcion--mes"
+                  [attr.aria-current]="filtros().mes === m ? 'true' : null"
+                  [attr.aria-label]="nombreCompletoMes(m)"
+                  >{{ abreviaturaMes(m) }}</a
+                >
+              </li>
+            }
+          </ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Duración</legend>
+          <ul class="opciones">
+            @for (t of facetas.tramosDuracion; track t.codigo) {
+              <li>
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="queryParamsDuracion(t.codigo)"
+                  queryParamsHandling="merge"
+                  class="opcion"
+                  [attr.aria-current]="filtros().duracion.includes(t.codigo) ? 'true' : null"
+                  >{{ t.etiqueta }}</a
+                >
+              </li>
+            }
+          </ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Presupuesto</legend>
+          <ul class="opciones">
+            @for (n of facetas.presupuesto; track n.nivel) {
+              <li>
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="queryParamsPresupuesto(n.nivel)"
+                  queryParamsHandling="merge"
+                  class="opcion"
+                  [attr.aria-current]="filtros().presupuesto.includes(n.nivel) ? 'true' : null"
+                >
+                  <app-medidor-presupuesto [valor]="n.nivel" [etiqueta]="n.etiqueta" [compacto]="true" />
+                </a>
+              </li>
+            }
+          </ul>
+        </fieldset>
+      } @else {
+        <app-estado-cargando forma="linea" [cantidad]="8" etiqueta="Cargando filtros…" />
+      }
+    </aside>
+
+    <div class="resultados">
+      @if (store.error(); as error) {
+        <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+      } @else if (store.pagina() === null) {
+        <app-estado-cargando forma="tarjeta" [cantidad]="6" etiqueta="Cargando destinos…" />
+      } @else if (store.pagina(); as p) {
+        @if (p.resultados.length === 0) {
+          <app-estado-vacio titulo="Ningún destino cumple estos filtros" data-testid="destinos-vacio">
+            <p>Prueba quitando un filtro o explora por tipo de aventura:</p>
+            <div estado-salidas>
+              @if (filtrosActivos().length > 0) {
+                <a
+                  [routerLink]="[]"
+                  [queryParams]="filtrosActivos()[filtrosActivos().length - 1].queryParams"
+                  queryParamsHandling="merge"
+                >
+                  Quitar el último filtro ({{ filtrosActivos()[filtrosActivos().length - 1].etiqueta }})
+                </a>
+              }
+              <a [routerLink]="[]" [queryParams]="limpiarQueryParams" queryParamsHandling="merge">
+                Limpiar filtros
+              </a>
+              @for (t of store.facetas()?.tipos ?? []; track t.slug) {
+                <a [routerLink]="['/destinos']" [queryParams]="{ tipo: [t.slug] }">{{ t.nombre }}</a>
+              }
+            </div>
+          </app-estado-vacio>
+        } @else {
+          <ul class="rejilla" [attr.aria-busy]="store.cargando()" data-testid="destinos-rejilla">
+            @for (destino of p.resultados; track destino.slug) {
+              <li>
+                <app-tarjeta-contenido
+                  [titulo]="destino.titulo"
+                  [ruta]="'/destinos/' + destino.slug"
+                  [overline]="destino.pais.nombre"
+                  [imagen]="destino.imagen"
+                  testId="tarjeta-destino"
+                >
+                  <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
+                  <p>{{ tiposTexto(destino.tipos) }}</p>
+                  <span tarjeta-accion>
+                    <app-boton-guardar
+                      [titulo]="destino.titulo"
+                      [guardado]="estaGuardado(destino.slug)"
+                      [deshabilitado]="!guardados.disponible"
+                      testId="boton-guardar-destino"
+                      (alternar)="alternarGuardado(destino.slug, destino.titulo, destino.pais.nombre)"
+                    />
+                  </span>
+                </app-tarjeta-contenido>
+              </li>
+            }
+          </ul>
+          <app-paginacion [paginaActual]="p.pagina" [totalPaginas]="p.totalPaginas" />
+        }
+      }
+    </div>
+  </div>
+</section>

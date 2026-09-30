@@ -1,0 +1,193 @@
+.bloque-estado {
+  padding-block: var(--bs-space-12);
+}
+
+.ficha {
+  display: grid;
+  gap: var(--bs-space-8);
+  padding-block: var(--bs-space-4) var(--bs-space-16);
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+}
+
+.ubicacion {
+  color: var(--bs-color-text-muted);
+}
+
+.ubicacion a {
+  color: inherit;
+}
+
+.acciones {
+  display: flex;
+  gap: var(--bs-space-2);
+}
+
+.mensaje-compartir {
+  color: var(--bs-color-status-success-fg);
+}
+
+.portada {
+  margin: 0;
+}
+
+.portada img,
+.portada app-imagen-responsiva {
+  border-radius: var(--bs-radius-lg);
+}
+
+.portada figcaption {
+  margin-top: var(--bs-space-2);
+  color: var(--bs-color-text-muted);
+  font-size: var(--bs-typography-caption-font-size);
+}
+
+.resumen {
+  font-size: var(--bs-typography-body-lg-font-size);
+  line-height: var(--bs-typography-body-lg-line-height);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.hechos-clave {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--bs-space-4);
+  margin: 0;
+  padding: var(--bs-space-4);
+  border-radius: var(--bs-radius-lg);
+  background: var(--bs-color-bg-surface);
+}
+
+.hechos-clave dt {
+  font-size: var(--bs-typography-body-sm-font-size);
+  color: var(--bs-color-text-muted);
+}
+
+.hechos-clave dd {
+  margin: 0;
+  display: grid;
+  gap: var(--bs-space-1);
+}
+
+.meses-mini {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--bs-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--bs-typography-caption-font-size);
+  text-transform: capitalize;
+}
+
+.meses-mini li {
+  text-align: center;
+  padding-block: var(--bs-space-1);
+  border-radius: var(--bs-radius-sm);
+  color: var(--bs-color-text-muted);
+}
+
+.meses-mini li.activo {
+  background: var(--bs-color-action-selected-bg);
+  color: var(--bs-color-text-brand);
+  font-weight: var(--bs-font-weight-semibold);
+}
+
+.galeria {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: var(--bs-space-2);
+  margin: var(--bs-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.miniatura {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: none;
+}
+
+.cuerpo-enriquecido {
+  max-width: var(--bs-size-measure-prose);
+  line-height: var(--bs-typography-body-lg-line-height);
+}
+
+/* El texto enriquecido llega por [innerHTML] (ya saneado en el servidor y por el sanitizer de
+   Angular): sus nodos no reciben el atributo de encapsulación, así que se estiliza con ::ng-deep. */
+.cuerpo-enriquecido ::ng-deep a {
+  color: var(--bs-color-text-link);
+}
+
+.etiquetas,
+.rejilla,
+.fuentes {
+  margin: var(--bs-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2);
+}
+
+.etiqueta {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--bs-size-target);
+  padding-inline: var(--bs-space-3);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-color-bg-brand-subtle);
+  color: var(--bs-color-text-brand);
+  text-decoration: none;
+  font-weight: var(--bs-font-weight-semibold);
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--bs-grid-gutter-xs, var(--bs-space-4));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+}
+
+.fuentes li {
+  padding-block: var(--bs-space-1);
+}
+
+.pie-ficha {
+  display: grid;
+  gap: var(--bs-space-4);
+  padding-top: var(--bs-space-6);
+  border-top: 1px solid var(--bs-color-border-subtle);
+}
+
+.autoria {
+  color: var(--bs-color-text-muted);
+  font-size: var(--bs-typography-body-sm-font-size);
+}
+
+.descargo {
+  padding: var(--bs-space-3);
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-color-status-warning-bg);
+  color: var(--bs-color-status-warning-fg);
+  font-size: var(--bs-typography-body-sm-font-size);
+}
+
+@media (min-width: 64rem) {
+  .hechos-clave {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

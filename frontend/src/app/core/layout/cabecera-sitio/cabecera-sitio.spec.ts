@@ -26,7 +26,9 @@ describe('CabeceraSitio (GI-01)', () => {
       a.getAttribute('href'),
     ]);
     expect(enlaces).toEqual(NAVEGACION_PRINCIPAL.map((e) => [e.etiqueta, e.ruta]));
-    expect(raiz.textContent).not.toMatch(/Colecciones|Cuándo ir|Guardados/);
+    // TKT-008 implementa Cuándo ir y Guardados (ya aparecen); Colecciones sigue sin implementar
+    // (MOD-005, TKT-009) y RULE-030 exige que no tenga enlace hasta entonces.
+    expect(raiz.textContent).not.toMatch(/Colecciones/);
     expect(
       raiz.querySelector('form[role="search"][data-testid="cabecera-busqueda"]'),
     ).not.toBeNull();

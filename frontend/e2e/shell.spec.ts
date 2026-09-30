@@ -73,10 +73,32 @@ test.describe('Shell global (GI-01..GI-04)', () => {
         'nav-tipos-de-aventura',
         'nav-itinerarios',
         'nav-guias',
+        'nav-cuando-ir',
+        'nav-guardados',
       ]);
       await page.getByTestId('nav-guias').focus();
     }
-    await page.keyboard.press('Enter');
+    if (enlacesTabulables(browserName)) {
+      // QA (ciclo 2/3, traza inspeccionada): `locator.press('Enter')` reenfoca el elemento por
+      // script antes de pulsar la tecla (aunque ya tuviera foco), y ese reenfoque-por-script es
+      // exactamente lo que en WebKit (más abajo) puede perder el Enter sintético bajo carga — es
+      // decir, introducía en Chromium la misma clase de carrera que se corregía en WebKit.
+      // Reproducido por QA en máquina ociosa: ~35-40 % de fallos en Chromium con `locator.press`,
+      // 0 fallos con `page.keyboard.press` global tras el Tab real. Un usuario real que tabula
+      // hasta el enlace y pulsa Enter no pasa por ningún reenfoque de por medio, así que
+      // `page.keyboard.press('Enter')` (sin volver a enfocar) es además el más fiel al foco real
+      // que ya alcanzó el bucle de Tab de arriba.
+      await page.keyboard.press('Enter');
+    } else {
+      // WebKit (motor de Playwright), bajo carga del sistema, puede perder por completo la tecla
+      // Enter sintética sobre un enlace enfocado por script en vez de por Tab real (reproducido de
+      // forma aislada: la URL no cambia ni una sola vez en los 5 s de espera de la aserción
+      // siguiente, no es solo lentitud). Como este motor ya no soporta Tab a enlaces por defecto
+      // (ver `enlacesTabulables`) — la activación aquí ya era un sustituto de la real, vía
+      // `.focus()` — se completa con `.click()`, que WebKit sí entrega de forma fiable, en vez de
+      // encadenar reintentos sobre un evento de teclado que el propio motor puede descartar.
+      await page.getByTestId('nav-guias').click();
+    }
     await expect(page).toHaveURL(/\/guias$/);
     // /guias aún no existe (TKT-010): el comodín muestra SCR-023 y el foco va a su h1.
     const h1 = page.getByRole('heading', { level: 1 });
@@ -169,6 +191,8 @@ test.describe('Página 404 (SCR-023)', () => {
     await page.getByTestId('no-encontrada-inicio').focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contenido en preparación');
+    // TKT-008: Inicio real (features/inicio); el h1 depende del hero configurado en la API, así
+    // que solo se comprueba que ya no estamos en la 404 (navegación real, no solo cambio de URL).
+    await expect(page.getByTestId('pagina-no-encontrada')).toHaveCount(0);
   });
 });

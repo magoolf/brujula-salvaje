@@ -1,0 +1,91 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
+
+import { DestinosRepositorio } from '../data/destinos.repositorio';
+import { DestinoDetalle } from '../domain/modelos';
+import { DestinoDetalleStore } from './destino-detalle.store';
+
+const DESTINO = { slug: 'patagonia', titulo: 'Patagonia' } as DestinoDetalle;
+
+describe('DestinoDetalleStore', () => {
+  let paramMap$: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let detalle: ReturnType<typeof vi.fn>;
+  let textoDescargo: ReturnType<typeof vi.fn>;
+
+  function crear(detalleImpl: () => Promise<DestinoDetalle> = () => Promise.resolve(DESTINO)) {
+    paramMap$ = new BehaviorSubject(convertToParamMap({ slug: 'patagonia' }));
+    detalle = vi.fn(detalleImpl);
+    textoDescargo = vi.fn().mockResolvedValue('Descargo de prueba');
+    TestBed.configureTestingModule({
+      providers: [
+        DestinoDetalleStore,
+        { provide: ActivatedRoute, useValue: { paramMap: paramMap$ } },
+        { provide: DestinosRepositorio, useValue: { detalle, textoDescargo } },
+      ],
+    });
+    return TestBed.inject(DestinoDetalleStore);
+  }
+
+  it('carga el destino del slug actual y el descargo de responsabilidad', async () => {
+    const store = crear();
+    await vi.waitFor(() => expect(store.destino()).not.toBeNull());
+    expect(detalle).toHaveBeenCalledWith('patagonia');
+    await vi.waitFor(() => expect(store.descargo()).toBe('Descargo de prueba'));
+    expect(store.esNoEncontrado()).toBe(false);
+    expect(store.esRetirado()).toBe(false);
+    expect(store.retirado()).toBeNull();
+    expect(store.cargando()).toBe(false);
+  });
+
+  it('recarga al cambiar el slug (navegación entre fichas)', async () => {
+    const store = crear();
+    await vi.waitFor(() => expect(store.destino()).not.toBeNull());
+    paramMap$.next(convertToParamMap({ slug: 'otro' }));
+    await vi.waitFor(() => expect(detalle).toHaveBeenCalledWith('otro'));
+  });
+
+  it('404 → esNoEncontrado, sin datos de retirado', async () => {
+    const store = crear(() =>
+      Promise.reject(new HttpErrorResponse({ status: 404, error: { code: 'no_encontrado' } })),
+    );
+    await vi.waitFor(() => expect(store.esNoEncontrado()).toBe(true));
+    expect(store.esRetirado()).toBe(false);
+  });
+
+  it('410 → esRetirado, expone alternativas y listado_padre desde el ErrorApi', async () => {
+    const store = crear(() =>
+      Promise.reject(
+        new HttpErrorResponse({
+          status: 410,
+          error: {
+            code: 'retirado',
+            listado_padre: '/destinos',
+            alternativas: [{ tipo: 'DESTINO', slug: 'otro', titulo: 'Otro', origen: 'CURADO' }],
+          },
+        }),
+      ),
+    );
+    await vi.waitFor(() => expect(store.esRetirado()).toBe(true));
+    expect(store.retirado()).toEqual({
+      rutaListadoPadre: '/destinos',
+      alternativas: [expect.objectContaining({ slug: 'otro' })],
+    });
+  });
+
+  it('410 sin listado_padre en el ErrorApi: usa /destinos por defecto', async () => {
+    const store = crear(() =>
+      Promise.reject(new HttpErrorResponse({ status: 410, error: { code: 'retirado' } })),
+    );
+    await vi.waitFor(() => expect(store.esRetirado()).toBe(true));
+    expect(store.retirado()).toEqual({ rutaListadoPadre: '/destinos', alternativas: [] });
+  });
+
+  it('recargar() vuelve a pedir el destino', async () => {
+    const store = crear();
+    await vi.waitFor(() => expect(store.destino()).not.toBeNull());
+    store.recargar();
+    await vi.waitFor(() => expect(detalle).toHaveBeenCalledTimes(2));
+  });
+});

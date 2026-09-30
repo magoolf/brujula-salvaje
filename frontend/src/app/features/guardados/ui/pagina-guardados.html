@@ -1,0 +1,76 @@
+<section class="bs-contenedor pagina" data-testid="pagina-guardados">
+  <h1>Mis aventuras guardadas</h1>
+  <p class="nota">Se guardan solo en este navegador. No enviamos esta lista a ningún servidor.</p>
+
+  @if (!hidratado()) {
+    <app-estado-cargando forma="fila" [cantidad]="3" etiqueta="Cargando tus aventuras guardadas…" />
+  } @else if (!guardados.disponible) {
+    <app-banner variante="info" titulo="No podemos mostrar tus guardados">
+      <p>El almacenamiento local no está disponible en este navegador (por ejemplo, en modo privado).</p>
+      <a banner-accion routerLink="/destinos">Explorar destinos</a>
+    </app-banner>
+  } @else if (elementos().length === 0) {
+    <app-estado-vacio titulo="Aún no has guardado aventuras">
+      <p>Guarda destinos e itinerarios para volver a ellos rápidamente.</p>
+      <div estado-salidas>
+        <a routerLink="/destinos">Explorar destinos</a>
+        <button type="button" appBoton variante="secondary" [cargando]="buscandoSorpresa()" (click)="sorprenderme()">
+          Sorpréndeme
+        </button>
+      </div>
+    </app-estado-vacio>
+  } @else {
+    <p class="recuento" role="status">{{ elementos().length }} guardadas</p>
+
+    @if (ultimoQuitado(); as ultimo) {
+      <div role="status" class="aviso-quitado">
+        <span>Quitaste {{ ultimo.elemento.titulo }}.</span>
+        <button type="button" appBoton variante="ghost" tamano="sm" (click)="deshacerQuitar()">Deshacer</button>
+      </div>
+    }
+
+    <ul class="lista">
+      @for (elemento of elementos(); track elemento.tipo + ':' + elemento.slug) {
+        <li class="fila">
+          <div>
+            <p class="tipo bs-overline">{{ elemento.tipo === 'DESTINO' ? 'Destino' : 'Itinerario' }}</p>
+            <a [routerLink]="rutaDe(elemento)" class="titulo">{{ elemento.titulo }}</a>
+            @if (elemento.pais) {
+              <p class="pais">{{ elemento.pais }}</p>
+            }
+          </div>
+          <button
+            type="button"
+            appBoton
+            variante="ghost"
+            tamano="sm"
+            [attr.aria-label]="'Quitar ' + elemento.titulo + ' de guardados'"
+            (click)="quitar(elemento)"
+          >
+            Quitar
+          </button>
+        </li>
+      }
+    </ul>
+
+    @if (confirmandoVaciar()) {
+      <div role="alertdialog" aria-labelledby="vaciar-titulo" class="confirmacion">
+        <p id="vaciar-titulo" class="titulo-confirmacion">¿Vaciar tus aventuras guardadas?</p>
+        <p>
+          Se borrarán las {{ elementos().length }} aventuras guardadas en este navegador. No se puede
+          deshacer.
+        </p>
+        <div class="acciones-confirmacion">
+          <button type="button" appBoton variante="secondary" (click)="cancelarVaciar()">Cancelar</button>
+          <button type="button" appBoton variante="danger" data-testid="guardados-vaciar-confirmar" (click)="confirmarVaciar()">
+            Vaciar
+          </button>
+        </div>
+      </div>
+    } @else {
+      <button type="button" appBoton variante="secondary" data-testid="guardados-vaciar" (click)="pedirConfirmacionVaciar()">
+        Vaciar todo
+      </button>
+    }
+  }
+</section>
