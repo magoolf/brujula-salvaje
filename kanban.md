@@ -242,15 +242,15 @@ tickets:
   - id: TKT-009
     titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-003, MOD-004, MOD-005, MOD-007]
     depende_de: [TKT-008]
     archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/features/itinerarios/**", "frontend/src/app/features/guias/**", "frontend/src/app/features/tipos-aventura/**", "frontend/src/app/features/colecciones/**", "frontend/src/app/features/glosario/**", "frontend/src/app/features/busqueda/**", "frontend/src/app/features/institucional/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-25
+    evidencia: ["Despachado. Segundo ticket de frontend de esta sesión, tras TKT-008 (inicio/destinos/guardados) DONE. Se instruyó inventariar lo ya construido en TKT-002/008 antes de programar (shared/ui, core/layout, api client, y el patrón de features inicio/destinos como referencia de arquitectura), y se dieron punteros de fuente primaria a BLUEPRINT.md (SCR-005..014/017/018/020/021, FEAT-006..024/052, RULE-005/014/018/024/026) y HANDOFF_UI_UX.yaml (líneas 780-1085) en vez de parafrasear. Se señaló explícitamente que ElementoGuardado (core/layout/guardados) ya soporta tipo 'ITINERARIO' además de 'DESTINO' -- reutilizar boton-guardar/boton-compartir ahí, no reinventar. Se pidió aplicar los aprendizajes de QA de TKT-008 de forma proactiva: no aria-pressed en <a>, cuidado con layout shift de contenido async sin reservar espacio, cuidado con ráfagas de peticiones de imagen en listados (rate-limit real de nginx, TKT-018)."]
+    actualizado: 2026-09-30
   - id: TKT-010
     titulo: "Frontend panel editorial /panel: acceso (login, MFA, cambio credencial, autorización), tablero, editores de contenido, medios, taxonomías, inicio, configuración, cuentas, auditoría"
     fase: F7
