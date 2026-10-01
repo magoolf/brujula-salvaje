@@ -6,7 +6,7 @@
 
 ## 1. Estado en una línea
 
-2026-10-01 (corte por límite de uso): DONE además TKT-010, 012, 027, 031, 032, TKT-OPS-018/020/021. TKT-OPS-024 (CVE del proxy, PR #53) con auto-merge activado: comprobar si se integró y marcarlo DONE. En curso al corte: QA TKT-022 (PR #50) y QA TKT-033 (PR #51); si no emitieron QA_VERDICT, relanzarlas desde cero (NOT_RUN). TKT-OPS-022 (PR #52) espera CI verde y QA (posible conflicto textual en DEVOPS_HANDOFF con #53: lo resuelve DevOps). TODO: TKT-023 (depende de TKT-022), TKT-024, TKT-034, TKT-035, TKT-OPS-023, TKT-016/019/021/025/026/028/029/030, TKT-OPS-008/009; luego F9/F10. PR #22 (Dependabot): no integrar. Antes de cada merge: gh pr update-branch, CI verde, merge, y solo después push de docs a main.
+2026-10-01 (corte por límite de uso): DONE además TKT-010, 012, 027, 031, 032, TKT-OPS-018/020/021. TKT-OPS-024 (CVE del proxy, PR #53): CI verificado, falta integrarlo (auto-merge no permitido en el repo): gh pr update-branch 53, esperar CI verde, gh pr merge 53 --merge, marcarlo DONE. En curso al corte: QA TKT-022 (PR #50) y QA TKT-033 (PR #51); si no emitieron QA_VERDICT, relanzarlas desde cero (NOT_RUN). TKT-OPS-022 (PR #52) espera CI verde y QA (posible conflicto textual en DEVOPS_HANDOFF con #53: lo resuelve DevOps). TODO: TKT-023 (depende de TKT-022), TKT-024, TKT-034, TKT-035, TKT-OPS-023, TKT-016/019/021/025/026/028/029/030, TKT-OPS-008/009; luego F9/F10. PR #22 (Dependabot): no integrar. Antes de cada merge: gh pr update-branch, CI verde, merge, y solo después push de docs a main.
 
 ## 2. Cómo reanudar tras un corte (verificar y corregir, no rehacer)
 
