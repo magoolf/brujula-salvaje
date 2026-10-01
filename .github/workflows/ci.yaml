@@ -453,6 +453,11 @@ jobs:
       # QA TKT-OPS-018 F-018-01); C4 la query de un asset inexistente no llega a los logs; C5
       # NG_ALLOWED_HOSTS sin "*" ni hosts ".invalid"; C6 "/x.js%0A" no entra en la location de
       # assets (ancla \z, DEC-AUTO-935).
+      # TKT-OPS-020 (DEC-AUTO-939): C3 analiza el log del proxy como JSON y filtra por campos (ruta,
+      # ruta_pedida, upstream_s, estado), así que no depende del orden del log_format. AVISO: tras C3,
+      # por_ip queda saturada ~3 s. El script termina C3 con una espera explícita
+      # (SMOKE_ESPERA_TRAS_C3, por defecto 4 s). Si se añade un paso HTTP justo después y se reduce esa
+      # espera, ese paso recibirá 429 del borde.
       - name: "smoke: anti-evasión del limitador de borde (assets estáticos)"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: bash scripts/ops/smoke-anti-evasion.sh http://127.0.0.1:8080
