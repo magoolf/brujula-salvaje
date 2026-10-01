@@ -302,14 +302,14 @@ tickets:
   - id: TKT-027
     titulo: "LOW (QA TKT-010 FALLO-03, parte backend): la validación de 'siguiente' en el login del panel acepta segmentos de punto codificados (/panel/%2e%2e/destinos, /panel/%2E%2E/%2E%2E/destinos, /panel/.%2e/destinos) y devuelve redireccion fuera de /panel. Es mismo origen, sin redirección externa, pero incumple AC-115 y THREAT-017. Decodificar antes de validar, o rechazar %2e/%2f/%5c, y añadir pruebas con esas variantes"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [AC-115, THREAT-017, TKT-004, TKT-010]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py.", "Despachado 2026-10-01 en paralelo con TKT-012 (backend, archivos disjuntos) y con TKT-010 / TKT-OPS-018 en curso."]
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py.", "Despachado 2026-10-01 en paralelo con TKT-012 (backend, archivos disjuntos) y con TKT-010 / TKT-OPS-018 en curso.", "Entregado @ PR #44 (66a7245), CI real verde, solo backend/apps/cuentas/**. Validador puro services.redireccion_segura: decodifica de forma iterativa (máx. 5 niveles), rechaza %2f/%5c en cualquier nivel y valida por segmentos la forma canónica, que es la que devuelve. 852 passed; services.py 97 % (validador 100 %). Endurecimiento: %zz y UTF-8 no ASCII ahora dan /panel. Incoherencia preexistente: el frontend acepta query en siguiente y el backend no (la redireccion del servidor será /panel). QA despachada."]
     actualizado: 2026-10-01
   - id: TKT-028
     titulo: "LOW (QA TKT-010 OBS-08 y OBS-07): (a) /robots.txt responde con la página HTML 404 del SSR; servir un robots.txt real (permitir el sitio público, bloquear /panel/ y /api/, y enlazar el sitemap si existe) con tipo text/plain; (b) conservar Retry-After en core/http (normalizarError -> ErrorApi) para todas las features, de modo que features/panel/data/espera.ts deje de reconocer HttpErrorResponse por su forma"
