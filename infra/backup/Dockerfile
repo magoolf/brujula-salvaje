@@ -40,6 +40,7 @@ ARG SUPERCRONIC_VERSION=v0.2.49
 ARG SUPERCRONIC_SHA256_AMD64=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1
 ARG SUPERCRONIC_SHA256_ARM64=02aa0cb229ba09050cba6638059dadb9eedc2276632ea43d6a57a2f8c1629dd5
 ARG OPENSSL_DEB_VERSION=3.5.7-1~deb13u3
+ARG PCRE2_DEB_VERSION=10.46-1~deb13u3
 
 LABEL org.opencontainers.image.title="brujula-backup" \
       org.opencontainers.image.description="pg_dump 18.6 + copia de medios + manifiesto sha256, cifrado con age, rotación 30 días" \
@@ -55,6 +56,9 @@ LABEL org.opencontainers.image.title="brujula-backup" \
 # ambiguas) en el mismo "apt-get install" que ya fija el resto de dependencias: no hace falta
 # --only-upgrade porque estos dos paquetes ya vienen preinstalados en la base y apt-get install
 # con version explicita los actualiza igual (sin ningun purge --force-depends que lo impida).
+# TKT-OPS-017: mismo patron para libpcre2-8-0 (preinstalada en la base; CVE-2026-103111 HIGH en
+# 10.46-1~deb13u2, corregida en 10.46-1~deb13u3 de trixie-security). A 2026-10-01 el digest
+# publicado de debian:13.7-slim no ha cambiado y sigue trayendo deb13u2.
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -63,12 +67,15 @@ RUN set -eu; \
       "libldap2=${LDAP_DEB_VERSION}" \
       "libreadline8t64=${READLINE_DEB_VERSION}" \
       "libssl3t64=${OPENSSL_DEB_VERSION}" \
-      "openssl-provider-legacy=${OPENSSL_DEB_VERSION}"; \
+      "openssl-provider-legacy=${OPENSSL_DEB_VERSION}" \
+      "libpcre2-8-0=${PCRE2_DEB_VERSION}"; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
     for p in libssl3t64 openssl-provider-legacy; do \
       v="$(dpkg-query -W -f='${Version}' "$p")"; \
       case "$v" in "${OPENSSL_DEB_VERSION}") ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
-    done
+    done; \
+    v="$(dpkg-query -W -f='${Version}' libpcre2-8-0)"; \
+    case "$v" in "${PCRE2_DEB_VERSION}") ;; *) echo "libpcre2-8-0 en version inesperada '$v'" >&2; exit 1 ;; esac
 
 COPY --from=pgclient --chown=root:root /out/lib/ /usr/local/lib/
 COPY --from=pgclient --chown=root:root /out/bin/ /usr/local/bin/

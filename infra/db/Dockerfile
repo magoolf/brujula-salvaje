@@ -31,6 +31,9 @@
 # (imagen final, nadie instala paquetes encima); el solver de apt-get install se niega a operar
 # con ese estado aunque no toque esos paquetes, mismo patrón --force-depends que ya usa este
 # Dockerfile para el purge.
+# TKT-OPS-017: mismo patron (apt-get download + dpkg --force-depends -i, version fijada) para
+# libpcre2-8-0 (CVE-2026-103111 HIGH en 10.46-1~deb13u2, corregida en 10.46-1~deb13u3 de
+# trixie-security). A 2026-10-01 el digest publicado de postgres:18.6-trixie no ha cambiado.
 # =============================================================================
 # Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
 # no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
@@ -59,11 +62,13 @@ RUN set -eu; \
       apt-get download \
         openssl=3.5.7-1~deb13u3 \
         libssl3t64=3.5.7-1~deb13u3 \
-        openssl-provider-legacy=3.5.7-1~deb13u3 && \
+        openssl-provider-legacy=3.5.7-1~deb13u3 \
+        libpcre2-8-0=10.46-1~deb13u3 && \
       dpkg --force-depends -i \
         openssl_3.5.7-1~deb13u3_amd64.deb \
         libssl3t64_3.5.7-1~deb13u3_amd64.deb \
-        openssl-provider-legacy_3.5.7-1~deb13u3_amd64.deb && \
+        openssl-provider-legacy_3.5.7-1~deb13u3_amd64.deb \
+        libpcre2-8-0_10.46-1~deb13u3_amd64.deb && \
       rm -f ./*.deb ); \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb /var/log/apt /var/log/dpkg.log; \
     # Controles: nada de lo retirado queda y las herramientas que se usan resuelven al binario 18.6
@@ -83,7 +88,9 @@ RUN set -eu; \
     for p in openssl libssl3t64 openssl-provider-legacy; do \
       v="$(dpkg-query -W -f='${Version}' "$p")"; \
       case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
-    done
+    done; \
+    v="$(dpkg-query -W -f='${Version}' libpcre2-8-0)"; \
+    case "$v" in 10.46-1~deb13u3) ;; *) echo "libpcre2-8-0 en version inesperada '$v'" >&2; exit 1 ;; esac
 
 # Mismo usuario sin privilegios que la imagen oficial (postgres, uid 999). compose fija user 999:999
 # en db; init-volumes lo sobrescribe a 0:0 porque solo hace chown/chmod de volúmenes.
