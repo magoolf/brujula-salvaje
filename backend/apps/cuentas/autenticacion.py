@@ -30,7 +30,7 @@ from rest_framework.permissions import SAFE_METHODS
 from apps.core.exceptions import ErrorApi
 from apps.cuentas import selectors
 from apps.cuentas.models import CuentaStaff
-from apps.cuentas.services import REDIRECCION_POR_DEFECTO
+from apps.cuentas.services import redireccion_segura
 from apps.cuentas.sesiones import CLAVE_AUTENTICADO_EN, CLAVE_CUENTA
 
 if TYPE_CHECKING:
@@ -96,8 +96,15 @@ def leer_sesion(sesion: SessionBase) -> DatosSesion | None:
         autenticado_en=autenticado_en,
         ultima_actividad=ultima,
         mfa_verificado=bool(sesion.get(CLAVE_MFA_VERIFICADO, False)),
-        redireccion=str(sesion.get(CLAVE_REDIRECCION) or REDIRECCION_POR_DEFECTO),
+        redireccion=_redireccion_guardada(sesion),
     )
+
+
+def _redireccion_guardada(sesion: SessionBase) -> str:
+    """TKT-031 OBS-05: el destino guardado se revalida al leerlo (sesiones abiertas con reglas
+    anteriores a un despliegue, o valores no textuales); si no es válido, /panel."""
+    valor = sesion.get(CLAVE_REDIRECCION)
+    return redireccion_segura(valor if isinstance(valor, str) else None)
 
 
 def _fijar_caducidad(sesion: SessionBase) -> None:
