@@ -1,0 +1,69 @@
+# =============================================================================
+# Umbrales de cobertura POR MÓDULO del backend — Brújula Salvaje
+# TKT-OPS-021 (DEC-AUTO-940). Fuente: Skill_Backend §8 "Cobertura mínima obligatoria":
+#   Total > 80 %   ·   Services > 90 %   ·   Endpoints críticos > 95 %
+# Comparación ESTRICTA (">"), como dice §8. Lo evalúa infra/ci/gate_cobertura.py sobre el
+# coverage.json de pytest-cov (percent_covered, con ramas porque [tool.coverage.run] branch = true).
+# Rutas relativas a backend/, separador "/", glob de fnmatch. Cambiar un umbral o una lista es un
+# cambio de infraestructura de CI (DevOps) y requiere DEC-AUTO registrada en audit_log.md.
+# =============================================================================
+
+[[reglas]]
+nombre = "total"
+umbral = 80.0
+patrones = ["TOTAL"]
+
+[[reglas]]
+nombre = "services"
+umbral = 90.0
+patrones = ["apps/*/services.py"]
+
+# Endpoints críticos: TODAS las vistas del panel editorial (/api/v1/panel/**: escritura de
+# contenido, medios, taxonomías, portada, auditoría) y las de cuentas/autenticación (login, MFA,
+# sesión, contraseña, autorización, gestión de cuentas). Son las superficies autenticadas y con
+# efectos (THREAT de la superficie de amenazas del Blueprint): un fallo en ellas es de seguridad.
+# Criterio para vistas nuevas: si sirve /api/v1/panel/** o autenticación -> aquí; si no ->
+# [vistas_no_criticas] con motivo. El gate falla si una vista no está clasificada.
+[[reglas]]
+nombre = "endpoints criticos"
+umbral = 95.0
+patrones = [
+  "apps/contenido/api/panel_views.py",
+  "apps/medios/api/views.py",
+  "apps/catalogos/api/views.py",
+  "apps/inicio/api/views.py",
+  "apps/auditoria/api/views.py",
+  "apps/cuentas/api/views.py",
+]
+
+[clasificar_vistas]
+patrones = ["apps/*/api/*views*.py", "apps/*/views.py", "apps/*/views/*.py"]
+
+[vistas_no_criticas]
+"apps/contenido/api/views.py" = "API pública de solo lectura (/api/v1/publico/**), sin autenticación ni escritura; sigue sujeta al total > 80 %"
+"apps/core/api/views.py" = "health/live y health/ready, sin datos ni escritura; sigue sujeta al total > 80 %"
+
+# -----------------------------------------------------------------------------
+# Excepciones NOMBRADAS con caducidad (como .trivyignore). Rebajan el umbral de UN archivo a
+# umbral_minimo (suelo: tampoco puede bajar de él) hasta "caduca"; al caducar el gate FALLA.
+# Ventana registrada -> caduca de 45 días como máximo. Una excepción que ya no hace falta solo
+# avisa (::warning::): retírala en el siguiente ticket de DevOps.
+# -----------------------------------------------------------------------------
+
+[[excepciones]]
+archivo = "apps/catalogos/api/views.py"
+umbral_minimo = 71.0
+registrada = 2026-10-01
+caduca = 2026-10-31
+ticket = "TKT-032"
+decision = "DEC-AUTO-940 (TKT-OPS-021-EXC-01)"
+motivo = "71,8 % en main @ 99ab8ac (CI run 36883312241); TKT-032 (en QA) añade los tests de las vistas de taxonomías del panel. Retirar al integrar TKT-032."
+
+[[excepciones]]
+archivo = "apps/inicio/api/views.py"
+umbral_minimo = 93.0
+registrada = 2026-10-01
+caduca = 2026-10-31
+ticket = "TKT-032"
+decision = "DEC-AUTO-940 (TKT-OPS-021-EXC-02)"
+motivo = "93,8 % en main @ 99ab8ac (CI run 36883312241; líneas 35-37 sin cubrir); TKT-032 (en QA) las cubre. Retirar al integrar TKT-032."
