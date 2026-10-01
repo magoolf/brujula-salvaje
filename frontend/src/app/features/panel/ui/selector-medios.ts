@@ -2,6 +2,8 @@ import { DOCUMENT } from '@angular/common';
 import {
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -73,6 +75,7 @@ export class SelectorMedios {
   protected readonly store = inject(SelectorMediosStore);
   protected readonly enLinea = inject(Conectividad).enLinea;
   private readonly documento = inject(DOCUMENT);
+  private readonly injector = inject(Injector);
 
   readonly abierto = model(false);
   readonly modo = input<ModoSeleccion>('varios');
@@ -165,9 +168,9 @@ export class SelectorMedios {
     const nombre = nombreMedio(this.store.seleccion()[indice]);
     this.store.moverSeleccion(indice, destino);
     this.anuncio.set(anuncioMovimiento(nombre, destino + 1, total));
-    // El foco sigue al botón pulsado en su nueva posición.
+    // El foco sigue al botón pulsado en la nueva posición del elemento (tras pintarla).
     const id = `${this.idBase()}-mover-${desplazamiento < 0 ? 'antes' : 'despues'}-${destino}`;
-    queueMicrotask(() => this.documento.getElementById(id)?.focus());
+    afterNextRender(() => this.documento.getElementById(id)?.focus(), { injector: this.injector });
   }
 
   protected quitar(medio: Medio): void {
