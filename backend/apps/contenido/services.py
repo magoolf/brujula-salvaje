@@ -834,22 +834,24 @@ def _validar_coherencia_destino(
     principal = _efectivo(datos, "tipo_principal_id", destino)
     if principal is None or "tipo_principal_id" in errores:
         return
-    if "tipos_ids" in datos or destino is None:
-        if principal not in set(datos.get("tipos_ids") or []):
-            errores["tipo_principal_id"] = ["Debe pertenecer a tipos_ids."]
-    elif principal not in _tipos_guardados(destino):
-        # F-032-04: el PUT no envía `tipos_ids`, así que se compara con los tipos ya guardados; el
-        # mensaje lo dice para que el editor sepa que debe enviar ambos campos a la vez.
+    if "tipos_ids" in datos:
+        tipos = set(datos["tipos_ids"])
+    elif destino is not None:
+        tipos = set(destino.tipos_aventura.values_list("contenido_id", flat=True))
+    else:
+        tipos = set()
+    if principal in tipos:
+        return
+    if tipos:
+        errores["tipo_principal_id"] = ["Debe pertenecer a tipos_ids."]
+    else:
+        # F-032-04: `tipos_ids` es opcional y vacío por defecto (PUT = sustitución completa), así
+        # que un PUT que lo omite deja el destino sin tipos; si conserva el principal guardado (o
+        # envía uno), el 400 cae en `tipo_principal_id` sin que el editor haya tocado ese campo.
         errores["tipo_principal_id"] = [
-            "Debe pertenecer a los tipos de aventura del destino. Como no se envió tipos_ids, se "
-            "comparó con los tipos ya guardados: envía tipos_ids junto con tipo_principal_id."
+            "Debe pertenecer a tipos_ids, que está vacío (si se omite, se guarda vacío). Envía "
+            "tipos_ids con el tipo principal incluido, o tipo_principal_id: null."
         ]
-
-
-def _tipos_guardados(destino: Destino | None) -> set[int]:
-    if destino is None:
-        return set()
-    return set(destino.tipos_aventura.values_list("contenido_id", flat=True))
 
 
 def _validar_html_saneado(errores: dict[str, list[str]], tipo: str, datos: dict[str, Any]) -> None:
