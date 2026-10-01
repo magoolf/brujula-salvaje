@@ -1,7 +1,5 @@
 import { Routes } from '@angular/router';
 
-import { isDevMode } from '@angular/core';
-
 import { AccesoDenegado } from './acceso-denegado';
 import { CargaPanel } from './carga-panel';
 import { LayoutAcceso } from './layout-acceso';
@@ -21,6 +19,9 @@ import {
   sesionSinResolverMatch,
 } from './panel-guard';
 import { ShellPanel } from './shell-panel';
+
+/** Global de Angular: objeto en desarrollo y pruebas, `false` (constante) en el build de producción. */
+declare const ngDevMode: unknown;
 
 /**
  * Rutas del panel editorial bajo /panel (BLUEPRINT §10; DEC-ESTRUCTURA-02). app.routes.ts solo las
@@ -95,8 +96,9 @@ export const RUTAS_PANEL: Routes = [
         loadComponent: () => import('./pagina-medio').then((m) => m.PaginaMedio),
       },
       // Banco de pruebas del Selector de medios (SCR-041) solo en desarrollo: su pantalla anfitriona
-      // (SCR-036, TKT-023) aún no existe. En producción la ruta no se registra (DEC-DEV-022-01).
-      ...(isDevMode()
+      // (SCR-036, TKT-023) aún no existe. En producción la ruta no existe (DEC-DEV-022-01): el build
+      // define `ngDevMode` como false y elimina la rama y su chunk.
+      ...(typeof ngDevMode === 'undefined' || ngDevMode
         ? [
             {
               path: 'desarrollo/selector-medios',

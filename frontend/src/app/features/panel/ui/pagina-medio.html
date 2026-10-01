@@ -263,7 +263,8 @@
       </div>
 
       <app-dialogo-confirmacion
-        [(abierto)]="confirmarRetiro"
+        [abierto]="confirmarRetiro()"
+        (abiertoChange)="confirmarRetiro.set($event)"
         titulo="¿Retirar esta imagen?"
         textoConfirmar="Retirar medio"
         [procesando]="procesando()"
@@ -273,7 +274,8 @@
         <p>«{{ nombre() }}» dejará de poder usarse en contenido. Podrás reactivarla más adelante.</p>
       </app-dialogo-confirmacion>
       <app-dialogo-confirmacion
-        [(abierto)]="confirmarReactivacion"
+        [abierto]="confirmarReactivacion()"
+        (abiertoChange)="confirmarReactivacion.set($event)"
         titulo="¿Reactivar esta imagen?"
         textoConfirmar="Reactivar medio"
         variante="primary"

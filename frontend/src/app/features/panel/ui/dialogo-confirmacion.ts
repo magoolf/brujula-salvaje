@@ -1,12 +1,12 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, ElementRef, effect, inject, input, model, output, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
 
 import { Boton, VarianteBoton } from '../../../shared/ui/boton/boton';
 
 /**
  * Diálogo de confirmación del panel (HANDOFF Dialog/alertdialog): <dialog> modal nativo (resto de la
  * página inerte), foco inicial en «Cancelar» (acciones destructivas), Escape cancela y el foco vuelve
- * al control que lo abrió. Controlado con `[(abierto)]`.
+ * al control que lo abrió. Controlado con `[abierto]` + `(abiertoChange)`.
  */
 @Component({
   selector: 'app-dialogo-confirmacion',
@@ -53,7 +53,9 @@ import { Boton, VarianteBoton } from '../../../shared/ui/boton/boton';
   styleUrls: ['./panel-formularios.css'],
 })
 export class DialogoConfirmacion {
-  readonly abierto = model(false);
+  /** Abierto/cerrado: `[abierto]` + `(abiertoChange)` (sin `model()` ni `[( )]`: ver selector). */
+  readonly abierto = input(false);
+  readonly abiertoChange = output<boolean>();
   readonly titulo = input.required<string>();
   readonly textoConfirmar = input.required<string>();
   readonly variante = input<VarianteBoton>('danger');
@@ -84,7 +86,7 @@ export class DialogoConfirmacion {
   }
 
   protected cerrar(): void {
-    this.abierto.set(false);
+    this.abiertoChange.emit(false);
   }
 
   protected alCancelar(evento: Event): void {

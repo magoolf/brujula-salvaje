@@ -7,7 +7,6 @@ import {
   effect,
   inject,
   signal,
-  untracked,
   WritableSignal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -152,13 +151,12 @@ export class PaginaMedio {
 
   constructor() {
     this.seo.establecer({ titulo: 'Detalle de medio', indexable: false });
+    // Rellena el formulario con el medio cargado y tras cada guardado (solo escribe señales).
     effect(() => {
       const medio = this.store.medio();
       if (medio === null) return;
-      untracked(() => {
-        this.rellenar(medio);
-        this.seo.establecer({ titulo: `${nombreMedio(medio)} · Medios`, indexable: false });
-      });
+      this.rellenar(medio);
+      this.seo.establecer({ titulo: `${nombreMedio(medio)} · Medios`, indexable: false });
     });
   }
 

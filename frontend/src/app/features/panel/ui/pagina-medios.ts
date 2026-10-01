@@ -4,8 +4,8 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
-  linkedSignal,
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -202,14 +202,12 @@ export class PaginaMedios {
   protected readonly subidaAbierta = signal(false);
   protected readonly filtrosAbiertos = signal(true);
 
-  // Valores del formulario de filtros: siguen a la URL y se aplican al enviar.
-  protected readonly q = linkedSignal(() => this.store.filtros().q);
-  protected readonly estado = linkedSignal<string>(() => this.store.filtros().estado ?? '');
-  protected readonly licencia = linkedSignal<string>(() => this.store.filtros().licencia ?? '');
-  protected readonly enUso = linkedSignal<string>(() => {
-    const enUso = this.store.filtros().enUso;
-    return enUso === null ? '' : String(enUso);
-  });
+  // Valores del formulario de filtros: siguen a la URL (efecto del constructor) y se aplican al
+  // enviar. Sin `linkedSignal` para no añadirlo al chunk inicial público (AC_TKT022_06).
+  protected readonly q = signal('');
+  protected readonly estado = signal('');
+  protected readonly licencia = signal('');
+  protected readonly enUso = signal('');
 
   protected readonly recuento = computed(() => {
     const total = this.store.pagina()?.total ?? 0;
@@ -218,6 +216,13 @@ export class PaginaMedios {
 
   constructor() {
     inject(Seo).establecer({ titulo: 'Medios', indexable: false });
+    effect(() => {
+      const filtros = this.store.filtros();
+      this.q.set(filtros.q);
+      this.estado.set(filtros.estado ?? '');
+      this.licencia.set(filtros.licencia ?? '');
+      this.enUso.set(filtros.enUso === null ? '' : String(filtros.enUso));
+    });
     // Filtros desplegados desde md; en móvil, plegados en «Filtros» (HANDOFF RESPONSIVE).
     afterNextRender(() => {
       const ventana = this.documento.defaultView;

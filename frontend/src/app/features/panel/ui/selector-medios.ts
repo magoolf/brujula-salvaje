@@ -8,11 +8,8 @@ import {
   effect,
   inject,
   input,
-  linkedSignal,
-  model,
   output,
   signal,
-  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -47,7 +44,8 @@ const ENFOCABLES =
  * API estable:
  * ```html
  * <app-selector-medios
- *   [(abierto)]="selectorAbierto"          // boolean: abre/cierra el diálogo
+ *   [abierto]="selectorAbierto()"          // boolean: abre/cierra el diálogo
+ *   (abiertoChange)="selectorAbierto.set($event)"  // false al cerrarse (Añadir, Cancelar, Escape)
  *   modo="varios"                          // 'uno' (radios, p. ej. portada) | 'varios' (casillas, galería)
  *   [seleccionInicial]="galeria()"         // readonly Medio[]: selección de partida (en su orden)
  *   [maximo]="null"                        // número máximo en modo 'varios' (null = sin límite)
@@ -77,7 +75,15 @@ export class SelectorMedios {
   private readonly documento = inject(DOCUMENT);
   private readonly injector = inject(Injector);
 
-  readonly abierto = model(false);
+  /**
+   * Abierto/cerrado: `[abierto]` + `(abiertoChange)`. Es input + output en lugar de `model()`, sin
+   * `[( )]` en las plantillas del panel (sus instrucciones de enlace bidireccional), y los campos
+   * usan effect en lugar de `linkedSignal`, para no añadir código de @angular/core al chunk inicial
+   * compartido con el sitio público (AC_TKT022_06; QA TKT-010 FALLO-02). `[(abierto)]` también
+   * funciona si quien lo usa acepta ese coste.
+   */
+  readonly abierto = input(false);
+  readonly abiertoChange = output<boolean>();
   readonly modo = input<ModoSeleccion>('varios');
   readonly seleccionInicial = input<readonly Medio[]>([]);
   readonly maximo = input<number | null>(null);
@@ -96,11 +102,9 @@ export class SelectorMedios {
   protected readonly pestana = signal<Pestana>('biblioteca');
   protected readonly anuncio = signal('');
   protected readonly errorExistente = signal<string | null>(null);
-  protected readonly q = linkedSignal(() => this.store.filtros().q);
-  protected readonly licencia = linkedSignal<string>(() => this.store.filtros().licencia ?? '');
-  protected readonly soloDisponibles = linkedSignal<string>(() =>
-    this.store.filtros().estado === 'DISPONIBLE' ? 'si' : 'no',
-  );
+  protected readonly q = signal('');
+  protected readonly licencia = signal('');
+  protected readonly soloDisponibles = signal('si');
 
   protected readonly tipoControl = computed(() => (this.modo() === 'uno' ? 'radio' : 'casilla'));
   protected readonly recuento = computed(() => textoRecuentoSeleccion(this.store.seleccion().length));
@@ -116,9 +120,18 @@ export class SelectorMedios {
   );
 
   constructor() {
+    // Abrir y cerrar son idempotentes (comprueban `dialog.open`): que el efecto se repita al cambiar
+    // otra entrada mientras está abierto no tiene efecto.
     effect(() => {
-      const abierto = this.abierto();
-      untracked(() => (abierto ? this.abrir() : this.cerrarDialogo()));
+      if (this.abierto()) this.abrir();
+      else this.cerrarDialogo();
+    });
+    // Los campos del buscador siguen a los filtros aplicados.
+    effect(() => {
+      const filtros = this.store.filtros();
+      this.q.set(filtros.q);
+      this.licencia.set(filtros.licencia ?? '');
+      this.soloDisponibles.set(filtros.estado === 'DISPONIBLE' ? 'si' : 'no');
     });
   }
 
@@ -196,12 +209,12 @@ export class SelectorMedios {
   protected anadir(): void {
     if (this.store.seleccion().length === 0 || !this.enLinea()) return;
     this.confirmar.emit(this.store.seleccion());
-    this.abierto.set(false);
+    this.abiertoChange.emit(false);
   }
 
   protected cancelar(): void {
     this.cancelado.emit();
-    this.abierto.set(false);
+    this.abiertoChange.emit(false);
   }
 
   /** Escape (evento cancel del <dialog>): cancela sin cerrar «a pelo» el diálogo nativo. */

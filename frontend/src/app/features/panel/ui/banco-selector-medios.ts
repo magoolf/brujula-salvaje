@@ -6,7 +6,7 @@ import { SelectorMedios } from './selector-medios';
 
 /**
  * Banco de pruebas del Selector de medios (SCR-041), SOLO en desarrollo (DEC-DEV-022-01): la ruta
- * se registra con `isDevMode()` en panel.routes.ts y no existe en producción. Sirve de documentación
+ * se registra solo con `ngDevMode` en panel.routes.ts y no existe en producción. Sirve de documentación
  * viva de la API del componente (Skill_UI_UX §23) y de anfitrión para sus E2E de accesibilidad en
  * los 3 motores hasta que exista su pantalla real (SCR-036, TKT-023). Monta los dos modos.
  */
@@ -36,7 +36,8 @@ import { SelectorMedios } from './selector-medios';
       </section>
     </div>
     <app-selector-medios
-      [(abierto)]="abiertoVarios"
+      [abierto]="abiertoVarios()"
+      (abiertoChange)="abiertoVarios.set($event)"
       modo="varios"
       titulo="Elegir imágenes"
       idBase="banco-varios"
@@ -45,7 +46,8 @@ import { SelectorMedios } from './selector-medios';
       (cancelado)="estado.set('Selección cancelada.')"
     />
     <app-selector-medios
-      [(abierto)]="abiertoUno"
+      [abierto]="abiertoUno()"
+      (abiertoChange)="abiertoUno.set($event)"
       modo="uno"
       titulo="Elegir portada"
       idBase="banco-uno"
