@@ -275,6 +275,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-945."]
     actualizado: 2026-10-01
+  - id: TKT-OPS-022
+    titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-OPS-021, TKT-032, "Skill_Backend §8", TKT-OPS-003]
+    depende_de: [TKT-OPS-021]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-948."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
     fase: F7
@@ -319,9 +331,9 @@ tickets:
     trazabilidad: [TKT-OPS-018, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-018]
     archivos_permitidos: ["scripts/ops/**", ".github/workflows/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939).", "Entregado @ PR #49 (7fc3a64), CI verde (run 36900650511, smoke 6/6). C3 por campos JSON del log (control nuevo con log_format reordenado 3/3 PASS), C6 sin la expansión que rompía semgrep, espera de 4 s tras C3. Controles negativos correctos; shellcheck 0. Pendiente documentar en DEVOPS_HANDOFF en F9 junto a TKT-OPS-018. QA despachada."]
+    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939).", "Entregado @ PR #49 (7fc3a64), CI verde (run 36900650511, smoke 6/6). C3 por campos JSON del log (control nuevo con log_format reordenado 3/3 PASS), C6 sin la expansión que rompía semgrep, espera de 4 s tras C3. Controles negativos correctos; shellcheck 0. Pendiente documentar en DEVOPS_HANDOFF en F9 junto a TKT-OPS-018. QA despachada.", "QA_VERDICT PASS (ciclo 1/3): 12/12 smoke sin falsos FAIL (C3 17-20/20), parser C3 probado con entradas preparadas, controles negativos (estaticos, $, log_format reordenado, ruta_pedida renombrada, proxy pre-TKT-OPS-016, NG_ALLOWED_HOSTS) correctos; shellcheck 0; semgrep sin error de parseo; #48 y #49 se integran sin conflicto en ambos órdenes."]
     actualizado: 2026-10-01
   - id: TKT-OPS-021
     titulo: "LOW: (a) retirar de infra/ci/oasdiff_err_ignore.txt la excepción de DEC-AUTO-920 (request-body-type-changed en POST /api/v1/panel/medios), que tras TKT-012 ya no casa con ningún hallazgo; (b) gate de cobertura por módulo en CI según Skill_Backend §8 (services >= 90 %, vistas de endpoints críticos >= 95 %) leyendo coverage.json, con umbrales versionados en infra/ci/ y excepciones con caducidad"
@@ -331,9 +343,9 @@ tickets:
     trazabilidad: [TKT-012, TKT-OPS-010, "DEC-AUTO-920"]
     depende_de: [TKT-012]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube).", "Entregado @ PR #48 (4794311), CI verde (run 36898054477). Diff: infra/ci/** + ci.yaml + DEVOPS_HANDOFF.md §26 (artefacto de DevOps según §0.12). Excepción de oasdiff retirada (mecanismo conservado vacío); gate de cobertura por módulo (gate_cobertura.py, umbrales en cobertura_umbrales.toml, excepciones con caducidad ≤45 días, falla cerrado; 20 controles). Excepciones EXC-01 (catalogos/api/views.py, suelo 71) y EXC-02 (inicio/api/views.py, suelo 93), caducidad 2026-10-31, se retiran tras integrar TKT-032 (DEC-AUTO-946). QA despachada."]
+    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube).", "Entregado @ PR #48 (4794311), CI verde (run 36898054477). Diff: infra/ci/** + ci.yaml + DEVOPS_HANDOFF.md §26 (artefacto de DevOps según §0.12). Excepción de oasdiff retirada (mecanismo conservado vacío); gate de cobertura por módulo (gate_cobertura.py, umbrales en cobertura_umbrales.toml, excepciones con caducidad ≤45 días, falla cerrado; 20 controles). Excepciones EXC-01 (catalogos/api/views.py, suelo 71) y EXC-02 (inicio/api/views.py, suelo 93), caducidad 2026-10-31, se retiran tras integrar TKT-032 (DEC-AUTO-946). QA despachada.", "QA_VERDICT PASS (ciclo 1/3): oasdiff 0 sin la excepción y mecanismo de err-ignore verificado con mutantes; gate leído entero, 20/20 controles propios del DevOps + 26 de QA (estricto '>', caducidad, suelos, vistas sin clasificar, json vacío/ausente/NaN) con el exit esperado; pytest Linux 1073, 96,51 %; clasificación de críticos completa frente a /api/v1/panel/**. Hallazgos LOW/INFO a TKT-OPS-022 (DEC-AUTO-948)."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
