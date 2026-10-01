@@ -12,6 +12,7 @@ Actualizado por **TKT-OPS-011** (F7, gate de contrato: excepción puntual `--err
 Actualizado por **TKT-OPS-012** (F7, línea de `infra/scheduler/crontab` para `vigilar_cache_limites` (TKT-011, DONE) cada 15 min; cierra RSK-OPS-032, 2026-09-29): ver §22.
 Actualizado por **TKT-OPS-016** (F7, HIGH, condición de F9). El limitador de borde gana la zona propia `estaticos` para los assets (fin de la navegación rota tras una IP compartida) y una defensa para que un asset inexistente no se renderice en el SSR. Además, `ruta_pedida` en el log y `X-Robots-Tag` en `/panel/**` (DEC-AUTO-929). 2026-09-30. Ver §23 y **ADR-OPS-001**.
 Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 de las 5 imágenes Debian; actualización fijada a 10.46-1~deb13u3 de trixie-security, sin tocar `.trivyignore`, 2026-10-01): ver §24 (§23 reservado para TKT-OPS-016, PR #38).
+Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-016: la location de assets envía al SSR solo la ruta, sin query; ancla `\z`; sin `X-Forwarded-Host`/`X-Forwarded-Proto`; RSK-OPS-041 medido: 8 → 4 líneas, 2026-10-01): ver §25 y **ADR-OPS-001** (punto 7).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -1971,7 +1972,7 @@ Ampliación (DEC-AUTO-929): `X-Robots-Tag: noindex, nofollow` en las respuestas 
   - la nueva location regex de assets: `^/(?:[A-Za-z0-9_-]+\.(?:js|mjs|css)|fonts/[A-Za-z0-9_-]+\.woff2|favicon\.ico)$`;
   - `location /media/publico/`.
 - **Location de assets**:
-  - envía al SSR `Host: estaticos.invalid` (y `X-Forwarded-Host`). `express.static` sirve el archivo si existe. Si no existe, Angular rechaza el Host con 400 sin renderizar;
+  - envía al SSR `Host: estaticos.invalid` (y `X-Forwarded-Host`, retirado en TKT-OPS-019, §25). `express.static` sirve el archivo si existe. Si no existe, Angular rechaza el Host con 400 sin renderizar;
   - `proxy_intercept_errors on`: 400/404 → `404 no_encontrado` (Problem Details), 403/429/5xx → los del catálogo. Los `error_page` se redefinen en la location;
   - cabeceras idénticas a las de antes: CSP, nosniff, COOP/CORP, XFO, Referrer y Permissions-Policy vía `security-headers-html.conf`, y `Cache-Control $cache_control_ssr`, que conserva el `immutable`;
   - `limit_except GET HEAD`.
@@ -2052,7 +2053,7 @@ Fecha: 2026-09-30. Entorno: Docker Engine 29.6.1 y Compose v5.2.0. Proyecto `-p 
 | ID | Riesgo | Sev. | Mitigación / acción | Estado |
 |---|---|---|---|---|
 | RSK-OPS-040 | `NG_ALLOWED_HOSTS` con `*` reabre el render de assets inexistentes (acotado por `estaticos`) | MEDIUM (si se configura mal) | Requisito de §23.5. Recomendado: ticket de CI con un smoke que exija que `/no-existe-<n>.js` dé 404 `application/problem+json` y que una ráfaga de 120 assets no dé 429 (`.github/workflows` queda fuera del alcance de este ticket) | ABIERTO (ticket CI) |
-| RSK-OPS-041 | Cada asset inexistente escribe unas 3 líneas de error en el log del SSR (posible inflado del log) | LOW | json-file de 10 MB × 5. Filtrar o muestrear en los logs centralizados de producción | ACEPTADO |
+| RSK-OPS-041 | Cada asset inexistente escribe líneas de error en el log del SSR (posible inflado del log). Corrección TKT-OPS-019: medido, eran **8 líneas** por petición, no ~3; tras §25 son **4** | LOW | json-file de 10 MB × 5. Filtrar o muestrear en los logs centralizados de producción | ACEPTADO |
 | RSK-OPS-042 | Ancho de banda por IP en los assets (50 r/s) | LOW / MEDIUM (prod) | CDN o caché de borde en el ADR de producción (F9), junto con RSK-OPS-022 | ABIERTO (F9) |
 | RSK-OPS-043 | Más de unas 8 cargas en frío por segundo tras una misma IP aún podrían ver 429 en assets | LOW | Recalibrar con métricas reales; en producción, CDN | ACEPTADO |
 | RSK-OPS-022 | Sin `real_ip` tras un balanceador o CDN, todas las zonas se vuelven globales | MEDIUM (prod) | Sin cambios: ADR de producción (F9) | ABIERTO (F9) |
@@ -2152,3 +2153,61 @@ Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
 
 ### 24.11 Próximo agente
 **Orquestador**: confirmar el CI real del PR, integrarlo (sin editar contenido) y relanzar el CI del PR #38 tras rebase sobre `main` para que su job de imágenes pase a verde. Registrar RSK-OPS-044/045 en `audit_log.md`.
+
+## 25. TKT-OPS-019: assets sin query hacia el SSR, sin `X-Forwarded-*` redundantes y RSK-OPS-041 medido (F7, soporte, LOW)
+
+### 25.1 Estado
+**COMPLETADO** en local, en la rama `tkt-ops-019-assets-sin-query`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). La decisión está en **ADR-OPS-001**, punto 7.
+
+### 25.2 Objetivo
+Corregir los hallazgos de la QA de TKT-OPS-016:
+- **F-1 (LOW)**: un asset inexistente con query (p. ej. `/no-existe.js?secreto=1`) dejaba la URL completa, query incluida, en el stdout del SSR (`ERROR: Bad Request ("http://estaticos.invalid/qaB.js?x=1")`). Contradice REQ-057/THREAT-020: los logs no contienen query strings.
+- **F-2 (INFO)**: `X-Forwarded-Host` redundante en la location de assets (2 avisos por petición) y RSK-OPS-041 mal dimensionado ("~3 líneas").
+
+### 25.3 Cambios realizados (solo `infra/proxy/nginx.conf`, location de assets)
+- `proxy_pass http://frontend$uri;` en lugar de `proxy_pass http://frontend;`. Con una variable en `proxy_pass`, nginx envía esa URI tal cual y no añade `$args`: la query no sale del proxy hacia el SSR.
+  - Verificación de la afirmación de la QA sobre la regex: `$uri` es la ruta decodificada y normalizada (nginx resuelve `%2e`, `%2f`, `/./`, `/../` y `//` antes de elegir la location) y es la cadena contra la que se evalúa la regex. La regex solo deja pasar `[A-Za-z0-9_-]`, `/` y `.` en posiciones fijas: nada que recodificar (`%`, `?`, `#`, espacio, controles).
+  - **Hallazgo propio al verificarla**: en PCRE, `$` también casa antes de un `\n` final. `/x.js%0A` entraba en la location y, con `$uri`, el `\n` viajaba crudo en la línea de petición al SSR (medido con `$`: 404 con `upstream_s` > 0 y sin pasar por Angular; Node rechazó la petición mal formada). Corregido con el ancla **`\z`**: esa ruta queda fuera del patrón y va por `location /` (zona `por_ip`), como `/x.js%20` o `/x.JS` en `main`.
+  - `frontend` es el `upstream` declarado: sin resolver DNS en tiempo de ejecución y con el mismo `keepalive`.
+- Retirados `proxy_set_header X-Forwarded-Host` y `X-Forwarded-Proto` de esa location (F-2). Angular 22.2 los ignora sin `trustProxyHeaders` (la validación SSRF usa solo `Host`) y cada uno escribía 2 avisos por asset inexistente; `express.static` tampoco los usa (`trust proxy` desactivado). `X-Forwarded-Proto` no lo citaba la QA: se retira por la misma causa medida (decisión propuesta, a numerar por el Orquestador). Se mantienen `Host: estaticos.invalid`, `X-Request-Id` y `traceparent`.
+- Sin cambios en zonas, `error_page`, cabeceras de respuesta, `limit_except` ni en el resto de locations.
+
+### 25.4 Versiones, infraestructura, dependencias y variables de entorno
+Sin cambios (proxy `nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1…`, Angular/`@angular/ssr` 22.2.0, Express 5.2.1; sin cambios de compose, redes, healthchecks ni lockfiles). Sigue vigente el requisito de §23.5: `NG_ALLOWED_HOSTS` nunca con `*` ni hosts `.invalid` (RSK-OPS-040; smoke de CI en TKT-OPS-018).
+
+### 25.5 Validaciones ejecutadas
+Fecha: 2026-10-01. Docker Engine 29.6.1, Compose v5.2.0. Proyecto propio `-p ops019` (`APP_NET_PREFIX=10.231.119`, `PROXY_HOST_PORT=18219`), desmontado con `down -v` al terminar. A/B cambiando **solo** el contenedor `proxy` (imagen de `main` @ 7df7c77 frente a la de la rama) sobre el mismo backend/frontend/db. Scripts de medición en el scratchpad, fuera del repositorio.
+- **VALIDADO — AC_OPS019_01**: `/no-existe-N.js?secreto=1`, `/no-existe-N.css?secreto=1`, `/fonts/xN.woff2?secreto=1`, `/media/publico/xN?secreto=1` y `/media/publico/a/bN.jpg?secreto=1` → 404 Problem Details. Coincidencias de `secreto`: `main` SSR 3 / proxy 0; rama **SSR 0 / proxy 0**. Ráfaga de 400 inexistentes únicos con query: 0 apariciones del token en SSR y proxy.
+- **VALIDADO — AC_OPS019_02** (matriz de 37 variantes, misma batería en `main` y en la rama):
+  - `/x.js`, `/x.css`, `/x.mjs`, `/fonts/x.woff2`, `/media/publico/x`, `?x=1`, `?` vacía, `%2e`, `%2E`, `/fonts%2fx.woff2`, `/a/..%2fx.js`, `/a/../x.js`, `/./x.js`, `//x.js`, `///fonts//x.woff2`, Host `localhost`/`estaticos.invalid`, `X-Forwarded-Host`, `X-Forwarded-Host+Proto+For`, `Forwarded`, `X-Forwarded-Port/Prefix`, forma absoluta (con y sin Host): 404 `application/problem+json`, rechazo de Host en el SSR (22 de 22) y **0 renders** (0 `error_ssr`). En la rama la URI que llega al SSR es la ruta normalizada sin query (p. ej. `/a/..%2fx.js` → `/x.js`; `main` reenviaba la cruda).
+  - POST/PUT/DELETE/PATCH/OPTIONS → 403 y TRACE → 405, Problem Details, sin upstream. `%00` → 400 Problem Details del proxy.
+  - Fuera del patrón, igual que en `main` (zona `por_ip`, render 404 del SSR): `%0D%0A…`, `%3F`, `%23`, `%20`, `.JS`, `;x=1`. Única diferencia A/B: `%0A` pasa de la location de assets a este grupo (ancla `\z`, §25.3).
+  - Peticiones al backend durante la matriz: 0 (fuera de `/health`).
+  - 400 inexistentes únicos: 313 × 404 + 87 × 429 (zona `estaticos`), 313 rechazos de Host, 0 `error_ssr`, 0 peticiones al backend.
+- **VALIDADO — AC_OPS019_03**: `main-*.js`, `styles-*.css`, `chunk-*.js`, una fuente `/fonts/*.woff2` y `/favicon.ico`, con y sin `?v=1`, `Accept-Encoding` identity y gzip: 20 × 200; `If-None-Match` → 304 (5/5); HEAD 200; `Content-Encoding: gzip` en JS/CSS; `Cache-Control: public, max-age=31536000, immutable` en los que llevan hash (fuentes y favicon conservan `max-age=3600`, como en `main`). Cabeceras normalizadas (sin Date, nonce de CSP ni valor de ETag) **idénticas** a las de `main` (`diff` vacío): CSP, nosniff, Referrer, Permissions, COOP, CORP y XFO.
+- **VALIDADO — AC_OPS019_04**: `nginx -t` OK en el contenedor; `docker compose config --quiet` OK en las 4 variantes (base, `--profile ops`, `+compose.ci.yaml`, `+compose.debug.yaml`); db, backend, frontend y proxy healthy; `/health/ready` 200.
+- **Medición RSK-OPS-041**: líneas del log del SSR por asset inexistente: `main` **8** (2 avisos `x-forwarded-host`, 2 `x-forwarded-proto`, 4 del rechazo de Host incluida una en blanco) → rama **4** (`ERROR: Bad Request ("http://estaticos.invalid/<ruta>")`, `Header "host" … is not allowed`, línea en blanco, enlace). Ráfaga: 1252 líneas para 313 rechazos (4,0 por petición).
+- **Control cruzado con el smoke de TKT-OPS-018** (`scripts/ops/smoke-anti-evasion.sh`, se versiona en el PR de TKT-OPS-018): rama 5/5 OK; proxy de `main` falla solo C4 (query en el log del SSR: 3 apariciones).
+- **trivy** (proxy de la rama, `--severity CRITICAL,HIGH --ignorefile .trivyignore`, BD fresca en caché propia, `UpdatedAt` 2026-10-01 01:24:14 UTC, RSK-OPS-045): 0 hallazgos, exit 0.
+- **AC_OPS019_05**: ADR-OPS-001 (estado, puntos 1, 3 y 7, RSK-OPS-041, evidencia) y §23.3/§23.10 de este documento corregidos.
+- **NOT_RUN en local**: suites de backend/frontend (no se tocan); las ejecuta el CI del PR.
+
+### 25.6 Seguridad
+- REQ-057/THREAT-020: ninguna query de una petición de asset sale del proxy hacia el SSR. El log del proxy ya la omitía (`ruta`/`ruta_pedida`).
+- Se cierra además un vector que el cambio habría abierto (`\n` crudo hacia el upstream) con el ancla `\z`.
+- La defensa anti-evasión no cambia: `Host: estaticos.invalid`, zona `estaticos`, `proxy_intercept_errors`. Sin cambios de privilegios (uid 101, raíz de solo lectura).
+
+### 25.7 Riesgos / pendientes
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-041 | Inflado del log del SSR por assets inexistentes | LOW | 4 líneas por petición (antes 8), acotado por la zona `estaticos`; json-file 10 MB × 5; filtrar en los logs centralizados de producción | ACEPTADO (reducido) |
+| RSK-OPS-040 | `NG_ALLOWED_HOSTS` con `*` o `*.invalid` | MEDIUM (si se configura mal) | Smoke de CI de TKT-OPS-018 | ABIERTO (TKT-OPS-018) |
+| — | `/x.js%0A` va ahora por `location /` (`por_ip`, render 404 del SSR) en vez de rechazarse por Host | INFO | Cupo estricto `por_ip`, igual que `/x.js%20` o `/x.JS` en `main` | ACEPTADO |
+
+### 25.8 Archivos modificados
+- `infra/proxy/nginx.conf`
+- `docs/adr/ADR-OPS-001.md`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 25.9 Próximo agente
+**Orquestador**: registrar en `audit_log.md`/`kanban.md` la revisión del ADR (ancla `\z` y retirada de `X-Forwarded-Proto`), lanzar QA de TKT-OPS-019 e integrar tras QA PASS y CI verde. El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.

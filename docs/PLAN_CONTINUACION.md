@@ -2,11 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-09-30.
+> y `audit_log.md`. Última actualización: 2026-10-01.
 
 ## 1. Estado en una línea
 
-2026-09-30: F1–F6 terminadas; backend completo y frontend público completo en `main` (TKT-001..009, 011, 013..015, 017 y 018 DONE; `main` @ 764fa54). Pendiente: TKT-010 (panel `/panel`, el bloque grande), TKT-019 (mapa del sitio), TKT-016 (CLS), TKT-020 (imágenes AVIF sin respaldo y SSR sin JS), TKT-021 (LCP móvil), TKT-012 (deuda de cobertura), TKT-OPS-016 (limitador nginx con IP compartida, **condición de F9**), TKT-OPS-008/009, TKT-OPS-013 (BLOCKED_HUMAN) y después F9/F10. Avance estimado ≈ 75 %. El detalle de cada ticket está en `kanban.md`; las secciones 4.x son el plan original y conservan las filas ya DONE como referencia histórica.
+2026-10-01: además de lo anterior, DONE TKT-OPS-016/017/019 y TKT-020. En curso: TKT-010 (PR #39, re-QA ciclo 2/3), TKT-OPS-018 (PR #43, re-QA 2/3, condición de F9), TKT-027 (PR #44, QA 1/3 en cola), TKT-012 (Developer, worktree agent-ac198d5adce3d4c5e, rama tkt-012-deuda-backend). Tras TKT-010: TKT-022 → TKT-023 → TKT-024 (resto del panel, DEC-AUTO-927), y TKT-016, TKT-019, TKT-021, TKT-025 (condición de F9), TKT-026, TKT-028..030, TKT-OPS-008/009. Después F9/F10. Si hay un corte, las QA sin veredicto se relanzan desde cero (NOT_RUN); los Developer se reanudan en su worktree sin descartar cambios. Cada subagente usa un subdirectorio propio del scratchpad.
 
 ## 2. Cómo reanudar tras un corte (verificar y corregir, no rehacer)
 
