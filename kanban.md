@@ -259,18 +259,18 @@ tickets:
     trazabilidad: [TKT-012, TKT-006, "Skill_Backend §8"]
     depende_de: [TKT-012]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/core/esquema.py"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f.", "Entregado @ PR #47 (b84c8cc), CI verde (run 36879781212); diff dentro de alcance. Sonda transaccional con COMMIT: 50 caminos 5xx en main (los 7 de la QA + 43) -> 0. pytest 1087, 97 %; schemathesis panel Editor 9035/9035 sin 5xx; oasdiff 0. Cambios de comportamiento: referencias inexistentes y CHECK -> 400 validacion por campo; vaciar alt/crédito/licencia de medio DISPONIBLE -> 422 regla_negocio; título duplicado al actualizar -> 409. Hallazgo preexistente (retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en vez de 409) a TKT-033 (DEC-AUTO-945). QA ciclo 1/3 despachada.", "Al integrar: retirar de infra/ci/cobertura_umbrales.toml las excepciones EXC-01/EXC-02 de TKT-OPS-021 (DevOps) si TKT-OPS-021 ya está integrado (caducan 2026-10-31)."]
+    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f.", "Entregado @ PR #47 (b84c8cc), CI verde (run 36879781212); diff dentro de alcance. Sonda transaccional con COMMIT: 50 caminos 5xx en main (los 7 de la QA + 43) -> 0. pytest 1087, 97 %; schemathesis panel Editor 9035/9035 sin 5xx; oasdiff 0. Cambios de comportamiento: referencias inexistentes y CHECK -> 400 validacion por campo; vaciar alt/crédito/licencia de medio DISPONIBLE -> 422 regla_negocio; título duplicado al actualizar -> 409. Hallazgo preexistente (retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en vez de 409) a TKT-033 (DEC-AUTO-945). QA ciclo 1/3 despachada.", "Al integrar: retirar de infra/ci/cobertura_umbrales.toml las excepciones EXC-01/EXC-02 de TKT-OPS-021 (DevOps) si TKT-OPS-021 ya está integrado (caducan 2026-10-31).", "QA_VERDICT PASS (ciclo 1/3): sonda HTTP con COMMIT de 55 casos: main 41 respuestas 500, rama 0; 55/55 con código documentado en su operación y errors por campo; cambios de comportamiento verificados y coherentes con RULE-005/STATE-002; 13/13 mutaciones detectadas; pytest 1088, 97,09 %, catalogos e inicio views 100 %; oasdiff 0; schemathesis CI 3052/3052 y panel Editor 11482 / Admin 11659 sin 5xx del ticket. Hallazgos a TKT-033 (DEC-AUTO-947)."]
     actualizado: 2026-10-01
   - id: TKT-033
-    titulo: "LOW (hallazgo del Developer de TKT-032, preexistente): POST /api/v1/panel/contenidos/{tipo}/{id}/retirar con confirmar_cascada y una cascada_confirmada que no coincide con la calculada responde 200 cuando la cascada calculada está vacía; el contrato exige 409 impacto_modificado si difiere. Además, AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta (INFO de oasdiff)"
+    titulo: "MEDIUM (hallazgos de TKT-032 y su QA): (F-032-02, MEDIUM, preexistente) DELETE /panel/contenidos/destinos/{id} de un borrador referenciado por un itinerario (PROTECT) da 500 ProtectedError: debe dar el 409 documentado; (F-032-01, LOW) carrera alta/DELETE concurrente: traducir IntegrityError 23503 y ProtectedError residuales a 409 o bloquear referencias con SELECT ... FOR SHARE, y DoesNotExist en _datos_regla_itinerario; (F-032-03, LOW, preexistente) POST /panel/medios/{id}/retirar con 409 medio_en_uso devuelve usos[] con campos distintos del ReferenciaUso del contrato {tipo_entidad, id, titulo}: alinear al contrato; (cascada) retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en lugar de 409 impacto_modificado; (INFO) AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta; (INFO F-032-04) mensaje del 400 en tipo_principal_id cuando el PUT omite tipos_ids"
     fase: F7
     estado: TODO
     owner: Skill_Developer
     trazabilidad: [TKT-032, TKT-006]
     depende_de: [TKT-032]
-    archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/core/esquema.py"]
+    archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-945."]
