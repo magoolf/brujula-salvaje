@@ -251,6 +251,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Hallazgos no bloqueantes de la QA de TKT-027 (DEC-AUTO-942). Si cambia el comportamiento de OBS-04, comprobar si requiere CHG en contracts/openapi.yaml (400 documentado para siguiente)."]
     actualizado: 2026-10-01
+  - id: TKT-032
+    titulo: "MEDIUM (QA TKT-012, preexistente): (F1) traducir a 400/404/422 Problem Details los 7 caminos del panel que dan 500 por errores de BD no traducidos: POST/PUT /panel/taxonomias/paises con region_id inexistente; POST /panel/contenidos/itinerarios con destino_id inexistente (Destino.DoesNotExist); colecciones y guias con relaciones a id inexistente; destinos con latitud sin longitud (ck_destino_coordenadas); PUT /panel/medios/{id DISPONIBLE} con autor_credito null (ck_medio_disponible); (F2) aplicar uniqueItems con lista_unica en copublicar_tipos, cascada_confirmada y analisis-publicacion.tipos_ids, y documentar sus maxItems/uniqueItems en el esquema generado; (F3) dar valor a actualizado_por en las fixtures para que los tests de N+1 de contenido detecten la falta de select_related; (F4) tests HTTP de regiones y países (catalogos/api/views.py >= 95 %) e inicio/api/views.py líneas 35-37; (INFO) fuente_url de catalogación de medios no debe aceptar cadena vacía si el contrato la prohíbe"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-012, TKT-006, "Skill_Backend §8"]
+    depende_de: [TKT-012]
+    archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/core/esquema.py"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
     fase: F7
@@ -309,7 +321,7 @@ tickets:
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940)."]
+    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube)."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
@@ -715,9 +727,9 @@ tickets:
     trazabilidad: [TKT-006, TKT-OPS-010]
     depende_de: [TKT-006, TKT-OPS-010]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket.", "2026-10-01 corte de sesión: el Developer quedó interrumpido con trabajo sin commit en su worktree (12 archivos modificados, 7 tests nuevos). Se reanuda en el mismo worktree sin descartar nada.", "Entregado @ PR #45 (3a991e0), CI real verde (run 36859155530). Diff verificado dentro de alcance. oasdiff 563 WARNING -> 0 (0 ERROR); cobertura total 89,99 % -> 96,5 %, panel_selectors/panel_views 100 %, contenido/services 96,8 %, medios/services 97,1 %; contador de _configurar_inicio corregido. 4 bugs reales de 500 corregidos (KeyError al actualizar TERMINO publicado, DecompressionBombError, IntegrityError en carrera de subida, re-ejecución de _configurar_inicio). Cambio de comportamiento exigido por el contrato: 400 ante ids duplicados, NUL y URL no http(s). El Developer hizo amend + force-with-lease en su propia rama antes de abrir el PR para retirar un falso positivo de gitleaks (sin PR existente; aceptado). CHG-OPS a TKT-OPS-021 (DEC-AUTO-940). QA ciclo 1/3 despachada."]
+    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket.", "2026-10-01 corte de sesión: el Developer quedó interrumpido con trabajo sin commit en su worktree (12 archivos modificados, 7 tests nuevos). Se reanuda en el mismo worktree sin descartar nada.", "Entregado @ PR #45 (3a991e0), CI real verde (run 36859155530). Diff verificado dentro de alcance. oasdiff 563 WARNING -> 0 (0 ERROR); cobertura total 89,99 % -> 96,5 %, panel_selectors/panel_views 100 %, contenido/services 96,8 %, medios/services 97,1 %; contador de _configurar_inicio corregido. 4 bugs reales de 500 corregidos (KeyError al actualizar TERMINO publicado, DecompressionBombError, IntegrityError en carrera de subida, re-ejecución de _configurar_inicio). Cambio de comportamiento exigido por el contrato: 400 ante ids duplicados, NUL y URL no http(s). El Developer hizo amend + force-with-lease en su propia rama antes de abrir el PR para retirar un falso positivo de gitleaks (sin PR existente; aceptado). CHG-OPS a TKT-OPS-021 (DEC-AUTO-940). QA ciclo 1/3 despachada.", "QA_VERDICT PASS (ciclo 1/3): AC_TKT012_01..04 PASS verificados con oasdiff fijado (0 cambios incluso sin err-ignore), 26 restricciones aplicadas por HTTP real con 400 Problem Details, cobertura 89,99 -> 96,36 %, semilla x3 comparada por tabla, schemathesis 3166/3166, cliente generado sin diff; los 4 bugs de 500 reproducidos en main y corregidos (y 3 más no declarados); seguridad de subida sin debilitar; 9/10 mutantes detectados. Hallazgos preexistentes a TKT-032 (DEC-AUTO-943). Integración pendiente de CI verde."]
     actualizado: 2026-10-01
   - id: TKT-013
     titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
