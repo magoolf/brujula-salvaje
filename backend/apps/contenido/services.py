@@ -878,7 +878,14 @@ def _actualizar_publicacion(
         if contenido.tipo == T.DESTINO
         else set()
     )
-    APLICAR_CAMPOS[contenido.tipo](subtipo, contenido, datos)
+    if contenido.tipo == T.TERMINO:
+        # TKT-012: el término no está en APLICAR_CAMPOS (igual que en `_guardar_borrador`); antes
+        # actualizar un término PUBLICADO acababa en KeyError (500) en vez de guardarse.
+        if "titulo" in datos and _termino_duplicado(datos["titulo"], contenido.pk):
+            raise Duplicado(errors={"titulo": ["Ya existe un término con este nombre."]})
+        _aplicar_termino(subtipo, contenido, datos)
+    else:
+        APLICAR_CAMPOS[contenido.tipo](subtipo, contenido, datos)
     tipos_quitados: set[int] = set()
     if hasattr(subtipo, "_tipos_ids_pendientes"):
         tipos_quitados = tipos_ids_previos - set(subtipo._tipos_ids_pendientes)

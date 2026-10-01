@@ -21,7 +21,6 @@ from apps.core import idempotencia
 from apps.core.exceptions import NoEncontrado, ParametroInvalido
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import validar_parametros
-from apps.core.throttling import ip_cliente
 from apps.cuentas.permisos import SesionPanel, cuenta_de
 from apps.medios import selectors_panel, services
 from apps.medios.api.serializers import (
@@ -30,6 +29,7 @@ from apps.medios.api.serializers import (
     PaginaMedioPanelSerializer,
     PaginaUsoMedioSerializer,
     ResultadoSubidaSerializer,
+    SubidaMediosEntradaSerializer,
     UsoMedioSerializer,
 )
 from apps.medios.models import EstadoMedio, FormatoDerivado, MedioDerivado
@@ -93,10 +93,6 @@ def _id(id: int) -> int:
     return id
 
 
-def _ip(request: Request) -> str | None:
-    return ip_cliente(request.META)
-
-
 class _VistaMedios(APIView):
     permission_classes = [SesionPanel]
     throttle_scope = "panel-lectura"
@@ -155,7 +151,7 @@ class ListaMedios(_VistaMediosMixta):
         operation_id="panelSubirMedios",
         tags=["panel-medios"],
         parameters=PARAMETRO_IDEMPOTENCY_KEY,
-        request={"multipart/form-data": OpenApiTypes.BINARY},
+        request={"multipart/form-data": SubidaMediosEntradaSerializer},
         responses={200: ResultadoSubidaSerializer},
     )
     def post(self, request: Request) -> Response:

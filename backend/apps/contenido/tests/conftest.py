@@ -25,7 +25,12 @@ from jsonschema import Draft202012Validator
 
 from apps.busqueda.services import reindexar_todo
 from apps.contenido.tests import publicos
-from apps.cuentas.tests.conftest import cliente_editora, editora  # noqa: F401 (fixtures de pytest)
+from apps.cuentas.tests.conftest import (  # noqa: F401 (fixtures de pytest)
+    admin,
+    cliente_admin,
+    cliente_editora,
+    editora,
+)
 
 PUBLICO = "/api/v1/publico"
 
