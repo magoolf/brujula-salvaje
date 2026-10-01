@@ -102,9 +102,7 @@ def _con_autor(tipo: str, *cuentas: Any) -> None:
         contenido.save(update_fields=["actualizado_por"])
 
 
-def test_TKT012_listar_por_tipo_selector_ordena_y_no_hace_n_mas_1(
-    editora: Any, admin: Any
-) -> None:
+def test_TKT012_listar_por_tipo_selector_ordena_y_no_hace_n_mas_1(editora: Any, admin: Any) -> None:
     for i in range(5):
         publicos.termino(f"Término {i}", [], estado=E.PUBLICADO)
     _con_autor(T.TERMINO, editora.cuenta, admin.cuenta)

@@ -107,7 +107,7 @@ def _validar_region(datos: dict[str, Any]) -> None:
     """La región referenciada debe existir ANTES de escribir (TKT-032): la FK `pais.region_id`
     de Django es DEFERRABLE INITIALLY DEFERRED, así que una región inexistente no fallaba en el
     INSERT/UPDATE sino en el COMMIT, fuera de `_guardar`, y se respondía 500 en vez de 400."""
-    if not Region.objects.filter(pk=datos["region_id"]).exists():
+    if "region_id" in datos and not Region.objects.filter(pk=datos["region_id"]).exists():
         raise ErrorApi(codigo="validacion", errors={"region_id": [MENSAJE_INEXISTENTE]})
 
 

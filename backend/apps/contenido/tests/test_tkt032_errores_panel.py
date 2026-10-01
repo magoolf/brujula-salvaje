@@ -149,9 +149,7 @@ def test_AC_TKT032_01_relacion_con_id_existente_de_otro_tipo_es_400(
         f"{BASE}/guias",
         {"titulo": "Guía", "relaciones": [{"tipo": tipo_relacion, "id": existente_id}]},
     )
-    assert _problema(respuesta, 400, "validacion")["errors"] == {
-        "relaciones.0.id": ["No existe."]
-    }
+    assert _problema(respuesta, 400, "validacion")["errors"] == {"relaciones.0.id": ["No existe."]}
     _sin_excepciones(logs_json)
 
 
@@ -458,7 +456,10 @@ def test_AC_TKT032_02_analisis_publicacion_valida_tipos_ids(
     "cuerpo",
     [
         {"copublicar_tipos": [{"id": FUERA_DE_BIGINT, "version": 1}]},
-        {"confirmar_cascada": True, "cascada_confirmada": [{"tipo": "TIPO", "id": FUERA_DE_BIGINT}]},
+        {
+            "confirmar_cascada": True,
+            "cascada_confirmada": [{"tipo": "TIPO", "id": FUERA_DE_BIGINT}],
+        },
     ],
 )
 def test_AC_TKT032_02_ids_de_operacion_fuera_de_bigint_son_400(

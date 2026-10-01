@@ -574,12 +574,13 @@ class CampoConEsquema:
 
     `esquema_extra` se fusiona sobre el esquema que drf-spectacular genera para el campo y
     `esquema_sin` quita claves de él (también el `minLength: 1` que drf-spectacular añade por
-    `allow_blank=False` después de la extensión: lo retira el postproceso, TKT-032). Se pasan como kwargs del constructor (no como atributos
-    puestos después): `Field.__deepcopy__` reconstruye cada campo desde sus `_args`/`_kwargs`
-    originales al instanciar el serializer, así que solo lo que viaja en el constructor
-    sobrevive (mismo motivo que `_con_limite` en apps/contenido/api/panel_serializers.py).
-    Las restricciones de validación (min/max, longitud, patrón) se siguen declarando con los
-    argumentos normales del campo, que drf-spectacular ya traduce y DRF ya aplica."""
+    `allow_blank=False` después de la extensión: lo retira el postproceso, TKT-032). Se pasan
+    como kwargs del constructor (no como atributos puestos después): `Field.__deepcopy__`
+    reconstruye cada campo desde sus `_args`/`_kwargs` originales al instanciar el serializer,
+    así que solo lo que viaja en el constructor sobrevive (mismo motivo que `_con_limite` en
+    apps/contenido/api/panel_serializers.py). Las restricciones de validación (min/max,
+    longitud, patrón) se siguen declarando con los argumentos normales del campo, que
+    drf-spectacular ya traduce y DRF ya aplica."""
 
     esquema_extra: dict[str, Any]
     esquema_sin: frozenset[str]
