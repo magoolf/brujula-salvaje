@@ -1,0 +1,131 @@
+/* SCR-040 Detalle de medio (HANDOFF: imagen arriba en móvil; 2 columnas 5/7 desde lg). */
+.pagina {
+  display: grid;
+  gap: var(--bs-space-5);
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
+
+.cabecera h1,
+.pagina > h1 {
+  overflow-wrap: anywhere;
+  outline: none;
+}
+
+.pendientes {
+  margin: var(--bs-space-2) 0 0;
+  padding-inline-start: var(--bs-space-5);
+}
+
+.columnas {
+  display: grid;
+  gap: var(--bs-space-6);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .columnas {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+
+.ficha,
+.lateral {
+  display: grid;
+  gap: var(--bs-space-4);
+  min-width: 0;
+}
+
+.vista {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-color-bg-sunken);
+  overflow: hidden;
+}
+
+.vista img {
+  width: 100%;
+  max-height: 32rem;
+  object-fit: contain;
+}
+
+.sin-vista {
+  padding: var(--bs-space-4);
+  color: var(--bs-color-text-muted);
+}
+
+.datos-tecnicos {
+  display: grid;
+  gap: var(--bs-space-2);
+  margin: 0;
+}
+
+.datos-tecnicos div {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  gap: var(--bs-space-3);
+}
+
+.datos-tecnicos dt {
+  font-weight: var(--bs-font-weight-semibold);
+}
+
+.datos-tecnicos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.derivados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-1) var(--bs-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resumen-errores {
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border-inline-start: 4px solid var(--bs-color-status-error-fg);
+  border-radius: var(--bs-radius-sm);
+  background: var(--bs-color-status-error-bg);
+  color: var(--bs-color-text-default);
+  outline: none;
+}
+
+.usos {
+  display: grid;
+  gap: var(--bs-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.usos li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-1) var(--bs-space-3);
+}
+
+.uso-titulo {
+  font-weight: var(--bs-font-weight-semibold);
+}
+
+.paginado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
+
+.zona-retiro {
+  border-color: var(--bs-color-status-error-fg);
+}
