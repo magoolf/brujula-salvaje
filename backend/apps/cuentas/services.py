@@ -18,12 +18,14 @@ Reglas clave:
 
 from __future__ import annotations
 
+import re
 import secrets
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+from urllib.parse import unquote
 
 import structlog
 from django.contrib.auth.hashers import check_password, make_password
@@ -241,6 +243,55 @@ def _restablecer_contador(cuenta: CuentaStaff) -> None:
     cuenta.bloqueado_hasta = None
     if cuenta.estado == EstadoCuenta.BLOQUEADA_TEMPORAL:
         cuenta.estado = _estado_tras_bloqueo(cuenta)
+
+
+# ---------------------------------------------------------------------------
+# Destino tras el login (AC-115, THREAT-017, TKT-027)
+# ---------------------------------------------------------------------------
+REDIRECCION_POR_DEFECTO = "/panel"
+_PREFIJO_PANEL = "/panel/"
+# Forma admitida del valor tal como llega: sin query, fragmento, ';', '@', '\' ni espacios.
+_PATRON_REDIRECCION = re.compile(r"/panel(/[A-Za-z0-9._~%/-]*)?")
+_SEGMENTO_PANEL = re.compile(r"[A-Za-z0-9._~-]+")
+# Barra y barra invertida codificadas: pueden fabricar segmentos nuevos al decodificarse.
+_SEPARADOR_CODIFICADO = re.compile(r"%(2f|5c)", re.IGNORECASE)
+_MAX_DECODIFICACIONES = 5
+
+
+def _es_ruta_panel(ruta: str) -> bool:
+    """Ruta ya decodificada: /panel o /panel/<segmentos> sin '.', '..' ni segmentos vacíos."""
+    if ruta == REDIRECCION_POR_DEFECTO:
+        return True
+    if not ruta.startswith(_PREFIJO_PANEL):
+        return False
+    segmentos = ruta[len(_PREFIJO_PANEL) :].split("/")
+    if segmentos[-1] == "":
+        segmentos.pop()  # barra final admitida (/panel/, /panel/medios/)
+    return all(
+        _SEGMENTO_PANEL.fullmatch(segmento) is not None and segmento not in {".", ".."}
+        for segmento in segmentos
+    )
+
+
+def redireccion_segura(siguiente: str | None) -> str:
+    """AC-115 / THREAT-017 / TKT-027: solo rutas internas bajo /panel; si no, /panel.
+
+    Función pura. Decodifica de forma iterativa (cubre la doble codificación, p. ej. %252e) hasta
+    un valor estable y valida esa forma canónica, que es la que se devuelve. Se rechaza cualquier
+    nivel con '/' o '\\' codificadas y cualquier segmento '.' o '..' que aparezca tras decodificar,
+    de modo que el resultado nunca sale de /panel. Las query siguen sin admitirse (AC_TKT027_03).
+    """
+    if not siguiente or _PATRON_REDIRECCION.fullmatch(siguiente) is None:
+        return REDIRECCION_POR_DEFECTO
+    actual = siguiente
+    for _ in range(_MAX_DECODIFICACIONES):
+        if _SEPARADOR_CODIFICADO.search(actual):
+            return REDIRECCION_POR_DEFECTO
+        decodificada = unquote(actual)  # UTF-8 inválido → U+FFFD, que ningún segmento admite
+        if decodificada == actual:
+            return actual if _es_ruta_panel(actual) else REDIRECCION_POR_DEFECTO
+        actual = decodificada
+    return REDIRECCION_POR_DEFECTO  # sigue cambiando tras el máximo: codificación anómala
 
 
 # ---------------------------------------------------------------------------
