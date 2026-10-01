@@ -249,11 +249,28 @@ describe('Panel — acceso y armazón (FLOW-010)', () => {
     await pulsar(m, 'acceso-entrar');
     expect(m.raiz().textContent).toContain('Escribe tu usuario.');
     expect(m.repo.iniciarSesion).not.toHaveBeenCalled();
+    // OBS-A11Y-01 (QA c2): el resumen se enfoca cuando ya contiene el aviso (vacío está oculto y
+    // no admite el foco en un navegador real).
+    const focoResumen: boolean[] = [];
+    const enfocar = HTMLElement.prototype.focus;
+    const espia = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLElement,
+      opciones?: FocusOptions,
+    ) {
+      if (this.classList.contains('resumen')) {
+        focoResumen.push(this.querySelector('[data-testid="acceso-error"]') !== null);
+      }
+      enfocar.call(this, opciones);
+    });
     escribir(m, '[data-testid="acceso-usuario"]', 'no.existe');
     escribir(m, '[data-testid="acceso-contrasena"]', 'cualquiera');
     await pulsar(m, 'acceso-entrar');
     await vi.waitFor(() => expect(existe(m, 'acceso-error')).toBe(true));
     expect(el(m, 'acceso-error').textContent).toContain('Usuario o contraseña incorrectos.');
+    await vi.waitFor(() => expect(focoResumen).toEqual([true]));
+    expect(document.activeElement?.classList.contains('resumen')).toBe(true);
+    expect(document.activeElement?.contains(el(m, 'acceso-error'))).toBe(true);
+    espia.mockRestore();
     expect(el<HTMLInputElement>(m, 'acceso-contrasena').value).toBe('');
     expect(el<HTMLInputElement>(m, 'acceso-usuario').value).toBe('no.existe');
 

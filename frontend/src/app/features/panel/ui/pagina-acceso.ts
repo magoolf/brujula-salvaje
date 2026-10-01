@@ -1,4 +1,13 @@
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -104,6 +113,7 @@ export class PaginaAcceso {
   private readonly router = inject(Router);
   private readonly ruta = inject(ActivatedRoute);
   private readonly conectividad = inject(Conectividad);
+  private readonly injector = inject(Injector);
 
   private readonly parametros = toSignal(this.ruta.queryParamMap, { requireSync: true });
   private readonly resumenError = viewChild.required<ElementRef<HTMLElement>>('resumenError');
@@ -148,7 +158,9 @@ export class PaginaAcceso {
       // THREAT-018: mensaje genérico; se vacía la contraseña y se conserva el usuario.
       this.contrasena.set('');
       this.errorAcceso.set(mensajeFalloAcceso(error));
-      queueMicrotask(() => this.resumenError().nativeElement.focus());
+      // OBS-A11Y-01 (QA TKT-010 c2): el resumen se enfoca cuando ya contiene el aviso; antes de
+      // renderizar está :empty (display:none) y el foco no llegaría.
+      afterNextRender(() => this.resumenError().nativeElement.focus(), { injector: this.injector });
       return;
     }
     await this.router.navigateByUrl(this.sesion.rutaSiguiente());

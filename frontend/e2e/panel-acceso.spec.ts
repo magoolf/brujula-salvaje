@@ -58,10 +58,14 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     await irA(page, '/panel/acceso');
     await entrarPorUi(page, `e2e.no.existe.${randomBytes(4).toString('hex')}`, 'lo-que-sea-2026');
     await expect(page.getByTestId('acceso-error')).toHaveText(/Usuario o contraseña incorrectos\./);
+    // OBS-A11Y-01 (QA c2): el foco va al resumen del error, ya renderizado (no al botón ni a <main>).
+    const resumenConError = page.locator('div.resumen:has([data-testid="acceso-error"])');
+    await expect(resumenConError).toBeFocused();
 
     const cuenta = crearCuenta();
     await entrarPorUi(page, cuenta.usuario, 'equivocada-2026');
     await expect(page.getByTestId('acceso-error')).toHaveText(/Usuario o contraseña incorrectos\./);
+    await expect(resumenConError).toBeFocused();
     await expect(page.getByTestId('acceso-contrasena')).toHaveValue('');
     await expect(page.getByTestId('acceso-usuario')).toHaveValue(cuenta.usuario);
 
