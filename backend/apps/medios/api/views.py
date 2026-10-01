@@ -21,7 +21,6 @@ from apps.core import idempotencia
 from apps.core.exceptions import NoEncontrado, ParametroInvalido
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import validar_parametros
-from apps.core.throttling import ip_cliente
 from apps.cuentas.permisos import SesionPanel, cuenta_de
 from apps.medios import selectors_panel, services
 from apps.medios.api.serializers import (
@@ -92,10 +91,6 @@ def _id(id: int) -> int:
     if not 1 <= id <= ID_MAXIMO:
         raise NoEncontrado()
     return id
-
-
-def _ip(request: Request) -> str | None:
-    return ip_cliente(request.META)
 
 
 class _VistaMedios(APIView):
