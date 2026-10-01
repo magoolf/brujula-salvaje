@@ -128,7 +128,11 @@ def _detalle(tipo: str, nombre: str) -> type[v.DetalleContenidoPorTipo]:
         operation_id=v.OPERACION_ACTUALIZAR[tipo],
         tags=["panel-contenidos"],
         request=s.ACTUALIZACION_SERIALIZER[tipo],
-        responses={200: s.PANEL_SERIALIZER[tipo]},
+        # panelActualizarDestino responde DestinoGuardado (DestinoPanel + entidades_afectadas,
+        # CHG-API-005), que es lo que la vista ya devuelve (TKT-012: response-body-all-of-removed).
+        responses={
+            200: s.DestinoGuardadoSerializer if tipo == T.DESTINO else s.PANEL_SERIALIZER[tipo]
+        },
     )(put)
     delete = extend_schema(
         operation_id=v.OPERACION_ELIMINAR[tipo],

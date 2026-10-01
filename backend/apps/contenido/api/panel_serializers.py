@@ -23,6 +23,15 @@ from apps.core.api.serializers import (
     PaginaMetaSerializer,
     ReferenciaUsoSerializer,
 )
+from apps.core.esquema import (
+    id_contrato,
+    lista_ids,
+    lista_unica,
+    numero,
+    texto_html,
+    texto_sin_nul,
+    url_http,
+)
 from apps.medios.models import EstadoMedio
 
 T = TipoContenido
@@ -160,7 +169,8 @@ PATRON_NO_NUL = r"^[^\x00]*$"
 
 
 def _texto(max_length: int, *, requerido: bool = False, nulo: bool = True) -> serializers.CharField:
-    return serializers.CharField(
+    """Texto plano del contrato (`pattern: '^[^\\u0000]*$'`, TKT-012)."""
+    return texto_sin_nul(
         max_length=max_length,
         required=requerido,
         allow_null=nulo and not requerido,
@@ -170,7 +180,8 @@ def _texto(max_length: int, *, requerido: bool = False, nulo: bool = True) -> se
 
 
 def _html(max_length: int = 100_000) -> serializers.CharField:
-    return serializers.CharField(
+    """Texto HTML del contrato (`contentMediaType: text/html` + patrón sin NUL, TKT-012)."""
+    return texto_html(
         max_length=max_length,
         required=False,
         allow_null=True,
@@ -180,9 +191,14 @@ def _html(max_length: int = 100_000) -> serializers.CharField:
 
 
 def _id_lista(maximo: int) -> serializers.ListField:
-    return serializers.ListField(
-        child=IdSerializerField(), max_length=maximo, required=False, default=list
-    )
+    """Lista de `Id` del contrato: `uniqueItems: true` (validado), `maxItems`, ítems sin
+    `maximum` (TKT-012: request-property-max-set / response-property-unique-items-unset)."""
+    return lista_ids(maximo)
+
+
+def _id_opcional() -> serializers.IntegerField:
+    """`{type: [integer, null], format: int64, minimum: 1}` del contrato (TKT-012)."""
+    return id_contrato(required=False, allow_null=True)
 
 
 # ---------------------------------------------------------------------------
@@ -198,28 +214,36 @@ class _CampoTipoRelacionable(serializers.ChoiceField):
 
 class RelacionEntradaSerializer(EntradaEstricta):
     tipo = _CampoTipoRelacionable(choices=[T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION])
-    id = IdSerializerField()
+    id = id_contrato()
 
 
 class FuenteEntradaSerializer(EntradaEstricta):
-    titulo = serializers.CharField(min_length=1, max_length=200)
+    titulo = texto_sin_nul(min_length=1, max_length=200)
     entidad_editora = _texto(150)
-    url = serializers.CharField(max_length=500, required=False, allow_null=True)
+    # El contrato exige URL absoluta http(s) (`pattern: '^https?://...'`, `format: uri`): se
+    # valida de verdad, no solo se documenta (TKT-012).
+    url = url_http(max_length=500, required=False, allow_null=True)
     fecha_consulta = serializers.DateField(required=False, allow_null=True)
 
 
 class ComunesMixin(serializers.Serializer[Any]):
-    titulo = serializers.CharField(min_length=1, max_length=150)
+    titulo = texto_sin_nul(min_length=1, max_length=150)
     slug = serializers.RegexField(PATRON_SLUG, max_length=120, required=False, allow_null=True)
     fecha_ultima_revision = serializers.DateField(required=False, allow_null=True)
     seo_titulo = _texto(70)
     seo_descripcion = _texto(160)
-    relaciones = RelacionEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=12, default=list
+    relaciones = _con_limite(
+        RelacionEntradaSerializer(  # type: ignore[call-arg]
+            many=True, required=False, max_length=12, default=list
+        ),
+        max_length=12,
     )
     terminos_ids = _id_lista(50)
-    fuentes = FuenteEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=30, default=list
+    fuentes = _con_limite(
+        FuenteEntradaSerializer(  # type: ignore[call-arg]
+            many=True, required=False, max_length=30, default=list
+        ),
+        max_length=30,
     )
 
     def validate_relaciones(self, valor: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -241,14 +265,14 @@ class IdOpcionalMixin(serializers.Serializer[Any]):
 # Destino
 # ---------------------------------------------------------------------------
 class DestinoCamposMixin(serializers.Serializer[Any]):
-    pais_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    pais_id = _id_opcional()
     resumen = _texto(300)
     descripcion_experta = _html()
     tipos_ids = _id_lista(12)
-    tipo_principal_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
+    tipo_principal_id = _id_opcional()
     dificultad = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
-    meses_mejor_epoca = serializers.ListField(
-        child=serializers.IntegerField(min_value=1, max_value=12),
+    meses_mejor_epoca = lista_unica(
+        serializers.IntegerField(min_value=1, max_value=12),
         max_length=12,
         required=False,
         default=list,
@@ -262,18 +286,16 @@ class DestinoCamposMixin(serializers.Serializer[Any]):
     nivel_presupuesto = serializers.IntegerField(
         min_value=1, max_value=4, required=False, allow_null=True
     )
-    clima = _html(5000)
+    clima = _texto(5000)  # texto plano en el contrato (sin contentMediaType)
     altitud_max_m = serializers.IntegerField(
         min_value=-500, max_value=9000, required=False, allow_null=True
     )
     como_llegar = _html()
     seguridad_riesgos = _html()
     sostenibilidad = _html()
-    latitud = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
-    longitud = serializers.FloatField(
-        min_value=-180, max_value=180, required=False, allow_null=True
-    )
-    portada_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    latitud = numero(min_value=-90, max_value=90, required=False, allow_null=True)
+    longitud = numero(min_value=-180, max_value=180, required=False, allow_null=True)
+    portada_id = _id_opcional()
     galeria_ids = _id_lista(30)
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
@@ -337,11 +359,9 @@ class DestinoVistaPreviaSerializer(
 # ---------------------------------------------------------------------------
 class DiaEntradaSerializer(EntradaEstricta):
     numero_dia = serializers.IntegerField(min_value=1, max_value=60)
-    titulo = serializers.CharField(min_length=1, max_length=150)
-    actividades = serializers.CharField(max_length=50_000, trim_whitespace=False)
-    distancia_km = serializers.FloatField(
-        min_value=0, max_value=99_999.9, required=False, allow_null=True
-    )
+    titulo = texto_sin_nul(min_length=1, max_length=150)
+    actividades = texto_html(max_length=50_000, trim_whitespace=False)
+    distancia_km = numero(min_value=0, max_value=99_999.9, required=False, allow_null=True)
     desnivel_positivo_m = serializers.IntegerField(
         min_value=0, max_value=20_000, required=False, allow_null=True
     )
@@ -349,9 +369,7 @@ class DiaEntradaSerializer(EntradaEstricta):
         min_value=0, max_value=20_000, required=False, allow_null=True
     )
     alojamiento_orientativo = _texto(300)
-    consejos = serializers.CharField(
-        max_length=50_000, required=False, allow_null=True, trim_whitespace=False
-    )
+    consejos = texto_html(max_length=50_000, required=False, allow_null=True, trim_whitespace=False)
 
     def validate_actividades(self, valor: str) -> str:
         from apps.contenido.saneado import sanear_html
@@ -365,24 +383,25 @@ class DiaEntradaSerializer(EntradaEstricta):
 
 
 class ItinerarioCamposMixin(serializers.Serializer[Any]):
-    destino_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    destino_id = _id_opcional()
     resumen = _texto(300)
     duracion_dias = serializers.IntegerField(
         min_value=1, max_value=60, required=False, allow_null=True
     )
     dificultad = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
     tipos_ids = _id_lista(12)
-    distancia_total_km = serializers.FloatField(
-        min_value=0, max_value=99_999.9, required=False, allow_null=True
-    )
+    distancia_total_km = numero(min_value=0, max_value=99_999.9, required=False, allow_null=True)
     desnivel_acumulado_m = serializers.IntegerField(
         min_value=0, max_value=1_000_000, required=False, allow_null=True
     )
     riesgos_seguridad = _html()
-    portada_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    portada_id = _id_opcional()
     galeria_ids = _id_lista(30)
-    dias = DiaEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=60, default=list
+    dias = _con_limite(
+        DiaEntradaSerializer(  # type: ignore[call-arg]
+            many=True, required=False, max_length=60, default=list
+        ),
+        max_length=60,
     )
 
     def validate_dias(self, valor: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -412,13 +431,13 @@ class ItinerarioVistaPreviaSerializer(
 # Guía
 # ---------------------------------------------------------------------------
 class GuiaCamposMixin(serializers.Serializer[Any]):
-    categoria_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    categoria_id = _id_opcional()
     resumen = _texto(300)
     cuerpo = _html()
     destinos_ids = _id_lista(20)
     tipos_ids = _id_lista(12)
     remite_a_metodologia = serializers.BooleanField(required=False, default=False)
-    portada_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    portada_id = _id_opcional()
 
 
 class GuiaEntradaSerializer(EntradaEstricta, ComunesMixin, GuiaCamposMixin):
@@ -437,7 +456,7 @@ class GuiaVistaPreviaSerializer(EntradaEstricta, ComunesMixin, GuiaCamposMixin, 
 # Tipo de aventura
 # ---------------------------------------------------------------------------
 class ChecklistEntradaSerializer(EntradaEstricta):
-    texto = serializers.CharField(min_length=1, max_length=200)
+    texto = texto_sin_nul(min_length=1, max_length=200)
     grupo = _texto(60)
     esencial = serializers.BooleanField()
     orden = serializers.IntegerField(min_value=0, max_value=1000)
@@ -449,10 +468,13 @@ class TipoAventuraCamposMixin(serializers.Serializer[Any]):
     nivel_exigencia = serializers.IntegerField(
         min_value=1, max_value=5, required=False, allow_null=True
     )
-    portada_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    portada_id = _id_opcional()
     orden = serializers.IntegerField(min_value=0, max_value=1000, required=False, default=0)
-    checklist = ChecklistEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=100, default=list
+    checklist = _con_limite(
+        ChecklistEntradaSerializer(  # type: ignore[call-arg]
+            many=True, required=False, max_length=100, default=list
+        ),
+        max_length=100,
     )
 
     def validate_checklist(self, valor: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -490,7 +512,7 @@ class _CampoTipoElementoColeccion(serializers.ChoiceField):
 
 class ElementoColeccionEntradaSerializer(EntradaEstricta):
     tipo_contenido = _CampoTipoElementoColeccion(choices=[T.DESTINO, T.ITINERARIO])
-    contenido_id = IdSerializerField()
+    contenido_id = id_contrato()
     orden = serializers.IntegerField(min_value=0, max_value=1000)
     nota_editorial = _texto(300)
 
@@ -498,9 +520,12 @@ class ElementoColeccionEntradaSerializer(EntradaEstricta):
 class ColeccionCamposMixin(serializers.Serializer[Any]):
     resumen = _texto(300)
     descripcion = _html()
-    portada_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
-    elementos = ElementoColeccionEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=100, default=list
+    portada_id = _id_opcional()
+    elementos = _con_limite(
+        ElementoColeccionEntradaSerializer(  # type: ignore[call-arg]
+            many=True, required=False, max_length=100, default=list
+        ),
+        max_length=100,
     )
 
     def validate_elementos(self, valor: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -530,7 +555,7 @@ class ColeccionVistaPreviaSerializer(
 # Término de glosario
 # ---------------------------------------------------------------------------
 class TerminoGlosarioCamposMixin(serializers.Serializer[Any]):
-    titulo = serializers.CharField(min_length=1, max_length=150)
+    titulo = texto_sin_nul(min_length=1, max_length=150)
     slug = serializers.RegexField(PATRON_SLUG, max_length=120, required=False, allow_null=True)
     definicion = _texto(600)
     fecha_ultima_revision = serializers.DateField(required=False, allow_null=True)
@@ -550,9 +575,9 @@ class TerminoGlosarioActualizacionSerializer(
 # Página institucional
 # ---------------------------------------------------------------------------
 class PaginaInstitucionalCamposMixin(serializers.Serializer[Any]):
-    titulo = serializers.CharField(min_length=1, max_length=150)
-    cuerpo = serializers.CharField(max_length=100_000, trim_whitespace=False)
-    version_documento = serializers.CharField(min_length=1, max_length=20)
+    titulo = texto_sin_nul(min_length=1, max_length=150)
+    cuerpo = texto_html(max_length=100_000, trim_whitespace=False)
+    version_documento = texto_sin_nul(min_length=1, max_length=20)
     vigente_desde = serializers.DateField()
     fecha_ultima_revision = serializers.DateField(required=False, allow_null=True)
     seo_titulo = _texto(70)
@@ -568,9 +593,9 @@ class PaginaInstitucionalActualizacionSerializer(
 class PaginaInstitucionalVistaPreviaSerializer(
     EntradaEstricta, PaginaInstitucionalCamposMixin, IdOpcionalMixin
 ):
-    titulo = serializers.CharField(min_length=1, max_length=150, required=False)
-    cuerpo = serializers.CharField(max_length=100_000, required=False, trim_whitespace=False)
-    version_documento = serializers.CharField(min_length=1, max_length=20, required=False)
+    titulo = texto_sin_nul(min_length=1, max_length=150, required=False)
+    cuerpo = texto_html(max_length=100_000, required=False, trim_whitespace=False)
+    version_documento = texto_sin_nul(min_length=1, max_length=20, required=False)
     vigente_desde = serializers.DateField(required=False)
 
 
@@ -772,10 +797,10 @@ class PaginaRevisionResumenSerializer(PaginaMetaSerializer):
 # Salidas Panel por tipo (ContenidoPanelMeta + ContenidoComunCampos + {Tipo}Campos)
 # ---------------------------------------------------------------------------
 class ReferenciasPanelSerializer(serializers.Serializer[Any]):
-    medios = MedioRefPanelSerializer(many=True, required=False)
-    contenidos = ContenidoRefPanelSerializer(many=True, required=False)
-    terminos = TerminoRefPanelSerializer(many=True, required=False)
-    taxonomias = TaxonomiaRefPanelSerializer(many=True, required=False)
+    medios = _con_limite(MedioRefPanelSerializer(many=True, required=False), max_length=60)
+    contenidos = _con_limite(ContenidoRefPanelSerializer(many=True, required=False), max_length=200)
+    terminos = _con_limite(TerminoRefPanelSerializer(many=True, required=False), max_length=50)
+    taxonomias = _con_limite(TaxonomiaRefPanelSerializer(many=True, required=False), max_length=100)
 
 
 class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):

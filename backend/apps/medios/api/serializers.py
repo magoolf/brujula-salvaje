@@ -290,13 +290,22 @@ class ResultadoSubidaSerializer(serializers.Serializer[Any]):
     resultados = _con_limite(ResultadoArchivoSerializer(many=True), max_length=10, min_length=1)
 
 
+@extend_schema_field({"$ref": "#/components/schemas/EstadoEditorial"})
+class _CampoEstadoEditorialRef(serializers.ChoiceField):
+    """`UsoMedio.estado_editorial` del contrato: `oneOf: [$ref EstadoEditorial, null]` (TKT-012,
+    response-property-one-of-added). Sin el override drf-spectacular nombra el enum
+    `EstadoEditorialEnum` y oasdiff lo ve como otra rama del `oneOf`. Con `allow_null=True`,
+    `append_meta` envuelve el `$ref` en `oneOf: [{$ref}, {type: 'null'}]`, la forma exacta del
+    contrato; el componente `EstadoEditorial` lo garantiza `apps.core.esquema`."""
+
+
 class UsoMedioSerializer(serializers.Serializer[Any]):
     tipo_contenido = serializers.ChoiceField(
         choices=["DESTINO", "ITINERARIO", "GUIA", "TIPO", "COLECCION", "CONFIG_INICIO"]
     )
     contenido_id = IdSerializerField()
     titulo = serializers.CharField(max_length=150)
-    estado_editorial = serializers.ChoiceField(
+    estado_editorial = _CampoEstadoEditorialRef(
         choices=["BORRADOR", "PUBLICADO", "RETIRADO"], allow_null=True, required=False
     )
     rol = serializers.ChoiceField(choices=["PORTADA", "GALERIA", "HERO"])
@@ -304,3 +313,13 @@ class UsoMedioSerializer(serializers.Serializer[Any]):
 
 class PaginaUsoMedioSerializer(PaginaMetaSerializer):
     resultados = UsoMedioSerializer(many=True)
+
+
+class SubidaMediosEntradaSerializer(serializers.Serializer[Any]):
+    """components.schemas.SubidaMediosEntrada: SOLO documenta el cuerpo multipart de
+    `panelSubirMedios` (TKT-012: request-property-removed `archivos` y el request-body-type-changed
+    que DEC-AUTO-920 tenía que ignorar). La vista lee `request.FILES.getlist("archivos")` y aplica
+    ella misma el 1..10 (400 con el mismo `errors.archivos`); el contenido de cada archivo lo
+    valida `apps.medios.services` (tipo real, tamaño, megapíxeles)."""
+
+    archivos = serializers.ListField(child=serializers.FileField(), min_length=1, max_length=10)
