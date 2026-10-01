@@ -22,7 +22,9 @@ from typing import Any
 
 import pytest
 from django.test import Client
+from rest_framework import serializers
 
+from apps.contenido.api.panel_serializers import _SinClavesRepetidas
 from apps.contenido.models import Contenido, Destino, EstadoEditorial, TipoContenido
 from apps.contenido.tests import publicos
 from apps.contenido.tests.fabricas import forzar_diferidas
@@ -507,3 +509,13 @@ def test_AC_TKT032_02_esquema_generado_documenta_max_y_unique_items(
     assert propiedad.get("type") == "array", propiedad
     assert propiedad.get("maxItems") == max_items
     assert propiedad.get("uniqueItems") is True
+
+
+def test_AC_TKT032_02_validador_sin_claves_repetidas() -> None:
+    validador = _SinClavesRepetidas(("tipo", "id"), "Repetidas.")
+    assert validador == _SinClavesRepetidas(("tipo", "id"), "Repetidas.")
+    assert validador != _SinClavesRepetidas(("id",), "Repetidas.")
+    assert hash(validador) == hash(_SinClavesRepetidas(("tipo", "id"), "Repetidas."))
+    validador([{"tipo": "TIPO", "id": 1}, {"tipo": "DESTINO", "id": 1}])  # mismo id, otro tipo
+    with pytest.raises(serializers.ValidationError):
+        validador([{"tipo": "TIPO", "id": 1}, {"tipo": "TIPO", "id": 1}])
