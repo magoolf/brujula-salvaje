@@ -2211,3 +2211,53 @@ Fecha: 2026-10-01. Docker Engine 29.6.1, Compose v5.2.0. Proyecto propio `-p ops
 
 ### 25.9 Próximo agente
 **Orquestador**: registrar en `audit_log.md`/`kanban.md` la revisión del ADR (ancla `\z` y retirada de `X-Forwarded-Proto`), lanzar QA de TKT-OPS-019 e integrar tras QA PASS y CI verde. El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+## 26. TKT-OPS-021: retirada de la excepción de oasdiff (DEC-AUTO-920) y gate de cobertura por módulo (Skill_Backend §8) (F7, soporte, LOW)
+
+### 26.1 Estado
+**COMPLETADO** en la rama `tkt-ops-021-cobertura-oasdiff`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). Origen: CHG-OPS del Developer de TKT-012 (DEC-AUTO-940).
+
+### 26.2 Objetivo
+(a) Retirar la excepción `--err-ignore` de DEC-AUTO-920 (`request-body-type-changed` en `POST /api/v1/panel/medios`), que tras TKT-012 ya no casa con ningún hallazgo. (b) Hacer cumplir en CI los umbrales por módulo de Skill_Backend §8, que hasta ahora solo se revisaban a mano (el CI solo exigía el total con `--cov-fail-under=80`).
+
+### 26.3 Cambios realizados
+- `infra/ci/oasdiff_err_ignore.txt`: **sin reglas**. Se mantiene el archivo y el flag `--err-ignore` en `ci.yaml` como punto único y versionado de futuras excepciones del gate de contrato (análogo a `.trivyignore`); así ninguna excepción entra por una vía paralela. Cabecera con historial, procedimiento para añadir una excepción y formato real de `MatchIgnore` (oasdiff v1.32.1). Los comentarios no contienen "método + espacio + ruta", así que no casan con ningún hallazgo.
+- `infra/ci/cobertura_umbrales.toml` (nuevo): reglas versionadas (`total` > 80, `apps/*/services.py` > 90, endpoints críticos > 95), clasificación obligatoria de vistas y excepciones nombradas con caducidad.
+  - **Endpoints críticos** (> 95 %): todas las vistas del panel (`contenido/api/panel_views.py`, `medios/api/views.py`, `catalogos/api/views.py`, `inicio/api/views.py`, `auditoria/api/views.py`) y las de cuentas/autenticación (`cuentas/api/views.py`).
+  - **No críticas, con motivo**: `contenido/api/views.py` (API pública de solo lectura) y `core/api/views.py` (health). Siguen sujetas al total.
+  - Una vista nueva (`apps/*/api/*views*.py`, `apps/*/views.py`, `apps/*/views/*.py`) que no esté clasificada hace fallar el gate.
+- `infra/ci/gate_cobertura.py` (nuevo, solo biblioteca estándar: `json`, `tomllib`, `fnmatch`): lee `coverage.json` (`percent_covered` sin redondear, con ramas porque `branch = true`) y compara de forma **estricta** (`>`), como dice §8. Falla cerrado si falta el `coverage.json` o no es válido, si un patrón no casa con ningún archivo (renombrado), si un archivo existe en disco y no está medido, o si una vista no está clasificada. Imprime una tabla de módulos y, al final, la lista de los que quedan por debajo (`::error::`).
+  - **Excepciones**: campos obligatorios `archivo`, `umbral_minimo` (suelo: tampoco puede bajar de él), `registrada`, `caduca`, `ticket`, `decision` y `motivo`. La ventana no puede superar 45 días y el gate falla al caducar. Una excepción ya innecesaria solo genera un aviso (`::warning::`), para no bloquear el PR del Developer que sube la cobertura: se retira en el siguiente ticket de DevOps.
+- `infra/ci/gate_cobertura_controles.py` (nuevo): 16 controles sintéticos (P1-P2, N1-N13) + 4 sobre el `coverage.json` real (R1 configuración real → 0; R2 umbral imposible → 1; R3 `coverage.json` manipulado → 1; R4 fecha simulada tras la caducidad → 1).
+- `.github/workflows/ci.yaml` (job backend): `pytest --cov-report=json:coverage.json` y, a continuación, dos pasos nuevos: los controles del gate y el gate. Comentario del gate de contrato actualizado (excepción retirada).
+
+### 26.4 Excepciones vigentes (propuestas: el Orquestador debe registrarlas como DEC-AUTO)
+| Id | Archivo | Cobertura en main | Suelo | Caduca | Retirar con |
+|---|---|---|---|---|---|
+| TKT-OPS-021-EXC-01 | `apps/catalogos/api/views.py` | 71,81 % | 71 % | 2026-10-31 | TKT-032 (en QA) |
+| TKT-OPS-021-EXC-02 | `apps/inicio/api/views.py` | 93,75 % | 93 % | 2026-10-31 | TKT-032 (en QA) |
+
+### 26.5 Versiones, infraestructura, dependencias y variables de entorno
+Sin cambios. oasdiff v1.32.1 (binario Windows verificado contra `checksums.txt` de la release; el sha256 Linux de ese archivo coincide con `OASDIFF_SHA256` de `ci.yaml`). Python 3.13 del runner (`tomllib` en la biblioteca estándar); sin dependencias nuevas.
+
+### 26.6 Validaciones ejecutadas (2026-10-01, en local)
+- **oasdiff** (mismos pasos y flags que el CI: `spectacular --validate` → `gate_contrato.py` → `oasdiff breaking … --fail-on ERR --err-ignore`): 128/128 operaciones, 0 errores del gate; oasdiff sin cambios rompedores con el archivo nuevo, con el anterior y con `--fail-on WARN`.
+- **Control del mecanismo `--err-ignore`**: reintroduciendo el hallazgo histórico en una copia del esquema generado (cuerpo `string/binary`), el archivo nuevo da **exit 1** (`1 error`) y el anterior **exit 0**. El flag sigue leyendo el archivo y el archivo nuevo no ignora nada.
+- **pytest** contra PostgreSQL 18.6 efímero (proyecto `brujulaops020`, `compose.yaml + compose.ci.yaml`): 1069 passed, 4 skipped, total 96,38 %. Gate: 15 módulos evaluados, 0 por debajo, PASS (con las 2 excepciones de §26.4). El CI de `main` (run 36883312241) da las mismas cifras por módulo.
+- **Controles**: 20/20 correctos. Falla cerrado sin `coverage.json` (exit 1).
+- `ruff check` y `ruff format --check` (configuración del backend) limpios en los dos scripts nuevos; `ci.yaml` se carga con PyYAML.
+- El CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 26.7 Riesgos / pendientes
+| ID | Riesgo | Sev. | Acción | Estado |
+|---|---|---|---|---|
+| — | Dos vistas del panel bajo 95 % con excepción hasta el 2026-10-31 | LOW | TKT-032 las sube; después, retirar las excepciones (el gate avisará) | ABIERTO |
+| — | `coverage.json` no está en `.gitignore` | INFO | Ticket al Developer/Orquestador (`.gitignore` está fuera del alcance de DevOps) | PENDIENTE |
+| — | Comparación estricta (`>`, §8) frente a "≥" del título del ticket | INFO | Se aplica §8 (mayor rango, CLAUDE.md §0.1); solo difiere si un módulo queda exactamente en el umbral | REGISTRAR |
+| — | Smoke anti-evasión (TKT-OPS-018) sin documentar aquí | INFO | Se documenta en F9 | PENDIENTE |
+
+### 26.8 Archivos modificados
+`infra/ci/oasdiff_err_ignore.txt`, `infra/ci/cobertura_umbrales.toml` (nuevo), `infra/ci/gate_cobertura.py` (nuevo), `infra/ci/gate_cobertura_controles.py` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 26.9 Próximo agente
+**Orquestador**: registrar las excepciones de §26.4 como DEC-AUTO, lanzar QA de TKT-OPS-021 y, al integrar TKT-032, abrir la retirada de las excepciones.

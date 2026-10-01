@@ -187,7 +187,19 @@ jobs:
           uv run --frozen python manage.py makemigrations --check --dry-run
           uv run --frozen python manage.py migrate --noinput
       - name: unit tests + cobertura (umbral en la config de pytest del Developer)
-        run: uv run --frozen pytest
+        run: uv run --frozen pytest --cov-report=json:coverage.json
+      # TKT-OPS-021 (DEC-AUTO-940): gate de cobertura POR MÓDULO de Skill_Backend §8 (total > 80 %,
+      # apps/*/services.py > 90 %, vistas de endpoints críticos -panel y cuentas/auth- > 95 %).
+      # Umbrales, clasificación de vistas y excepciones nombradas con caducidad (como .trivyignore,
+      # el gate falla al caducar) en infra/ci/cobertura_umbrales.toml. Falla cerrado si falta el
+      # coverage.json. Antes se ejecutan sus controles: 16 sintéticos + 4 sobre el coverage.json real
+      # (umbral imposible, coverage.json manipulado, fecha tras la caducidad). Detalle: DEVOPS_HANDOFF §26.
+      - name: "cobertura por módulo: controles del gate (sintéticos + coverage.json real manipulado)"
+        timeout-minutes: 5
+        run: python ../infra/ci/gate_cobertura_controles.py ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml .
+      - name: "cobertura por módulo (Skill_Backend §8: services > 90 %, endpoints críticos > 95 %)"
+        timeout-minutes: 5
+        run: python ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml .
       - name: check --deploy
         env: {DJANGO_DEBUG: "false", DJANGO_SECURE_SSL_REDIRECT: "true", DJANGO_SECURE_HSTS_SECONDS: "31536000"}
         run: uv run --frozen python manage.py check --deploy --fail-level WARNING
@@ -208,6 +220,8 @@ jobs:
       #      tras TKT-OPS-010 (request-body-type-changed en POST /api/v1/panel/medios: multipart real
       #      -string/binary- vs contrato abstracto -object-), análoga en espíritu a .trivyignore
       #      (RSK-OPS-001). Formato y alcance exacto documentados en el propio archivo. Detalle: §21.
+      #      TKT-OPS-021 (DEC-AUTO-940): esa excepción se RETIRÓ (TKT-012 eliminó el hallazgo); el
+      #      archivo queda sin reglas como punto único y versionado de futuras excepciones.
       # Controles N1..N12 + positivos: docs/05_operacion/DEVOPS_HANDOFF.md (TKT-OPS-004); N13 (objeto
       # abierto vs cerrado), N14 (esquema sin tipo vs tipado) y A1..A7 (autorreferenciados, recorrido
       # memoizado): §19 (TKT-OPS-006, DEC-AUTO-250/251). timeout-minutes acota cualquier regresión.
