@@ -331,6 +331,10 @@ test.describe('Panel · medios (TKT-022)', () => {
     await expect(page).toHaveURL(/\/panel\/medios\?estado=DISPONIBLE$/);
     await expect(page).toHaveTitle(/^Medios/);
     await expect(page.locator('main')).toHaveCount(1);
+    // Para la persona es la carga inicial: el foco sigue en el documento (el primer Tab llega a los
+    // saltos de accesibilidad), no en el h1 al que lo llevaría una navegación interna.
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
     // La carga no añade una entrada al historial.
     expect(await page.evaluate(() => history.length)).toBe(2);
 

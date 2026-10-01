@@ -182,6 +182,7 @@ describe('Panel · medios (TKT-022)', () => {
     await vi.waitFor(() => expect(existe('pagina-medios')).toBe(true));
     expect(m.router.url).toBe('/panel/medios?estado=DISPONIBLE');
     expect(existe('panel-cargando')).toBe(false);
+    expect(document.activeElement).toBe(document.body);
   });
 
   it('AC_TKT022_07 sin sesión, tras la carga va a SCR-030 con un siguiente seguro', async () => {

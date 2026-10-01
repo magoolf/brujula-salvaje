@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Component, EnvironmentInjector, afterNextRender, inject } from '@angular/core';
 
 import { ID_CONTENIDO_PRINCIPAL } from '../../../core/layout/navegacion';
 import { CargaPanelStore } from '../state/carga-panel.store';
@@ -8,6 +9,10 @@ import { CargaPanelStore } from '../state/carga-panel.store';
  * una URL /panel/** se muestra al instante —con <main>, la marca y un estado de carga anunciado—
  * mientras se resuelve la sesión; después se repite la navegación original con los guards de
  * siempre (CargaPanelStore). Fondo y marca de TPL-PANEL-AUTH, sin datos de la sesión.
+ *
+ * Foco: la navegación repetida es interna para el router y FocoRuta llevaría el foco al h1, pero
+ * para la persona sigue siendo la carga inicial de la página. Si nadie movió el foco durante la
+ * carga, se devuelve al documento para que el primer Tab llegue a los saltos de accesibilidad.
  */
 @Component({
   selector: 'app-carga-panel',
@@ -57,6 +62,27 @@ export class CargaPanel {
   protected readonly idContenido = ID_CONTENIDO_PRINCIPAL;
 
   constructor() {
-    void inject(CargaPanelStore).continuar();
+    const documento = inject(DOCUMENT);
+    // Inyector raíz: este componente ya no existe cuando se pinta la pantalla de destino.
+    const injector = inject(EnvironmentInjector);
+    const focoInicial = documento.activeElement;
+    void inject(CargaPanelStore)
+      .continuar()
+      .then(() => {
+        afterNextRender(
+          () => {
+            const activo = documento.activeElement;
+            const principal = documento.getElementById(ID_CONTENIDO_PRINCIPAL);
+            const movidoPorRuta = activo !== null && principal !== null && principal.contains(activo);
+            if (focoInicial !== documento.body || !movidoPorRuta) return;
+            // Foco (y punto de partida del Tab) al inicio del documento, como en una carga normal.
+            const cuerpo = documento.body;
+            cuerpo.setAttribute('tabindex', '-1');
+            cuerpo.focus({ preventScroll: true });
+            cuerpo.removeAttribute('tabindex');
+          },
+          { injector },
+        );
+      });
   }
 }
