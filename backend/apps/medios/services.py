@@ -131,6 +131,13 @@ def _validar_formato_y_tamano(contenido: bytes) -> tuple[str, Image.Image]:
     try:
         imagen = Image.open(io.BytesIO(contenido))
         formato = imagen.format
+    except Image.DecompressionBombError as exc:
+        # TKT-012: Pillow ya rechaza en `open` (solo leyendo la cabecera) una imagen de más del
+        # doble de `Image.MAX_IMAGE_PIXELS`; esa excepción NO es OSError y antes escapaba como
+        # 500. Es el mismo rechazo de negocio que el límite de 40 MP de abajo.
+        raise _rechazo(
+            "megapixeles_excedidos", "La imagen supera los 40 megapíxeles permitidos."
+        ) from exc
     except (UnidentifiedImageError, OSError) as exc:
         raise _rechazo("archivo_corrupto", "El archivo no es una imagen válida.") from exc
     if formato not in _FORMATOS_ORIGEN_PIL:
@@ -253,6 +260,10 @@ def _mover_derivados(medio: Medio, *, hacia: str) -> None:
             logger.warning("chmod_archivo_fallo", ruta=str(destino))
 
 
+def _medio_por_huella(huella: str) -> Medio | None:
+    return Medio.objects.filter(huella_sha256=huella).first()
+
+
 def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
     resultados: list[ResultadoArchivo] = []
     for archivo in archivos:
@@ -271,7 +282,7 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
             continue
 
         huella = _sha256(contenido)
-        existente = Medio.objects.filter(huella_sha256=huella).first()
+        existente = _medio_por_huella(huella)
         if existente is not None:
             resultados.append(
                 ResultadoArchivo(
@@ -287,18 +298,24 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
             # actúa sobre `MedioDerivado`).
             ruta_relativa = f"originales/{huella}.{extension}"
             try:
-                medio = Medio.objects.create(
-                    archivo_saneado_ruta=ruta_relativa,
-                    formato_origen=_FORMATOS_ORIGEN_PIL[formato],
-                    ancho_px=imagen.width,
-                    alto_px=imagen.height,
-                    peso_bytes=len(contenido),
-                    huella_sha256=huella,
-                    sha256_saneado=sha_saneado,
-                    subido_por_id=actor_id,
-                )
+                # Savepoint propio (TKT-012): si otra petición concurrente insertó la misma
+                # huella entre la comprobación de arriba y este INSERT, el IntegrityError solo
+                # deshace este savepoint. Sin él, la transacción exterior quedaba rota y la
+                # consulta de abajo fallaba (TransactionManagementError -> 500) en vez de
+                # responder DUPLICADO.
+                with transaction.atomic():
+                    medio = Medio.objects.create(
+                        archivo_saneado_ruta=ruta_relativa,
+                        formato_origen=_FORMATOS_ORIGEN_PIL[formato],
+                        ancho_px=imagen.width,
+                        alto_px=imagen.height,
+                        peso_bytes=len(contenido),
+                        huella_sha256=huella,
+                        sha256_saneado=sha_saneado,
+                        subido_por_id=actor_id,
+                    )
             except IntegrityError:
-                existente = Medio.objects.filter(huella_sha256=huella).first()
+                existente = _medio_por_huella(huella)
                 resultados.append(
                     ResultadoArchivo(
                         nombre_archivo=nombre,

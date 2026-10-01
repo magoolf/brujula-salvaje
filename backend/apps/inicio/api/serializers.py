@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 from apps.contenido.models import TipoContenido
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField
+from apps.core.esquema import id_contrato, lista_ids, texto_sin_nul
 
 
 def _con_limite(campo: Any, *, max_length: int | None = None) -> Any:
@@ -51,30 +52,25 @@ def _campo_estado_editorial(**kwargs: Any) -> serializers.ChoiceField:
 
 
 def _id_lista(minimo: int, maximo: int) -> serializers.ListField:
-    return serializers.ListField(child=IdSerializerField(), min_length=minimo, max_length=maximo)
+    """`ConfigInicioCampos.*_ids` del contrato: `minItems`/`maxItems`, `uniqueItems: true`
+    (validado: una lista con ids repetidos es un 400) e ítems `Id` sin `maximum` (TKT-012)."""
+    return lista_ids(maximo, min_length=minimo, required=True)
 
 
-class ConfigInicioEntradaSerializer(EntradaEstricta):
-    hero_titular = serializers.CharField(min_length=1, max_length=80)
-    hero_subtitulo = serializers.CharField(min_length=1, max_length=160)
-    hero_medio_id = IdSerializerField()
+class ConfigInicioCamposMixin(serializers.Serializer[Any]):
+    """components.schemas.ConfigInicioCampos: lo comparten entrada y salida (TKT-012), para que
+    el componente que `apps.core.esquema` reparte en `allOf` lleve las mismas restricciones."""
+
+    hero_titular = texto_sin_nul(min_length=1, max_length=80)
+    hero_subtitulo = texto_sin_nul(min_length=1, max_length=160)
+    hero_medio_id = id_contrato()
     destinos_ids = _id_lista(6, 12)
     itinerarios_ids = _id_lista(3, 6)
     guias_ids = _id_lista(3, 6)
 
-    def _validar_unicos(self, nombre: str, valor: list[int]) -> list[int]:
-        if len(set(valor)) != len(valor):
-            raise serializers.ValidationError(f"{nombre}: no puede haber ids repetidos.")
-        return valor
 
-    def validate_destinos_ids(self, valor: list[int]) -> list[int]:
-        return self._validar_unicos("destinos_ids", valor)
-
-    def validate_itinerarios_ids(self, valor: list[int]) -> list[int]:
-        return self._validar_unicos("itinerarios_ids", valor)
-
-    def validate_guias_ids(self, valor: list[int]) -> list[int]:
-        return self._validar_unicos("guias_ids", valor)
+class ConfigInicioEntradaSerializer(EntradaEstricta, ConfigInicioCamposMixin):
+    pass
 
 
 @extend_schema_field({"type": ["integer", "null"], "format": "int64"})
@@ -94,12 +90,20 @@ class ActorRefSerializer(serializers.Serializer[Any]):
         ref_name = "ActorRefInicio"
 
 
+@extend_schema_field({"type": "string", "format": "uri-reference"})
+class _CampoUriReferencia(serializers.CharField):
+    """components.schemas.MedioMiniatura.url_miniatura: uri-reference (ruta relativa); ver la
+    misma clase en `apps.contenido.api.panel_serializers` (duplicada a propósito, §5)."""
+
+
 class MedioMiniaturaSerializer(serializers.Serializer[Any]):
+    """components.schemas.MedioMiniatura (`ConfigInicioPanel.referencias.medios[]`)."""
+
     id = IdSerializerField()
     estado = serializers.CharField()
-    texto_alternativo = serializers.CharField(allow_null=True)
-    licencia_codigo = serializers.CharField(allow_null=True)
-    url_miniatura = serializers.CharField()
+    texto_alternativo = serializers.CharField(max_length=250, allow_null=True)
+    licencia_codigo = serializers.CharField(max_length=40, allow_null=True)
+    url_miniatura = _CampoUriReferencia()
 
 
 class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
@@ -119,21 +123,15 @@ class ContenidoRefPanelSerializer(serializers.Serializer[Any]):
 class ReferenciasConfigInicioSerializer(serializers.Serializer[Any]):
     """`ConfigInicioPanel.referencias` (esquema en línea del contrato)."""
 
-    medios = MedioMiniaturaSerializer(many=True, required=False)
-    contenidos = ContenidoRefPanelSerializer(many=True, required=False)
+    medios = _con_limite(MedioMiniaturaSerializer(many=True, required=False), max_length=1)
+    contenidos = _con_limite(ContenidoRefPanelSerializer(many=True, required=False), max_length=24)
 
 
-class ConfigInicioPanelSerializer(serializers.Serializer[Any]):
+class ConfigInicioPanelSerializer(ConfigInicioCamposMixin):
     """components.schemas.ConfigInicioPanel. Declara los campos (Skill_Backend Regla 13,
     TKT-006 ciclo oasdiff): un `to_representation` propio sin campos declarados no genera
     ninguna propiedad en el esquema drf-spectacular."""
 
-    hero_titular = serializers.CharField(min_length=1, max_length=80)
-    hero_subtitulo = serializers.CharField(min_length=1, max_length=160)
-    hero_medio_id = IdSerializerField()
-    destinos_ids = _id_lista(6, 12)
-    itinerarios_ids = _id_lista(3, 6)
-    guias_ids = _id_lista(3, 6)
     actualizado_en = serializers.DateTimeField()
     actualizado_por = ActorRefSerializer()
     referencias = ReferenciasConfigInicioSerializer()
@@ -160,28 +158,27 @@ class ConfigInicioPanelSerializer(serializers.Serializer[Any]):
         }
 
 
-class ConfiguracionSitioEntradaSerializer(EntradaEstricta):
-    nombre_marca = serializers.CharField(min_length=1, max_length=60)
-    lema = serializers.CharField(max_length=120, required=False, allow_null=True)
-    texto_descargo = serializers.CharField(min_length=1, max_length=5000, trim_whitespace=False)
-    responsable_nombre = serializers.CharField(max_length=150, required=False, allow_null=True)
-    responsable_identificacion = serializers.CharField(
-        max_length=40, required=False, allow_null=True
-    )
-    responsable_domicilio = serializers.CharField(max_length=200, required=False, allow_null=True)
-    responsable_canal_atencion = serializers.CharField(
-        max_length=200, required=False, allow_null=True
-    )
+def _texto_opcional(max_length: int) -> serializers.RegexField:
+    return texto_sin_nul(max_length=max_length, required=False, allow_null=True)
 
 
-class ConfiguracionSitioSerializer(serializers.Serializer[Any]):
-    nombre_marca = serializers.CharField(max_length=60)
-    lema = serializers.CharField(allow_null=True)
-    texto_descargo = serializers.CharField()
-    responsable_nombre = serializers.CharField(allow_null=True)
-    responsable_identificacion = serializers.CharField(allow_null=True)
-    responsable_domicilio = serializers.CharField(allow_null=True)
-    responsable_canal_atencion = serializers.CharField(allow_null=True)
+class ConfiguracionSitioCamposMixin(serializers.Serializer[Any]):
+    """components.schemas.ConfiguracionSitioCampos (compartido por entrada y salida, TKT-012)."""
+
+    nombre_marca = texto_sin_nul(min_length=1, max_length=60)
+    lema = _texto_opcional(120)
+    texto_descargo = texto_sin_nul(min_length=1, max_length=5000, trim_whitespace=False)
+    responsable_nombre = _texto_opcional(150)
+    responsable_identificacion = _texto_opcional(40)
+    responsable_domicilio = _texto_opcional(200)
+    responsable_canal_atencion = _texto_opcional(200)
+
+
+class ConfiguracionSitioEntradaSerializer(EntradaEstricta, ConfiguracionSitioCamposMixin):
+    pass
+
+
+class ConfiguracionSitioSerializer(ConfiguracionSitioCamposMixin):
     actualizado_en = serializers.DateTimeField()
 
 
