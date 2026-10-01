@@ -49,13 +49,17 @@ RUN find /src -name '__pycache__' -type d -prune -exec rm -rf {} +  && rm -rf /s
 # "apt-get download" + "dpkg --force-depends -i". Se aplica en python-sin-pip, ANTES de aplanar
 # el filesystem con FROM scratch + COPY /, para que la version corregida llegue tanto a runtime
 # como a scheduler (ambos derivan de python-min).
+# TKT-OPS-017: mismo patron para libpcre2-8-0 (CVE-2026-103111 HIGH en 10.46-1~deb13u2 de la base,
+# corregida en 10.46-1~deb13u3 de trixie-security). A 2026-10-01 ningun digest publicado trae la
+# version corregida (ni el actual de 3.13.15-slim-trixie ni el 3.14.7 que propone Dependabot).
 FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS python-sin-pip
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --only-upgrade \
       openssl=3.5.7-1~deb13u3 \
       libssl3t64=3.5.7-1~deb13u3 \
-      openssl-provider-legacy=3.5.7-1~deb13u3; \
+      openssl-provider-legacy=3.5.7-1~deb13u3 \
+      libpcre2-8-0=10.46-1~deb13u3; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
     rm -rf /usr/local/lib/python3.13/site-packages/pip \
            /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
@@ -71,7 +75,9 @@ RUN set -eu; \
     for p in openssl libssl3t64 openssl-provider-legacy; do \
       v="$(dpkg-query -W -f='${Version}' "$p")"; \
       case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
-    done
+    done; \
+    v="$(dpkg-query -W -f='${Version}' libpcre2-8-0)"; \
+    case "$v" in 10.46-1~deb13u3) ;; *) echo "libpcre2-8-0 en version inesperada '$v'" >&2; exit 1 ;; esac
 
 FROM scratch AS python-min
 COPY --from=python-sin-pip / /
