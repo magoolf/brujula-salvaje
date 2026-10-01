@@ -2067,3 +2067,12 @@ Fecha: 2026-09-30. Entorno: Docker Engine 29.6.1 y Compose v5.2.0. Proyecto `-p 
 2. Lanzar QA de TKT-OPS-016: escenario de AC_OPS016_01 con el mismo método, ráfagas de AC_02/03 y cabeceras de AC_04/06.
 3. Abrir el ticket de CI del smoke de RSK-OPS-040.
 4. Integrar tras QA PASS y CI verde.
+
+### 23.13 Validación en GitHub Actions (PR #38)
+- **Ejecución 36803048434** (commit 7218b10):
+  - `detectar código`, `infraestructura`, `frontend`: PASS.
+  - `backend`: GitHub canceló el paso `pytest` a los ~6 min con `##[error]The operation was canceled.` (01:58:32Z). No fue `timeout-minutes` (30) ni un relevo por concurrencia (no hubo otro push en la rama).
+  - Desde entonces la ejecución quedó **huérfana** en `in_progress`: `gh run cancel`, `force-cancel` y `rerun` fueron rechazados por la API (409 / "already running").
+  - La rama no toca `backend/` (en `main` @ 1bf5e94 el mismo job pasó en 9 min).
+  - Se relanza con este commit de documentación: la concurrencia `ci-${{ github.ref }}` con `cancel-in-progress` sustituye la ejecución huérfana.
+- Resultado de la nueva ejecución: en el HANDOFF_ENVELOPE de la entrega al Orquestador.
