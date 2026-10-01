@@ -1,0 +1,301 @@
+@if (store.noEncontrado()) {
+  <app-pagina-no-encontrada-panel />
+} @else if (store.accesoDenegado()) {
+  <app-acceso-denegado />
+} @else {
+  <div class="pagina" data-testid="pagina-medio">
+    <p class="volver"><a [routerLink]="rutaMedios" data-testid="medio-volver">Volver a Medios</a></p>
+
+    @if (store.medio(); as medio) {
+      <header class="cabecera">
+        <h1 tabindex="-1" data-testid="medio-titulo-pagina">{{ nombre() }}</h1>
+        <app-insignia [variante]="variante()" data-testid="medio-estado">{{ etiquetaEstado[medio.estado] }}</app-insignia>
+      </header>
+
+      @if (store.avisoExito(); as aviso) {
+        <app-banner variante="success" testId="medio-exito">{{ aviso }}</app-banner>
+      }
+      @if (pendiente()) {
+        <app-banner [variante]="licenciaIncompatible() ? 'warning' : 'info'" testId="medio-pendiente">
+          Completa el texto alternativo, el autor y la licencia para poder usar esta imagen en contenido publicado.
+          <ul class="pendientes" data-testid="medio-pendientes">
+            @for (p of medio.pendientes; track p) {
+              <li>{{ etiquetaPendiente[p] }}</li>
+            }
+          </ul>
+        </app-banner>
+      }
+      @if (retirado()) {
+        <app-banner variante="info" testId="medio-retirado">
+          Esta imagen está retirada: no se puede usar en contenido. Reactívala para volver a catalogarla.
+        </app-banner>
+      }
+      @if (errorAccion(); as mensaje) {
+        <app-banner variante="error" testId="medio-error-accion">{{ mensaje }}</app-banner>
+      }
+
+      <div class="columnas">
+        <section class="ficha" aria-labelledby="medio-ficha-titulo">
+          <h2 id="medio-ficha-titulo" class="bs-solo-lectores">Imagen y ficha técnica</h2>
+          <div class="vista">
+            @if (vista(); as v) {
+              @if (!fallaImagen()) {
+                <img
+                  [src]="v.src"
+                  [attr.srcset]="v.srcset || null"
+                  sizes="(min-width: 64rem) 40vw, 100vw"
+                  [alt]="medio.textoAlternativo ?? ''"
+                  data-testid="medio-imagen"
+                  (error)="alFallarImagen()"
+                />
+              }
+            }
+            @if (!vista() || fallaImagen()) {
+              <p class="sin-vista">Vista previa no disponible.</p>
+            }
+          </div>
+          <dl class="datos-tecnicos" data-testid="medio-ficha">
+            <div><dt>Dimensiones</dt><dd>{{ medio.anchoPx }} × {{ medio.altoPx }} px</dd></div>
+            <div><dt>Peso</dt><dd>{{ peso(medio.pesoBytes) }}</dd></div>
+            <div><dt>Formato original</dt><dd>{{ medio.formatoOrigen }}</dd></div>
+            <div><dt>Subida</dt><dd>{{ medio.subidoPor }} · {{ fechaHora(medio.subidoEn) }}</dd></div>
+            <div>
+              <dt>Derivados</dt>
+              <dd data-testid="medio-derivados">
+                @if (medio.derivados.length === 0) {
+                  Sin derivados
+                } @else {
+                  <ul class="derivados">
+                    @for (d of medio.derivados; track d.url) {
+                      <li>
+                        <a [href]="d.url" target="_blank" rel="noopener">{{ d.formato }} {{ d.ancho }} px<span class="bs-solo-lectores"> (se abre en otra pestaña)</span></a>
+                      </li>
+                    }
+                  </ul>
+                }
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <div class="lateral">
+          <section class="seccion" aria-labelledby="medio-datos-titulo">
+            <h2 id="medio-datos-titulo">Datos de la imagen</h2>
+            @if (erroresGenerales().length > 0) {
+              <div id="medio-errores" class="resumen-errores" tabindex="-1" role="alert" data-testid="medio-errores">
+                @for (mensaje of erroresGenerales(); track $index) {
+                  <p>{{ mensaje }}</p>
+                }
+              </div>
+            }
+            @if (retirado()) {
+              <p class="ayuda">Los datos de una imagen retirada no se pueden editar.</p>
+            } @else {
+              <form class="formulario" novalidate (submit)="guardar($event)" data-testid="medio-formulario">
+                <app-campo-texto
+                  [campo]="tituloInterno"
+                  etiqueta="Título interno"
+                  [idCampo]="id.tituloInterno"
+                  nombreCampo="titulo_interno"
+                  [maximo]="maximo.tituloInterno"
+                  ayuda="Solo lo ve el equipo: ayuda a encontrarla en la biblioteca."
+                  [error]="errores().tituloInterno ?? null"
+                  testId="medio-campo-titulo"
+                  (editado)="limpiarError('tituloInterno')"
+                />
+                <app-campo-texto
+                  [campo]="textoAlternativo"
+                  etiqueta="Texto alternativo"
+                  [idCampo]="id.textoAlternativo"
+                  nombreCampo="texto_alternativo"
+                  tipo="textarea"
+                  [obligatorio]="true"
+                  [maximo]="maximo.textoAlternativo"
+                  [ayuda]="guiaAlt"
+                  [error]="errores().textoAlternativo ?? null"
+                  testId="medio-campo-alt"
+                  (editado)="limpiarError('textoAlternativo')"
+                />
+                <app-campo-texto
+                  [campo]="pieDeFoto"
+                  etiqueta="Pie de foto"
+                  [idCampo]="id.pieDeFoto"
+                  nombreCampo="pie_de_foto"
+                  tipo="textarea"
+                  [maximo]="maximo.pieDeFoto"
+                  [error]="errores().pieDeFoto ?? null"
+                  testId="medio-campo-pie"
+                  (editado)="limpiarError('pieDeFoto')"
+                />
+                <app-campo-texto
+                  [campo]="autorCredito"
+                  etiqueta="Autor o crédito"
+                  [idCampo]="id.autorCredito"
+                  nombreCampo="autor_credito"
+                  [obligatorio]="true"
+                  [maximo]="maximo.autorCredito"
+                  [error]="errores().autorCredito ?? null"
+                  testId="medio-campo-credito"
+                  (editado)="limpiarError('autorCredito')"
+                />
+                <app-campo-texto
+                  [campo]="fuenteUrl"
+                  etiqueta="URL de la fuente"
+                  [idCampo]="id.fuenteUrl"
+                  nombreCampo="fuente_url"
+                  tipo="url"
+                  ayuda="Opcional. Dirección completa (http:// o https://) de donde procede la imagen."
+                  [error]="errores().fuenteUrl ?? null"
+                  testId="medio-campo-fuente"
+                  (editado)="limpiarError('fuenteUrl')"
+                />
+                <div class="campo">
+                  <label [for]="id.licenciaId">Licencia <span class="obligatorio">(obligatorio)</span></label>
+                  @if (store.errorLicencias()) {
+                    <p class="ayuda" id="medio-licencia-aviso">No pudimos cargar las licencias. Recarga la página para elegir una.</p>
+                  }
+                  <select
+                    class="entrada-texto"
+                    [id]="id.licenciaId"
+                    name="licencia_id"
+                    aria-required="true"
+                    [appEnlaceValor]="licenciaId"
+                    [attr.aria-invalid]="errores().licenciaId ? 'true' : null"
+                    [attr.aria-describedby]="errores().licenciaId ? 'medio-licencia-error' : null"
+                    data-testid="medio-campo-licencia"
+                    (change)="limpiarError('licenciaId')"
+                  >
+                    <option value="" [selected]="licenciaId() === ''">Sin licencia</option>
+                    @for (l of store.licencias(); track l.id) {
+                      <option [value]="'' + l.id" [selected]="licenciaId() === '' + l.id">
+                        {{ l.nombre }}{{ l.compatiblePublicacion ? '' : ' (no permite publicar)' }}{{ l.activa ? '' : ' (inactiva)' }}
+                      </option>
+                    }
+                  </select>
+                  @if (errores().licenciaId; as mensaje) {
+                    <p class="error-campo" id="medio-licencia-error" data-testid="medio-campo-licencia-error">{{ mensaje }}</p>
+                  }
+                </div>
+                <div class="acciones">
+                  <button
+                    type="submit"
+                    appBoton
+                    [cargando]="guardando()"
+                    [deshabilitadoEnfocable]="!enLinea()"
+                    data-testid="medio-guardar"
+                  >
+                    {{ guardando() ? 'Guardando…' : 'Guardar' }}
+                  </button>
+                  @if (!enLinea()) {
+                    <p class="ayuda">Sin conexión: podrás guardar cuando vuelva.</p>
+                  }
+                </div>
+              </form>
+            }
+          </section>
+
+          <section class="seccion" aria-labelledby="medio-usos-titulo" data-testid="medio-usos">
+            <h2 id="medio-usos-titulo">Usado en</h2>
+            @if (store.usos(); as usos) {
+              @if (usos.total === 0) {
+                <p class="ayuda" data-testid="medio-sin-usos">Esta imagen aún no se usa en ningún contenido.</p>
+              } @else {
+                <ul class="usos">
+                  @for (uso of usos.usos; track uso.tipoContenido + uso.contenidoId + uso.rol) {
+                    <li data-testid="medio-uso">
+                      <span class="uso-titulo">{{ uso.titulo }}</span>
+                      <span class="ayuda">{{ etiquetaTipoUso[uso.tipoContenido] }} · {{ etiquetaRolUso[uso.rol] }}</span>
+                      @if (uso.estadoEditorial; as estado) {
+                        <app-insignia [variante]="varianteEditorial(estado)">{{ etiquetaEstadoEditorial[estado] }}</app-insignia>
+                      }
+                    </li>
+                  }
+                </ul>
+                @if (usos.totalPaginas > 1) {
+                  <div class="paginado">
+                    <button type="button" appBoton variante="secondary" tamano="sm" [deshabilitadoEnfocable]="usos.pagina <= 1" (click)="store.irAPaginaUsos(usos.pagina - 1)">Anteriores</button>
+                    <span>Página {{ usos.pagina }} de {{ usos.totalPaginas }}</span>
+                    <button type="button" appBoton variante="secondary" tamano="sm" [deshabilitadoEnfocable]="usos.pagina >= usos.totalPaginas" (click)="store.irAPaginaUsos(usos.pagina + 1)">Siguientes</button>
+                  </div>
+                }
+              }
+            } @else if (store.errorUsos()) {
+              <p class="ayuda">No pudimos cargar dónde se usa esta imagen.</p>
+            } @else {
+              <app-estado-cargando forma="linea" [cantidad]="2" etiqueta="Cargando usos…" testId="medio-usos-cargando" />
+            }
+          </section>
+
+          <section class="seccion zona-retiro" aria-labelledby="medio-retiro-titulo" data-testid="medio-zona-retiro">
+            @if (retirado()) {
+              <h2 id="medio-retiro-titulo">Reactivar medio</h2>
+              <p>Vuelve a quedar pendiente de datos hasta que completes su catalogación.</p>
+              <div class="acciones">
+                <button type="button" appBoton variante="secondary" data-testid="medio-reactivar" (click)="confirmarReactivacion.set(true)">
+                  Reactivar medio
+                </button>
+              </div>
+            } @else {
+              <h2 id="medio-retiro-titulo">Retirar medio</h2>
+              @if (enUsoPublicado()) {
+                <p id="medio-retiro-bloqueo" data-testid="medio-retiro-bloqueado">
+                  No se puede retirar: la usa contenido publicado (ver «Usado en»). Quítala primero de ese contenido.
+                </p>
+              } @else {
+                <p>Una imagen retirada no se puede usar en contenido nuevo. Podrás reactivarla después.</p>
+              }
+              <div class="acciones">
+                <button
+                  type="button"
+                  appBoton
+                  variante="danger"
+                  [deshabilitadoEnfocable]="!store.puedeRetirar() || !enLinea()"
+                  [attr.aria-describedby]="enUsoPublicado() ? 'medio-retiro-bloqueo' : null"
+                  data-testid="medio-retirar"
+                  (click)="confirmarRetiro.set(true)"
+                >
+                  Retirar medio
+                </button>
+              </div>
+            }
+          </section>
+        </div>
+      </div>
+
+      <app-dialogo-confirmacion
+        [(abierto)]="confirmarRetiro"
+        titulo="¿Retirar esta imagen?"
+        textoConfirmar="Retirar medio"
+        [procesando]="procesando()"
+        idBase="medio-dialogo-retiro"
+        (confirmar)="retirar()"
+      >
+        <p>«{{ nombre() }}» dejará de poder usarse en contenido. Podrás reactivarla más adelante.</p>
+      </app-dialogo-confirmacion>
+      <app-dialogo-confirmacion
+        [(abierto)]="confirmarReactivacion"
+        titulo="¿Reactivar esta imagen?"
+        textoConfirmar="Reactivar medio"
+        variante="primary"
+        [procesando]="procesando()"
+        idBase="medio-dialogo-reactivar"
+        (confirmar)="reactivar()"
+      >
+        <p>«{{ nombre() }}» volverá a quedar pendiente de datos hasta que completes su catalogación.</p>
+      </app-dialogo-confirmacion>
+    } @else if (store.error(); as error) {
+      <h1 tabindex="-1">Detalle de medio</h1>
+      <app-estado-error
+        [mensaje]="error.mensaje"
+        [anunciar]="true"
+        [rutaSalida]="rutaMedios"
+        etiquetaSalida="Volver a Medios"
+        testId="medio-error"
+        (reintentar)="store.recargar()"
+      />
+    } @else {
+      <h1 tabindex="-1">Detalle de medio</h1>
+      <app-estado-cargando forma="imagen" [cantidad]="1" etiqueta="Cargando la imagen…" testId="medio-cargando" />
+    }
+  </div>
+}
