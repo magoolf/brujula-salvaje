@@ -499,14 +499,45 @@ def usos(medio_id: int) -> list[dict[str, Any]]:
     return filas
 
 
+MAX_USOS = 100  # `ProblemaConUsos.usos.maxItems` del contrato; `total_usos` lleva el total real.
+
+
+def _referencias_uso(filas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filas de `usos()` (forma `UsoMedio` de GET .../usos) a la forma `ReferenciaUso` que el
+    contrato exige en el 409 `medio_en_uso` (`ProblemaConUsos.usos`): {tipo_entidad, id, titulo,
+    estado_editorial} (F-032-03, TKT-033). El hero de inicio se identifica por la fila singleton
+    de `ConfigInicio`. Un contenido que usa el medio como portada y en la galería sale una vez."""
+    from apps.inicio.models import ID_SINGLETON
+
+    referencias: list[dict[str, Any]] = []
+    vistos: set[tuple[str, int]] = set()
+    for fila in filas:
+        hero = fila["rol"] == "HERO"
+        clave = (fila["tipo_contenido"], ID_SINGLETON if hero else fila["contenido_id"])
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        referencias.append(
+            {
+                "tipo_entidad": clave[0],
+                "id": clave[1],
+                "titulo": fila["titulo"],
+                "estado_editorial": fila["estado_editorial"],
+            }
+        )
+    return referencias
+
+
 def retirar(medio_id: int, actor_id: int) -> Medio:
     with transaction.atomic():
         medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
         if medio is None:
             raise NoEncontrado()
         if _en_uso_publicado(medio_id):
-            usos_actuales = usos(medio_id)
-            raise MedioEnUso(extra={"usos": usos_actuales, "total_usos": len(usos_actuales)})
+            usos_actuales = _referencias_uso(usos(medio_id))
+            raise MedioEnUso(
+                extra={"usos": usos_actuales[:MAX_USOS], "total_usos": len(usos_actuales)}
+            )
         medio.estado = EstadoMedio.RETIRADO
         medio.actualizado_en = timezone.now()
         medio.save()
