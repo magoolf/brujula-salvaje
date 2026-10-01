@@ -11,6 +11,7 @@ from rest_framework import serializers
 
 from apps.catalogos.models import Continente, Escala
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
+from apps.core.esquema import id_contrato, texto_sin_nul, url_http
 
 PATRON_SLUG = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 PATRON_NO_NUL = r"^[^\x00]*$"
@@ -33,86 +34,94 @@ def _con_limite(campo: Any, *, max_length: int | None = None, min_length: int | 
     return campo.__class__(*campo._args, **kwargs)
 
 
-class RegionEntradaSerializer(EntradaEstricta):
-    nombre = serializers.CharField(min_length=1, max_length=60)
+class _IdMixin(serializers.Serializer[Any]):
+    """Rama `{id}` de las salidas `allOf: [{id}, {X}Campos]` del contrato."""
+
+    id = IdSerializerField()
+
+
+# Cada recurso declara UNA vez sus campos ({X}Campos del contrato) en un Mixin que comparten la
+# entrada y la salida (mismo patrón que apps/contenido/api/panel_serializers.py, TKT-012): así el
+# componente {X}Campos que `apps.core.esquema` reparte en `allOf` lleva las mismas restricciones
+# (patrón, longitudes, rangos) en petición y respuesta, como en el contrato. En la salida los
+# validadores no se ejecutan (solo `to_representation`).
+class RegionCamposMixin(serializers.Serializer[Any]):
+    nombre = texto_sin_nul(min_length=1, max_length=60)
     slug = serializers.RegexField(PATRON_SLUG, min_length=1, max_length=60)
     continente = serializers.ChoiceField(choices=Continente.choices)
     orden = serializers.IntegerField(min_value=0, max_value=1000)
     activo = serializers.BooleanField()
 
 
-class RegionSerializer(serializers.Serializer[Any]):
-    id = IdSerializerField()
-    nombre = serializers.CharField(max_length=60)
-    slug = serializers.CharField(max_length=60)
-    continente = serializers.ChoiceField(choices=Continente.choices)
-    orden = serializers.IntegerField()
-    activo = serializers.BooleanField()
+class RegionEntradaSerializer(EntradaEstricta, RegionCamposMixin):
+    pass
+
+
+class RegionSerializer(_IdMixin, RegionCamposMixin):
+    pass
 
 
 class PaginaRegionSerializer(PaginaMetaSerializer):
     resultados = RegionSerializer(many=True)
 
 
-class PaisEntradaSerializer(EntradaEstricta):
-    nombre = serializers.CharField(min_length=1, max_length=80)
+class PaisCamposMixin(serializers.Serializer[Any]):
+    nombre = texto_sin_nul(min_length=1, max_length=80)
     slug = serializers.RegexField(PATRON_SLUG, min_length=1, max_length=80)
     codigo_iso2 = serializers.RegexField(r"^[A-Z]{2}$")
-    region_id = IdSerializerField()
+    region_id = id_contrato()
     activo = serializers.BooleanField()
 
 
-class PaisSerializer(serializers.Serializer[Any]):
-    id = IdSerializerField()
-    nombre = serializers.CharField(max_length=80)
-    slug = serializers.CharField(max_length=80)
-    codigo_iso2 = serializers.CharField()
-    region_id = IdSerializerField()
-    activo = serializers.BooleanField()
+class PaisEntradaSerializer(EntradaEstricta, PaisCamposMixin):
+    pass
+
+
+class PaisSerializer(_IdMixin, PaisCamposMixin):
+    pass
 
 
 class PaginaPaisSerializer(PaginaMetaSerializer):
     resultados = PaisSerializer(many=True)
 
 
-class CategoriaGuiaEntradaSerializer(EntradaEstricta):
-    nombre = serializers.CharField(min_length=1, max_length=80)
+class CategoriaGuiaCamposMixin(serializers.Serializer[Any]):
+    nombre = texto_sin_nul(min_length=1, max_length=80)
     slug = serializers.RegexField(PATRON_SLUG, min_length=1, max_length=80)
-    descripcion = serializers.CharField(min_length=1, max_length=400)
+    descripcion = texto_sin_nul(min_length=1, max_length=400)
     orden = serializers.IntegerField(min_value=0, max_value=1000)
     activo = serializers.BooleanField()
 
 
-class CategoriaGuiaPanelSerializer(serializers.Serializer[Any]):
-    id = IdSerializerField()
-    nombre = serializers.CharField(max_length=80)
-    slug = serializers.CharField(max_length=80)
-    descripcion = serializers.CharField(max_length=400)
-    orden = serializers.IntegerField()
-    activo = serializers.BooleanField()
+class CategoriaGuiaEntradaSerializer(EntradaEstricta, CategoriaGuiaCamposMixin):
+    pass
+
+
+class CategoriaGuiaPanelSerializer(_IdMixin, CategoriaGuiaCamposMixin):
+    pass
 
 
 class PaginaCategoriaGuiaPanelSerializer(PaginaMetaSerializer):
     resultados = CategoriaGuiaPanelSerializer(many=True)
 
 
-class LicenciaEntradaSerializer(EntradaEstricta):
+class LicenciaCamposMixin(serializers.Serializer[Any]):
     codigo = serializers.RegexField(r"^[A-Z0-9.-]+$", min_length=1, max_length=40)
-    nombre = serializers.CharField(min_length=1, max_length=120)
-    url_texto_legal = serializers.CharField(max_length=500, required=False, allow_null=True)
+    nombre = texto_sin_nul(min_length=1, max_length=120)
+    # El contrato exige URL absoluta http(s) (`format: uri`, `pattern: '^https?://...'`): se
+    # valida de verdad, no solo se documenta (TKT-012).
+    url_texto_legal = url_http(max_length=500, required=False, allow_null=True)
     requiere_atribucion = serializers.BooleanField()
     compatible_publicacion = serializers.BooleanField()
     activo = serializers.BooleanField()
 
 
-class LicenciaSerializer(serializers.Serializer[Any]):
-    id = IdSerializerField()
-    codigo = serializers.CharField(max_length=40)
-    nombre = serializers.CharField(max_length=120)
-    url_texto_legal = serializers.CharField(allow_null=True)
-    requiere_atribucion = serializers.BooleanField()
-    compatible_publicacion = serializers.BooleanField()
-    activo = serializers.BooleanField()
+class LicenciaEntradaSerializer(EntradaEstricta, LicenciaCamposMixin):
+    pass
+
+
+class LicenciaSerializer(_IdMixin, LicenciaCamposMixin):
+    pass
 
 
 class PaginaLicenciaSerializer(PaginaMetaSerializer):

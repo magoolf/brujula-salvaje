@@ -30,6 +30,7 @@ from apps.medios.api.serializers import (
     PaginaMedioPanelSerializer,
     PaginaUsoMedioSerializer,
     ResultadoSubidaSerializer,
+    SubidaMediosEntradaSerializer,
     UsoMedioSerializer,
 )
 from apps.medios.models import EstadoMedio, FormatoDerivado, MedioDerivado
@@ -155,7 +156,7 @@ class ListaMedios(_VistaMediosMixta):
         operation_id="panelSubirMedios",
         tags=["panel-medios"],
         parameters=PARAMETRO_IDEMPOTENCY_KEY,
-        request={"multipart/form-data": OpenApiTypes.BINARY},
+        request={"multipart/form-data": SubidaMediosEntradaSerializer},
         responses={200: ResultadoSubidaSerializer},
     )
     def post(self, request: Request) -> Response:

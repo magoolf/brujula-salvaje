@@ -42,6 +42,7 @@ from apps.contenido.models import (
     TipoContenido,
 )
 from apps.core.exceptions import ErrorApi
+from apps.inicio import selectors as inicio_selectors
 from apps.inicio import services as inicio_services
 from apps.inicio.models import ID_SINGLETON, ConfigInicio, DestacadoInicio, SeccionInicio
 from apps.medios import services as medios_services
@@ -745,8 +746,11 @@ class Command(BaseCommand):
         `docs/04_datos/DB_HANDOFF.yaml` confirma que esa fila "se crea con la carga semilla
         (necesita un medio), no en una migración" — es decir, aquí. Para el primer arranque
         (fila ausente) se crea directamente de forma mínima, con la misma auditoría que hace el
-        servicio real; en cualquier ejecución posterior (fila ya presente, incluida una
-        reejecución idempotente) se usa el servicio real sin excepciones."""
+        servicio real; en cualquier ejecución posterior (fila ya presente) se reutiliza: si ya
+        coincide con la semilla no se repite ningún efecto (ni auditoría, ni `actualizado_en`,
+        ni el borrado y recreado de destacados que hace el servicio) y, si difiere, se actualiza
+        con el servicio real sin excepciones. En ambos casos cuenta como reutilizada (TKT-012:
+        antes esta rama no incrementaba el contador informativo)."""
         hero_medio_id = self._subir_imagen(
             "inicio:hero", 0, alt="Ilustración abstracta de portada del inicio de Brújula Salvaje"
         )
@@ -769,7 +773,9 @@ class Command(BaseCommand):
         }
         existente = ConfigInicio.objects.filter(pk=ID_SINGLETON).first()
         if existente is not None:
-            inicio_services.actualizar_config_inicio(ACTOR_ID, datos)
+            if not _config_inicio_coincide(existente, datos):
+                inicio_services.actualizar_config_inicio(ACTOR_ID, datos)
+            self._contador["reutilizados"] += 1
             return
         with transaction.atomic():
             ConfigInicio.objects.create(
@@ -840,3 +846,17 @@ class Command(BaseCommand):
             f"Índice de búsqueda reconstruido: {resultado.documentos} documentos "
             f"({resultado.omitidos} omitidos por no ser visibles)."
         )
+
+
+def _config_inicio_coincide(config: ConfigInicio, datos: dict[str, Any]) -> bool:
+    """True si el singleton y sus destacados ya son exactamente los de la semilla (mismo
+    orden): reejecutar el servicio solo cambiaría `actualizado_en`, los ids de los destacados y
+    añadiría otro evento de auditoría."""
+    return bool(
+        config.hero_titular == datos["hero_titular"]
+        and config.hero_subtitulo == datos["hero_subtitulo"]
+        and config.hero_medio_id == datos["hero_medio_id"]
+        and inicio_selectors.ids_destacados(SeccionInicio.DESTINOS) == datos["destinos_ids"]
+        and inicio_selectors.ids_destacados(SeccionInicio.ITINERARIOS) == datos["itinerarios_ids"]
+        and inicio_selectors.ids_destacados(SeccionInicio.GUIAS) == datos["guias_ids"]
+    )
