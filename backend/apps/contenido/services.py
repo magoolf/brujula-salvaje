@@ -21,11 +21,13 @@ from __future__ import annotations
 import decimal
 import re
 import unicodedata
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from django.db import IntegrityError, connection, transaction
+from django.db import IntegrityError, OperationalError, connection, transaction
 from django.db.models import ProtectedError, Q, QuerySet, RestrictedError, Value
 from django.utils import timezone
 
@@ -134,6 +136,32 @@ class DependenciaBloqueante(ErrorApi):
 # ---------------------------------------------------------------------------
 # Utilidades comunes
 # ---------------------------------------------------------------------------
+# lock_not_available (lock_timeout del rol: 3 s app_rw, 5 s app_migrator) y deadlock_detected.
+_SQLSTATE_CONCURRENCIA = frozenset({"55P03", "40P01"})
+
+
+@contextmanager
+def _transaccion() -> Iterator[None]:
+    """`transaction.atomic()` de una mutación del ciclo editorial que traduce la espera de bloqueo
+    agotada o el interbloqueo detectado por PostgreSQL a 409 `conflicto_version` (reintentable).
+
+    F-032-01 (TKT-033): las mutaciones esperan a las que tienen bloqueadas las mismas filas (FOR
+    NO KEY UPDATE / FOR UPDATE / FOR KEY SHARE). Si esa espera supera `lock_timeout`, o PostgreSQL
+    aborta una de dos transacciones que se esperan mutuamente (p. ej. dos ediciones que se
+    relacionan entre sí y cambian a la vez su título), la operación no ha hecho nada: es un
+    conflicto con otra operación en curso, no un error interno."""
+    try:
+        with transaction.atomic():
+            yield
+    except OperationalError as exc:
+        if getattr(exc.__cause__, "sqlstate", None) not in _SQLSTATE_CONCURRENCIA:
+            raise
+        raise ConflictoVersion(
+            detalle="Otra operación está modificando este contenido o lo que referencia. "
+            "Recarga y vuelve a intentarlo."
+        ) from exc
+
+
 def _slugify(texto: str) -> str:
     normalizado = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
     minusculas = re.sub(r"[^a-z0-9]+", "-", normalizado.lower()).strip("-")
@@ -954,7 +982,7 @@ def _confirmar_pendientes_m2m(subtipo: Any) -> None:
 def crear_borrador(
     tipo: str, actor_id: int, datos: dict[str, Any], ip: str | None = None
 ) -> Contenido:
-    with transaction.atomic():
+    with _transaccion():
         _validar_entrada(tipo, datos)
         contenido = Contenido(tipo=tipo, creado_por_id=actor_id, actualizado_por_id=actor_id)
         _aplicar_comunes(contenido, datos)
@@ -1008,7 +1036,7 @@ def actualizar(
     version: int,
     ip: str | None = None,
 ) -> ResultadoGuardado:
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         _verificar_version(contenido, version)
         if contenido.estado_editorial == E.RETIRADO:
@@ -1284,7 +1312,7 @@ def eliminar_borrador(
     como antes. `FOR UPDATE` (`para_eliminar`) serializa el borrado con las altas y ediciones que
     referencian este contenido (`_bloquear_referencias`), así que los usos calculados aquí son los
     definitivos hasta el COMMIT."""
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, para_eliminar=True)
         _verificar_version(contenido, version)
         if contenido.estado_editorial != E.BORRADOR or contenido.primera_publicacion_en is not None:
@@ -1524,7 +1552,7 @@ def publicar(
             codigo="campo_no_permitido",
             errors={"copublicar_tipos": ["Solo se admite en destinos."]},
         )
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.BORRADOR:
             raise TransicionInvalida()
@@ -1801,7 +1829,7 @@ def retirar(
 ) -> tuple[Contenido, list[dict[str, Any]]]:
     if tipo == T.PAGINA:
         raise TransicionInvalida(detalle="Las páginas institucionales no se retiran.")
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.PUBLICADO:
             raise TransicionInvalida()
@@ -1884,7 +1912,7 @@ def reactivar(
 ) -> Contenido:
     if tipo == T.PAGINA:
         raise TransicionInvalida(detalle="Las páginas institucionales no se retiran ni reactivan.")
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.RETIRADO:
             raise TransicionInvalida()
@@ -2066,7 +2094,7 @@ def obtener_revision(tipo: str, contenido_id: int, numero: int) -> RevisionConte
 def restaurar_revision(
     tipo: str, contenido_id: int, numero: int, actor_id: int, ip: str | None = None
 ) -> dict[str, Any]:
-    with transaction.atomic():
+    with _transaccion():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         revision = RevisionContenido.objects.filter(
             contenido_id=contenido_id, numero_revision=numero

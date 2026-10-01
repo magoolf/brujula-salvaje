@@ -275,6 +275,51 @@ def test_AC_TKT033_02_alta_bloquea_las_referencias_con_for_key_share(
     assert "ORDER BY id" in bloqueos[0]
 
 
+class _CausaPsycopgError(Exception):
+    """Sustituto de la excepción de psycopg que Django guarda en `__cause__`."""
+
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
+
+
+def _error_bd(sqlstate: str) -> Exception:
+    from django.db import OperationalError
+
+    error = OperationalError("bloqueo")
+    error.__cause__ = _CausaPsycopgError(sqlstate)
+    return error
+
+
+@pytest.mark.parametrize("sqlstate", ["55P03", "40P01"])
+def test_AC_TKT033_02_espera_de_bloqueo_agotada_o_interbloqueo_es_409(
+    cliente_editora: Client,
+    monkeypatch: pytest.MonkeyPatch,
+    conforme: Callable[[str, Any], None],
+    sqlstate: str,
+) -> None:
+    """lock_timeout (55P03) o deadlock_detected (40P01) en una mutación → 409 conflicto_version
+    reintentable, nunca 500, y nada cambia."""
+    destino = publicos.destino("Destino", tipos=[], estado=E.BORRADOR)
+
+    def bloqueado(*_args: Any, **_kwargs: Any) -> Contenido:
+        raise _error_bd(sqlstate)
+
+    monkeypatch.setattr(services, "obtener_para_editar", bloqueado)
+    cuerpo = _problema(
+        _borrar(cliente_editora, "destinos", destino.contenido), 409, "conflicto_version"
+    )
+    conforme("ProblemaConUsos", cuerpo)
+    assert Destino.objects.filter(pk=destino.pk).exists()
+
+
+def test_AC_TKT033_02_otros_errores_operacionales_no_se_disfrazan() -> None:
+    from django.db import OperationalError
+
+    with pytest.raises(OperationalError), services._transaccion():
+        raise _error_bd("08006")
+
+
 # ---------------------------------------------------------------------------
 # AC_TKT033_04 — cascada_confirmada distinta de una cascada calculada vacía
 # ---------------------------------------------------------------------------
