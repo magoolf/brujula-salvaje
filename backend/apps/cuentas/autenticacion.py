@@ -15,7 +15,6 @@ no existen (DB_HANDOFF). La cuenta de la sesión se lee de la clave CLAVE_CUENTA
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -31,6 +30,7 @@ from rest_framework.permissions import SAFE_METHODS
 from apps.core.exceptions import ErrorApi
 from apps.cuentas import selectors
 from apps.cuentas.models import CuentaStaff
+from apps.cuentas.services import REDIRECCION_POR_DEFECTO
 from apps.cuentas.sesiones import CLAVE_AUTENTICADO_EN, CLAVE_CUENTA
 
 if TYPE_CHECKING:
@@ -41,8 +41,6 @@ CLAVE_ULTIMA_ACTIVIDAD = "panel_ultima_actividad"
 CLAVE_MFA_VERIFICADO = "panel_mfa_verificado"
 CLAVE_REDIRECCION = "panel_redireccion"
 ATRIBUTO_EXPIRADA = "panel_sesion_expirada"
-REDIRECCION_POR_DEFECTO = "/panel"
-_PATRON_REDIRECCION = re.compile(r"/panel(/[A-Za-z0-9._~%/-]*)?")
 
 
 class _ComprobacionCsrf(CsrfViewMiddleware):
@@ -137,21 +135,6 @@ def rotar_sesion(sesion: SessionBase, *, mfa_verificado: bool | None = None) -> 
 
 def cerrar_sesion(sesion: SessionBase) -> None:
     sesion.flush()
-
-
-def redireccion_segura(siguiente: str | None) -> str:
-    """AC-115 / THREAT-017: solo rutas relativas bajo /panel/; si no, /panel."""
-    if not siguiente:
-        return REDIRECCION_POR_DEFECTO
-    valido = _PATRON_REDIRECCION.fullmatch(siguiente)
-    if (
-        valido is None
-        or "//" in siguiente
-        or "/../" in f"{siguiente}/"
-        or "%2f" in siguiente.lower()
-    ):
-        return REDIRECCION_POR_DEFECTO
-    return siguiente
 
 
 class AutenticacionSesionPanel(BaseAuthentication):
