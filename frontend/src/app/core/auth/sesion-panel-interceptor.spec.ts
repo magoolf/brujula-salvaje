@@ -6,6 +6,8 @@ import { Router, provideRouter } from '@angular/router';
 import { destinoTrasAcceso, esDestinoSeguro } from './destino-seguro';
 import { sesionPanelInterceptor } from './sesion-panel-interceptor';
 
+const NO_AUTORIZADO = { status: 401, statusText: 'Unauthorized' };
+
 describe('sesionPanelInterceptor (401 global)', () => {
   let http: HttpClient;
   let ctrl: HttpTestingController;
@@ -26,7 +28,7 @@ describe('sesionPanelInterceptor (401 global)', () => {
 
   afterEach(() => ctrl.verify());
 
-  it('ante un 401 del panel redirige a /panel/acceso con un siguiente seguro y propaga el error', () => {
+  it('AC_TKT010_07 ante un 401 del panel redirige a /panel/acceso con un siguiente seguro y propaga el error', () => {
     vi.spyOn(router, 'url', 'get').mockReturnValue('/panel/contenido/destinos?pagina=2');
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const errores: unknown[] = [];
@@ -36,36 +38,76 @@ describe('sesionPanelInterceptor (401 global)', () => {
       .subscribe({ error: (e: unknown) => errores.push(e) });
     ctrl
       .expectOne('/api/v1/panel/contenidos/destinos')
-      .flush({ code: 'sesion_expirada' }, { status: 401, statusText: 'Unauthorized' });
+      .flush({ code: 'sesion_expirada' }, NO_AUTORIZADO);
 
     expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], {
-      queryParams: { siguiente: '/panel/contenido/destinos?pagina=2' },
+      queryParams: { motivo: 'expirada', siguiente: '/panel/contenido/destinos?pagina=2' },
     });
     expect(errores).toHaveLength(1);
   });
 
-  it('omite `siguiente` si la ruta actual no es un destino seguro', () => {
+  it('AC_TKT010_07 omite `siguiente` si la ruta actual no es un destino seguro', () => {
     vi.spyOn(router, 'url', 'get').mockReturnValue('/destinos');
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     http.get('/api/v1/panel/cuentas').subscribe({ error: () => undefined });
-    ctrl
-      .expectOne('/api/v1/panel/cuentas')
-      .flush(null, { status: 401, statusText: 'Unauthorized' });
-    expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], { queryParams: {} });
+    ctrl.expectOne('/api/v1/panel/cuentas').flush(null, NO_AUTORIZADO);
+    expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], {
+      queryParams: { motivo: 'expirada' },
+    });
   });
 
-  it('no actúa en los endpoints de autenticación ni en otros códigos', () => {
+  it('AC_TKT010_11 un 401 de una operación de sesión (renovar, contraseña) también lleva a SCR-030', () => {
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/panel');
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-    http.post('/api/v1/panel/auth/login', {}).subscribe({ error: () => undefined });
+    http.post('/api/v1/panel/auth/sesion/renovar', {}).subscribe({ error: () => undefined });
     ctrl
-      .expectOne('/api/v1/panel/auth/login')
-      .flush(null, { status: 401, statusText: 'Unauthorized' });
+      .expectOne('/api/v1/panel/auth/sesion/renovar')
+      .flush({ code: 'sesion_expirada' }, NO_AUTORIZADO);
+    expect(navegar).toHaveBeenCalledWith(['/panel/acceso'], {
+      queryParams: { motivo: 'expirada', siguiente: '/panel' },
+    });
+  });
+
+  it('AC_TKT010_06 DEC-AUTO-215: el 401 credenciales_invalidas de la reautenticación NO expulsa', () => {
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/panel/cuenta');
+    const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const errores: unknown[] = [];
+    http
+      .post('/api/v1/panel/auth/mfa/activacion', { contrasena: 'x' })
+      .subscribe({ error: (e: unknown) => errores.push(e) });
+    ctrl
+      .expectOne('/api/v1/panel/auth/mfa/activacion')
+      .flush(
+        { code: 'credenciales_invalidas', title: 'Credenciales inválidas', status: 401 },
+        NO_AUTORIZADO,
+      );
+    expect(navegar).not.toHaveBeenCalled();
+    expect(errores).toHaveLength(1);
+  });
+
+  it('AC_TKT010_03 el 401 mfa_invalido de la verificación es un error de campo, no una expulsión', () => {
+    const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    http.post('/api/v1/panel/auth/mfa/verificar', {}).subscribe({ error: () => undefined });
+    ctrl
+      .expectOne('/api/v1/panel/auth/mfa/verificar')
+      .flush({ code: 'mfa_invalido' }, NO_AUTORIZADO);
+    expect(navegar).not.toHaveBeenCalled();
+  });
+
+  it('no actúa en login, csrf ni en la consulta de sesión, ni en otros códigos o en la API pública', () => {
+    const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    for (const url of [
+      '/api/v1/panel/auth/login',
+      '/api/v1/panel/auth/csrf',
+      '/api/v1/panel/auth/sesion',
+    ]) {
+      http.post(url, {}).subscribe({ error: () => undefined });
+      ctrl.expectOne(url).flush({ code: 'no_autenticado' }, NO_AUTORIZADO);
+    }
     http.get('/api/v1/panel/cuentas').subscribe({ error: () => undefined });
     ctrl.expectOne('/api/v1/panel/cuentas').flush(null, { status: 403, statusText: 'Forbidden' });
     http.get('/api/v1/publico/inicio').subscribe({ error: () => undefined });
-    ctrl
-      .expectOne('/api/v1/publico/inicio')
-      .flush(null, { status: 401, statusText: 'Unauthorized' });
+    ctrl.expectOne('/api/v1/publico/inicio').flush(null, NO_AUTORIZADO);
     expect(navegar).not.toHaveBeenCalled();
   });
 });
@@ -86,11 +128,24 @@ describe('destino-seguro (AC-115)', () => {
     ['/panel/a b', false],
     ['/panel/\u0000', false],
     ['', false],
-  ])('esDestinoSeguro(%j) = %s', (valor, esperado) => {
+    // FALLO-03 (QA ciclo 1): segmentos de punto, barras y barras invertidas codificados.
+    ['/panel/%2e%2e/destinos', false],
+    ['/panel/%2E%2E/%2E%2E/destinos', false],
+    ['/panel/.%2e/destinos', false],
+    ['/panel/%2e/', false],
+    ['/panel%2f..%2fdestinos', false],
+    ['/panel/%5c%5cevil.example', false],
+    ['/panel/%252e%252e/destinos', false],
+    ['/panel/%E0%A4%A', false],
+    ['/panel/%61cceso', false],
+    ['/panel/cuenta%20', false],
+    ['/panel/medios?q=a%2Fb', true],
+    ['/panel/contenido/destinos/12', true],
+  ])('AC_TKT010_07 esDestinoSeguro(%j) = %s', (valor, esperado) => {
     expect(esDestinoSeguro(valor)).toBe(esperado);
   });
 
-  it('rechaza valores no texto o demasiado largos y cae al Tablero', () => {
+  it('AC_TKT010_07 rechaza valores no texto o demasiado largos y cae al Tablero', () => {
     expect(esDestinoSeguro(null)).toBe(false);
     expect(esDestinoSeguro('/panel/' + 'a'.repeat(3000))).toBe(false);
     expect(destinoTrasAcceso('https://evil.example')).toBe('/panel');
