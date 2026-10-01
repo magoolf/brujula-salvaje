@@ -299,6 +299,30 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Hallazgos F-3/F-4 de QA_VERDICT PASS de TKT-OPS-016. Revisar si (b) afecta también a las demás fichas SSR (itinerarios, guías, tipos, colecciones); si es así, ampliar archivos_permitidos por DEC-AUTO antes de tocar otras features."]
     actualizado: 2026-10-01
+  - id: TKT-027
+    titulo: "LOW (QA TKT-010 FALLO-03, parte backend): la validación de 'siguiente' en el login del panel acepta segmentos de punto codificados (/panel/%2e%2e/destinos, /panel/%2E%2E/%2E%2E/destinos, /panel/.%2e/destinos) y devuelve redireccion fuera de /panel. Es mismo origen, sin redirección externa, pero incumple AC-115 y THREAT-017. Decodificar antes de validar, o rechazar %2e/%2f/%5c, y añadir pruebas con esas variantes"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [AC-115, THREAT-017, TKT-004, TKT-010]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/cuentas/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py."]
+    actualizado: 2026-10-01
+  - id: TKT-028
+    titulo: "LOW (QA TKT-010 OBS-08 y OBS-07): (a) /robots.txt responde con la página HTML 404 del SSR; servir un robots.txt real (permitir el sitio público, bloquear /panel/ y /api/, y enlazar el sitemap si existe) con tipo text/plain; (b) conservar Retry-After en core/http (normalizarError -> ErrorApi) para todas las features, de modo que features/panel/data/espera.ts deje de reconocer HttpErrorResponse por su forma"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-010, RULE-029, "Skill_Frontend#Regla09"]
+    depende_de: [TKT-010]
+    archivos_permitidos: ["frontend/public/robots.txt", "frontend/src/server.ts", "frontend/src/app/core/http/**", "frontend/src/app/features/panel/data/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno."]
+    actualizado: 2026-10-01
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
@@ -321,7 +345,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/features/destinos/**", "frontend/src/app/features/guias/**", "frontend/src/app/features/itinerarios/**", "frontend/src/app/shared/ui/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build.", "QA de TKT-010 (OBS-08): LCP de laboratorio > 2.5 s también en Inicio en main (2.65-2.80 s móvil), CLS de /destinos en Lighthouse móvil de 0.67 a 0.95 y /acerca-de con CLS 1.12 en Chromium (pie desplazado), todo preexistente. Incluir Inicio y /acerca-de en la investigación; coordinar con TKT-016 (CLS)."]
     actualizado: 2026-09-30
   - id: TKT-009
     titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
@@ -338,14 +362,14 @@ tickets:
   - id: TKT-010
     titulo: "Panel 1/4 -- acceso, armazón y tablero: SCR-030 Acceso (?siguiente= con retorno seguro interno), SCR-031 Verificación MFA, SCR-032 Mi cuenta (cambio de contraseña obligatorio/voluntario, activar/desactivar MFA con reautenticación DEC-AUTO-215, códigos de recuperación), SCR-033 Autorización de tratamiento (bloqueante), SCR-034 Tablero, SCR-048 Acceso denegado (403); armazón del panel (layout de escritorio con navegación lateral, saltos de accesibilidad, cierre de sesión, guard de sesión/rol) y estructura de carpetas que reutilizarán TKT-022/023/024"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-009, MOD-010, FEAT-029, FEAT-030, FEAT-031, FEAT-032, FEAT-033, FLOW-010, SCR-030, SCR-031, SCR-032, SCR-033, SCR-034, SCR-048, RULE-017, RULE-029, THREAT-001, THREAT-002, "DEC-AUTO-215"]
     depende_de: [TKT-009, TKT-006]
     archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/app.html", "frontend/src/app/app.ts", "frontend/src/app/app.css", "frontend/src/app/app.spec.ts", "frontend/src/app/core/layout/shell-publico/**", "frontend/src/app/features/panel/**", "frontend/src/app/core/auth/**", "frontend/e2e/**", "frontend/package.json", "frontend/package-lock.json"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 1/2
-    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado.", "Entregado @ PR #39 (rama tkt-010-panel-acceso, HEAD f349018). Diff verificado por el Orquestador dentro de archivos_permitidos ampliados. 505/505 unit, cobertura global 84 % / panel domain 100 % líneas, eslint/tsc/build OK; E2E contra stack real 168/168 en 3 motores (13 casos del panel x3 + regresión pública completa 129/129 en serie). Dependencia nueva uqr@0.1.3 (MIT, sin transitivas). gitleaks/semgrep/npm audit limpios. CI: todo verde salvo trivy (CVE-2026-103111, TKT-OPS-017, ajeno). Riesgos declarados: (1) con la opción A un 429 en un chunk diferido en la primera carga deja la página en blanco en vez de conservar cabecera/pie -> TKT-025; (2) AC_TKT010_08 E2E parcial hasta que exista una ruta solo-Admin (TKT-024 debe añadir el E2E sobre /panel/usuarios); (3) QR no decodificado con lector (la clave manual sí se probó E2E). El Developer declaró un taskkill por nombre de imagen demasiado amplio, sin efecto constatado. QA despachada."]
+    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado.", "Entregado @ PR #39 (rama tkt-010-panel-acceso, HEAD f349018). Diff verificado por el Orquestador dentro de archivos_permitidos ampliados. 505/505 unit, cobertura global 84 % / panel domain 100 % líneas, eslint/tsc/build OK; E2E contra stack real 168/168 en 3 motores (13 casos del panel x3 + regresión pública completa 129/129 en serie). Dependencia nueva uqr@0.1.3 (MIT, sin transitivas). gitleaks/semgrep/npm audit limpios. CI: todo verde salvo trivy (CVE-2026-103111, TKT-OPS-017, ajeno). Riesgos declarados: (1) con la opción A un 429 en un chunk diferido en la primera carga deja la página en blanco en vez de conservar cabecera/pie -> TKT-025; (2) AC_TKT010_08 E2E parcial hasta que exista una ruta solo-Admin (TKT-024 debe añadir el E2E sobre /panel/usuarios); (3) QR no decodificado con lector (la clave manual sí se probó E2E). El Developer declaró un taskkill por nombre de imagen demasiado amplio, sin efecto constatado. QA despachada.", "QA_VERDICT FAIL (ciclo 1/3) sobre f349018. PASS: archivos_permitidos, 505/505 tests y cobertura, lint/tipos/build, 13 reglas de arquitectura, regresión del shell público (A/B del SSR en 10 rutas: códigos, landmarks, skip-link, nonce CSP iguales; CLS de Inicio 0.671 -> 0.0002), a11y (axe 0 en todas las pantallas y pasos del asistente MFA, Lighthouse a11y 100), contrato, seguridad (login genérico, 14 variantes de siguiente externo rechazadas, cookies HttpOnly, storage vacío, QR decodificado con jsQR = clave manual = otpauth del servidor, solo red de mismo origen). FALLOS: FALLO-01 MEDIUM carrera CSRF en el primer login en WebKit (el POST de login sale sin X-CSRFToken porque document.cookie aún no refleja el Set-Cookie del GET csrf; 1/17 en WebKit); FALLO-02 MEDIUM regresión de LCP en Inicio (+350 ms, de 2.65-2.80 a 3.00-3.11 s móvil): con ShellPublico como padre, el SSR de / baja de 9 a 1 modulepreload; FALLO-03 LOW siguiente con segmentos de punto codificados (/panel/%2e%2e/destinos) se acepta en el cliente (esDestinoSeguro) y en el backend. Observaciones que se corrigen en este ciclo por estar en alcance: OBS-04 (<title> de Inicio distinto entre SSR y cliente) y OBS-06 (navegación del panel < lg es desplegable en línea, el HANDOFF pide cajón modal). Devuelto al Developer (DEC-AUTO-933)."]
     actualizado: 2026-09-30
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
@@ -384,7 +408,7 @@ tickets:
     evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede."]
     actualizado: 2026-09-30
   - id: TKT-025
-    titulo: "LOW: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
+    titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
     estado: TODO
     owner: Skill_Developer
@@ -393,7 +417,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/app.config.spec.ts", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10)."]
+    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10).", "Severidad elevada a MEDIUM por la QA de TKT-010 (DEC-AUTO-933): ocurre en la práctica, en 4 de 129 casos de la regresión pública en serie en Chromium. Con la rama de TKT-010 la página queda en blanco (solo el banner de conexión); en main se conservaban cabecera y pie. Condición de F9. TKT-OPS-016 (ya en main) reduce los 429 que lo provocan, pero un fallo transitorio de red sigue pudiendo causarlo."]
     actualizado: 2026-10-01
   - id: TKT-OPS-001
     titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
