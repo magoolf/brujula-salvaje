@@ -275,6 +275,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-945."]
     actualizado: 2026-10-01
+  - id: TKT-OPS-023
+    titulo: "LOW (CHG de TKT-022): las miniaturas del panel salen de /api/v1/panel/medios/{id}/archivo y consumen el limitador por_ip del borde (20 r/s, burst 60): con navegación rápida por la biblioteca aparecen 429 y 'Vista previa no disponible'. Dar a /api/v1/panel/medios/*/archivo (GET, autenticado) una zona limit_req propia y adecuada, sin debilitar /api ni la anti-evasión (ADR-OPS-001), con prueba de carga de una página de 48 miniaturas x 3 navegaciones rápidas sin 429"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-022, TKT-OPS-016, "ADR-OPS-001", SCR-039]
+    depende_de: [TKT-022]
+    archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-001.md", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-949."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-022
     titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
     fase: F7
@@ -470,14 +482,14 @@ tickets:
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-011, FEAT-041, FEAT-042, FLOW-013, SCR-039, SCR-040, SCR-041, RULE-005, RULE-021, "DEC-AUTO-044"]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1)."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1).", "Entregado @ PR #50 (05f5a62), CI verde (run 36909515276), diff solo en features/panel y e2e. SCR-039/040/041 + CargaPanel (OBS-C3-01); E2E 234/234 en 3 motores; unit 601; chunks públicos iguales a main. DEC-DEV-022-01..05 (banco del selector solo en dev, miniaturas diferidas con reintentos por el limitador del borde, sin APIs de señales que engorden el chunk inicial, licencia/crédito al catalogar, ruta de carga). EnlaceValor ampliado (change, textarea, select, name). CHG de miniaturas a TKT-OPS-023 (DEC-AUTO-949). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-01
   - id: TKT-023
     titulo: "Panel 3/4 -- contenidos: SCR-035 Listado por tipo (filtros estado/texto, orden por última modificación), SCR-036 Editor de los 7 tipos (destino, itinerario con días, guía, tipo con checklist, colección, término, página), SCR-037 Vista previa sin persistir (noindex, marca BORRADOR), SCR-038 Publicar/Actualizar/Retirar/Reactivar con análisis de publicación e impacto de retiro, revisiones y restauración, bloqueo optimista"
