@@ -242,15 +242,39 @@ tickets:
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: devops
     trazabilidad: [TKT-018, "DEC-AUTO-111", "DEC-AUTO-190", "DEC-AUTO-193", "DEC-AUTO-195", "DEC-AUTO-214", REQ-052]
     depende_de: [TKT-018]
     archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-*.md", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-3 + needs_validation 'Quota-accounting scope'). AC: escenario Inicio->clic a 300 ms con N=2 y N=3 contextos Chromium fríos concurrentes desde la misma IP, 2 series, 0 navegaciones rotas y 0 429 en assets estáticos; /api/** y HTML SSR siguen limitados (verificar 429 con ráfaga sintética a /api/).", "Despachado a devops 2026-09-30 en paralelo con TKT-010 (archivos disjuntos).", "DEC-AUTO-929: alcance ampliado con X-Robots-Tag noindex, nofollow en las respuestas HTML de /panel/** (RULE-029 y sitemap exigen noindex por cabecera; hoy solo security-headers-error.conf la emite). Hallazgo del Developer de TKT-010; mismo archivo y mismo owner, comunicado al agente DevOps en curso."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-3 + needs_validation 'Quota-accounting scope'). AC: escenario Inicio->clic a 300 ms con N=2 y N=3 contextos Chromium fríos concurrentes desde la misma IP, 2 series, 0 navegaciones rotas y 0 429 en assets estáticos; /api/** y HTML SSR siguen limitados (verificar 429 con ráfaga sintética a /api/).", "Despachado a devops 2026-09-30 en paralelo con TKT-010 (archivos disjuntos).", "DEC-AUTO-929: alcance ampliado con X-Robots-Tag noindex, nofollow en las respuestas HTML de /panel/** (RULE-029 y sitemap exigen noindex por cabecera; hoy solo security-headers-error.conf la emite). Hallazgo del Developer de TKT-010; mismo archivo y mismo owner, comunicado al agente DevOps en curso.", "Entregado @ PR #38 (rama tkt-ops-016-limitador-estaticos, HEAD aa9324d). ADR-OPS-001 (PROPOSED): zona nueva estaticos (50 r/s, burst 300 nodelay) solo para assets del build en raíz (/*.js|mjs|css), /fonts/*.woff2, /favicon.ico y /media/publico/**; por_ip 20r/s burst=60 intacto para /api/**, SSR y el resto. Anti-evasión: la location de assets reenvía Host estaticos.invalid, de modo que un asset inexistente es rechazado por AngularNodeAppEngine (400 sin render, ~6 ms) y devuelto como 404 Problem Details. X-Robots-Tag noindex,nofollow vía map solo en ^/panel(/|$). Campo ruta_pedida en el log JSON. Mediciones declaradas (Chromium, misma IP, Inicio->clic 300 ms): antes N=2 1/10 y 0/10 rotas, N=3 15/15 y 13/15; después N=2/3/5/8 0 rotas y 0 429. Ráfagas de 200 a /api, / y /destinos siguen limitadas (~61x200/139x429). CI del PR ROJO por causa ajena verificada por el Orquestador: trivy CVE-2026-103111 HIGH en libpcre2-8-0 de las imágenes Debian (la imagen proxy alpine da 0); afecta igual a main en su próxima ejecución con código -> TKT-OPS-017. Smoke CI del proxy SKIPPED en GitHub, reproducido en local. RSK-OPS-040..043 declarados (040: NG_ALLOWED_HOSTS nunca con *, smoke a CI -> TKT-OPS-018). QA despachada; integración condicionada a QA PASS y CI verde tras TKT-OPS-017."]
     actualizado: 2026-09-30
+  - id: TKT-OPS-017
+    titulo: "URGENTE, bloquea todo el CI: CVE-2026-103111 HIGH en libpcre2-8-0 10.46-1~deb13u2 (corregida en 10.46-1~deb13u3) presente en TODAS las imágenes Debian (backend, frontend, scheduler, backup, db); trivy CRITICAL/HIGH = fail. Corregir con el cambio mínimo reproducible (subir digest de la imagen base a uno que incluya la corrección, o actualizar el paquete en el Dockerfile con versión fijada), sin tocar .trivyignore (aceptar el CVE sería Puerta Humana §0.5)"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [RSK-OPS-001, TKT-OPS-005, TKT-OPS-016]
+    depende_de: []
+    archivos_permitidos: ["infra/docker/**", "infra/db/**", "infra/backup/**", "infra/scheduler/**", "Dockerfile*", "compose*.yaml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Detectado por el DevOps de TKT-OPS-016 y verificado por el Orquestador en los logs de la ejecución 36806399271 (trivy: Total 1, HIGH 1, libpcre2-8-0 CVE-2026-103111, fixed). infra/proxy/** excluido de archivos_permitidos: lo tiene TKT-OPS-016 en el PR #38 (§0.10). Despachado 2026-10-01 en paralelo con la QA de TKT-OPS-016 y el Developer de TKT-010."]
+    actualizado: 2026-10-01
+  - id: TKT-OPS-018
+    titulo: "LOW: añadir al CI un smoke del proxy para RSK-OPS-040 (ADR-OPS-001): /no-existe-N.js -> 404 problem+json sin render SSR, y una ráfaga de 120 assets estáticos sin 429; y verificar que NG_ALLOWED_HOSTS nunca contiene '*'"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-OPS-016, "ADR-OPS-001", RSK-OPS-040]
+    depende_de: [TKT-OPS-016, TKT-OPS-017]
+    archivos_permitidos: [".github/workflows/**", "scripts/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Recomendado por el DevOps de TKT-OPS-016 (RSK-OPS-040)."]
+    actualizado: 2026-10-01
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
