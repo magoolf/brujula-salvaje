@@ -16,7 +16,7 @@ from __future__ import annotations
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django.db.models import F, Func, Q
+from django.db.models import F, Func, Q, Value
 from django.db.models.functions import Length, Now
 
 from apps.catalogos.models import PATRON_SLUG, PATRON_URL
@@ -57,7 +57,7 @@ TIPOS_RELACIONABLES = TIPOS_CON_GALERIA
 TIPOS_SIN_PORTADA = [T.TERMINO, T.PAGINA]
 
 
-def normalizar(expresion: str | F) -> Func:
+def normalizar(expresion: str | F | Value) -> Func:
     """app.f_normalizar(x): minúsculas, sin tildes y espacios colapsados (ADR-DB-003)."""
     return Func(
         expresion, function="app.f_normalizar", output_field=models.CharField(max_length=150)
