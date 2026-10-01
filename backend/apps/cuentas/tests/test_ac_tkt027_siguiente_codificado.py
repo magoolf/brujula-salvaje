@@ -108,9 +108,16 @@ def test_AC_TKT027_03_caracteres_seguros_codificados_se_devuelven_canonicos():
 
 
 def test_AC_TKT027_01_codificacion_que_no_se_estabiliza_se_rechaza():
-    # Cada nivel de %25 exige una decodificación más; más allá del máximo no se sigue.
-    valor = "/panel/" + "%25" * 10 + "61"
-    assert services.redireccion_segura(valor) == POR_DEFECTO
+    # Cada "25" anidado exige una decodificación más (%252561 → %2561 → %61 → a); más allá del
+    # máximo no se sigue decodificando.
+    assert services.redireccion_segura("/panel/%252561") == "/panel/a"
+    assert services.redireccion_segura("/panel/%" + "25" * 8 + "61") == POR_DEFECTO
+
+
+@pytest.mark.parametrize("ruta", ["/panelx", "/otra/panel", "/panel//x", "/panel/./x"])
+def test_AC_TKT027_01_es_ruta_panel_rechaza_por_si_sola(ruta):
+    # Defensa en profundidad: la comprobación de la forma canónica no depende del patrón previo.
+    assert services._es_ruta_panel(ruta) is False
 
 
 @pytest.mark.parametrize("siguiente", PUNTOS_CODIFICADOS + EXTERNAS + INTERNAS + CON_QUERY)
