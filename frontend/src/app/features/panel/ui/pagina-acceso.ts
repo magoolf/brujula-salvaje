@@ -1,6 +1,5 @@
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { esDestinoSeguro } from '../../../core/auth/destino-seguro';
@@ -11,6 +10,7 @@ import { Boton } from '../../../shared/ui/boton/boton';
 import { MENSAJE_MOTIVO, mensajeFalloAcceso, motivoAcceso } from '../domain/acceso';
 import { SesionPanelStore } from '../state/sesion-panel.store';
 import { CampoContrasena } from './campo-contrasena';
+import { EnlaceValor } from './enlace-valor';
 
 const MENSAJE_USUARIO_VACIO = 'Escribe tu usuario.';
 const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña.';
@@ -21,7 +21,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña.';
  */
 @Component({
   selector: 'app-pagina-acceso',
-  imports: [ReactiveFormsModule, Banner, Boton, CampoContrasena],
+  imports: [EnlaceValor, Banner, Boton, CampoContrasena],
   template: `
     <h1 tabindex="-1">Acceso al panel editorial</h1>
 
@@ -34,14 +34,14 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña.';
       }
     </div>
 
-    <form class="formulario" [formGroup]="formulario" novalidate (ngSubmit)="entrar()">
+    <form class="formulario" novalidate (submit)="entrar($event)">
       <div class="campo">
         <label for="acceso-usuario">Usuario <span class="obligatorio">(obligatorio)</span></label>
         <input
           id="acceso-usuario"
           class="entrada-texto"
           type="text"
-          formControlName="usuario"
+          [appEnlaceValor]="usuario"
           autocomplete="username"
           autocapitalize="off"
           spellcheck="false"
@@ -55,7 +55,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña.';
         }
       </div>
       <app-campo-contrasena
-        [control]="formulario.controls.contrasena"
+        [campo]="contrasena"
         etiqueta="Contraseña"
         idCampo="acceso-contrasena"
         autocomplete="current-password"
@@ -108,10 +108,8 @@ export class PaginaAcceso {
   private readonly parametros = toSignal(this.ruta.queryParamMap, { requireSync: true });
   private readonly resumenError = viewChild.required<ElementRef<HTMLElement>>('resumenError');
 
-  protected readonly formulario = new FormGroup({
-    usuario: new FormControl('', { nonNullable: true }),
-    contrasena: new FormControl('', { nonNullable: true }),
-  });
+  protected readonly usuario = signal('');
+  protected readonly contrasena = signal('');
 
   protected readonly enviando = signal(false);
   protected readonly errorAcceso = signal<string | null>(null);
@@ -128,9 +126,11 @@ export class PaginaAcceso {
     inject(Seo).establecer({ titulo: 'Acceso al panel editorial', indexable: false });
   }
 
-  protected async entrar(): Promise<void> {
+  protected async entrar(evento: Event): Promise<void> {
+    evento.preventDefault();
     if (this.enviando() || !this.enLinea()) return;
-    const { usuario, contrasena } = this.formulario.getRawValue();
+    const usuario = this.usuario();
+    const contrasena = this.contrasena();
     this.errorUsuario.set(usuario.trim() === '' ? MENSAJE_USUARIO_VACIO : null);
     this.errorContrasena.set(contrasena === '' ? MENSAJE_CONTRASENA_VACIA : null);
     if (this.errorUsuario() !== null || this.errorContrasena() !== null) return;
@@ -146,7 +146,7 @@ export class PaginaAcceso {
     this.enviando.set(false);
     if (error !== null) {
       // THREAT-018: mensaje genérico; se vacía la contraseña y se conserva el usuario.
-      this.formulario.controls.contrasena.setValue('');
+      this.contrasena.set('');
       this.errorAcceso.set(mensajeFalloAcceso(error));
       queueMicrotask(() => this.resumenError().nativeElement.focus());
       return;

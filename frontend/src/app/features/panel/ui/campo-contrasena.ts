@@ -1,5 +1,6 @@
-import { Component, computed, input, signal } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Component, WritableSignal, computed, input, signal } from '@angular/core';
+
+import { EnlaceValor } from './enlace-valor';
 
 /**
  * FormField de contraseña con «Mostrar» (HANDOFF_UI_UX FormField password): etiqueta visible,
@@ -8,7 +9,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
  */
 @Component({
   selector: 'app-campo-contrasena',
-  imports: [ReactiveFormsModule],
+  imports: [EnlaceValor],
   template: `
     <div class="campo">
       <label [for]="idCampo()"
@@ -22,7 +23,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
           class="entrada-texto"
           [id]="idCampo()"
           [type]="visible() ? 'text' : 'password'"
-          [formControl]="control()"
+          [appEnlaceValor]="campo()"
           [attr.autocomplete]="autocomplete()"
           [attr.aria-invalid]="error() ? 'true' : null"
           [attr.aria-describedby]="descritoPor()"
@@ -78,7 +79,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
   `,
 })
 export class CampoContrasena {
-  readonly control = input.required<FormControl<string>>();
+  /** Señal del valor del campo, propiedad del formulario que lo usa. */
+  readonly campo = input.required<WritableSignal<string>>();
   readonly etiqueta = input.required<string>();
   readonly idCampo = input.required<string>();
   readonly autocomplete = input<'current-password' | 'new-password'>('current-password');

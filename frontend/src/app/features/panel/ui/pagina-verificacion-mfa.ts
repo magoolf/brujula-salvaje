@@ -1,5 +1,4 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { RUTA_ACCESO_PANEL } from '../../../core/auth/destino-seguro';
@@ -13,6 +12,7 @@ import {
   normalizarCodigoMfa,
 } from '../domain/acceso';
 import { SesionPanelStore } from '../state/sesion-panel.store';
+import { EnlaceValor } from './enlace-valor';
 
 /**
  * SCR-031 Verificación en dos pasos (FEAT-030, FLOW-010). Acepta el código TOTP o un código de
@@ -21,7 +21,7 @@ import { SesionPanelStore } from '../state/sesion-panel.store';
  */
 @Component({
   selector: 'app-pagina-verificacion-mfa',
-  imports: [ReactiveFormsModule, Boton],
+  imports: [EnlaceValor, Boton],
   template: `
     <h1 tabindex="-1">Verificación en dos pasos</h1>
     <form class="formulario" novalidate (submit)="verificar($event)">
@@ -32,7 +32,7 @@ import { SesionPanelStore } from '../state/sesion-panel.store';
           id="mfa-codigo"
           class="entrada-texto entrada-codigo"
           type="text"
-          [formControl]="codigo"
+          [appEnlaceValor]="codigo"
           [attr.inputmode]="recuperacion() ? 'text' : 'numeric'"
           [attr.autocomplete]="recuperacion() ? 'off' : 'one-time-code'"
           [attr.maxlength]="recuperacion() ? 9 : 6"
@@ -104,7 +104,7 @@ export class PaginaVerificacionMfa {
   private readonly sesion = inject(SesionPanelStore);
   private readonly router = inject(Router);
 
-  protected readonly codigo = new FormControl('', { nonNullable: true });
+  protected readonly codigo = signal('');
   protected readonly recuperacion = signal(false);
   protected readonly enviando = signal(false);
   protected readonly volviendo = signal(false);
@@ -125,14 +125,14 @@ export class PaginaVerificacionMfa {
 
   protected alternarRecuperacion(): void {
     this.recuperacion.update((v) => !v);
-    this.codigo.setValue('');
+    this.codigo.set('');
     this.error.set(null);
   }
 
   protected async verificar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (this.enviando() || !this.enLinea()) return;
-    const codigo = normalizarCodigoMfa(this.codigo.value);
+    const codigo = normalizarCodigoMfa(this.codigo());
     if (!esCodigoVerificacionValido(codigo)) {
       this.error.set(MENSAJE_CODIGO_FORMATO);
       return;
@@ -142,7 +142,7 @@ export class PaginaVerificacionMfa {
     const error = await this.sesion.verificarMfa(codigo);
     this.enviando.set(false);
     if (error !== null) {
-      this.codigo.setValue('');
+      this.codigo.set('');
       this.error.set(mensajeFalloAcceso(error));
       return;
     }

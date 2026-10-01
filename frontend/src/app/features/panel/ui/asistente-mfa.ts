@@ -1,6 +1,5 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
 
 import { aErroresDeCampo } from '../../../core/forms/errores-de-campo';
 import { ErrorApi } from '../../../core/http/error-api.model';
@@ -19,6 +18,7 @@ import {
 import { CuentaStore } from '../state/cuenta.store';
 import { CampoContrasena } from './campo-contrasena';
 import { CodigoQr } from './codigo-qr';
+import { EnlaceValor } from './enlace-valor';
 
 const MENSAJE_CONTRASENA_INCORRECTA = 'La contraseña no es correcta.';
 const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
@@ -30,7 +30,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
  */
 @Component({
   selector: 'app-asistente-mfa',
-  imports: [ReactiveFormsModule, Banner, Boton, CampoContrasena, CodigoQr],
+  imports: [EnlaceValor, Banner, Boton, CampoContrasena, CodigoQr],
   template: `
     <section class="seccion" aria-labelledby="mfa-titulo" data-testid="cuenta-mfa">
       <h2 id="mfa-titulo">Verificación en dos pasos</h2>
@@ -69,7 +69,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
             <form class="formulario" novalidate (submit)="reautenticar($event)">
               <p>Por seguridad, confirma tu contraseña antes de vincular una aplicación autenticadora.</p>
               <app-campo-contrasena
-                [control]="contrasenaReautenticacion"
+                [campo]="contrasenaReautenticacion"
                 etiqueta="Tu contraseña actual"
                 idCampo="mfa-reautenticacion"
                 autocomplete="current-password"
@@ -122,7 +122,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
                   inputmode="numeric"
                   autocomplete="one-time-code"
                   maxlength="6"
-                  [formControl]="codigoConfirmacion"
+                  [appEnlaceValor]="codigoConfirmacion"
                   [attr.aria-invalid]="errorCampo()['codigo'] ? 'true' : null"
                   [attr.aria-describedby]="errorCampo()['codigo'] ? 'mfa-confirmar-ayuda mfa-confirmar-error' : 'mfa-confirmar-ayuda'"
                   data-testid="mfa-confirmar-codigo"
@@ -155,7 +155,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
                     inputmode="numeric"
                     autocomplete="one-time-code"
                     maxlength="6"
-                    [formControl]="codigoRegeneracion"
+                    [appEnlaceValor]="codigoRegeneracion"
                     [attr.aria-invalid]="errorCampo()['regenerar'] ? 'true' : null"
                     [attr.aria-describedby]="errorCampo()['regenerar'] ? 'mfa-regenerar-error' : null"
                     data-testid="mfa-regenerar-codigo"
@@ -207,7 +207,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
           <h3 id="mfa-desactivar-titulo">Desactivar la verificación en dos pasos</h3>
           <p id="mfa-desactivar-texto">Tu cuenta quedará protegida solo con la contraseña.</p>
           <app-campo-contrasena
-            [control]="contrasenaDesactivar"
+            [campo]="contrasenaDesactivar"
             etiqueta="Tu contraseña actual"
             idCampo="mfa-desactivar-contrasena"
             [error]="errorCampo()['contrasena_desactivar'] ?? null"
@@ -223,7 +223,7 @@ const MENSAJE_CONTRASENA_VACIA = 'Escribe tu contraseña actual.';
               type="text"
               autocomplete="one-time-code"
               maxlength="9"
-              [formControl]="codigoDesactivar"
+              [appEnlaceValor]="codigoDesactivar"
               [attr.aria-invalid]="errorCampo()['codigo_desactivar'] ? 'true' : null"
               [attr.aria-describedby]="errorCampo()['codigo_desactivar'] ? 'mfa-desactivar-codigo-error' : null"
               data-testid="mfa-desactivar-codigo"
@@ -289,11 +289,11 @@ export class AsistenteMfa {
   /** Los códigos se confirmaron como guardados (en modo obligatorio, la página continúa). */
   readonly codigosGuardados = output<void>();
 
-  protected readonly contrasenaReautenticacion = new FormControl('', { nonNullable: true });
-  protected readonly codigoConfirmacion = new FormControl('', { nonNullable: true });
-  protected readonly codigoRegeneracion = new FormControl('', { nonNullable: true });
-  protected readonly contrasenaDesactivar = new FormControl('', { nonNullable: true });
-  protected readonly codigoDesactivar = new FormControl('', { nonNullable: true });
+  protected readonly contrasenaReautenticacion = signal('');
+  protected readonly codigoConfirmacion = signal('');
+  protected readonly codigoRegeneracion = signal('');
+  protected readonly contrasenaDesactivar = signal('');
+  protected readonly codigoDesactivar = signal('');
 
   protected readonly enviando = signal(false);
   protected readonly copiado = signal(false);
@@ -306,7 +306,7 @@ export class AsistenteMfa {
 
   protected empezar(): void {
     this.limpiarErrores();
-    this.contrasenaReautenticacion.setValue('');
+    this.contrasenaReautenticacion.set('');
     this.store.empezarActivacionMfa();
   }
 
@@ -319,7 +319,7 @@ export class AsistenteMfa {
   protected async reautenticar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (this.enviando()) return;
-    const contrasena = this.contrasenaReautenticacion.value;
+    const contrasena = this.contrasenaReautenticacion();
     this.limpiarErrores();
     if (contrasena === '') {
       this.errorCampo.set({ contrasena: MENSAJE_CONTRASENA_VACIA });
@@ -327,7 +327,7 @@ export class AsistenteMfa {
     }
     const error = await this.conEnvio(() => this.store.iniciarActivacionMfa(contrasena));
     if (error === null) return;
-    this.contrasenaReautenticacion.setValue('');
+    this.contrasenaReautenticacion.set('');
     if (esReautenticacionFallida(error)) {
       this.errorCampo.set({ contrasena: MENSAJE_CONTRASENA_INCORRECTA });
       return;
@@ -342,28 +342,28 @@ export class AsistenteMfa {
   protected async confirmar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (this.enviando()) return;
-    const codigo = normalizarCodigoMfa(this.codigoConfirmacion.value);
+    const codigo = normalizarCodigoMfa(this.codigoConfirmacion());
     this.limpiarErrores();
     if (!esCodigoTotpValido(codigo)) {
       this.errorCampo.set({ codigo: MENSAJE_TOTP_FORMATO });
       return;
     }
     const error = await this.conEnvio(() => this.store.confirmarActivacionMfa(codigo));
-    this.codigoConfirmacion.setValue('');
+    this.codigoConfirmacion.set('');
     if (error !== null) this.aplicarError(error, ['codigo']);
   }
 
   protected async regenerar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (this.enviando()) return;
-    const codigo = normalizarCodigoMfa(this.codigoRegeneracion.value);
+    const codigo = normalizarCodigoMfa(this.codigoRegeneracion());
     this.limpiarErrores();
     if (!esCodigoTotpValido(codigo)) {
       this.errorCampo.set({ regenerar: MENSAJE_TOTP_FORMATO });
       return;
     }
     const error = await this.conEnvio(() => this.store.regenerarCodigos(codigo));
-    this.codigoRegeneracion.setValue('');
+    this.codigoRegeneracion.set('');
     if (error !== null) {
       const { porCampo, generales } = aErroresDeCampo(error, ['codigo']);
       this.errorCampo.set({ regenerar: porCampo['codigo']?.[0] ?? generales[0] });
@@ -372,8 +372,8 @@ export class AsistenteMfa {
 
   protected abrirDesactivar(): void {
     this.limpiarErrores();
-    this.contrasenaDesactivar.setValue('');
-    this.codigoDesactivar.setValue('');
+    this.contrasenaDesactivar.set('');
+    this.codigoDesactivar.set('');
     this.dialogoDesactivar().nativeElement.showModal();
     this.dialogoAbierto.set(true);
   }
@@ -386,8 +386,8 @@ export class AsistenteMfa {
   protected async desactivar(evento: Event): Promise<void> {
     evento.preventDefault();
     if (this.enviando()) return;
-    const contrasena = this.contrasenaDesactivar.value;
-    const codigo = normalizarCodigoMfa(this.codigoDesactivar.value);
+    const contrasena = this.contrasenaDesactivar();
+    const codigo = normalizarCodigoMfa(this.codigoDesactivar());
     this.limpiarErrores();
     const errores: Record<string, string> = {};
     if (contrasena === '') errores['contrasena_desactivar'] = MENSAJE_CONTRASENA_VACIA;

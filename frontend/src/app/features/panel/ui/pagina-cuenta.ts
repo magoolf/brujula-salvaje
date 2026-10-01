@@ -1,5 +1,4 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { aErroresDeCampo } from '../../../core/forms/errores-de-campo';
@@ -28,7 +27,7 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
  */
 @Component({
   selector: 'app-pagina-cuenta',
-  imports: [ReactiveFormsModule, Banner, Boton, CampoContrasena, AsistenteMfa],
+  imports: [Banner, Boton, CampoContrasena, AsistenteMfa],
   providers: [CuentaStore, AutorizacionStore],
   template: `
     <div class="pagina" data-testid="pagina-cuenta">
@@ -52,9 +51,9 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
           @if (errorGeneral(); as mensaje) {
             <app-banner variante="error" testId="cuenta-contrasena-error">{{ mensaje }}</app-banner>
           }
-          <form class="formulario" [formGroup]="formulario" novalidate (ngSubmit)="cambiarContrasena()">
+          <form class="formulario" novalidate (submit)="cambiarContrasena($event)">
             <app-campo-contrasena
-              [control]="formulario.controls.actual"
+              [campo]="actual"
               etiqueta="Contraseña actual"
               idCampo="cuenta-actual"
               autocomplete="current-password"
@@ -62,7 +61,7 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
               testId="cuenta-actual"
             />
             <app-campo-contrasena
-              [control]="formulario.controls.nueva"
+              [campo]="nueva"
               etiqueta="Nueva contraseña"
               idCampo="cuenta-nueva"
               autocomplete="new-password"
@@ -71,7 +70,7 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
               testId="cuenta-nueva"
             />
             <app-campo-contrasena
-              [control]="formulario.controls.confirmacion"
+              [campo]="confirmacion"
               etiqueta="Repite la nueva contraseña"
               idCampo="cuenta-confirmacion"
               autocomplete="new-password"
@@ -136,11 +135,9 @@ export class PaginaCuenta {
   private readonly router = inject(Router);
 
   protected readonly enLinea = inject(Conectividad).enLinea;
-  protected readonly formulario = new FormGroup({
-    actual: new FormControl('', { nonNullable: true }),
-    nueva: new FormControl('', { nonNullable: true }),
-    confirmacion: new FormControl('', { nonNullable: true }),
-  });
+  protected readonly actual = signal('');
+  protected readonly nueva = signal('');
+  protected readonly confirmacion = signal('');
   protected readonly fechaLarga = formatearFechaLarga;
   protected readonly guardando = signal(false);
   protected readonly errores = signal<Partial<Record<CampoCambioContrasena, string>>>({});
@@ -150,9 +147,12 @@ export class PaginaCuenta {
     inject(Seo).establecer({ titulo: 'Mi cuenta', indexable: false });
   }
 
-  protected async cambiarContrasena(): Promise<void> {
+  protected async cambiarContrasena(evento: Event): Promise<void> {
+    evento.preventDefault();
     if (this.guardando() || !this.enLinea()) return;
-    const { actual, nueva, confirmacion } = this.formulario.getRawValue();
+    const actual = this.actual();
+    const nueva = this.nueva();
+    const confirmacion = this.confirmacion();
     this.errorGeneral.set(null);
     const locales = this.store.validarContrasena({ actual, nueva, confirmacion });
     this.errores.set(locales);
@@ -170,7 +170,9 @@ export class PaginaCuenta {
       this.errorGeneral.set(generales[0] ?? null);
       return;
     }
-    this.formulario.reset();
+    this.actual.set('');
+    this.nueva.set('');
+    this.confirmacion.set('');
     await this.continuarSiObligatorio();
   }
 
