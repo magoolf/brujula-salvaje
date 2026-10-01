@@ -266,14 +266,14 @@ tickets:
   - id: TKT-033
     titulo: "MEDIUM (hallazgos de TKT-032 y su QA): (F-032-02, MEDIUM, preexistente) DELETE /panel/contenidos/destinos/{id} de un borrador referenciado por un itinerario (PROTECT) da 500 ProtectedError: debe dar el 409 documentado; (F-032-01, LOW) carrera alta/DELETE concurrente: traducir IntegrityError 23503 y ProtectedError residuales a 409 o bloquear referencias con SELECT ... FOR SHARE, y DoesNotExist en _datos_regla_itinerario; (F-032-03, LOW, preexistente) POST /panel/medios/{id}/retirar con 409 medio_en_uso devuelve usos[] con campos distintos del ReferenciaUso del contrato {tipo_entidad, id, titulo}: alinear al contrato; (cascada) retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en lugar de 409 impacto_modificado; (INFO) AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta; (INFO F-032-04) mensaje del 400 en tipo_principal_id cuando el PUT omite tipos_ids"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-032, TKT-006]
     depende_de: [TKT-032]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-945."]
+    evidencia: ["DEC-AUTO-945.", "Entregado @ PR #51 (b273b62); diff en contenido y medios. CI verde salvo image scan (CVE del proxy, TKT-OPS-024). Bloqueo FOR KEY SHARE de referencias ordenado por id, DELETE con FOR UPDATE y ediciones con FOR NO KEY UPDATE; 55P03/40P01 -> 409 conflicto_version; 409 dependencia_bloqueante con ReferenciaUso al borrar borradores referenciados; 409 medio_en_uso con ReferenciaUso; impacto_modificado también con cascada vacía (retirar y PUT destino). Carrera A/B: main 500 en la ronda 0, rama 0 5xx en 2560 peticiones. Traducción global de 55P03/40P01 propuesta a TKT-035 (DEC-AUTO-951). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-01
   - id: TKT-034
     titulo: "LOW: tests de backend/apps/cuentas/sesiones.py (76 %) y permisos.py (94,12 %) hasta > 95 % (críticos desde TKT-OPS-022), y añadir backend/coverage.json y backend/vistas_urlconf.json a .gitignore. Al integrar, DevOps retira TKT-OPS-022-EXC-01/EXC-02 (caducan 2026-11-15)"
@@ -286,6 +286,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950)."]
+    actualizado: 2026-10-01
+  - id: TKT-035
+    titulo: "LOW (propuesta del Developer de TKT-033): traducir de forma global en backend/apps/core (manejador de excepciones de DRF) los OperationalError 55P03 lock_timeout y 40P01 deadlock_detected a 409 conflicto_version reintentable en todas las apps (hoy solo lo hace contenido), y revisar la carrera de DELETE de catálogos (pais_id, categoria_id) frente a altas de contenido"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-033, TKT-032]
+    depende_de: [TKT-033]
+    archivos_permitidos: ["backend/apps/core/**", "backend/apps/catalogos/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-951."]
     actualizado: 2026-10-01
   - id: TKT-OPS-024
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-103111 (HIGH, pcre2 10.48-r0, corregido en 10.49-r0) en brujula/proxy (alpine 3.24.2, nginxinc/nginx-unprivileged:1.30.5-alpine). Corregir sin .trivyignore (hay parche): apk upgrade de pcre2 fijado o nuevo digest de la base; revisar si el PR #22 de Dependabot (1.31.5-alpine) lo resuelve y es compatible; validar el proxy (nginx -t, smoke anti-evasión 6/6, cabeceras idénticas)"
