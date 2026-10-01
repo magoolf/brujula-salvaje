@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -10,6 +9,7 @@ import { Banner } from '../../../shared/ui/banner/banner';
 import { Boton } from '../../../shared/ui/boton/boton';
 import { RUTA_CUENTA } from '../domain/acceso';
 import { CampoCambioContrasena } from '../domain/contrasena';
+import { formatearFechaLarga } from '../domain/fechas';
 import { AutorizacionStore } from '../state/autorizacion.store';
 import { CuentaStore } from '../state/cuenta.store';
 import { AsistenteMfa } from './asistente-mfa';
@@ -28,7 +28,7 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
  */
 @Component({
   selector: 'app-pagina-cuenta',
-  imports: [ReactiveFormsModule, DatePipe, Banner, Boton, CampoContrasena, AsistenteMfa],
+  imports: [ReactiveFormsModule, Banner, Boton, CampoContrasena, AsistenteMfa],
   providers: [CuentaStore, AutorizacionStore],
   template: `
     <div class="pagina" data-testid="pagina-cuenta">
@@ -106,7 +106,7 @@ const CAMPOS_CONTRASENA: readonly CampoCambioContrasena[] = [
           @if (autorizacion.autorizacion(); as datos) {
             @if (datos.otorgadaEn; as fecha) {
               <p>
-                Autorizaste el tratamiento el {{ fecha | date: 'longDate' }} (versión
+                Autorizaste el tratamiento el {{ fechaLarga(fecha) }} (versión
                 {{ datos.versionOtorgada }} de la política).
               </p>
             }
@@ -141,6 +141,7 @@ export class PaginaCuenta {
     nueva: new FormControl('', { nonNullable: true }),
     confirmacion: new FormControl('', { nonNullable: true }),
   });
+  protected readonly fechaLarga = formatearFechaLarga;
   protected readonly guardando = signal(false);
   protected readonly errores = signal<Partial<Record<CampoCambioContrasena, string>>>({});
   protected readonly errorGeneral = signal<string | null>(null);

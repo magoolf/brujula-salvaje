@@ -1,3 +1,4 @@
+import { formatearFechaHora, formatearFechaLarga } from './fechas';
 import {
   MENSAJE_ACTUAL_OBLIGATORIA,
   MENSAJE_NO_COINCIDEN,
@@ -175,5 +176,15 @@ describe('tablero (SCR-034)', () => {
     ]) {
       expect(hayAvisosDeSalud({ ...vacio, saludEditorial: { ...sinNada, ...parcial } })).toBe(true);
     }
+  });
+});
+
+describe('fechas del panel (Intl es-CO, sin DatePipe)', () => {
+  it('formatea fecha larga y fecha con hora en español', () => {
+    const fecha = new Date('2026-02-01T15:30:00Z');
+    expect(formatearFechaLarga(fecha)).toMatch(/2026/);
+    expect(formatearFechaLarga(fecha).toLowerCase()).toContain('febrero');
+    expect(formatearFechaHora(fecha)).toMatch(/2026/);
+    expect(formatearFechaHora(fecha)).toMatch(/\d{1,2}:\d{2}/);
   });
 });

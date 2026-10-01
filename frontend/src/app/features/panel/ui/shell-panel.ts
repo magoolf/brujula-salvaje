@@ -1,4 +1,4 @@
-import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -9,22 +9,17 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  NavigationEnd,
-  Router,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet,
-} from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { RUTA_ACCESO_PANEL, esDestinoSeguro } from '../../../core/auth/destino-seguro';
 import { ID_CONTENIDO_PRINCIPAL } from '../../../core/layout/navegacion';
 import { Boton } from '../../../shared/ui/boton/boton';
-import { ETIQUETA_ROL, SeccionPanel, activoSoloExacto, seccionDeRuta } from '../domain/secciones';
+import { ETIQUETA_ROL, seccionDeRuta } from '../domain/secciones';
 import { ExpiracionSesionStore } from '../state/expiracion-sesion.store';
 import { SesionPanelStore } from '../state/sesion-panel.store';
 import { AvisoExpiracion } from './aviso-expiracion';
+import { EnlacesPanel } from './enlaces-panel';
 
 /** Destino de «Saltar a la navegación». */
 export const ID_NAVEGACION_PANEL = 'panel-navegacion';
@@ -40,7 +35,7 @@ const MEDIA_LG = '(min-width: 64rem)';
  */
 @Component({
   selector: 'app-shell-panel',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgTemplateOutlet, Boton, AvisoExpiracion],
+  imports: [RouterOutlet, RouterLink, Boton, AvisoExpiracion, EnlacesPanel],
   providers: [ExpiracionSesionStore],
   template: `
     <div class="saltos">
@@ -100,7 +95,7 @@ const MEDIA_LG = '(min-width: 64rem)';
         tabindex="-1"
         data-testid="panel-navegacion"
       >
-        <ng-container [ngTemplateOutlet]="enlaces" [ngTemplateOutletContext]="{ prefijo: 'panel-nav-' }" />
+        <app-enlaces-panel [secciones]="secciones()" prefijo="panel-nav-" />
       </nav>
       <main [id]="idContenido" class="principal" tabindex="-1" data-testid="panel-contenido">
         <router-outlet />
@@ -122,27 +117,10 @@ const MEDIA_LG = '(min-width: 64rem)';
           Cerrar menú
         </button>
         <nav aria-label="Navegación del panel" data-testid="panel-cajon-navegacion">
-          <ng-container [ngTemplateOutlet]="enlaces" [ngTemplateOutletContext]="{ prefijo: 'panel-cajon-nav-' }" />
+          <app-enlaces-panel [secciones]="secciones()" prefijo="panel-cajon-nav-" (navegar)="cerrarMenu()" />
         </nav>
       </div>
     </dialog>
-    <ng-template #enlaces let-prefijo="prefijo">
-      <ul>
-        @for (seccion of secciones(); track seccion.id) {
-          <li>
-            <a
-              [routerLink]="seccion.ruta"
-              routerLinkActive="activo"
-              ariaCurrentWhenActive="page"
-              [routerLinkActiveOptions]="{ exact: soloExacto(seccion) }"
-              [attr.data-testid]="prefijo + seccion.id"
-              (click)="cerrarMenu()"
-              >{{ seccion.etiqueta }}</a
-            >
-          </li>
-        }
-      </ul>
-    </ng-template>
     <app-aviso-expiracion (cerrarSesion)="cerrarSesion()" (volverAEntrar)="volverAEntrar()" />
   `,
   styles: `
@@ -274,35 +252,6 @@ const MEDIA_LG = '(min-width: 64rem)';
       font: inherit;
       cursor: pointer;
     }
-    .navegacion ul,
-    .cajon ul {
-      display: grid;
-      gap: var(--bs-space-1);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .navegacion a,
-    .cajon a {
-      display: flex;
-      align-items: center;
-      min-height: var(--bs-size-target);
-      padding-inline: var(--bs-space-3);
-      border-inline-start: 3px solid transparent;
-      border-radius: var(--bs-radius-sm);
-      color: var(--bs-color-text-default);
-      text-decoration: none;
-    }
-    .navegacion a:hover,
-    .cajon a:hover {
-      background: var(--bs-color-bg-sunken);
-    }
-    .navegacion a.activo,
-    .cajon a.activo {
-      border-inline-start-color: var(--bs-color-action-primary-bg);
-      background: var(--bs-color-action-selected-bg);
-      font-weight: var(--bs-font-weight-semibold);
-    }
     .principal {
       box-sizing: border-box;
       width: 100%;
@@ -340,10 +289,6 @@ const MEDIA_LG = '(min-width: 64rem)';
     @media (forced-colors: active) {
       .cajon {
         border-inline-end: 1px solid CanvasText;
-      }
-      .navegacion a.activo,
-      .cajon a.activo {
-        border-inline-start-color: Highlight;
       }
     }
   `,
@@ -388,10 +333,6 @@ export class ShellPanel {
       consulta.addEventListener('change', alCambiar);
       inject(DestroyRef).onDestroy(() => consulta.removeEventListener('change', alCambiar));
     }
-  }
-
-  protected soloExacto(seccion: SeccionPanel): boolean {
-    return activoSoloExacto(seccion);
   }
 
   /** Abre el cajón modal (< lg) y lleva el foco al primer enlace. */

@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -16,6 +15,7 @@ import {
   totalConteo,
   varianteEstado,
 } from '../domain/tablero';
+import { formatearFechaHora } from '../domain/fechas';
 import { TableroStore } from '../state/tablero.store';
 import { AccesoDenegado } from './acceso-denegado';
 
@@ -27,7 +27,6 @@ import { AccesoDenegado } from './acceso-denegado';
 @Component({
   selector: 'app-pagina-tablero',
   imports: [
-    DatePipe,
     RouterLink,
     Banner,
     Boton,
@@ -136,7 +135,7 @@ import { AccesoDenegado } from './acceso-denegado';
                         <span
                           >{{ contenido.actualizadoPor }} ·
                           <time [attr.datetime]="contenido.actualizadoEn.toISOString()">{{
-                            contenido.actualizadoEn | date: 'medium'
+                            fechaHora(contenido.actualizadoEn)
                           }}</time></span
                         >
                       </p>
@@ -273,6 +272,7 @@ export class PaginaTablero {
   protected readonly etiquetaEstado = ETIQUETA_ESTADO;
   protected readonly total = totalConteo;
   protected readonly variante = varianteEstado;
+  protected readonly fechaHora = formatearFechaHora;
 
   constructor() {
     inject(Seo).establecer({ titulo: 'Tablero', indexable: false });
