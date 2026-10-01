@@ -287,6 +287,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939)."]
     actualizado: 2026-10-01
+  - id: TKT-OPS-021
+    titulo: "LOW: (a) retirar de infra/ci/oasdiff_err_ignore.txt la excepción de DEC-AUTO-920 (request-body-type-changed en POST /api/v1/panel/medios), que tras TKT-012 ya no casa con ningún hallazgo; (b) gate de cobertura por módulo en CI según Skill_Backend §8 (services >= 90 %, vistas de endpoints críticos >= 95 %) leyendo coverage.json, con umbrales versionados en infra/ci/ y excepciones con caducidad"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-012, TKT-OPS-010, "DEC-AUTO-920"]
+    depende_de: [TKT-012]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940)."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
     fase: F7
@@ -686,14 +698,14 @@ tickets:
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~563 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias. Ampliado por QA (ciclo 2/3 de TKT-006, no bloqueante): cobertura de panel_selectors.py (0% real en listar_por_tipo/FEAT-033), panel_views.py (55%) y services.py de contenido/medios (56-87%) por debajo de los umbrales tiered de Skill_Backend §8 pese a no tener defecto funcional conocido detrás; añadir tests HTTP de listar/filtrar, retirar/reactivar/revisiones/restaurar, y las ramas de rechazo de medios (formato_no_permitido/tamano_excedido/duplicado), incluido el caso 'archivo disfrazado' que el test de subida original no cubría. Ampliado por QA de TKT-007 (no bloqueante): backend/apps/contenido/management/commands/cargar_semilla.py::_configurar_inicio no incrementa el contador informativo de creados/reutilizados en su 2ª+ ejecución (blindspot de stdout, sin duplicación real en BD). Ampliado por QA de TKT-017 (no bloqueante, preexistente, no introducido por TKT-017 -- confirmado comparando contra el commit base antes del ticket): apps/medios/services.py en 89% de cobertura (umbral Services >90%, Skill_Backend §8), 14 líneas/rangos sin cubrir (formato rechazado, archivo corrupto, megapíxeles excedidos, carrera de IntegrityError en subida duplicada, NoEncontrado en obtener/catalogar/retirar/reactivar, rama licencia_incompatible en uso, filas GALERIA/HERO de usos()); el pipeline de CI solo aplica el umbral global de 80% (pytest.ini --cov-fail-under=80), no un gate por módulo -- considerar también si el pipeline debería aplicar el gate por módulo de Skill_Backend §8 automáticamente"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-006, TKT-OPS-010]
     depende_de: [TKT-006, TKT-OPS-010]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket.", "2026-10-01 corte de sesión: el Developer quedó interrumpido con trabajo sin commit en su worktree (12 archivos modificados, 7 tests nuevos). Se reanuda en el mismo worktree sin descartar nada."]
+    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket.", "2026-10-01 corte de sesión: el Developer quedó interrumpido con trabajo sin commit en su worktree (12 archivos modificados, 7 tests nuevos). Se reanuda en el mismo worktree sin descartar nada.", "Entregado @ PR #45 (3a991e0), CI real verde (run 36859155530). Diff verificado dentro de alcance. oasdiff 563 WARNING -> 0 (0 ERROR); cobertura total 89,99 % -> 96,5 %, panel_selectors/panel_views 100 %, contenido/services 96,8 %, medios/services 97,1 %; contador de _configurar_inicio corregido. 4 bugs reales de 500 corregidos (KeyError al actualizar TERMINO publicado, DecompressionBombError, IntegrityError en carrera de subida, re-ejecución de _configurar_inicio). Cambio de comportamiento exigido por el contrato: 400 ante ids duplicados, NUL y URL no http(s). El Developer hizo amend + force-with-lease en su propia rama antes de abrir el PR para retirar un falso positivo de gitleaks (sin PR existente; aceptado). CHG-OPS a TKT-OPS-021 (DEC-AUTO-940). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-01
   - id: TKT-013
     titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
