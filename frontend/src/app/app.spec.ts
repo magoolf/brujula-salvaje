@@ -9,19 +9,22 @@ import { ManejadorErroresGlobal } from './core/observabilidad/manejador-errores.
 import { EstrategiaTitulo } from './core/seo/estrategia-titulo';
 
 describe('App (shell global)', () => {
-  it('SkipLink → cabecera → main#contenido-principal → pie, con landmarks', async () => {
+  it('en el sitio público: ShellPublico (SkipLink → cabecera → main → pie) + aviso sin conexión', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
     const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl('/acerca-de');
     await fixture.whenStable();
     const raiz = fixture.nativeElement as HTMLElement;
 
     const hijos = Array.from(raiz.children).map((e) => e.tagName.toLowerCase());
-    expect(hijos).toEqual([
+    expect(hijos).toEqual(['router-outlet', 'app-shell-publico', 'app-banner-sin-conexion']);
+    const shell = raiz.querySelector('app-shell-publico') as HTMLElement;
+    expect(Array.from(shell.children).map((e) => e.tagName.toLowerCase())).toEqual([
       'app-skip-link',
       'app-cabecera-sitio',
       'main',
       'app-pie-sitio',
-      'app-banner-sin-conexion',
     ]);
     const main = raiz.querySelector('main') as HTMLElement;
     expect(main.id).toBe('contenido-principal');
@@ -55,7 +58,16 @@ describe('App (shell global)', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pagina-no-encontrada"]'),
     ).not.toBeNull();
-    expect(routes.at(-1)?.path).toBe('**');
+    // TKT-010: las rutas públicas son hijas de ShellPublico; el comodín 404 sigue siendo la última.
+    const publicas = routes.find((r) => r.path === '' && r.children)?.children ?? [];
+    expect(publicas.at(-1)?.path).toBe('**');
+  });
+
+  it('TKT-010: /panel carga en diferido el panel editorial, fuera del shell público', async () => {
+    expect(routes[0].path).toBe('panel');
+    const cargar = routes[0].loadChildren as () => Promise<unknown>;
+    const { RUTAS_PANEL } = await import('./features/panel/ui/panel.routes');
+    expect(await cargar()).toBe(RUTAS_PANEL);
   });
 
   it('la configuración es zoneless (sin zone.js) y registra los proveedores transversales', () => {

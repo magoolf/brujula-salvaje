@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { TITULO_NO_ENCONTRADA } from './core/layout/paginas/titulos';
+import { ShellPublico } from './core/layout/shell-publico/shell-publico';
 
 /**
  * Rutas del sitio público (BLUEPRINT §10). TKT-008 añade Inicio, Destinos (listado, mapa, ficha),
@@ -9,7 +10,7 @@ import { TITULO_NO_ENCONTRADA } from './core/layout/paginas/titulos';
  * final. `/destinos/mapa` va antes de `/destinos/:slug` para no ser capturada como slug; mismo
  * criterio para `/guias/categoria/:slug` antes de `/guias/:slug`.
  */
-export const routes: Routes = [
+const RUTAS_PUBLICAS: Routes = [
   {
     path: '',
     pathMatch: 'full',
@@ -173,4 +174,20 @@ export const routes: Routes = [
         (m) => m.PaginaNoEncontrada,
       ),
   },
+];
+
+/**
+ * Rutas de la aplicación (TKT-010, DEC-AUTO-928). Dos zonas con armazón propio:
+ * - `/panel/**`: panel editorial (MOD-009..013), carga diferida; sus rutas hijas y su navegación
+ *   viven en features/panel/ui/panel.routes.ts para que cada ticket del panel añada las suyas sin
+ *   tocar este archivo. Se renderiza solo en cliente (app.routes.server.ts) y no lleva el shell
+ *   público (BLUEPRINT §10: «sin enlace desde el sitio público»).
+ * - resto: sitio público dentro de ShellPublico; el comodín 404 sigue siendo la última ruta hija.
+ */
+export const routes: Routes = [
+  {
+    path: 'panel',
+    loadChildren: () => import('./features/panel/ui/panel.routes').then((m) => m.RUTAS_PANEL),
+  },
+  { path: '', component: ShellPublico, children: RUTAS_PUBLICAS },
 ];
