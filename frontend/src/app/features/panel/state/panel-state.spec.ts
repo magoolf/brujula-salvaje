@@ -82,6 +82,31 @@ describe('SesionPanelStore (STATE-004)', () => {
     expect(store.secciones()).toEqual([]);
   });
 
+  it('AC_TKT010_01 FALLO-01: un 403 csrf_invalido en el login se reintenta una sola vez', async () => {
+    const repo = repoFalso();
+    repo.iniciarSesion
+      .mockImplementationOnce(() => Promise.reject(http(403, { code: 'csrf_invalido' })))
+      .mockResolvedValueOnce(sesion());
+    configurar(repo);
+    const store = TestBed.inject(SesionPanelStore);
+    expect(await store.iniciarSesion('x', 'y', null)).toBeNull();
+    expect(repo.iniciarSesion).toHaveBeenCalledTimes(2);
+    expect(repo.asegurarCsrf).toHaveBeenCalledTimes(2);
+    expect(store.autenticada()).toBe(true);
+  });
+
+  it('AC_TKT010_01 FALLO-01: no oculta otros 403 ni reintenta más de una vez', async () => {
+    const repo = repoFalso();
+    repo.iniciarSesion.mockImplementation(() => Promise.reject(http(403, { code: 'permiso_denegado' })));
+    configurar(repo);
+    const store = TestBed.inject(SesionPanelStore);
+    expect((await store.iniciarSesion('x', 'y', null))?.codigo).toBe('permiso_denegado');
+    expect(repo.iniciarSesion).toHaveBeenCalledTimes(1);
+    repo.iniciarSesion.mockImplementation(() => Promise.reject(http(403, { code: 'csrf_invalido' })));
+    expect((await store.iniciarSesion('x', 'y', null))?.codigo).toBe('csrf_invalido');
+    expect(repo.iniciarSesion).toHaveBeenCalledTimes(3);
+  });
+
   it('AC_TKT010_02 login fallido → ErrorApi y sin sesión; fallo del CSRF corta el login', async () => {
     const repo = repoFalso();
     repo.iniciarSesion.mockRejectedValue(http(401, { code: 'credenciales_invalidas' }));

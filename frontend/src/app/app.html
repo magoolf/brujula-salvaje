@@ -1,2 +1,6 @@
-<router-outlet />
+@if (enPanel()) {
+  <router-outlet />
+} @else {
+  <app-shell-publico />
+}
 <app-banner-sin-conexion />

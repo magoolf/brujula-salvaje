@@ -128,6 +128,19 @@ describe('destino-seguro (AC-115)', () => {
     ['/panel/a b', false],
     ['/panel/\u0000', false],
     ['', false],
+    // FALLO-03 (QA ciclo 1): segmentos de punto, barras y barras invertidas codificados.
+    ['/panel/%2e%2e/destinos', false],
+    ['/panel/%2E%2E/%2E%2E/destinos', false],
+    ['/panel/.%2e/destinos', false],
+    ['/panel/%2e/', false],
+    ['/panel%2f..%2fdestinos', false],
+    ['/panel/%5c%5cevil.example', false],
+    ['/panel/%252e%252e/destinos', false],
+    ['/panel/%E0%A4%A', false],
+    ['/panel/%61cceso', false],
+    ['/panel/cuenta%20', false],
+    ['/panel/medios?q=a%2Fb', true],
+    ['/panel/contenido/destinos/12', true],
   ])('AC_TKT010_07 esDestinoSeguro(%j) = %s', (valor, esperado) => {
     expect(esDestinoSeguro(valor)).toBe(esperado);
   });

@@ -7,7 +7,7 @@ import { SesionEstado } from '../../../api/models/sesion-estado';
 import { Tablero } from '../../../api/models/tablero';
 import { normalizarError } from '../../../core/http/normalizar-error';
 import { anotarEspera, leerRetryAfter } from './espera';
-import { PanelAuthRepositorio } from './panel-auth.repositorio';
+import { ESPERA_COOKIE_MS, PanelAuthRepositorio } from './panel-auth.repositorio';
 import { PanelTableroRepositorio } from './panel-tablero.repositorio';
 import { mapAutorizacion, mapTablero } from './panel.mapper';
 
@@ -160,10 +160,38 @@ describe('PanelAuthRepositorio y PanelTableroRepositorio', () => {
   it('AC_TKT010_01 pide la cookie CSRF solo si no existe', async () => {
     const promesa = repo.asegurarCsrf();
     http.expectOne(`${BASE}/auth/csrf`).flush(null, { status: 204, statusText: 'No Content' });
-    await promesa;
     document.cookie = 'csrftoken=abc; path=/';
+    await promesa;
     await repo.asegurarCsrf();
     http.expectNone(`${BASE}/auth/csrf`);
+  });
+
+  it('AC_TKT010_01 FALLO-01: tras el 204 espera a que la cookie sea legible antes de seguir', async () => {
+    let resuelta = false;
+    const promesa = repo.asegurarCsrf().then(() => (resuelta = true));
+    http.expectOne(`${BASE}/auth/csrf`).flush(null, { status: 204, statusText: 'No Content' });
+    // Simula WebKit: el Set-Cookie se refleja en document.cookie unos milisegundos después.
+    await new Promise((r) => setTimeout(r, 60));
+    expect(resuelta).toBe(false);
+    document.cookie = 'csrftoken=tardia; path=/';
+    await promesa;
+    expect(resuelta).toBe(true);
+  });
+
+  it('AC_TKT010_01 FALLO-01: la espera está acotada si la cookie nunca llega', async () => {
+    vi.useFakeTimers();
+    try {
+      let resuelta = false;
+      const promesa = repo.asegurarCsrf().then(() => (resuelta = true));
+      http.expectOne(`${BASE}/auth/csrf`).flush(null, { status: 204, statusText: 'No Content' });
+      await vi.advanceTimersByTimeAsync(ESPERA_COOKIE_MS - 100);
+      expect(resuelta).toBe(false);
+      await vi.advanceTimersByTimeAsync(200);
+      await promesa;
+      expect(resuelta).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AC_TKT010_01 login envía usuario, contraseña y siguiente y devuelve la sesión del dominio', async () => {

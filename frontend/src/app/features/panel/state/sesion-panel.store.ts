@@ -9,6 +9,8 @@ import { rutaParaPaso } from '../domain/acceso';
 import { DecisionAutorizacion, SesionPanel } from '../domain/modelos';
 import { seccionesVisibles } from '../domain/secciones';
 
+const CODIGO_CSRF_INVALIDO = 'csrf_invalido';
+
 /**
  * STATE de la sesión del panel (STATE-004, FLOW-010). Única fuente del rol y del paso pendiente
  * para los guards, el armazón y las pantallas de acceso. Se comparte entre todas las áreas del
@@ -62,12 +64,18 @@ export class SesionPanelStore {
     contrasena: string,
     siguiente: string | null,
   ): Promise<ErrorApi | null> {
-    const errorCsrf = await ejecutar(defer(() => this.repo.asegurarCsrf()));
-    if (errorCsrf !== null) return errorCsrf;
-    return ejecutar(
-      defer(() => this.repo.iniciarSesion(usuario, contrasena, siguiente)),
-      (sesion) => this.fijar(sesion),
-    );
+    const intentar = async (): Promise<ErrorApi | null> => {
+      const errorCsrf = await ejecutar(defer(() => this.repo.asegurarCsrf()));
+      if (errorCsrf !== null) return errorCsrf;
+      return ejecutar(
+        defer(() => this.repo.iniciarSesion(usuario, contrasena, siguiente)),
+        (sesion) => this.fijar(sesion),
+      );
+    };
+    const error = await intentar();
+    // QA TKT-010 FALLO-01: un único reintento si el token CSRF no llegó a tiempo. Solo ese código:
+    // cualquier otro 403 (u otro error) se devuelve tal cual.
+    return error?.codigo === CODIGO_CSRF_INVALIDO ? intentar() : error;
   }
 
   verificarMfa(codigo: string): Promise<ErrorApi | null> {

@@ -231,6 +231,14 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     await entrarPorUi(otra, cuenta.usuario, cuenta.contrasena);
     await expect(otra).toHaveURL(/^http:\/\/[^/]+\/panel$/);
     await contexto.close();
+
+    // FALLO-03 (QA ciclo 1): segmentos de punto codificados no sacan del panel.
+    const contexto2 = await browser.newContext();
+    const tercera = await contexto2.newPage();
+    await irA(tercera, `/panel/acceso?siguiente=${encodeURIComponent('/panel/%2e%2e/destinos')}`);
+    await entrarPorUi(tercera, cuenta.usuario, cuenta.contrasena);
+    await expect(tercera).toHaveURL(/^http:\/\/[^/]+\/panel$/);
+    await contexto2.close();
   });
 
   test('AC_TKT010_08 rol: Editor sin accesos de Administrador (API 403 y SCR-048); el Administrador sí', async ({
@@ -382,11 +390,35 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     await expect(page.getByTestId('tablero-conteos')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     await expect(page.getByTestId('panel-navegacion')).toBeHidden();
-    await page.getByTestId('panel-menu').click();
-    await expect(page.getByTestId('panel-navegacion')).toBeVisible();
-    await page.getByTestId('panel-nav-cuenta').click();
+
+    // OBS-06 (QA ciclo 1): cajón modal < lg — foco dentro, Escape cierra y devuelve el foco.
+    const menu = page.getByTestId('panel-menu');
+    const cajon = page.getByTestId('panel-cajon');
+    await menu.click();
+    await expect(cajon).toBeVisible();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('panel-cajon-nav-tablero')).toBeFocused();
+    await sinViolacionesGraves(page);
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Tab');
+      const dentro = await page.evaluate(
+        () => document.activeElement?.closest('[data-testid="panel-cajon"]') !== null,
+      );
+      // El foco no sale al contenido inerte (puede pasar por la interfaz del navegador).
+      const enContenido = await page.evaluate(
+        () => document.activeElement?.closest('[data-testid="panel-contenido"]') !== null,
+      );
+      expect(dentro || !enContenido).toBe(true);
+    }
+    await page.keyboard.press('Escape');
+    await expect(cajon).toBeHidden();
+    await expect(menu).toBeFocused();
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+
+    await menu.click();
+    await page.getByTestId('panel-cajon-nav-cuenta').click();
     await expect(page).toHaveURL(/\/panel\/cuenta$/);
-    await expect(page.getByTestId('panel-navegacion')).toBeHidden();
+    await expect(cajon).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     await sinViolacionesGraves(page);
   });

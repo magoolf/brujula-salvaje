@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 
 import { TITULO_NO_ENCONTRADA } from './core/layout/paginas/titulos';
-import { ShellPublico } from './core/layout/shell-publico/shell-publico';
 
 /**
  * Rutas del sitio público (BLUEPRINT §10). TKT-008 añade Inicio, Destinos (listado, mapa, ficha),
@@ -177,17 +176,19 @@ const RUTAS_PUBLICAS: Routes = [
 ];
 
 /**
- * Rutas de la aplicación (TKT-010, DEC-AUTO-928). Dos zonas con armazón propio:
- * - `/panel/**`: panel editorial (MOD-009..013), carga diferida; sus rutas hijas y su navegación
- *   viven en features/panel/ui/panel.routes.ts para que cada ticket del panel añada las suyas sin
- *   tocar este archivo. Se renderiza solo en cliente (app.routes.server.ts) y no lleva el shell
- *   público (BLUEPRINT §10: «sin enlace desde el sitio público»).
- * - resto: sitio público dentro de ShellPublico; el comodín 404 sigue siendo la última ruta hija.
+ * Rutas de la aplicación (TKT-010). Configuración PLANA, igual que antes del panel salvo la entrada
+ * `panel` (QA TKT-010 ciclo 1, FALLO-02 y OBS-04): una ruta padre con path '' (layout) hacía que la
+ * extracción de rutas de @angular/ssr registrara '/' con los metadatos del padre —sin modulepreload
+ * de Inicio— y que el título del SSR difiriera del cliente. El armazón visual de cada zona lo
+ * decide App (ver app.ts):
+ * - `/panel/**`: panel editorial, carga diferida; sus rutas hijas viven en
+ *   features/panel/ui/panel.routes.ts. Solo cliente (app.routes.server.ts).
+ * - resto: sitio público dentro de ShellPublico; el comodín 404 sigue siendo la última ruta.
  */
 export const routes: Routes = [
   {
     path: 'panel',
     loadChildren: () => import('./features/panel/ui/panel.routes').then((m) => m.RUTAS_PANEL),
   },
-  { path: '', component: ShellPublico, children: RUTAS_PUBLICAS },
+  ...RUTAS_PUBLICAS,
 ];

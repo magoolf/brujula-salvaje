@@ -1,5 +1,13 @@
-import { DOCUMENT } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationEnd,
@@ -20,6 +28,9 @@ import { AvisoExpiracion } from './aviso-expiracion';
 
 /** Destino de «Saltar a la navegación». */
 export const ID_NAVEGACION_PANEL = 'panel-navegacion';
+export const ID_CAJON_PANEL = 'panel-cajon';
+/** Punto de corte lg (64 rem): desde aquí la navegación es una barra lateral fija. */
+const MEDIA_LG = '(min-width: 64rem)';
 
 /**
  * TPL-PANEL-SHELL (PanelShell, DEC-AUTO-070): saltos «Saltar al contenido» + «Saltar a la
@@ -29,9 +40,8 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
  */
 @Component({
   selector: 'app-shell-panel',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Boton, AvisoExpiracion],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgTemplateOutlet, Boton, AvisoExpiracion],
   providers: [ExpiracionSesionStore],
-  host: { '(document:keydown.escape)': 'cerrarMenu()' },
   template: `
     <div class="saltos">
       <a class="salto" [href]="'#' + idContenido" data-testid="panel-saltar-contenido" (click)="saltarAlContenido($event)"
@@ -43,12 +53,14 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
     </div>
     <header class="barra" data-testid="panel-barra-superior">
       <button
+        #botonMenu
         type="button"
         class="boton-menu"
+        aria-haspopup="dialog"
         [attr.aria-expanded]="menuAbierto()"
-        [attr.aria-controls]="idNavegacion"
+        [attr.aria-controls]="idCajon"
         data-testid="panel-menu"
-        (click)="alternarMenu()"
+        (click)="abrirMenu()"
       >
         Menú
       </button>
@@ -84,31 +96,53 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
       <nav
         [id]="idNavegacion"
         class="navegacion"
-        [class.navegacion--abierta]="menuAbierto()"
         aria-label="Navegación del panel"
         tabindex="-1"
         data-testid="panel-navegacion"
       >
-        <ul>
-          @for (seccion of secciones(); track seccion.id) {
-            <li>
-              <a
-                [routerLink]="seccion.ruta"
-                routerLinkActive="activo"
-                ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: soloExacto(seccion) }"
-                [attr.data-testid]="'panel-nav-' + seccion.id"
-                (click)="cerrarMenu()"
-                >{{ seccion.etiqueta }}</a
-              >
-            </li>
-          }
-        </ul>
+        <ng-container [ngTemplateOutlet]="enlaces" [ngTemplateOutletContext]="{ prefijo: 'panel-nav-' }" />
       </nav>
       <main [id]="idContenido" class="principal" tabindex="-1" data-testid="panel-contenido">
         <router-outlet />
       </main>
     </div>
+    <!-- Cajón modal < lg (HANDOFF TPL-PANEL-SHELL): <dialog> con showModal(): fondo, resto inerte,
+         Escape cierra y el foco vuelve al botón «Menú». -->
+    <dialog
+      #cajon
+      [id]="idCajon"
+      class="cajon"
+      aria-modal="true"
+      aria-label="Menú del panel"
+      data-testid="panel-cajon"
+      (cancel)="alCancelarCajon($event)"
+    >
+      <div class="cajon-contenido">
+        <button type="button" class="cerrar-cajon" data-testid="panel-cajon-cerrar" (click)="cerrarMenu()">
+          Cerrar menú
+        </button>
+        <nav aria-label="Navegación del panel" data-testid="panel-cajon-navegacion">
+          <ng-container [ngTemplateOutlet]="enlaces" [ngTemplateOutletContext]="{ prefijo: 'panel-cajon-nav-' }" />
+        </nav>
+      </div>
+    </dialog>
+    <ng-template #enlaces let-prefijo="prefijo">
+      <ul>
+        @for (seccion of secciones(); track seccion.id) {
+          <li>
+            <a
+              [routerLink]="seccion.ruta"
+              routerLinkActive="activo"
+              ariaCurrentWhenActive="page"
+              [routerLinkActiveOptions]="{ exact: soloExacto(seccion) }"
+              [attr.data-testid]="prefijo + seccion.id"
+              (click)="cerrarMenu()"
+              >{{ seccion.etiqueta }}</a
+            >
+          </li>
+        }
+      </ul>
+    </ng-template>
     <app-aviso-expiracion (cerrarSesion)="cerrarSesion()" (volverAEntrar)="volverAEntrar()" />
   `,
   styles: `
@@ -208,17 +242,48 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
       background: var(--bs-color-bg-surface);
       outline: none;
     }
-    .navegacion--abierta {
-      display: block;
+    .cajon {
+      box-sizing: border-box;
+      width: min(85vw, var(--bs-size-panel-sidebar));
+      max-width: none;
+      height: 100dvh;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: var(--bs-color-bg-surface);
+      color: var(--bs-color-text-default);
+      box-shadow: var(--bs-shadow-4);
     }
-    .navegacion ul {
+    .cajon::backdrop {
+      background: var(--bs-color-overlay-backdrop);
+    }
+    .cajon-contenido {
+      display: grid;
+      gap: var(--bs-space-4);
+      padding: var(--bs-space-4);
+    }
+    .cerrar-cajon {
+      justify-self: end;
+      min-height: var(--bs-size-target);
+      padding-inline: var(--bs-space-3);
+      border: var(--bs-border-width-control) solid var(--bs-color-border-control);
+      border-radius: var(--bs-radius-md);
+      background: var(--bs-color-bg-surface);
+      color: var(--bs-color-text-default);
+      font: inherit;
+      cursor: pointer;
+    }
+    .navegacion ul,
+    .cajon ul {
       display: grid;
       gap: var(--bs-space-1);
       margin: 0;
       padding: 0;
       list-style: none;
     }
-    .navegacion a {
+    .navegacion a,
+    .cajon a {
       display: flex;
       align-items: center;
       min-height: var(--bs-size-target);
@@ -228,10 +293,12 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
       color: var(--bs-color-text-default);
       text-decoration: none;
     }
-    .navegacion a:hover {
+    .navegacion a:hover,
+    .cajon a:hover {
       background: var(--bs-color-bg-sunken);
     }
-    .navegacion a.activo {
+    .navegacion a.activo,
+    .cajon a.activo {
       border-inline-start-color: var(--bs-color-action-primary-bg);
       background: var(--bs-color-action-selected-bg);
       font-weight: var(--bs-font-weight-semibold);
@@ -258,6 +325,9 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
         grid-template-columns: var(--bs-size-panel-sidebar) minmax(0, 1fr);
         align-items: start;
       }
+      .cajon {
+        display: none;
+      }
       .navegacion {
         display: block;
         position: sticky;
@@ -268,7 +338,11 @@ export const ID_NAVEGACION_PANEL = 'panel-navegacion';
       }
     }
     @media (forced-colors: active) {
-      .navegacion a.activo {
+      .cajon {
+        border-inline-end: 1px solid CanvasText;
+      }
+      .navegacion a.activo,
+      .cajon a.activo {
         border-inline-start-color: Highlight;
       }
     }
@@ -282,7 +356,10 @@ export class ShellPanel {
   protected readonly idContenido = ID_CONTENIDO_PRINCIPAL;
   protected readonly idNavegacion = ID_NAVEGACION_PANEL;
   protected readonly secciones = this.sesion.secciones;
+  protected readonly idCajon = ID_CAJON_PANEL;
   protected readonly menuAbierto = signal(false);
+  private readonly cajon = viewChild.required<ElementRef<HTMLDialogElement>>('cajon');
+  private readonly botonMenu = viewChild.required<ElementRef<HTMLButtonElement>>('botonMenu');
   protected readonly cerrando = signal(false);
   protected readonly errorCierre = signal<string | null>(null);
   protected readonly nombreVisible = computed(() => this.sesion.sesion()?.nombreVisible ?? '');
@@ -300,16 +377,44 @@ export class ShellPanel {
   );
   protected readonly seccionActual = computed(() => seccionDeRuta(this.url()));
 
+  constructor() {
+    // Si la ventana pasa a ≥ lg con el cajón abierto, se cierra: si no, el diálogo modal oculto por
+    // CSS dejaría el resto de la página inerte.
+    const consulta = this.documento.defaultView?.matchMedia?.(MEDIA_LG);
+    if (consulta) {
+      const alCambiar = (e: MediaQueryListEvent): void => {
+        if (e.matches) this.cerrarMenu();
+      };
+      consulta.addEventListener('change', alCambiar);
+      inject(DestroyRef).onDestroy(() => consulta.removeEventListener('change', alCambiar));
+    }
+  }
+
   protected soloExacto(seccion: SeccionPanel): boolean {
     return activoSoloExacto(seccion);
   }
 
-  protected alternarMenu(): void {
-    this.menuAbierto.update((v) => !v);
+  /** Abre el cajón modal (< lg) y lleva el foco al primer enlace. */
+  protected abrirMenu(): void {
+    const cajon = this.cajon().nativeElement;
+    if (!cajon.open) cajon.showModal();
+    this.menuAbierto.set(true);
+    cajon.querySelector<HTMLElement>('nav a')?.focus();
   }
 
+  /** Cierra el cajón y devuelve el foco al botón «Menú». */
   protected cerrarMenu(): void {
+    const cajon = this.cajon().nativeElement;
+    if (!cajon.open) return;
+    cajon.close();
     this.menuAbierto.set(false);
+    this.botonMenu().nativeElement.focus();
+  }
+
+  /** Escape (evento cancel del diálogo nativo). */
+  protected alCancelarCajon(evento: Event): void {
+    evento.preventDefault();
+    this.cerrarMenu();
   }
 
   protected saltarAlContenido(evento: Event): void {
@@ -317,11 +422,16 @@ export class ShellPanel {
     this.enfocar(this.idContenido);
   }
 
-  /** Bajo lg la navegación es un cajón: se abre antes de llevarle el foco. */
+  /** Bajo lg la navegación es un cajón modal: se abre y recibe el foco. */
   protected saltarANavegacion(evento: Event): void {
     evento.preventDefault();
-    this.menuAbierto.set(true);
-    queueMicrotask(() => this.enfocar(this.idNavegacion));
+    if (this.esEscritorio()) this.enfocar(this.idNavegacion);
+    else this.abrirMenu();
+  }
+
+  private esEscritorio(): boolean {
+    const ventana = this.documento.defaultView;
+    return typeof ventana?.matchMedia !== 'function' || ventana.matchMedia(MEDIA_LG).matches;
   }
 
   protected async cerrarSesion(): Promise<void> {

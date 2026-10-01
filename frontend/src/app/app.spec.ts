@@ -1,10 +1,11 @@
-import { ErrorHandler, LOCALE_ID } from '@angular/core';
+import { Component, ErrorHandler, LOCALE_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, TitleStrategy, provideRouter } from '@angular/router';
 
 import { App } from './app';
 import { appConfig } from './app.config';
 import { routes } from './app.routes';
+import { esZonaPanel } from './core/layout/shell-publico/zona';
 import { ManejadorErroresGlobal } from './core/observabilidad/manejador-errores.handler';
 import { EstrategiaTitulo } from './core/seo/estrategia-titulo';
 
@@ -18,7 +19,7 @@ describe('App (shell global)', () => {
     const raiz = fixture.nativeElement as HTMLElement;
 
     const hijos = Array.from(raiz.children).map((e) => e.tagName.toLowerCase());
-    expect(hijos).toEqual(['router-outlet', 'app-shell-publico', 'app-banner-sin-conexion']);
+    expect(hijos).toEqual(['app-shell-publico', 'app-banner-sin-conexion']);
     const shell = raiz.querySelector('app-shell-publico') as HTMLElement;
     expect(Array.from(shell.children).map((e) => e.tagName.toLowerCase())).toEqual([
       'app-skip-link',
@@ -58,9 +59,9 @@ describe('App (shell global)', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pagina-no-encontrada"]'),
     ).not.toBeNull();
-    // TKT-010: las rutas públicas son hijas de ShellPublico; el comodín 404 sigue siendo la última.
-    const publicas = routes.find((r) => r.path === '' && r.children)?.children ?? [];
-    expect(publicas.at(-1)?.path).toBe('**');
+    // TKT-010 (QA ciclo 1, FALLO-02/OBS-04): rutas planas, sin ruta de layout; comodín al final.
+    expect(routes.at(-1)?.path).toBe('**');
+    expect(routes.some((r) => r.children !== undefined || r.component !== undefined)).toBe(false);
   });
 
   it('TKT-010: /panel carga en diferido el panel editorial, fuera del shell público', async () => {
@@ -77,4 +78,37 @@ describe('App (shell global)', () => {
     expect(TestBed.inject(TitleStrategy)).toBeInstanceOf(EstrategiaTitulo);
     expect(TestBed.inject(LOCALE_ID)).toBe('es-CO');
   });
+
+  it('TKT-010: en /panel/** no hay chrome público y al volver al sitio reaparece', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([
+          { path: 'panel/prueba', component: VistaPrueba },
+          { path: '', component: VistaPrueba },
+        ]),
+      ],
+    });
+    const fixture = TestBed.createComponent(App);
+    const router = TestBed.inject(Router);
+    const raiz = fixture.nativeElement as HTMLElement;
+    await router.navigateByUrl('/panel/prueba');
+    await fixture.whenStable();
+    expect(raiz.querySelector('app-shell-publico')).toBeNull();
+    expect(raiz.querySelector('header')).toBeNull();
+    expect(raiz.querySelector('[data-testid="vista-prueba"]')).not.toBeNull();
+    await router.navigateByUrl('/');
+    await fixture.whenStable();
+    expect(raiz.querySelector('app-shell-publico main [data-testid="vista-prueba"]')).not.toBeNull();
+  });
+
+  it('TKT-010: zona del panel por URL', () => {
+    expect(esZonaPanel('/panel')).toBe(true);
+    expect(esZonaPanel('/panel/acceso?siguiente=%2Fpanel')).toBe(true);
+    expect(esZonaPanel('/panelx')).toBe(false);
+    expect(esZonaPanel('/')).toBe(false);
+    expect(esZonaPanel('/destinos#panel')).toBe(false);
+  });
 });
+
+@Component({ selector: 'app-vista-prueba', template: '<p data-testid="vista-prueba">vista</p>' })
+class VistaPrueba {}

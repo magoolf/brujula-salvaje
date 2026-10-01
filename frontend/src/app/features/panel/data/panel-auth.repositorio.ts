@@ -17,6 +17,10 @@ import {
 import { anotarEspera } from './espera';
 import { mapActivacionMfa, mapAutorizacion, mapSesion } from './panel.mapper';
 
+/** Espera máxima a que la cookie CSRF recién emitida sea legible, y paso del sondeo. */
+export const ESPERA_COOKIE_MS = 1000;
+export const PAUSA_COOKIE_MS = 20;
+
 /** Resultado de registrar la autorización: «No autorizo» cierra la sesión (204, sin cuerpo). */
 export type ResultadoAutorizacion = SesionPanel | null;
 
@@ -30,9 +34,29 @@ export class PanelAuthRepositorio {
    * sesión que fija cookie). Solo se comprueba si existe: su valor lo usa Angular, no este código.
    */
   async asegurarCsrf(): Promise<void> {
+    if (this.cookieCsrfLegible()) return;
+    await conEspera(this.api.panelObtenerCsrf());
+    await this.esperarCookieCsrf();
+  }
+
+  /**
+   * QA TKT-010 FALLO-01: en WebKit, `document.cookie` puede no reflejar todavía el Set-Cookie del
+   * 204 cuando sale la petición siguiente, y el interceptor XSRF de Angular la enviaría sin
+   * X-CSRFToken (403 csrf_invalido). Espera acotada (≤ ESPERA_COOKIE_MS) a que sea legible.
+   */
+  private async esperarCookieCsrf(): Promise<void> {
+    for (
+      let espera = 0;
+      espera < ESPERA_COOKIE_MS && !this.cookieCsrfLegible();
+      espera += PAUSA_COOKIE_MS
+    ) {
+      await new Promise((resolver) => setTimeout(resolver, PAUSA_COOKIE_MS));
+    }
+  }
+
+  private cookieCsrfLegible(): boolean {
     const cookies = this.documento.cookie ?? '';
-    const existe = cookies.split(';').some((c) => c.trim().startsWith(`${XSRF_COOKIE}=`));
-    if (!existe) await conEspera(this.api.panelObtenerCsrf());
+    return cookies.split(';').some((c) => c.trim().startsWith(`${XSRF_COOKIE}=`));
   }
 
   async iniciarSesion(usuario: string, contrasena: string, siguiente: string | null): Promise<SesionPanel> {

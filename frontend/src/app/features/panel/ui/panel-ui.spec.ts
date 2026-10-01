@@ -496,21 +496,34 @@ describe('Panel — acceso y armazón (FLOW-010)', () => {
     expect(el(m, 'panel-navegacion').getAttribute('aria-label')).toBe('Navegación del panel');
     expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, nofollow');
 
+    // OBS-06 (QA ciclo 1): por debajo de lg, cajón modal (<dialog> + showModal).
     const menu = el(m, 'panel-menu');
+    const cajon = el<HTMLDialogElement>(m, 'panel-cajon');
     expect(menu.getAttribute('aria-expanded')).toBe('false');
+    expect(menu.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(cajon.getAttribute('aria-modal')).toBe('true');
     await pulsar(m, 'panel-menu');
     expect(menu.getAttribute('aria-expanded')).toBe('true');
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(cajon.hasAttribute('open')).toBe(true);
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('panel-cajon-nav-tablero');
+    cajon.dispatchEvent(new Event('cancel', { cancelable: true }));
     await estable(m.harness);
+    expect(cajon.hasAttribute('open')).toBe(false);
     expect(menu.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(menu);
+    await pulsar(m, 'panel-menu');
+    await pulsar(m, 'panel-cajon-cerrar');
+    expect(cajon.hasAttribute('open')).toBe(false);
 
+    // jsdom no tiene matchMedia: se comporta como escritorio (barra lateral fija).
     await pulsar(m, 'panel-saltar-navegacion');
     await vi.waitFor(() => expect(document.activeElement?.id).toBe('panel-navegacion'));
-    expect(menu.getAttribute('aria-expanded')).toBe('true');
     await pulsar(m, 'panel-saltar-contenido');
     expect(document.activeElement?.id).toBe('contenido-principal');
-    await pulsar(m, 'panel-nav-cuenta');
+    await pulsar(m, 'panel-menu');
+    await pulsar(m, 'panel-cajon-nav-cuenta');
     await vi.waitFor(() => expect(m.router.url).toBe('/panel/cuenta'));
+    expect(cajon.hasAttribute('open')).toBe(false);
   });
 
   it('cerrar sesión con error se informa sin salir; en SCR-030 con sesión parcial se ofrece cerrar sesión', async () => {
