@@ -434,8 +434,11 @@ jobs:
       # Host ANTES de renderizar; una regresión pasaría en silencio (el proxy convierte también un 404
       # renderizado en 404 Problem Details). El script comprueba: C1 asset inexistente -> 404
       # problem+json y rechazo de Host en el log del SSR (0 renders, 0 error_ssr); C2 ráfaga de 120
-      # assets reales sin 429; C3 ráfaga a /api con 429 del propio limitador (por_ip); C4 la query de
-      # un asset inexistente no llega a los logs; C5 NG_ALLOWED_HOSTS sin "*" ni hosts ".invalid".
+      # assets reales sin 429; C3 /api en por_ip: con por_ip saturada por POST / (403 sin upstream),
+      # las sondas a /api reciben 429 del propio limitador (no depende de DRF ni del orden de pasos,
+      # QA TKT-OPS-018 F-018-01); C4 la query de un asset inexistente no llega a los logs; C5
+      # NG_ALLOWED_HOSTS sin "*" ni hosts ".invalid"; C6 "/x.js%0A" no entra en la location de
+      # assets (ancla \z, DEC-AUTO-935).
       - name: "smoke: anti-evasión del limitador de borde (assets estáticos)"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: bash scripts/ops/smoke-anti-evasion.sh http://127.0.0.1:8080
