@@ -242,26 +242,38 @@ tickets:
   - id: TKT-031
     titulo: "LOW (seguimiento de QA TKT-027): en backend/apps/cuentas, (OBS-01) rechazar /panel/acceso y /panel/acceso/** (también sus formas codificadas canonizadas) como destino de redirección para igualar al cliente; (OBS-02) fijar con tests el rechazo de %2f/%5c ('/panel/medios%2f123', '/panel/a%5cb' -> /panel); (OBS-04) un siguiente inválido o demasiado largo se ignora y devuelve /panel en vez de 400 que impide el login (igualar el límite a 2048 del cliente o ignorarlo); (OBS-05) revalidar la redirección guardada en sesión al leerla"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-027, AC-115, THREAT-017]
     depende_de: [TKT-027]
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos no bloqueantes de la QA de TKT-027 (DEC-AUTO-942). Si cambia el comportamiento de OBS-04, comprobar si requiere CHG en contracts/openapi.yaml (400 documentado para siguiente).", "Entregado @ PR #46 (f47279a), CI verde (run 36868836634). Diff verificado: services.py, autenticacion.py y un test nuevo. OBS-01, OBS-02 (mutación vía monkeypatch: la edición temporal del código fuente fue denegada por el clasificador de permisos) y OBS-05 corregidos; OBS-04 dentro del contrato (maxLength 2000 -> 400), franja 2001-2048 resuelta en el cliente por TKT-028 (DEC-AUTO-944). QA ciclo 1/3 despachada.", "QA_VERDICT PASS (ciclo 1/3): AC_TKT031_01..05 PASS; mutación REAL del código fuente (M1 10 fallos, M2 27, M3 9); 186 comprobaciones HTTP con 0 fallos, 0 /panel/acceso y 0 5xx; sesión alterada en sesion_panel con 17 valores -> /panel; matriz de evasión de TKT-027 sin regresión; schemathesis 3153/3153; seguridad 0. Hallazgos INFO de coherencia cliente/servidor a TKT-028."]
+    evidencia: ["Hallazgos no bloqueantes de la QA de TKT-027 (DEC-AUTO-942). Si cambia el comportamiento de OBS-04, comprobar si requiere CHG en contracts/openapi.yaml (400 documentado para siguiente).", "Entregado @ PR #46 (f47279a), CI verde (run 36868836634). Diff verificado: services.py, autenticacion.py y un test nuevo. OBS-01, OBS-02 (mutación vía monkeypatch: la edición temporal del código fuente fue denegada por el clasificador de permisos) y OBS-05 corregidos; OBS-04 dentro del contrato (maxLength 2000 -> 400), franja 2001-2048 resuelta en el cliente por TKT-028 (DEC-AUTO-944). QA ciclo 1/3 despachada.", "QA_VERDICT PASS (ciclo 1/3): AC_TKT031_01..05 PASS; mutación REAL del código fuente (M1 10 fallos, M2 27, M3 9); 186 comprobaciones HTTP con 0 fallos, 0 /panel/acceso y 0 5xx; sesión alterada en sesion_panel con 17 valores -> /panel; matriz de evasión de TKT-027 sin regresión; schemathesis 3153/3153; seguridad 0. Hallazgos INFO de coherencia cliente/servidor a TKT-028.", "PR #46 integrado en main (gh pr merge --merge), CI verde. DONE."]
     actualizado: 2026-10-01
   - id: TKT-032
     titulo: "MEDIUM (QA TKT-012, preexistente): (F1) traducir a 400/404/422 Problem Details los 7 caminos del panel que dan 500 por errores de BD no traducidos: POST/PUT /panel/taxonomias/paises con region_id inexistente; POST /panel/contenidos/itinerarios con destino_id inexistente (Destino.DoesNotExist); colecciones y guias con relaciones a id inexistente; destinos con latitud sin longitud (ck_destino_coordenadas); PUT /panel/medios/{id DISPONIBLE} con autor_credito null (ck_medio_disponible); (F2) aplicar uniqueItems con lista_unica en copublicar_tipos, cascada_confirmada y analisis-publicacion.tipos_ids, y documentar sus maxItems/uniqueItems en el esquema generado; (F3) dar valor a actualizado_por en las fixtures para que los tests de N+1 de contenido detecten la falta de select_related; (F4) tests HTTP de regiones y países (catalogos/api/views.py >= 95 %) e inicio/api/views.py líneas 35-37; (INFO) fuente_url de catalogación de medios no debe aceptar cadena vacía si el contrato la prohíbe"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-012, TKT-006, "Skill_Backend §8"]
     depende_de: [TKT-012]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f."]
+    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f.", "Entregado @ PR #47 (b84c8cc), CI verde (run 36879781212); diff dentro de alcance. Sonda transaccional con COMMIT: 50 caminos 5xx en main (los 7 de la QA + 43) -> 0. pytest 1087, 97 %; schemathesis panel Editor 9035/9035 sin 5xx; oasdiff 0. Cambios de comportamiento: referencias inexistentes y CHECK -> 400 validacion por campo; vaciar alt/crédito/licencia de medio DISPONIBLE -> 422 regla_negocio; título duplicado al actualizar -> 409. Hallazgo preexistente (retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en vez de 409) a TKT-033 (DEC-AUTO-945). QA ciclo 1/3 despachada."]
+    actualizado: 2026-10-01
+  - id: TKT-033
+    titulo: "LOW (hallazgo del Developer de TKT-032, preexistente): POST /api/v1/panel/contenidos/{tipo}/{id}/retirar con confirmar_cascada y una cascada_confirmada que no coincide con la calculada responde 200 cuando la cascada calculada está vacía; el contrato exige 409 impacto_modificado si difiere. Además, AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta (INFO de oasdiff)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-032, TKT-006]
+    depende_de: [TKT-032]
+    archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/core/esquema.py"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-945."]
     actualizado: 2026-10-01
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
