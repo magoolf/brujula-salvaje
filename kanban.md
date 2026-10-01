@@ -314,14 +314,14 @@ tickets:
   - id: TKT-010
     titulo: "Panel 1/4 -- acceso, armazón y tablero: SCR-030 Acceso (?siguiente= con retorno seguro interno), SCR-031 Verificación MFA, SCR-032 Mi cuenta (cambio de contraseña obligatorio/voluntario, activar/desactivar MFA con reautenticación DEC-AUTO-215, códigos de recuperación), SCR-033 Autorización de tratamiento (bloqueante), SCR-034 Tablero, SCR-048 Acceso denegado (403); armazón del panel (layout de escritorio con navegación lateral, saltos de accesibilidad, cierre de sesión, guard de sesión/rol) y estructura de carpetas que reutilizarán TKT-022/023/024"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-009, MOD-010, FEAT-029, FEAT-030, FEAT-031, FEAT-032, FEAT-033, FLOW-010, SCR-030, SCR-031, SCR-032, SCR-033, SCR-034, SCR-048, RULE-017, RULE-029, THREAT-001, THREAT-002, "DEC-AUTO-215"]
     depende_de: [TKT-009, TKT-006]
     archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/app.html", "frontend/src/app/app.ts", "frontend/src/app/app.css", "frontend/src/app/app.spec.ts", "frontend/src/app/core/layout/shell-publico/**", "frontend/src/app/features/panel/**", "frontend/src/app/core/auth/**", "frontend/e2e/**", "frontend/package.json", "frontend/package-lock.json"]
     ciclo_qa: 0/3
     ciclo_panico: 1/2
-    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado."]
+    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado.", "Entregado @ PR #39 (rama tkt-010-panel-acceso, HEAD f349018). Diff verificado por el Orquestador dentro de archivos_permitidos ampliados. 505/505 unit, cobertura global 84 % / panel domain 100 % líneas, eslint/tsc/build OK; E2E contra stack real 168/168 en 3 motores (13 casos del panel x3 + regresión pública completa 129/129 en serie). Dependencia nueva uqr@0.1.3 (MIT, sin transitivas). gitleaks/semgrep/npm audit limpios. CI: todo verde salvo trivy (CVE-2026-103111, TKT-OPS-017, ajeno). Riesgos declarados: (1) con la opción A un 429 en un chunk diferido en la primera carga deja la página en blanco en vez de conservar cabecera/pie -> TKT-025; (2) AC_TKT010_08 E2E parcial hasta que exista una ruta solo-Admin (TKT-024 debe añadir el E2E sobre /panel/usuarios); (3) QR no decodificado con lector (la clave manual sí se probó E2E). El Developer declaró un taskkill por nombre de imagen demasiado amplio, sin efecto constatado. QA despachada."]
     actualizado: 2026-09-30
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
@@ -357,8 +357,20 @@ tickets:
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10)."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede."]
     actualizado: 2026-09-30
+  - id: TKT-025
+    titulo: "LOW: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-010, TKT-018, "DEC-AUTO-928"]
+    depende_de: [TKT-010, TKT-016]
+    archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/app.config.spec.ts", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10)."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-001
     titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
     fase: F7
