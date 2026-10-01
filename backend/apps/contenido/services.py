@@ -22,7 +22,7 @@ from datetime import date, datetime
 from typing import Any
 
 from django.db import IntegrityError, transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Value
 from django.utils import timezone
 
 from apps.auditoria import services as auditoria
@@ -47,6 +47,7 @@ from apps.contenido.models import (
     TerminoGlosario,
     TipoAventura,
     TipoContenido,
+    normalizar,
 )
 from apps.contenido.saneado import sanear_html
 from apps.core.exceptions import ErrorApi, NoEncontrado
@@ -659,6 +660,169 @@ def _seo_en_uso(contenido: Contenido) -> bool:
     return qs.exists()
 
 
+# ---------------------------------------------------------------------------
+# Validación de la entrada contra la BD ANTES de escribir (TKT-032)
+# ---------------------------------------------------------------------------
+# Las FK de Django son DEFERRABLE INITIALLY DEFERRED (fallan en el COMMIT, fuera de cualquier
+# `try`), las FK compuestas (id, tipo) de 0002_integridad_sql fallan en el INSERT y los CHECK que
+# combinan campos (coordenadas, duración) o que dependen del saneado (longitud del HTML) no los
+# puede ver el serializer. Antes cada uno de esos caminos acababa en 500 `error_interno`; ahora se
+# comprueban aquí con los valores EFECTIVOS (entrada + estado guardado) y se responde 400
+# `validacion` con el campo, como documenta el contrato para estas operaciones.
+MENSAJE_INEXISTENTE = "No existe."
+MENSAJE_HTML_LARGO = "El texto, una vez saneado, supera la longitud máxima permitida."
+CAMPOS_HTML: dict[str, tuple[str, ...]] = {
+    T.DESTINO: ("descripcion_experta", "como_llegar", "seguridad_riesgos", "sostenibilidad"),
+    T.ITINERARIO: ("riesgos_seguridad",),
+    T.GUIA: ("cuerpo",),
+    T.TIPO: ("descripcion",),
+    T.COLECCION: ("descripcion",),
+    T.PAGINA: ("cuerpo",),
+}
+
+
+def _ids_existentes(modelo: Any, ids: list[int]) -> set[int]:
+    if not ids:
+        return set()
+    return set(modelo.objects.filter(pk__in=ids).values_list("pk", flat=True))
+
+
+def _referencia_unica(
+    errores: dict[str, list[str]], datos: dict[str, Any], campo: str, modelo: Any
+) -> None:
+    valor = datos.get(campo)
+    if valor is not None and not modelo.objects.filter(pk=valor).exists():
+        errores[campo] = [MENSAJE_INEXISTENTE]
+
+
+def _referencias_lista(
+    errores: dict[str, list[str]], datos: dict[str, Any], campo: str, modelo: Any
+) -> None:
+    ids = list(datos.get(campo) or [])
+    existentes = _ids_existentes(modelo, ids)
+    for indice, valor in enumerate(ids):
+        if valor not in existentes:
+            errores[f"{campo}.{indice}"] = [MENSAJE_INEXISTENTE]
+
+
+def _pares_existentes(pares: list[tuple[str, int]]) -> set[tuple[str, int]]:
+    if not pares:
+        return set()
+    filas = Contenido.objects.filter(pk__in=[i for _t, i in pares]).values_list("tipo", "pk")
+    return {(tipo, pk) for tipo, pk in filas}
+
+
+def _validar_polimorficas(
+    errores: dict[str, list[str]], datos: dict[str, Any], contenido_id: int | None
+) -> None:
+    """`relaciones` y `elementos` apuntan a contenido(id, tipo) por FK compuesta: el id debe
+    existir CON ese tipo (ADR-DB-002), y una relación nunca apunta al propio contenido
+    (`ck_relacion_contenido_distintos`)."""
+    relaciones = list(datos.get("relaciones") or [])
+    existentes = _pares_existentes([(r["tipo"], r["id"]) for r in relaciones])
+    for indice, r in enumerate(relaciones):
+        if contenido_id is not None and r["id"] == contenido_id:
+            errores[f"relaciones.{indice}.id"] = ["Un contenido no puede relacionarse consigo mismo."]
+        elif (r["tipo"], r["id"]) not in existentes:
+            errores[f"relaciones.{indice}.id"] = [MENSAJE_INEXISTENTE]
+    elementos = list(datos.get("elementos") or [])
+    existentes = _pares_existentes([(e["tipo_contenido"], e["contenido_id"]) for e in elementos])
+    for indice, e in enumerate(elementos):
+        if (e["tipo_contenido"], e["contenido_id"]) not in existentes:
+            errores[f"elementos.{indice}.contenido_id"] = [MENSAJE_INEXISTENTE]
+
+
+def _efectivo(datos: dict[str, Any], campo: str, subtipo: Any) -> Any:
+    """Valor tras aplicar la entrada: el enviado o, si no viaja, el guardado (None al crear)."""
+    if campo in datos:
+        return datos[campo]
+    return getattr(subtipo, campo, None) if subtipo is not None else None
+
+
+def _validar_coherencia_destino(
+    errores: dict[str, list[str]], datos: dict[str, Any], destino: Destino | None
+) -> None:
+    latitud = _efectivo(datos, "latitud", destino)
+    longitud = _efectivo(datos, "longitud", destino)
+    if (latitud is None) != (longitud is None):  # RULE-023, ck_destino_coordenadas
+        campo = "latitud" if latitud is None else "longitud"
+        errores[campo] = [
+            "Las coordenadas se indican completas (latitud y longitud) o no se indican."
+        ]
+    minimo = _efectivo(datos, "duracion_min_dias", destino)
+    maximo = _efectivo(datos, "duracion_max_dias", destino)
+    if minimo is not None and maximo is not None and minimo > maximo:  # ck_destino_duracion
+        errores["duracion_max_dias"] = ["Debe ser mayor o igual que duracion_min_dias."]
+    # fk_destino_tipo_principal_en_tipos (DEFERRABLE): el principal pertenece a los tipos.
+    if "tipos_ids" in datos:
+        tipos = set(datos["tipos_ids"])
+    elif destino is not None:
+        tipos = set(destino.tipos_aventura.values_list("contenido_id", flat=True))
+    else:
+        tipos = set()
+    principal = _efectivo(datos, "tipo_principal_id", destino)
+    if principal is not None and principal not in tipos:
+        errores["tipo_principal_id"] = ["Debe pertenecer a tipos_ids."]
+
+
+def _validar_html_saneado(errores: dict[str, list[str]], tipo: str, datos: dict[str, Any]) -> None:
+    """El saneado escapa `&`, `<` y `>` y completa etiquetas: un texto dentro del `maxLength` de
+    la entrada puede superar el CHECK `ck_*_longitud` (LONGITUD_MAXIMA_TEXTO) al guardarse."""
+    from apps.contenido.models import LONGITUD_MAXIMA_TEXTO
+
+    for campo in CAMPOS_HTML.get(tipo, ()):
+        valor = datos.get(campo)
+        if isinstance(valor, str) and len(sanear_html(valor) or "") > LONGITUD_MAXIMA_TEXTO:
+            errores[campo] = [MENSAJE_HTML_LARGO]
+    for indice, dia in enumerate(datos.get("dias") or []):
+        # `actividades`/`consejos` ya llegan saneados del serializer (DiaEntradaSerializer).
+        for campo in ("actividades", "consejos"):
+            valor = dia.get(campo)
+            if isinstance(valor, str) and len(valor) > LONGITUD_MAXIMA_TEXTO:
+                errores[f"dias.{indice}.{campo}"] = [MENSAJE_HTML_LARGO]
+
+
+def _titulo_en_uso(tipo: str, titulo: str, excluir_id: int | None) -> bool:
+    """uq_contenido_tipo_titulo_norm con la MISMA normalización de la BD (app.f_normalizar)."""
+    qs = Contenido.objects.filter(tipo=tipo, titulo_norm=normalizar(Value(titulo)))
+    if excluir_id is not None:
+        qs = qs.exclude(pk=excluir_id)
+    return qs.exists()
+
+
+def _validar_entrada(tipo: str, datos: dict[str, Any], contenido: Contenido | None = None) -> None:
+    """Comprueba contra la BD, sin escribir nada, lo que de otro modo violaría una FK, un CHECK o
+    una UNIQUE al guardar `datos` (alta si `contenido` es None; si no, edición). 400
+    `validacion` con todos los campos afectados; 409 `duplicado` si el título ya existe."""
+    from apps.catalogos.models import CategoriaGuia, Pais
+
+    subtipo = subtipo_de(contenido) if contenido is not None else None
+    errores: dict[str, list[str]] = {}
+    _referencia_unica(errores, datos, "portada_id", Medio)
+    _referencias_lista(errores, datos, "galeria_ids", Medio)
+    _referencias_lista(errores, datos, "terminos_ids", TerminoGlosario)
+    _referencias_lista(errores, datos, "tipos_ids", TipoAventura)
+    _validar_polimorficas(errores, datos, contenido.pk if contenido is not None else None)
+    if tipo == T.DESTINO:
+        _referencia_unica(errores, datos, "pais_id", Pais)
+        _validar_coherencia_destino(errores, datos, subtipo)
+    elif tipo == T.ITINERARIO:
+        _referencia_unica(errores, datos, "destino_id", Destino)
+    elif tipo == T.GUIA:
+        _referencia_unica(errores, datos, "categoria_id", CategoriaGuia)
+        _referencias_lista(errores, datos, "destinos_ids", Destino)
+    _validar_html_saneado(errores, tipo, datos)
+    if errores:
+        raise ErrorApi(codigo="validacion", errors=errores)
+    titulo = datos.get("titulo")
+    if (
+        tipo != T.TERMINO  # el término usa su propia comprobación (`_termino_duplicado`)
+        and titulo is not None
+        and _titulo_en_uso(tipo, titulo, contenido.pk if contenido is not None else None)
+    ):
+        raise Duplicado(errors={"titulo": ["Ya existe un contenido de este tipo con ese título."]})
+
+
 APLICAR_CAMPOS: dict[str, Any] = {
     T.DESTINO: _aplicar_destino,
     T.ITINERARIO: _aplicar_itinerario,
@@ -704,6 +868,7 @@ def crear_borrador(
     tipo: str, actor_id: int, datos: dict[str, Any], ip: str | None = None
 ) -> Contenido:
     with transaction.atomic():
+        _validar_entrada(tipo, datos)
         contenido = Contenido(tipo=tipo, creado_por_id=actor_id, actualizado_por_id=actor_id)
         _aplicar_comunes(contenido, datos)
         try:
@@ -763,6 +928,7 @@ def actualizar(
             raise TransicionInvalida(detalle="Reactiva el contenido antes de editarlo.")
 
         operacion = {k: datos.pop(k) for k in list(datos) if k in _CAMPOS_OPERACION}
+        _validar_entrada(tipo, datos, contenido)
         if tipo == T.PAGINA:
             return _actualizar_pagina(contenido, actor_id, datos, ip)
 

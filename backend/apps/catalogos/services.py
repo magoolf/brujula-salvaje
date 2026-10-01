@@ -27,6 +27,9 @@ class Duplicado(ErrorApi):
     codigo = "duplicado"
 
 
+MENSAJE_INEXISTENTE = "No existe."
+
+
 def _auditar(actor_id: int, tipo_entidad: str, entidad_id: int) -> None:
     auditoria.registrar_evento(
         accion=AccionAuditoria.TAXONOMIA,
@@ -100,8 +103,17 @@ def actualizar_region(region_id: int, actor_id: int, datos: dict[str, Any]) -> R
 # ---------------------------------------------------------------------------
 # País
 # ---------------------------------------------------------------------------
+def _validar_region(datos: dict[str, Any]) -> None:
+    """La región referenciada debe existir ANTES de escribir (TKT-032): la FK `pais.region_id`
+    de Django es DEFERRABLE INITIALLY DEFERRED, así que una región inexistente no fallaba en el
+    INSERT/UPDATE sino en el COMMIT, fuera de `_guardar`, y se respondía 500 en vez de 400."""
+    if not Region.objects.filter(pk=datos["region_id"]).exists():
+        raise ErrorApi(codigo="validacion", errors={"region_id": [MENSAJE_INEXISTENTE]})
+
+
 def crear_pais(actor_id: int, datos: dict[str, Any]) -> Pais:
     with transaction.atomic():
+        _validar_region(datos)
         pais = _guardar(Pais(**datos))
         _auditar(actor_id, "PAIS", pais.pk)
         return pais
@@ -110,6 +122,7 @@ def crear_pais(actor_id: int, datos: dict[str, Any]) -> Pais:
 def actualizar_pais(pais_id: int, actor_id: int, datos: dict[str, Any]) -> Pais:
     with transaction.atomic():
         pais = _obtener_o_404(Pais, pais_id)
+        _validar_region(datos)
         if datos.get("activo") is False and pais.activo:
             usos = _usos_pais(pais.pk)
             if usos:
