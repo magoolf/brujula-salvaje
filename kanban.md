@@ -302,14 +302,14 @@ tickets:
   - id: TKT-027
     titulo: "LOW (QA TKT-010 FALLO-03, parte backend): la validación de 'siguiente' en el login del panel acepta segmentos de punto codificados (/panel/%2e%2e/destinos, /panel/%2E%2E/%2E%2E/destinos, /panel/.%2e/destinos) y devuelve redireccion fuera de /panel. Es mismo origen, sin redirección externa, pero incumple AC-115 y THREAT-017. Decodificar antes de validar, o rechazar %2e/%2f/%5c, y añadir pruebas con esas variantes"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [AC-115, THREAT-017, TKT-004, TKT-010]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py."]
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py.", "Despachado 2026-10-01 en paralelo con TKT-012 (backend, archivos disjuntos) y con TKT-010 / TKT-OPS-018 en curso."]
     actualizado: 2026-10-01
   - id: TKT-028
     titulo: "LOW (QA TKT-010 OBS-08 y OBS-07): (a) /robots.txt responde con la página HTML 404 del SSR; servir un robots.txt real (permitir el sitio público, bloquear /panel/ y /api/, y enlazar el sitemap si existe) con tipo text/plain; (b) conservar Retry-After en core/http (normalizarError -> ErrorApi) para todas las features, de modo que features/panel/data/espera.ts deje de reconocer HttpErrorResponse por su forma"
@@ -674,14 +674,14 @@ tickets:
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~563 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias. Ampliado por QA (ciclo 2/3 de TKT-006, no bloqueante): cobertura de panel_selectors.py (0% real en listar_por_tipo/FEAT-033), panel_views.py (55%) y services.py de contenido/medios (56-87%) por debajo de los umbrales tiered de Skill_Backend §8 pese a no tener defecto funcional conocido detrás; añadir tests HTTP de listar/filtrar, retirar/reactivar/revisiones/restaurar, y las ramas de rechazo de medios (formato_no_permitido/tamano_excedido/duplicado), incluido el caso 'archivo disfrazado' que el test de subida original no cubría. Ampliado por QA de TKT-007 (no bloqueante): backend/apps/contenido/management/commands/cargar_semilla.py::_configurar_inicio no incrementa el contador informativo de creados/reutilizados en su 2ª+ ejecución (blindspot de stdout, sin duplicación real en BD). Ampliado por QA de TKT-017 (no bloqueante, preexistente, no introducido por TKT-017 -- confirmado comparando contra el commit base antes del ticket): apps/medios/services.py en 89% de cobertura (umbral Services >90%, Skill_Backend §8), 14 líneas/rangos sin cubrir (formato rechazado, archivo corrupto, megapíxeles excedidos, carrera de IntegrityError en subida duplicada, NoEncontrado en obtener/catalogar/retirar/reactivar, rama licencia_incompatible en uso, filas GALERIA/HERO de usos()); el pipeline de CI solo aplica el umbral global de 80% (pytest.ini --cov-fail-under=80), no un gate por módulo -- considerar también si el pipeline debería aplicar el gate por módulo de Skill_Backend §8 automáticamente"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-006, TKT-OPS-010]
     depende_de: [TKT-006, TKT-OPS-010]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket."]
     actualizado: 2026-09-29
   - id: TKT-013
     titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
