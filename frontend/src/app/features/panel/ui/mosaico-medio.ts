@@ -1,15 +1,14 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Insignia } from '../../../shared/ui/insignia/insignia';
+import { MiniaturaMedio } from './miniatura-medio';
 import {
   ETIQUETA_ESTADO_MEDIO,
   MENSAJE_NO_SELECCIONABLE,
   Medio,
-  derivadoPara,
   descripcionMosaico,
   nombreMedio,
-  srcsetDe,
   textoUsos,
   varianteEstadoMedio,
 } from '../domain/medios';
@@ -21,11 +20,11 @@ export type VarianteMosaico = 'enlace' | 'casilla' | 'radio';
  * MediaTile (HANDOFF_UI_UX COMPONENTES): miniatura 1:1, nombre, insignia de estado, licencia y
  * «Usado en {n}». Variantes: enlace a SCR-040 (biblioteca) o seleccionable con casilla (selección
  * múltiple) o radio (una sola) para SCR-041; los no seleccionables muestran el motivo y su control
- * queda deshabilitado. Si la imagen no carga, el hueco se conserva y se indica (ALT-009).
+ * queda deshabilitado. La miniatura (MiniaturaMedio) se carga al acercarse a la pantalla.
  */
 @Component({
   selector: 'app-mosaico-medio',
-  imports: [RouterLink, Insignia],
+  imports: [RouterLink, Insignia, MiniaturaMedio],
   template: `
     @if (variante() === 'enlace') {
       <a
@@ -34,16 +33,7 @@ export type VarianteMosaico = 'enlace' | 'casilla' | 'radio';
         [attr.aria-label]="descripcion()"
         [attr.data-testid]="'medio-mosaico-' + medio().id"
       >
-        <span class="miniatura">
-          @if (src(); as url) {
-            @if (!fallo()) {
-              <img [src]="url" [attr.srcset]="srcset()" sizes="(min-width: 64rem) 12rem, 45vw" alt="" loading="lazy" decoding="async" (error)="fallo.set(true)" />
-            }
-          }
-          @if (!src() || fallo()) {
-            <span class="sin-vista">Vista previa no disponible</span>
-          }
-        </span>
+        <app-miniatura-medio class="miniatura" [derivados]="medio().derivados" />
         <span class="datos">
           <span class="titulo">{{ nombre() }}</span>
           <app-insignia [variante]="variante_()">{{ etiquetaEstado() }}</app-insignia>
@@ -67,16 +57,7 @@ export type VarianteMosaico = 'enlace' | 'casilla' | 'radio';
           [attr.data-testid]="'selector-control-' + medio().id"
           (change)="alternar.emit()"
         />
-        <span class="miniatura">
-          @if (src(); as url) {
-            @if (!fallo()) {
-              <img [src]="url" alt="" loading="lazy" decoding="async" (error)="fallo.set(true)" />
-            }
-          }
-          @if (!src() || fallo()) {
-            <span class="sin-vista">Vista previa no disponible</span>
-          }
-        </span>
+        <app-miniatura-medio class="miniatura" [derivados]="medio().derivados" />
         <span class="datos">
           <span class="titulo">{{ nombre() }}</span>
           <app-insignia [variante]="variante_()">{{ etiquetaEstado() }}</app-insignia>
@@ -138,32 +119,14 @@ export type VarianteMosaico = 'enlace' | 'casilla' | 'radio';
       margin: 0;
       accent-color: var(--bs-color-action-primary-bg);
     }
-    .miniatura {
-      display: grid;
-      place-items: center;
-      aspect-ratio: 1;
-      overflow: hidden;
-      border-radius: var(--bs-radius-sm);
-      background: var(--bs-color-bg-sunken);
-    }
     .bloqueado .miniatura {
       opacity: 0.6;
     }
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .sin-vista,
     .meta,
     .motivo {
       font-size: var(--bs-typography-body-sm-font-size);
       line-height: var(--bs-typography-body-sm-line-height);
       color: var(--bs-color-text-muted);
-    }
-    .sin-vista {
-      padding: var(--bs-space-2);
-      text-align: center;
     }
     .datos {
       display: grid;
@@ -196,14 +159,11 @@ export class MosaicoMedio {
   readonly alternar = output<void>();
 
   protected readonly motivo = MENSAJE_NO_SELECCIONABLE;
-  protected readonly fallo = signal(false);
   protected readonly nombre = computed(() => nombreMedio(this.medio()));
   protected readonly descripcion = computed(() => descripcionMosaico(this.medio()));
   protected readonly etiquetaEstado = computed(() => ETIQUETA_ESTADO_MEDIO[this.medio().estado]);
   protected readonly variante_ = computed(() => varianteEstadoMedio(this.medio().estado));
   protected readonly licencia = computed(() => this.medio().licencia?.nombre ?? 'Sin licencia');
   protected readonly usos = computed(() => textoUsos(this.medio().numeroUsos));
-  protected readonly src = computed(() => derivadoPara(this.medio().derivados, 320)?.url ?? null);
-  protected readonly srcset = computed(() => srcsetDe(this.medio().derivados) || null);
   protected readonly idMotivo = computed(() => `medio-${this.medio().id}-motivo`);
 }
