@@ -261,7 +261,7 @@ tickets:
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f.", "Entregado @ PR #47 (b84c8cc), CI verde (run 36879781212); diff dentro de alcance. Sonda transaccional con COMMIT: 50 caminos 5xx en main (los 7 de la QA + 43) -> 0. pytest 1087, 97 %; schemathesis panel Editor 9035/9035 sin 5xx; oasdiff 0. Cambios de comportamiento: referencias inexistentes y CHECK -> 400 validacion por campo; vaciar alt/crédito/licencia de medio DISPONIBLE -> 422 regla_negocio; título duplicado al actualizar -> 409. Hallazgo preexistente (retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en vez de 409) a TKT-033 (DEC-AUTO-945). QA ciclo 1/3 despachada."]
+    evidencia: ["Hallazgos F1-F4 e INFO de la QA de TKT-012 (DEC-AUTO-943); reproducciones en el scratchpad qa-tkt012/evidencia.md de la sesión 4af54f6f.", "Entregado @ PR #47 (b84c8cc), CI verde (run 36879781212); diff dentro de alcance. Sonda transaccional con COMMIT: 50 caminos 5xx en main (los 7 de la QA + 43) -> 0. pytest 1087, 97 %; schemathesis panel Editor 9035/9035 sin 5xx; oasdiff 0. Cambios de comportamiento: referencias inexistentes y CHECK -> 400 validacion por campo; vaciar alt/crédito/licencia de medio DISPONIBLE -> 422 regla_negocio; título duplicado al actualizar -> 409. Hallazgo preexistente (retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en vez de 409) a TKT-033 (DEC-AUTO-945). QA ciclo 1/3 despachada.", "Al integrar: retirar de infra/ci/cobertura_umbrales.toml las excepciones EXC-01/EXC-02 de TKT-OPS-021 (DevOps) si TKT-OPS-021 ya está integrado (caducan 2026-10-31)."]
     actualizado: 2026-10-01
   - id: TKT-033
     titulo: "LOW (hallazgo del Developer de TKT-032, preexistente): POST /api/v1/panel/contenidos/{tipo}/{id}/retirar con confirmar_cascada y una cascada_confirmada que no coincide con la calculada responde 200 cuando la cascada calculada está vacía; el contrato exige 409 impacto_modificado si difiere. Además, AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta (INFO de oasdiff)"
@@ -314,26 +314,26 @@ tickets:
   - id: TKT-OPS-020
     titulo: "LOW: robustez del smoke anti-evasión (QA TKT-OPS-018 c2): C3 no debe depender del orden de campos del log_format (parsear JSON del log en lugar de buscar una cadena literal, con mensaje de fallo correcto); sustituir la expansión ${linea:-<sin línea>} de la línea 109 para que semgrep pueda analizar el script completo; documentar que tras C3 por_ip queda saturada ~3 s (espera si se añade un paso HTTP posterior)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: devops
     trazabilidad: [TKT-OPS-018, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-018]
     archivos_permitidos: ["scripts/ops/**", ".github/workflows/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939)."]
+    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939).", "Entregado @ PR #49 (7fc3a64), CI verde (run 36900650511, smoke 6/6). C3 por campos JSON del log (control nuevo con log_format reordenado 3/3 PASS), C6 sin la expansión que rompía semgrep, espera de 4 s tras C3. Controles negativos correctos; shellcheck 0. Pendiente documentar en DEVOPS_HANDOFF en F9 junto a TKT-OPS-018. QA despachada."]
     actualizado: 2026-10-01
   - id: TKT-OPS-021
     titulo: "LOW: (a) retirar de infra/ci/oasdiff_err_ignore.txt la excepción de DEC-AUTO-920 (request-body-type-changed en POST /api/v1/panel/medios), que tras TKT-012 ya no casa con ningún hallazgo; (b) gate de cobertura por módulo en CI según Skill_Backend §8 (services >= 90 %, vistas de endpoints críticos >= 95 %) leyendo coverage.json, con umbrales versionados en infra/ci/ y excepciones con caducidad"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: devops
     trazabilidad: [TKT-012, TKT-OPS-010, "DEC-AUTO-920"]
     depende_de: [TKT-012]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube)."]
+    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube).", "Entregado @ PR #48 (4794311), CI verde (run 36898054477). Diff: infra/ci/** + ci.yaml + DEVOPS_HANDOFF.md §26 (artefacto de DevOps según §0.12). Excepción de oasdiff retirada (mecanismo conservado vacío); gate de cobertura por módulo (gate_cobertura.py, umbrales en cobertura_umbrales.toml, excepciones con caducidad ≤45 días, falla cerrado; 20 controles). Excepciones EXC-01 (catalogos/api/views.py, suelo 71) y EXC-02 (inicio/api/views.py, suelo 93), caducidad 2026-10-31, se retiran tras integrar TKT-032 (DEC-AUTO-946). QA despachada."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
