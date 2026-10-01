@@ -6,7 +6,7 @@
 
 ## 1. Estado en una línea
 
-2026-10-01: además de lo anterior, DONE TKT-OPS-016/017/019 y TKT-020. En curso: TKT-010 (PR #39, re-QA ciclo 2/3), TKT-OPS-018 (PR #43, re-QA 2/3, condición de F9), TKT-027 (PR #44, QA 1/3 en cola), TKT-012 (Developer, worktree agent-ac198d5adce3d4c5e, rama tkt-012-deuda-backend). Tras TKT-010: TKT-022 → TKT-023 → TKT-024 (resto del panel, DEC-AUTO-927), y TKT-016, TKT-019, TKT-021, TKT-025 (condición de F9), TKT-026, TKT-028..030, TKT-OPS-008/009. Después F9/F10. Si hay un corte, las QA sin veredicto se relanzan desde cero (NOT_RUN); los Developer se reanudan en su worktree sin descartar cambios. Cada subagente usa un subdirectorio propio del scratchpad.
+2026-10-01 (corte por límite de uso): DONE además TKT-010, 012, 027, 031, 032, TKT-OPS-018/020/021. TKT-OPS-024 (CVE del proxy, PR #53) con auto-merge activado: comprobar si se integró y marcarlo DONE. En curso al corte: QA TKT-022 (PR #50) y QA TKT-033 (PR #51); si no emitieron QA_VERDICT, relanzarlas desde cero (NOT_RUN). TKT-OPS-022 (PR #52) espera CI verde y QA (posible conflicto textual en DEVOPS_HANDOFF con #53: lo resuelve DevOps). TODO: TKT-023 (depende de TKT-022), TKT-024, TKT-034, TKT-035, TKT-OPS-023, TKT-016/019/021/025/026/028/029/030, TKT-OPS-008/009; luego F9/F10. PR #22 (Dependabot): no integrar. Antes de cada merge: gh pr update-branch, CI verde, merge, y solo después push de docs a main.
 
 ## 2. Cómo reanudar tras un corte (verificar y corregir, no rehacer)
 
