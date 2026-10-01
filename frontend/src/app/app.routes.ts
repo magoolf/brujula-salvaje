@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { TITULO_NO_ENCONTRADA } from './core/layout/paginas/titulos';
+import { DATOS_ZONA_PANEL } from './core/layout/shell-publico/zona';
 
 /**
  * Rutas del sitio público (BLUEPRINT §10). TKT-008 añade Inicio, Destinos (listado, mapa, ficha),
@@ -182,12 +183,14 @@ const RUTAS_PUBLICAS: Routes = [
  * de Inicio— y que el título del SSR difiriera del cliente. El armazón visual de cada zona lo
  * decide App (ver app.ts):
  * - `/panel/**`: panel editorial, carga diferida; sus rutas hijas viven en
- *   features/panel/ui/panel.routes.ts. Solo cliente (app.routes.server.ts).
+ *   features/panel/ui/panel.routes.ts. Solo cliente (app.routes.server.ts). `data` marca la zona
+ *   del panel para ZonaOutlet (core/layout/shell-publico/zona.ts).
  * - resto: sitio público dentro de ShellPublico; el comodín 404 sigue siendo la última ruta.
  */
 export const routes: Routes = [
   {
     path: 'panel',
+    data: DATOS_ZONA_PANEL,
     loadChildren: () => import('./features/panel/ui/panel.routes').then((m) => m.RUTAS_PANEL),
   },
   ...RUTAS_PUBLICAS,

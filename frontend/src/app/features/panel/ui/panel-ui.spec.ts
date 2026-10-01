@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { Route, Router, Routes, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
+import { DATOS_ZONA_PANEL } from '../../../core/layout/shell-publico/zona';
 import { PanelAuthRepositorio } from '../data/panel-auth.repositorio';
 import { PanelTableroRepositorio } from '../data/panel-tablero.repositorio';
 import { AutorizacionTratamiento, SesionPanel, TableroPanel } from '../domain/modelos';
@@ -146,7 +147,8 @@ async function montar(
   const repoTablero = vi.fn().mockImplementation(tablero);
   TestBed.configureTestingModule({
     providers: [
-      provideRouter([{ path: 'panel', children: rutasConAdmin() }]),
+      // Igual que app.routes.ts: la ruta panel declara su zona (ZonaOutlet de los armazones).
+      provideRouter([{ path: 'panel', data: DATOS_ZONA_PANEL, children: rutasConAdmin() }]),
       { provide: PanelAuthRepositorio, useValue: repo },
       { provide: PanelTableroRepositorio, useValue: { tablero: repoTablero } },
     ],

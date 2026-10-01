@@ -9,11 +9,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { RUTA_ACCESO_PANEL, esDestinoSeguro } from '../../../core/auth/destino-seguro';
 import { ID_CONTENIDO_PRINCIPAL } from '../../../core/layout/navegacion';
+import { ZonaOutlet } from '../../../core/layout/shell-publico/zona-outlet';
 import { Boton } from '../../../shared/ui/boton/boton';
 import { ETIQUETA_ROL, seccionDeRuta } from '../domain/secciones';
 import { ExpiracionSesionStore } from '../state/expiracion-sesion.store';
@@ -35,7 +36,7 @@ const MEDIA_LG = '(min-width: 64rem)';
  */
 @Component({
   selector: 'app-shell-panel',
-  imports: [RouterOutlet, RouterLink, Boton, AvisoExpiracion, EnlacesPanel],
+  imports: [ZonaOutlet, RouterLink, Boton, AvisoExpiracion, EnlacesPanel],
   providers: [ExpiracionSesionStore],
   template: `
     <div class="saltos">
@@ -98,7 +99,7 @@ const MEDIA_LG = '(min-width: 64rem)';
         <app-enlaces-panel [secciones]="secciones()" prefijo="panel-nav-" />
       </nav>
       <main [id]="idContenido" class="principal" tabindex="-1" data-testid="panel-contenido">
-        <router-outlet />
+        <router-outlet appZona="panel" />
       </main>
     </div>
     <!-- Cajón modal < lg (HANDOFF TPL-PANEL-SHELL): <dialog> con showModal(): fondo, resto inerte,

@@ -5,7 +5,7 @@ import { Router, TitleStrategy, provideRouter } from '@angular/router';
 import { App } from './app';
 import { appConfig } from './app.config';
 import { routes } from './app.routes';
-import { esZonaPanel } from './core/layout/shell-publico/zona';
+import { DATOS_ZONA_PANEL, esZonaPanel } from './core/layout/shell-publico/zona';
 import { ManejadorErroresGlobal } from './core/observabilidad/manejador-errores.handler';
 import { EstrategiaTitulo } from './core/seo/estrategia-titulo';
 
@@ -66,6 +66,8 @@ describe('App (shell global)', () => {
 
   it('TKT-010: /panel carga en diferido el panel editorial, fuera del shell público', async () => {
     expect(routes[0].path).toBe('panel');
+    // HALLAZGO-ZONA (QA c2): la zona del panel la declara la ruta, no el prefijo de la URL.
+    expect(routes[0].data).toBe(DATOS_ZONA_PANEL);
     const cargar = routes[0].loadChildren as () => Promise<unknown>;
     const { RUTAS_PANEL } = await import('./features/panel/ui/panel.routes');
     expect(await cargar()).toBe(RUTAS_PANEL);
@@ -83,7 +85,7 @@ describe('App (shell global)', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: 'panel/prueba', component: VistaPrueba },
+          { path: 'panel/prueba', data: DATOS_ZONA_PANEL, component: VistaPrueba },
           { path: '', component: VistaPrueba },
         ]),
       ],

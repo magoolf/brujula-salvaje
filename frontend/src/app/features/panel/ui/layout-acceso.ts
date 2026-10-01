@@ -1,8 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
+import { Router } from '@angular/router';
 
 import { RUTA_ACCESO_PANEL } from '../../../core/auth/destino-seguro';
 import { ID_CONTENIDO_PRINCIPAL } from '../../../core/layout/navegacion';
+import { ZonaOutlet } from '../../../core/layout/shell-publico/zona-outlet';
 import { Boton } from '../../../shared/ui/boton/boton';
 import { SkipLink } from '../../../shared/ui/skip-link/skip-link';
 import { SesionPanelStore } from '../state/sesion-panel.store';
@@ -16,7 +17,7 @@ import { PaginaCuenta } from './pagina-cuenta';
  */
 @Component({
   selector: 'app-layout-acceso',
-  imports: [RouterOutlet, SkipLink, Boton],
+  imports: [ZonaOutlet, SkipLink, Boton],
   template: `
     <app-skip-link [destino]="idContenido" texto="Saltar al contenido" />
     <main
@@ -30,7 +31,7 @@ import { PaginaCuenta } from './pagina-cuenta';
           <span class="nombre">Brújula Salvaje</span>
           <span class="etiqueta">Panel editorial</span>
         </p>
-        <router-outlet (activate)="alActivar($event)" />
+        <router-outlet appZona="panel" (activate)="alActivar($event)" />
         @if (haySesion()) {
           <div class="salir">
             <button
