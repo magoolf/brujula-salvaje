@@ -213,7 +213,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad."]
+    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación."]
     actualizado: 2026-09-29
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
@@ -266,26 +266,26 @@ tickets:
   - id: TKT-OPS-018
     titulo: "CONDICIÓN DE F9: añadir al CI un smoke del proxy para RSK-OPS-040 (ADR-OPS-001): /no-existe-N.js -> 404 problem+json sin render SSR, y una ráfaga de 120 assets estáticos sin 429; y verificar que NG_ALLOWED_HOSTS nunca contiene '*'"
     fase: F7
-    estado: IN_PROGRESS
+    estado: QA_FAIL
     owner: devops
     trazabilidad: [TKT-OPS-016, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-016, TKT-OPS-017]
     archivos_permitidos: [".github/workflows/**", "scripts/ops/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Recomendado por el DevOps de TKT-OPS-016 (RSK-OPS-040).", "QA de TKT-OPS-016 recomienda que este smoke sea condición de F9: la defensa anti-evasión depende de NG_ALLOWED_HOSTS y de que Angular valide el Host antes de renderizar; sin smoke en CI, una regresión pasaría en silencio. Se eleva a condición de F9 (DEC-AUTO-932).", "Despachado 2026-10-01 a devops tras TKT-OPS-019 (secuencial, PR separado); el smoke debe cubrir también el comportamiento corregido en TKT-OPS-019."]
+    evidencia: ["Recomendado por el DevOps de TKT-OPS-016 (RSK-OPS-040).", "QA de TKT-OPS-016 recomienda que este smoke sea condición de F9: la defensa anti-evasión depende de NG_ALLOWED_HOSTS y de que Angular valide el Host antes de renderizar; sin smoke en CI, una regresión pasaría en silencio. Se eleva a condición de F9 (DEC-AUTO-932).", "Despachado 2026-10-01 a devops tras TKT-OPS-019 (secuencial, PR separado); el smoke debe cubrir también el comportamiento corregido en TKT-OPS-019.", "Entregado @ PR #43 (2eb4ea4), CI real verde (run 36815190546), paso nuevo de 12 s. La rama sale de la de TKT-OPS-019: integrar antes el #41 y sincronizar. Diff propio: ci.yaml + scripts/ops/smoke-anti-evasion.sh (C1-C5). Control negativo documentado en 6 escenarios (NG_ALLOWED_HOSTS=*, *.invalid, proxy anterior a TKT-OPS-019, proxy anterior a TKT-OPS-016, /api en la zona estaticos): todos fallan con la comprobación esperada y la configuración real pasa. Pendiente fuera de su alcance: anotar el smoke en DEVOPS_HANDOFF (se hará en F9). QA despachada.", "QA_VERDICT FAIL (ciclo 1/3). F-018-01 MEDIUM: C3 no es determinista. Con por_ip intacto, en 9 ejecuciones locales los 429 del borde fueron 0, 12, 136, 0, 136, 11, 0, 5 y 18: 3 de 9 son falsos FAIL. En CI solo pasa porque el paso anterior (smoke: errores del proxy) deja DRF limitado; es una dependencia oculta de la ventana de 60 s. F-018-02 LOW: el smoke no detecta volver a $ en lugar de \z (falta C6 con /no-existe-N.js%0A). INFO: un curl -f en C2 aborta sin el resumen. Controles negativos (NG=*, proxy de main, /api en estaticos) correctos, shellcheck 0. Devuelto a devops (DEC-AUTO-936)."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-016, "ADR-OPS-001", REQ-057, THREAT-020, RSK-OPS-041]
     depende_de: [TKT-OPS-016]
     archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-001.md", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F-1/F-2 de QA_VERDICT PASS de TKT-OPS-016. AC: curl /no-existe.js?secreto=1 -> 0 coincidencias de 'secreto' en el log del frontend; la matriz de evasión de TKT-OPS-016 sigue dando 0 renders; assets existentes con ?v=1 siguen dando 200.", "Despachado 2026-10-01 a devops (mismo agente que TKT-OPS-018, secuencial, PR separado)."]
+    evidencia: ["Hallazgos F-1/F-2 de QA_VERDICT PASS de TKT-OPS-016. AC: curl /no-existe.js?secreto=1 -> 0 coincidencias de 'secreto' en el log del frontend; la matriz de evasión de TKT-OPS-016 sigue dando 0 renders; assets existentes con ?v=1 siguen dando 200.", "Despachado 2026-10-01 a devops (mismo agente que TKT-OPS-018, secuencial, PR separado).", "Entregado @ PR #41 (e7ea451), CI real verde (run 36813942642). Diff verificado: los 3 archivos permitidos. proxy_pass http://frontend$uri (sin query hacia el SSR); en el log del SSR, 3 -> 0 apariciones del token de la query. DEC-AUTO-935: (a) ancla \z en lugar de $ en la regex de la location de assets, porque en PCRE $ casa antes de un \n final y con $uri /x.js%0A llegaba al SSR con un salto de línea crudo; con \z esa ruta cae en location / (por_ip), como /x.js%20 en main; (b) también se retira X-Forwarded-Proto (redundante, como X-Forwarded-Host). Matriz de 37 variantes: 0 error_ssr y 0 peticiones al backend. Cabeceras idénticas a main. RSK-OPS-041 medido: 8 -> 4 líneas de log por asset inexistente. QA despachada (junto con TKT-OPS-018).", "QA_VERDICT PASS (ciclo 1/3), con tcpdump en el frontend y el backend para ver la línea de petición exacta. La query ya no llega al SSR (main la mostraba en su log; la rama, 0). Matriz de 85 variantes A/B: 0 error_ssr y 0 peticiones al backend; nada crudo llega aguas arriba. DEC-AUTO-935 verificada: con $ se cuela un LF crudo, con \z no. Los 58 assets reales del build siguen en la zona estaticos. 3 visitantes en frío: 0/30 navegaciones rotas. Keepalive intacto (1 SYN por cada 400 peticiones) y latencia igual. Cabeceras idénticas a main. Hallazgos INFO, todos preexistentes (F-019-01..03). Pendiente: integrar tras sincronizar y con CI verde.", "DONE: PR #41 sincronizado con main (diff de sincronización solo docs), CI real 6/6 verde @ 28f7cc2, merge @ 42546be."]
     actualizado: 2026-10-01
   - id: TKT-026
     titulo: "INFO, preexistentes en el SSR (QA TKT-OPS-016 F-3/F-4): (a) Range no satisfacible sobre un asset existente -> express.static lanza RangeNotSatisfiableError y frontend/src/server.ts responde 500 (error_ssr) en lugar de 416; (b) cuando DRF limita (429) la llamada del SSR a /api/v1/publico/destinos/<slug>, la ficha de un slug inexistente se sirve como 200 con página de error suave en vez de un código real (debería ser 503 con Retry-After, o el error que corresponda, nunca 200)"
@@ -299,17 +299,65 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Hallazgos F-3/F-4 de QA_VERDICT PASS de TKT-OPS-016. Revisar si (b) afecta también a las demás fichas SSR (itinerarios, guías, tipos, colecciones); si es así, ampliar archivos_permitidos por DEC-AUTO antes de tocar otras features."]
     actualizado: 2026-10-01
+  - id: TKT-027
+    titulo: "LOW (QA TKT-010 FALLO-03, parte backend): la validación de 'siguiente' en el login del panel acepta segmentos de punto codificados (/panel/%2e%2e/destinos, /panel/%2E%2E/%2E%2E/destinos, /panel/.%2e/destinos) y devuelve redireccion fuera de /panel. Es mismo origen, sin redirección externa, pero incumple AC-115 y THREAT-017. Decodificar antes de validar, o rechazar %2e/%2f/%5c, y añadir pruebas con esas variantes"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [AC-115, THREAT-017, TKT-004, TKT-010]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/cuentas/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (FALLO-03). La parte frontend (core/auth/destino-seguro.ts) se corrige dentro de TKT-010. Candidatos: backend/apps/cuentas/api/serializers.py, api/views.py, autenticacion.py.", "Despachado 2026-10-01 en paralelo con TKT-012 (backend, archivos disjuntos) y con TKT-010 / TKT-OPS-018 en curso."]
+    actualizado: 2026-10-01
+  - id: TKT-028
+    titulo: "LOW (QA TKT-010 OBS-08 y OBS-07): (a) /robots.txt responde con la página HTML 404 del SSR; servir un robots.txt real (permitir el sitio público, bloquear /panel/ y /api/, y enlazar el sitemap si existe) con tipo text/plain; (b) conservar Retry-After en core/http (normalizarError -> ErrorApi) para todas las features, de modo que features/panel/data/espera.ts deje de reconocer HttpErrorResponse por su forma"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-010, RULE-029, "Skill_Frontend#Regla09"]
+    depende_de: [TKT-010]
+    archivos_permitidos: ["frontend/public/robots.txt", "frontend/src/server.ts", "frontend/src/app/core/http/**", "frontend/src/app/features/panel/data/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno."]
+    actualizado: 2026-10-01
+  - id: TKT-029
+    titulo: "LOW (seguimiento de TKT-020): (a) features/institucional/ui/pagina-creditos.html no pasa [derivados] a <app-imagen-responsiva>, así que en navegadores sin AVIF /creditos sigue mostrando 24 textos alternativos; (b) los 8 mappers de las features descartan el campo formato (FormatoDerivado del contrato) de los derivados: pasarlo para que ImagenResponsiva deje de deducirlo por la extensión (DEC-AUTO-934); (c) versionar en frontend/e2e las E2E de los AC de TKT-020 (WebKit con imágenes de respaldo, Chromium descargando solo AVIF, HTML sin JS con src en imágenes informativas)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-020, "DEC-AUTO-934"]
+    depende_de: [TKT-020, TKT-010, TKT-016]
+    archivos_permitidos: ["frontend/src/app/shared/ui/imagen-responsiva/**", "frontend/src/app/features/inicio/ui/pagina-inicio.html", "frontend/src/app/features/inicio/ui/pagina-inicio.ts", "frontend/src/app/features/*/data/**", "frontend/src/app/features/institucional/ui/pagina-creditos.html", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Propuesto por el Developer de TKT-020. Depende de TKT-010 porque comparte frontend/e2e/** (§0.10).", "Ampliado por la QA de TKT-020 (DEC-AUTO-937): (d) F-QA020-01: formatoDeUrl debe quitar ?/# antes de aplicar la regex (shared/ui/imagen-responsiva); (e) F-QA020-05: la hero de Inicio (features/inicio/ui/pagina-inicio.html:21) es un <img> con un único AVIF de 400 px -> invisible en WebKit; usar <app-imagen-responsiva> con derivados. Depende también de TKT-016 por solaparse en features/inicio."]
+    actualizado: 2026-10-01
+  - id: TKT-030
+    titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-020, TKT-016, TKT-021]
+    depende_de: [TKT-010]
+    archivos_permitidos: ["frontend/src/app/features/*/state/**", "frontend/src/app/features/*/ui/**", "frontend/src/app/core/http/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS."]
+    actualizado: 2026-10-01
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-018, TKT-002, "DEC-AUTO-044"]
     depende_de: [TKT-018]
     archivos_permitidos: ["frontend/src/app/shared/ui/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium).", "Despachado 2026-10-01 en paralelo con la QA de TKT-010 y con TKT-OPS-018/019 (archivos disjuntos: shared/ui frente a features/panel, core/layout/shell-publico e infra)."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium).", "Despachado 2026-10-01 en paralelo con la QA de TKT-010 y con TKT-OPS-018/019 (archivos disjuntos: shared/ui frente a features/panel, core/layout/shell-publico e infra).", "Entregado @ PR #42 (rama tkt-020-imagenes-formato-respaldo, c3bd314). Diff verificado: solo imagen-responsiva.ts/.spec.ts. <picture> con <source> por formato (AVIF/WebP) + JPEG de respaldo; alFallar descarta solo el formato que falló (img.currentSrc); src en SSR para imágenes con alt informativo (sin <noscript>, para no romper la hidratación), decorativas siguen diferidas. A/B declarado: WebKit /destinos 0/24 -> 24/24 imágenes; ficha 3/12 -> 13/13; Chromium solo descarga AVIF; HTML sin JS de /creditos 24/24 sin src -> 0/24; ráfaga de /destinos igual (6 imágenes, 30 peticiones). 430/430 unit, CI 5/5 verde. DEC-AUTO-934: se acepta deducir el formato por la extensión de la URL mientras los mappers de las features no pasen formato (el backend nombra <huella>-<ancho>.<avif|webp|jpeg> y nginx fija el Content-Type por extensión; si la extensión no se reconoce, se usa el <img> como antes). Lo pendiente fuera de alcance va a TKT-029. QA despachada.", "QA_VERDICT PASS (ciclo 1/3), A/B con la misma semilla en 3 motores. WebKit: /destinos 0/24 -> 24/24, ficha 3/13 -> 13/13, itinerario 0/7 -> 7/7. Chromium y Firefox solo AVIF. Sin JS: /creditos 0/24 -> 24/24 con src; decorativas siguen diferidas. Ráfaga de /destinos igual (30 peticiones, 6 imágenes); N=5 sin 429. alFallar verificado bloqueando formatos (AVIF -> WebP -> JPEG, sin bucles). SSR = cliente, 0 avisos de hidratación, axe 0. Lighthouse sin regresión. gitleaks/semgrep limpios. Hallazgos: F-QA020-01 LOW (formatoDeUrl toma la extensión de la query si la ruta no tiene) y F-QA020-05 MEDIUM preexistente (hero de Inicio solo AVIF) -> TKT-029; F-QA020-02 LOW aceptado (/creditos 24 imágenes en frío, consecuencia esperada del AC03, 0 x 429 con N=5); F-QA020-03 LOW (WebKit descarga JPEG + WebP del LCP) -> TKT-021; F-QA020-04 MEDIUM preexistente (la hidratación destruye y recrea los subárboles SSR) -> TKT-030. Pendiente: integrar tras sincronizar y con CI verde.", "DONE: PR #42 sincronizado con main (el diff propio sigue siendo los 2 archivos de shared/ui), CI real 6/6 verde @ 75f521e, merge @ a2a06e7."]
     actualizado: 2026-09-30
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
@@ -321,7 +369,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/features/destinos/**", "frontend/src/app/features/guias/**", "frontend/src/app/features/itinerarios/**", "frontend/src/app/shared/ui/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build.", "QA de TKT-010 (OBS-08): LCP de laboratorio > 2.5 s también en Inicio en main (2.65-2.80 s móvil), CLS de /destinos en Lighthouse móvil de 0.67 a 0.95 y /acerca-de con CLS 1.12 en Chromium (pie desplazado), todo preexistente. Incluir Inicio y /acerca-de en la investigación; coordinar con TKT-016 (CLS).", "QA de TKT-020: F-QA020-03, en WebKit la ficha y el itinerario descargan el JPEG del src SSR del LCP además del WebP del <source> (1 petición extra). Y F-QA020-04 (TKT-030, recreación del DOM en la hidratación) probablemente influye en LCP y CLS."]
     actualizado: 2026-09-30
   - id: TKT-009
     titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
@@ -338,14 +386,14 @@ tickets:
   - id: TKT-010
     titulo: "Panel 1/4 -- acceso, armazón y tablero: SCR-030 Acceso (?siguiente= con retorno seguro interno), SCR-031 Verificación MFA, SCR-032 Mi cuenta (cambio de contraseña obligatorio/voluntario, activar/desactivar MFA con reautenticación DEC-AUTO-215, códigos de recuperación), SCR-033 Autorización de tratamiento (bloqueante), SCR-034 Tablero, SCR-048 Acceso denegado (403); armazón del panel (layout de escritorio con navegación lateral, saltos de accesibilidad, cierre de sesión, guard de sesión/rol) y estructura de carpetas que reutilizarán TKT-022/023/024"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-009, MOD-010, FEAT-029, FEAT-030, FEAT-031, FEAT-032, FEAT-033, FLOW-010, SCR-030, SCR-031, SCR-032, SCR-033, SCR-034, SCR-048, RULE-017, RULE-029, THREAT-001, THREAT-002, "DEC-AUTO-215"]
     depende_de: [TKT-009, TKT-006]
     archivos_permitidos: ["frontend/src/app/app.routes.ts", "frontend/src/app/app.html", "frontend/src/app/app.ts", "frontend/src/app/app.css", "frontend/src/app/app.spec.ts", "frontend/src/app/core/layout/shell-publico/**", "frontend/src/app/features/panel/**", "frontend/src/app/core/auth/**", "frontend/e2e/**", "frontend/package.json", "frontend/package-lock.json"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 1/2
-    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado.", "Entregado @ PR #39 (rama tkt-010-panel-acceso, HEAD f349018). Diff verificado por el Orquestador dentro de archivos_permitidos ampliados. 505/505 unit, cobertura global 84 % / panel domain 100 % líneas, eslint/tsc/build OK; E2E contra stack real 168/168 en 3 motores (13 casos del panel x3 + regresión pública completa 129/129 en serie). Dependencia nueva uqr@0.1.3 (MIT, sin transitivas). gitleaks/semgrep/npm audit limpios. CI: todo verde salvo trivy (CVE-2026-103111, TKT-OPS-017, ajeno). Riesgos declarados: (1) con la opción A un 429 en un chunk diferido en la primera carga deja la página en blanco en vez de conservar cabecera/pie -> TKT-025; (2) AC_TKT010_08 E2E parcial hasta que exista una ruta solo-Admin (TKT-024 debe añadir el E2E sobre /panel/usuarios); (3) QR no decodificado con lector (la clave manual sí se probó E2E). El Developer declaró un taskkill por nombre de imagen demasiado amplio, sin efecto constatado. QA despachada."]
+    evidencia: ["DEC-AUTO-927: el TKT-010 original (19 pantallas SCR-030..048, ~70 endpoints) se divide en 4 Micro-Tickets secuenciales: TKT-010 (acceso+armazón+tablero), TKT-022 (medios), TKT-023 (contenidos), TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría). Despachado 2026-09-30 en paralelo con TKT-OPS-016 (archivos disjuntos).", "Botón de Pánico 1/2 (justificado, antes de escribir código): el shell público (app.html: skip-link + cabecera + main + pie sin condición alrededor del único router-outlet) envolvería /panel/**, incumpliendo TPL-PANEL-AUTH/TPL-PANEL-SHELL (HANDOFF_UI_UX l.194-199) y anidando landmarks (AC_TKT010_10). Verificado por el Orquestador. DEC-AUTO-928: ampliación opción A (ShellPublico como ruta de layout padre de las rutas públicas). Estructura del Developer aceptada: features/panel como UNA feature con capas planas (los globs de eslint features/*/{ui,state,data,domain} no cubrirían subcarpetas por área), rutas hijas en features/panel/ui/panel.routes.ts, catálogo de secciones en domain. Reanudado.", "Entregado @ PR #39 (rama tkt-010-panel-acceso, HEAD f349018). Diff verificado por el Orquestador dentro de archivos_permitidos ampliados. 505/505 unit, cobertura global 84 % / panel domain 100 % líneas, eslint/tsc/build OK; E2E contra stack real 168/168 en 3 motores (13 casos del panel x3 + regresión pública completa 129/129 en serie). Dependencia nueva uqr@0.1.3 (MIT, sin transitivas). gitleaks/semgrep/npm audit limpios. CI: todo verde salvo trivy (CVE-2026-103111, TKT-OPS-017, ajeno). Riesgos declarados: (1) con la opción A un 429 en un chunk diferido en la primera carga deja la página en blanco en vez de conservar cabecera/pie -> TKT-025; (2) AC_TKT010_08 E2E parcial hasta que exista una ruta solo-Admin (TKT-024 debe añadir el E2E sobre /panel/usuarios); (3) QR no decodificado con lector (la clave manual sí se probó E2E). El Developer declaró un taskkill por nombre de imagen demasiado amplio, sin efecto constatado. QA despachada.", "QA_VERDICT FAIL (ciclo 1/3) sobre f349018. PASS: archivos_permitidos, 505/505 tests y cobertura, lint/tipos/build, 13 reglas de arquitectura, regresión del shell público (A/B del SSR en 10 rutas: códigos, landmarks, skip-link, nonce CSP iguales; CLS de Inicio 0.671 -> 0.0002), a11y (axe 0 en todas las pantallas y pasos del asistente MFA, Lighthouse a11y 100), contrato, seguridad (login genérico, 14 variantes de siguiente externo rechazadas, cookies HttpOnly, storage vacío, QR decodificado con jsQR = clave manual = otpauth del servidor, solo red de mismo origen). FALLOS: FALLO-01 MEDIUM carrera CSRF en el primer login en WebKit (el POST de login sale sin X-CSRFToken porque document.cookie aún no refleja el Set-Cookie del GET csrf; 1/17 en WebKit); FALLO-02 MEDIUM regresión de LCP en Inicio (+350 ms, de 2.65-2.80 a 3.00-3.11 s móvil): con ShellPublico como padre, el SSR de / baja de 9 a 1 modulepreload; FALLO-03 LOW siguiente con segmentos de punto codificados (/panel/%2e%2e/destinos) se acepta en el cliente (esDestinoSeguro) y en el backend. Observaciones que se corrigen en este ciclo por estar en alcance: OBS-04 (<title> de Inicio distinto entre SSR y cliente) y OBS-06 (navegación del panel < lg es desplegable en línea, el HANDOFF pide cajón modal). Devuelto al Developer (DEC-AUTO-933)."]
     actualizado: 2026-09-30
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
@@ -384,7 +432,7 @@ tickets:
     evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede."]
     actualizado: 2026-09-30
   - id: TKT-025
-    titulo: "LOW: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
+    titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
     estado: TODO
     owner: Skill_Developer
@@ -393,7 +441,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/app.config.spec.ts", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10)."]
+    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10).", "Severidad elevada a MEDIUM por la QA de TKT-010 (DEC-AUTO-933): ocurre en la práctica, en 4 de 129 casos de la regresión pública en serie en Chromium. Con la rama de TKT-010 la página queda en blanco (solo el banner de conexión); en main se conservaban cabecera y pie. Condición de F9. TKT-OPS-016 (ya en main) reduce los 429 que lo provocan, pero un fallo transitorio de red sigue pudiendo causarlo."]
     actualizado: 2026-10-01
   - id: TKT-OPS-001
     titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
@@ -626,14 +674,14 @@ tickets:
   - id: TKT-012
     titulo: "Backend: deuda técnica — cerrar los ~563 hallazgos WARNING de oasdiff (pattern/maxItems/minItems/content-media-type/tipo) entre el contrato y la API del panel, dejados sin bloquear por TKT-OPS-010 (decisión humana 2026-09-29); anotar format/pattern/maxItems en los serializers de los 9 recursos del panel + los que aparezcan en /publico y /panel/taxonomias. Ampliado por QA (ciclo 2/3 de TKT-006, no bloqueante): cobertura de panel_selectors.py (0% real en listar_por_tipo/FEAT-033), panel_views.py (55%) y services.py de contenido/medios (56-87%) por debajo de los umbrales tiered de Skill_Backend §8 pese a no tener defecto funcional conocido detrás; añadir tests HTTP de listar/filtrar, retirar/reactivar/revisiones/restaurar, y las ramas de rechazo de medios (formato_no_permitido/tamano_excedido/duplicado), incluido el caso 'archivo disfrazado' que el test de subida original no cubría. Ampliado por QA de TKT-007 (no bloqueante): backend/apps/contenido/management/commands/cargar_semilla.py::_configurar_inicio no incrementa el contador informativo de creados/reutilizados en su 2ª+ ejecución (blindspot de stdout, sin duplicación real en BD). Ampliado por QA de TKT-017 (no bloqueante, preexistente, no introducido por TKT-017 -- confirmado comparando contra el commit base antes del ticket): apps/medios/services.py en 89% de cobertura (umbral Services >90%, Skill_Backend §8), 14 líneas/rangos sin cubrir (formato rechazado, archivo corrupto, megapíxeles excedidos, carrera de IntegrityError en subida duplicada, NoEncontrado en obtener/catalogar/retirar/reactivar, rama licencia_incompatible en uso, filas GALERIA/HERO de usos()); el pipeline de CI solo aplica el umbral global de 80% (pytest.ini --cov-fail-under=80), no un gate por módulo -- considerar también si el pipeline debería aplicar el gate por módulo de Skill_Backend §8 automáticamente"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-006, TKT-OPS-010]
     depende_de: [TKT-006, TKT-OPS-010]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/catalogos/**", "backend/apps/medios/**", "backend/apps/inicio/**", "backend/apps/busqueda/**", "backend/apps/core/esquema.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["Despachado 2026-10-01 en paralelo con TKT-027. El gate de cobertura por módulo en el pipeline queda fuera: es infraestructura de CI (.github/workflows), de DevOps; si el Developer lo propone, se abrirá un ticket."]
     actualizado: 2026-09-29
   - id: TKT-013
     titulo: "BUG: apps/contenido/services.py publicar() reindexa el Destino en el índice de búsqueda ANTES de confirmar la publicación de sus Tipos co-publicados en la misma operación; si tipo_principal se co-publica junto al destino, este queda transitoriamente (y sin un reindexado posterior, permanentemente) fuera del índice de búsqueda pese a estar PUBLICADO y cumplir AC-129 (visibilidad exige tipo_principal ya PUBLICADO). Encontrado y verificado por el Developer de TKT-007 (4/24 destinos afectados sin el workaround aplicado solo al comando de semilla); services.py estaba fuera de su archivos_permitidos, así que el bug de fondo sigue sin corregir y afecta también al uso real del panel (co-publicación vía API), no solo a la semilla"
