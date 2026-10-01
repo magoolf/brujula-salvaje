@@ -266,26 +266,26 @@ tickets:
   - id: TKT-OPS-018
     titulo: "CONDICIÓN DE F9: añadir al CI un smoke del proxy para RSK-OPS-040 (ADR-OPS-001): /no-existe-N.js -> 404 problem+json sin render SSR, y una ráfaga de 120 assets estáticos sin 429; y verificar que NG_ALLOWED_HOSTS nunca contiene '*'"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-OPS-016, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-016, TKT-OPS-017]
     archivos_permitidos: [".github/workflows/**", "scripts/ops/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Recomendado por el DevOps de TKT-OPS-016 (RSK-OPS-040).", "QA de TKT-OPS-016 recomienda que este smoke sea condición de F9: la defensa anti-evasión depende de NG_ALLOWED_HOSTS y de que Angular valide el Host antes de renderizar; sin smoke en CI, una regresión pasaría en silencio. Se eleva a condición de F9 (DEC-AUTO-932)."]
+    evidencia: ["Recomendado por el DevOps de TKT-OPS-016 (RSK-OPS-040).", "QA de TKT-OPS-016 recomienda que este smoke sea condición de F9: la defensa anti-evasión depende de NG_ALLOWED_HOSTS y de que Angular valide el Host antes de renderizar; sin smoke en CI, una regresión pasaría en silencio. Se eleva a condición de F9 (DEC-AUTO-932).", "Despachado 2026-10-01 a devops tras TKT-OPS-019 (secuencial, PR separado); el smoke debe cubrir también el comportamiento corregido en TKT-OPS-019."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-OPS-016, "ADR-OPS-001", REQ-057, THREAT-020, RSK-OPS-041]
     depende_de: [TKT-OPS-016]
     archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-001.md", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F-1/F-2 de QA_VERDICT PASS de TKT-OPS-016. AC: curl /no-existe.js?secreto=1 -> 0 coincidencias de 'secreto' en el log del frontend; la matriz de evasión de TKT-OPS-016 sigue dando 0 renders; assets existentes con ?v=1 siguen dando 200."]
+    evidencia: ["Hallazgos F-1/F-2 de QA_VERDICT PASS de TKT-OPS-016. AC: curl /no-existe.js?secreto=1 -> 0 coincidencias de 'secreto' en el log del frontend; la matriz de evasión de TKT-OPS-016 sigue dando 0 renders; assets existentes con ?v=1 siguen dando 200.", "Despachado 2026-10-01 a devops (mismo agente que TKT-OPS-018, secuencial, PR separado)."]
     actualizado: 2026-10-01
   - id: TKT-026
     titulo: "INFO, preexistentes en el SSR (QA TKT-OPS-016 F-3/F-4): (a) Range no satisfacible sobre un asset existente -> express.static lanza RangeNotSatisfiableError y frontend/src/server.ts responde 500 (error_ssr) en lugar de 416; (b) cuando DRF limita (429) la llamada del SSR a /api/v1/publico/destinos/<slug>, la ficha de un slug inexistente se sirve como 200 con página de error suave en vez de un código real (debería ser 503 con Retry-After, o el error que corresponda, nunca 200)"
@@ -302,14 +302,14 @@ tickets:
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-018, TKT-002, "DEC-AUTO-044"]
     depende_de: [TKT-018]
     archivos_permitidos: ["frontend/src/app/shared/ui/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium)."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium).", "Despachado 2026-10-01 en paralelo con la QA de TKT-010 y con TKT-OPS-018/019 (archivos disjuntos: shared/ui frente a features/panel, core/layout/shell-publico e infra)."]
     actualizado: 2026-09-30
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
