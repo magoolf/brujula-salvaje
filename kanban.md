@@ -254,7 +254,7 @@ tickets:
   - id: TKT-032
     titulo: "MEDIUM (QA TKT-012, preexistente): (F1) traducir a 400/404/422 Problem Details los 7 caminos del panel que dan 500 por errores de BD no traducidos: POST/PUT /panel/taxonomias/paises con region_id inexistente; POST /panel/contenidos/itinerarios con destino_id inexistente (Destino.DoesNotExist); colecciones y guias con relaciones a id inexistente; destinos con latitud sin longitud (ck_destino_coordenadas); PUT /panel/medios/{id DISPONIBLE} con autor_credito null (ck_medio_disponible); (F2) aplicar uniqueItems con lista_unica en copublicar_tipos, cascada_confirmada y analisis-publicacion.tipos_ids, y documentar sus maxItems/uniqueItems en el esquema generado; (F3) dar valor a actualizado_por en las fixtures para que los tests de N+1 de contenido detecten la falta de select_related; (F4) tests HTTP de regiones y países (catalogos/api/views.py >= 95 %) e inicio/api/views.py líneas 35-37; (INFO) fuente_url de catalogación de medios no debe aceptar cadena vacía si el contrato la prohíbe"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-012, TKT-006, "Skill_Backend §8"]
     depende_de: [TKT-012]
