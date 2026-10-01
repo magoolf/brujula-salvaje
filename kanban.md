@@ -213,7 +213,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad."]
+    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación."]
     actualizado: 2026-09-29
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
@@ -323,17 +323,29 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno."]
     actualizado: 2026-10-01
+  - id: TKT-029
+    titulo: "LOW (seguimiento de TKT-020): (a) features/institucional/ui/pagina-creditos.html no pasa [derivados] a <app-imagen-responsiva>, así que en navegadores sin AVIF /creditos sigue mostrando 24 textos alternativos; (b) los 8 mappers de las features descartan el campo formato (FormatoDerivado del contrato) de los derivados: pasarlo para que ImagenResponsiva deje de deducirlo por la extensión (DEC-AUTO-934); (c) versionar en frontend/e2e las E2E de los AC de TKT-020 (WebKit con imágenes de respaldo, Chromium descargando solo AVIF, HTML sin JS con src en imágenes informativas)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-020, "DEC-AUTO-934"]
+    depende_de: [TKT-020, TKT-010]
+    archivos_permitidos: ["frontend/src/app/features/*/data/**", "frontend/src/app/features/institucional/ui/pagina-creditos.html", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Propuesto por el Developer de TKT-020. Depende de TKT-010 porque comparte frontend/e2e/** (§0.10)."]
+    actualizado: 2026-10-01
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-018, TKT-002, "DEC-AUTO-044"]
     depende_de: [TKT-018]
     archivos_permitidos: ["frontend/src/app/shared/ui/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium).", "Despachado 2026-10-01 en paralelo con la QA de TKT-010 y con TKT-OPS-018/019 (archivos disjuntos: shared/ui frente a features/panel, core/layout/shell-publico e infra)."]
+    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (F-1, F-2). Si el contrato o el cliente generado no exponen los derivados WebP/JPEG, usar Botón de Pánico (no tocar apps/medios ni contracts/). AC: WebKit renderiza imágenes de tarjeta en /destinos; curl de /creditos sin JS muestra src en imágenes con alt no vacío; el conteo de peticiones frías de /destinos no vuelve a subir (≤ ~30 en Chromium).", "Despachado 2026-10-01 en paralelo con la QA de TKT-010 y con TKT-OPS-018/019 (archivos disjuntos: shared/ui frente a features/panel, core/layout/shell-publico e infra).", "Entregado @ PR #42 (rama tkt-020-imagenes-formato-respaldo, c3bd314). Diff verificado: solo imagen-responsiva.ts/.spec.ts. <picture> con <source> por formato (AVIF/WebP) + JPEG de respaldo; alFallar descarta solo el formato que falló (img.currentSrc); src en SSR para imágenes con alt informativo (sin <noscript>, para no romper la hidratación), decorativas siguen diferidas. A/B declarado: WebKit /destinos 0/24 -> 24/24 imágenes; ficha 3/12 -> 13/13; Chromium solo descarga AVIF; HTML sin JS de /creditos 24/24 sin src -> 0/24; ráfaga de /destinos igual (6 imágenes, 30 peticiones). 430/430 unit, CI 5/5 verde. DEC-AUTO-934: se acepta deducir el formato por la extensión de la URL mientras los mappers de las features no pasen formato (el backend nombra <huella>-<ancho>.<avif|webp|jpeg> y nginx fija el Content-Type por extensión; si la extensión no se reconoce, se usa el <img> como antes). Lo pendiente fuera de alcance va a TKT-029. QA despachada."]
     actualizado: 2026-09-30
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
