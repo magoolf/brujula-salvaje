@@ -242,14 +242,14 @@ tickets:
   - id: TKT-031
     titulo: "LOW (seguimiento de QA TKT-027): en backend/apps/cuentas, (OBS-01) rechazar /panel/acceso y /panel/acceso/** (también sus formas codificadas canonizadas) como destino de redirección para igualar al cliente; (OBS-02) fijar con tests el rechazo de %2f/%5c ('/panel/medios%2f123', '/panel/a%5cb' -> /panel); (OBS-04) un siguiente inválido o demasiado largo se ignora y devuelve /panel en vez de 400 que impide el login (igualar el límite a 2048 del cliente o ignorarlo); (OBS-05) revalidar la redirección guardada en sesión al leerla"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-027, AC-115, THREAT-017]
     depende_de: [TKT-027]
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos no bloqueantes de la QA de TKT-027 (DEC-AUTO-942). Si cambia el comportamiento de OBS-04, comprobar si requiere CHG en contracts/openapi.yaml (400 documentado para siguiente)."]
+    evidencia: ["Hallazgos no bloqueantes de la QA de TKT-027 (DEC-AUTO-942). Si cambia el comportamiento de OBS-04, comprobar si requiere CHG en contracts/openapi.yaml (400 documentado para siguiente).", "Entregado @ PR #46 (f47279a), CI verde (run 36868836634). Diff verificado: services.py, autenticacion.py y un test nuevo. OBS-01, OBS-02 (mutación vía monkeypatch: la edición temporal del código fuente fue denegada por el clasificador de permisos) y OBS-05 corregidos; OBS-04 dentro del contrato (maxLength 2000 -> 400), franja 2001-2048 resuelta en el cliente por TKT-028 (DEC-AUTO-944). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-01
   - id: TKT-032
     titulo: "MEDIUM (QA TKT-012, preexistente): (F1) traducir a 400/404/422 Problem Details los 7 caminos del panel que dan 500 por errores de BD no traducidos: POST/PUT /panel/taxonomias/paises con region_id inexistente; POST /panel/contenidos/itinerarios con destino_id inexistente (Destino.DoesNotExist); colecciones y guias con relaciones a id inexistente; destinos con latitud sin longitud (ck_destino_coordenadas); PUT /panel/medios/{id DISPONIBLE} con autor_credito null (ck_medio_disponible); (F2) aplicar uniqueItems con lista_unica en copublicar_tipos, cascada_confirmada y analisis-publicacion.tipos_ids, y documentar sus maxItems/uniqueItems en el esquema generado; (F3) dar valor a actualizado_por en las fixtures para que los tests de N+1 de contenido detecten la falta de select_related; (F4) tests HTTP de regiones y países (catalogos/api/views.py >= 95 %) e inicio/api/views.py líneas 35-37; (INFO) fuente_url de catalogación de medios no debe aceptar cadena vacía si el contrato la prohíbe"
@@ -369,7 +369,7 @@ tickets:
     archivos_permitidos: ["frontend/public/robots.txt", "frontend/src/server.ts", "frontend/src/app/core/http/**", "frontend/src/app/features/panel/data/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno.", "OBS-03 de la QA de TKT-027: el frontend (destino-seguro.ts) acepta query/fragmento y segmentos no ASCII en siguiente y el backend los descarta (cae en /panel, se pierde el deep link con filtros). Decidir una sola regla (DEC-AUTO-942)."]
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno.", "OBS-03 de la QA de TKT-027: el frontend (destino-seguro.ts) acepta query/fragmento y segmentos no ASCII en siguiente y el backend los descarta (cae en /panel, se pierde el deep link con filtros). Decidir una sola regla (DEC-AUTO-942).", "DEC-AUTO-944: bajar a 2000 el límite de siguiente en frontend/src/app/core/auth/destino-seguro.ts para igualar LoginEntrada.siguiente.maxLength del contrato (OBS-04 de TKT-027/031): hoy un enlace con siguiente de 2001-2048 caracteres impide el login."]
     actualizado: 2026-10-01
   - id: TKT-029
     titulo: "LOW (seguimiento de TKT-020): (a) features/institucional/ui/pagina-creditos.html no pasa [derivados] a <app-imagen-responsiva>, así que en navegadores sin AVIF /creditos sigue mostrando 24 textos alternativos; (b) los 8 mappers de las features descartan el campo formato (FormatoDerivado del contrato) de los derivados: pasarlo para que ImagenResponsiva deje de deducirlo por la extensión (DEC-AUTO-934); (c) versionar en frontend/e2e las E2E de los AC de TKT-020 (WebKit con imágenes de respaldo, Chromium descargando solo AVIF, HTML sin JS con src en imágenes informativas)"
