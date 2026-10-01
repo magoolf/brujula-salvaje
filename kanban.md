@@ -275,6 +275,30 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-945."]
     actualizado: 2026-10-01
+  - id: TKT-034
+    titulo: "LOW: tests de backend/apps/cuentas/sesiones.py (76 %) y permisos.py (94,12 %) hasta > 95 % (críticos desde TKT-OPS-022), y añadir backend/coverage.json y backend/vistas_urlconf.json a .gitignore. Al integrar, DevOps retira TKT-OPS-022-EXC-01/EXC-02 (caducan 2026-11-15)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-OPS-022, "Skill_Backend §8"]
+    depende_de: [TKT-OPS-022]
+    archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950)."]
+    actualizado: 2026-10-01
+  - id: TKT-OPS-024
+    titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-103111 (HIGH, pcre2 10.48-r0, corregido en 10.49-r0) en brujula/proxy (alpine 3.24.2, nginxinc/nginx-unprivileged:1.30.5-alpine). Corregir sin .trivyignore (hay parche): apk upgrade de pcre2 fijado o nuevo digest de la base; revisar si el PR #22 de Dependabot (1.31.5-alpine) lo resuelve y es compatible; validar el proxy (nginx -t, smoke anti-evasión 6/6, cabeceras idénticas)"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [TKT-OPS-017, "RSK-OPS-044", "RSK-OPS-045"]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/Dockerfile", "infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Detectado por el DevOps de TKT-OPS-022 y verificado por el Orquestador en el run 36913373742 de main (d453dae): brujula/proxy Total 1 (HIGH 1), pcre2 CVE-2026-103111 fixed 10.49-r0. DEC-AUTO-950."]
+    actualizado: 2026-10-01
   - id: TKT-OPS-023
     titulo: "LOW (CHG de TKT-022): las miniaturas del panel salen de /api/v1/panel/medios/{id}/archivo y consumen el limitador por_ip del borde (20 r/s, burst 60): con navegación rápida por la biblioteca aparecen 429 y 'Vista previa no disponible'. Dar a /api/v1/panel/medios/*/archivo (GET, autenticado) una zona limit_req propia y adecuada, sin debilitar /api ni la anti-evasión (ADR-OPS-001), con prueba de carga de una página de 48 miniaturas x 3 navegaciones rápidas sin 429"
     fase: F7
@@ -290,14 +314,14 @@ tickets:
   - id: TKT-OPS-022
     titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: devops
     trazabilidad: [TKT-OPS-021, TKT-032, "Skill_Backend §8", TKT-OPS-003]
     depende_de: [TKT-OPS-021]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-948."]
+    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950)."]
     actualizado: 2026-10-01
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
