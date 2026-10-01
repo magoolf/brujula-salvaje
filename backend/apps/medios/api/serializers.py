@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
+from apps.core.esquema import id_contrato, url_http
 from apps.medios.models import EstadoMedio, FormatoDerivado, FormatoOrigen
 
 
@@ -39,7 +40,6 @@ class _CampoIdNuloInt64(serializers.IntegerField):
 
 
 PATRON_NO_NUL = r"^[^\x00]*$"
-PATRON_URL_HTTP = r"^https?://[^\x00]*$"
 
 
 @extend_schema_field({"type": "string", "format": "uri-reference"})
@@ -76,13 +76,18 @@ class MedioCatalogacionEntradaSerializer(EntradaEstricta):
     texto_alternativo = _texto_sin_nul(250)
     pie_de_foto = _texto_sin_nul(300)
     autor_credito = _texto_sin_nul(150)
-    # Ídem `_texto_sin_nul`: el contrato tampoco exige longitud mínima aquí (sin `minLength` en
-    # `MedioCatalogacionEntrada.fuente_url`); `allow_blank=True` es seguro porque
-    # `CharField.run_validation` corta en corto para `''` antes de evaluar `PATRON_URL_HTTP`.
-    fuente_url = serializers.RegexField(
-        PATRON_URL_HTTP, max_length=500, required=False, allow_null=True, allow_blank=True
+    # TKT-032 (INFO de la QA de TKT-012): el patrón del contrato (`^https?://...`) prohíbe la
+    # cadena vacía, pero con `allow_blank=True` `CharField.run_validation` cortaba en corto para
+    # `''` (el patrón nunca se evaluaba) y la BD la rechazaba (ck_medio_fuente_url) con un 500.
+    # Ahora `allow_blank=False` (400 `validacion`); sin URL se envía `null` (el contrato lo
+    # admite). El `minLength: 1` que drf-spectacular documentaría por `allow_blank=False` no está
+    # en el contrato (el patrón ya excluye la cadena vacía): se quita con `esquema_sin`.
+    fuente_url = url_http(
+        max_length=500, required=False, allow_null=True, esquema_sin=("minLength",)
     )
-    licencia_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
+    # `id_contrato`: `Id` nullable del contrato (int64, mínimo 1, sin `maximum`) que además
+    # rechaza ids fuera de bigint antes del ORM (TKT-032; antes llegaban a la BD → 500).
+    licencia_id = id_contrato(required=False, allow_null=True)
 
 
 @extend_schema_field(

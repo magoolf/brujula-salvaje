@@ -358,6 +358,30 @@ def _pendientes_catalogacion(medio: Medio, *, licencia_compatible: bool | None) 
     return pendientes
 
 
+MENSAJE_INEXISTENTE = "No existe."
+# Campo de la entrada (MedioCatalogacionEntrada) de cada pendiente que RULE-005 exige a un medio
+# DISPONIBLE (la licencia incompatible no: la regula la rama de `regla_negocio` de `catalogar`).
+_CAMPO_DE_PENDIENTE = {
+    "texto_alternativo": "texto_alternativo",
+    "autor_credito": "autor_credito",
+    "licencia": "licencia_id",
+}
+
+
+def _exigir_catalogacion_completa(pendientes: list[str]) -> None:
+    """RULE-005 / STATE-002 (TKT-032): un medio DISPONIBLE conserva alt, crédito y licencia. No hay
+    transición DISPONIBLE → PENDIENTE_METADATOS, así que vaciar uno de ellos es una regla de
+    negocio incumplida (422 `regla_negocio`), no un cambio de estado; antes la escritura llegaba a
+    la BD y `ck_medio_disponible` la rechazaba con un 500."""
+    errores = {
+        _CAMPO_DE_PENDIENTE[p]: ["Obligatorio en un medio DISPONIBLE (RULE-005)."]
+        for p in pendientes
+        if p in _CAMPO_DE_PENDIENTE
+    }
+    if errores:
+        raise ErrorApi(codigo="regla_negocio", errors=errores)
+
+
 def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
     from apps.catalogos.models import Licencia
 
@@ -375,6 +399,13 @@ def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
             if campo in datos:
                 setattr(medio, campo, datos[campo])
         if "licencia_id" in datos:
+            # La FK `medio.licencia_id` es DEFERRABLE: una licencia inexistente fallaba en el
+            # COMMIT (500). Se valida antes de escribir (TKT-032).
+            if (
+                datos["licencia_id"] is not None
+                and not Licencia.objects.filter(pk=datos["licencia_id"]).exists()
+            ):
+                raise ErrorApi(codigo="validacion", errors={"licencia_id": [MENSAJE_INEXISTENTE]})
             medio.licencia_id = datos["licencia_id"]
         licencia_compatible = (
             Licencia.objects.filter(pk=medio.licencia_id, compatible_publicacion=True).exists()
@@ -383,6 +414,8 @@ def catalogar(medio_id: int, actor_id: int, datos: dict[str, Any]) -> Medio:
         )
         pendientes = _pendientes_catalogacion(medio, licencia_compatible=licencia_compatible)
         pasa_a_disponible = medio.estado == EstadoMedio.PENDIENTE_METADATOS and not pendientes
+        if medio.estado == EstadoMedio.DISPONIBLE:
+            _exigir_catalogacion_completa(pendientes)
         if pasa_a_disponible:
             medio.estado = EstadoMedio.DISPONIBLE
         elif (

@@ -1,7 +1,6 @@
-<app-skip-link [destino]="idContenido" />
-<app-cabecera-sitio />
-<main [id]="idContenido" tabindex="-1" class="principal" data-testid="contenido-principal">
-  <router-outlet />
-</main>
-<app-pie-sitio />
+@if (enPanel()) {
+  <router-outlet appZona="panel" />
+} @else {
+  <app-shell-publico />
+}
 <app-banner-sin-conexion />
