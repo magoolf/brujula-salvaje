@@ -502,8 +502,8 @@ def alinear_con_contrato(
         esquemas["ProblemaConUsos"] = PROBLEMA_CON_USOS
         esquemas["ReferenciaUso"] = REFERENCIA_USO
         esquemas.setdefault("EstadoEditorial", ESTADO_EDITORIAL)
-    result["paths"] = _sin_envoltorio_readonly(rutas)
-    result["components"]["schemas"] = _sin_envoltorio_readonly(esquemas)
+    result["paths"] = _sin_min_length_marcado(_sin_envoltorio_readonly(rutas))
+    result["components"]["schemas"] = _sin_min_length_marcado(_sin_envoltorio_readonly(esquemas))
     return result
 
 
@@ -573,7 +573,8 @@ class CampoConEsquema:
     """Mixin de campo DRF con ajustes declarativos de su esquema OpenAPI.
 
     `esquema_extra` se fusiona sobre el esquema que drf-spectacular genera para el campo y
-    `esquema_sin` quita claves de él. Se pasan como kwargs del constructor (no como atributos
+    `esquema_sin` quita claves de él (también el `minLength: 1` que drf-spectacular añade por
+    `allow_blank=False` después de la extensión: lo retira el postproceso, TKT-032). Se pasan como kwargs del constructor (no como atributos
     puestos después): `Field.__deepcopy__` reconstruye cada campo desde sus `_args`/`_kwargs`
     originales al instanciar el serializer, así que solo lo que viaja en el constructor
     sobrevive (mismo motivo que `_con_limite` en apps/contenido/api/panel_serializers.py).
@@ -611,6 +612,24 @@ class ListaConEsquema(CampoConEsquema, serializers.ListField):
     """`ListField` con ajustes de esquema."""
 
 
+_MARCA_SIN_MIN_LENGTH = "x-brujula-sin-minLength"
+
+
+def _sin_min_length_marcado(nodo: Any) -> Any:
+    """Postproceso de `esquema_sin=("minLength",)` (TKT-032): quita el `minLength` que
+    drf-spectacular añade fuera de la extensión de campo y la marca interna."""
+    if isinstance(nodo, list):
+        return [_sin_min_length_marcado(elemento) for elemento in nodo]
+    if not isinstance(nodo, dict):
+        return nodo
+    marcado = nodo.get(_MARCA_SIN_MIN_LENGTH) is True
+    return {
+        clave: _sin_min_length_marcado(valor)
+        for clave, valor in nodo.items()
+        if clave != _MARCA_SIN_MIN_LENGTH and not (marcado and clave == "minLength")
+    }
+
+
 class _ExtensionCampoConEsquema(OpenApiSerializerFieldExtension):  # type: ignore[no-untyped-call]
     target_class = CampoConEsquema
     match_subclasses = True
@@ -628,6 +647,10 @@ class _ExtensionCampoConEsquema(OpenApiSerializerFieldExtension):  # type: ignor
             resto = [t for t in tipo if t != "null"]
             esquema["type"] = resto[0] if len(resto) == 1 else resto
         esquema.update(self.target.esquema_extra)
+        if "minLength" in sin:
+            # El `minLength: 1` implícito de `allow_blank=False` lo añade drf-spectacular DESPUÉS
+            # de la extensión (`append_meta`); se marca aquí y lo quita el postproceso.
+            esquema[_MARCA_SIN_MIN_LENGTH] = True
         return esquema
 
 
@@ -662,11 +685,12 @@ def numero(**kwargs: Any) -> NumeroConEsquema:
 
 
 def lista_unica(child: Any, **kwargs: Any) -> ListaConEsquema:
-    """Lista con `uniqueItems: true` validado de verdad (`ValidadorSinRepetidos`)."""
+    """Lista con `uniqueItems: true` validado de verdad (`ValidadorSinRepetidos`). Admite
+    `esquema_extra` adicional (p. ej. el `default: []` que drf-spectacular no documenta cuando el
+    `default` es un callable)."""
     validadores = [*kwargs.pop("validators", []), ValidadorSinRepetidos()]
-    return ListaConEsquema(
-        child=child, validators=validadores, esquema_extra={"uniqueItems": True}, **kwargs
-    )
+    extra = {"uniqueItems": True, **kwargs.pop("esquema_extra", {})}
+    return ListaConEsquema(child=child, validators=validadores, esquema_extra=extra, **kwargs)
 
 
 def lista_ids(max_length: int, **kwargs: Any) -> ListaConEsquema:

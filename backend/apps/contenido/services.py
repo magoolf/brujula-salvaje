@@ -722,7 +722,9 @@ def _validar_polimorficas(
     existentes = _pares_existentes([(r["tipo"], r["id"]) for r in relaciones])
     for indice, r in enumerate(relaciones):
         if contenido_id is not None and r["id"] == contenido_id:
-            errores[f"relaciones.{indice}.id"] = ["Un contenido no puede relacionarse consigo mismo."]
+            errores[f"relaciones.{indice}.id"] = [
+                "Un contenido no puede relacionarse consigo mismo."
+            ]
         elif (r["tipo"], r["id"]) not in existentes:
             errores[f"relaciones.{indice}.id"] = [MENSAJE_INEXISTENTE]
     elementos = list(datos.get("elementos") or [])

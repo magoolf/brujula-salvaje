@@ -28,7 +28,7 @@ from django.test import Client
 from django.test.utils import CaptureQueriesContext
 
 from apps.contenido.api import panel_selectors
-from apps.contenido.models import ContenidoTermino, EstadoEditorial, TipoContenido
+from apps.contenido.models import Contenido, ContenidoTermino, EstadoEditorial, TipoContenido
 from apps.contenido.tests import publicos
 
 T = TipoContenido
@@ -93,25 +93,40 @@ def test_TKT012_listar_por_tipo_parametro_invalido_es_400(
     assert respuesta["Content-Type"] == "application/problem+json"
 
 
-def test_TKT012_listar_por_tipo_selector_ordena_y_no_hace_n_mas_1() -> None:
+def _con_autor(tipo: str, *cuentas: Any) -> None:
+    """TKT-032 (F3): las fábricas dejan `actualizado_por=None` (carga semilla) y con NULL Django
+    no consulta la FK, así que una prueba de N+1 sobre esas filas no detectaba la falta de
+    `select_related("actualizado_por")`. Se asigna un autor real (rotando entre `cuentas`)."""
+    for indice, contenido in enumerate(Contenido.objects.filter(tipo=tipo).order_by("pk")):
+        contenido.actualizado_por = cuentas[indice % len(cuentas)]
+        contenido.save(update_fields=["actualizado_por"])
+
+
+def test_TKT012_listar_por_tipo_selector_ordena_y_no_hace_n_mas_1(
+    editora: Any, admin: Any
+) -> None:
     for i in range(5):
         publicos.termino(f"Término {i}", [], estado=E.PUBLICADO)
+    _con_autor(T.TERMINO, editora.cuenta, admin.cuenta)
     with CaptureQueriesContext(connection) as consultas:
         filas = list(panel_selectors.listar_por_tipo(T.TERMINO))
-        _ = [f.actualizado_por for f in filas]
+        autores = [f.actualizado_por for f in filas]
     assert len(consultas) == 1  # select_related(actualizado_por): una sola consulta
+    assert all(autor is not None for autor in autores)  # la prueba no es vacua (TKT-032)
     fechas = [f.actualizado_en for f in filas]
     assert fechas == sorted(fechas, reverse=True)
     assert list(panel_selectors.listar_por_tipo(T.TERMINO, estado=E.RETIRADO)) == []
 
 
-def test_TKT012_listado_http_consultas_constantes(cliente_editora: Client) -> None:
+def test_TKT012_listado_http_consultas_constantes(cliente_editora: Client, editora: Any) -> None:
     """El listado paginado no crece en consultas con el número de filas (sin N+1)."""
     publicos.termino("Uno", [], estado=E.PUBLICADO)
+    _con_autor(T.TERMINO, editora.cuenta)
     with CaptureQueriesContext(connection) as pocas:
         assert cliente_editora.get(f"{BASE}/glosario").status_code == 200
     for i in range(6):
         publicos.termino(f"Más {i}", [], estado=E.PUBLICADO)
+    _con_autor(T.TERMINO, editora.cuenta)
     with CaptureQueriesContext(connection) as muchas:
         assert cliente_editora.get(f"{BASE}/glosario").status_code == 200
     assert len(muchas) == len(pocas)

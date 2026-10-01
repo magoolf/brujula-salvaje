@@ -13,6 +13,7 @@ import copy
 from typing import Any
 
 from django.core.validators import MaxLengthValidator, MinLengthValidator
+from django.utils.deconstruct import deconstructible
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -135,23 +136,29 @@ class _CampoUriReferencia(serializers.CharField):
     """components.schemas.MedioMiniatura.url_miniatura: uri-reference (ruta relativa)."""
 
 
-@extend_schema_field({"type": ["integer", "null"], "format": "int64"})
-class _CampoIdOpcionalInt64(serializers.IntegerField):
-    """`tipo_principal_id` (Id opcional/nullable) con `format: int64` explícito."""
+@deconstructible
+class _SinClavesRepetidas:
+    """Lista de objetos sin dos elementos con la misma clave (`claves`): aplica de verdad el
+    `uniqueItems` del contrato en listas de referencias (TKT-032). 400 `validacion`."""
 
+    def __init__(self, claves: tuple[str, ...], mensaje: str) -> None:
+        self.claves = claves
+        self.mensaje = mensaje
 
-@extend_schema_field({"type": "integer", "format": "int64", "minimum": 1})
-class _CampoIdSinMaximo(serializers.IntegerField):
-    """components.schemas.Id tal como lo declara el contrato: `type: integer, format: int64,
-    minimum: 1`, SIN `maximum`. `IdSerializerField` (apps.core, fuera de archivos_permitidos)
-    fija siempre `max_value=2**63-1`, un límite que el contrato no documenta (TKT-006, ciclo
-    oasdiff: request-property-max-set en tipos_ids/copublicar_tipos[].id/cascada_confirmada[].id).
-    No cambia el rango real aceptado (2**63-1 ya es el máximo físico de un bigint de Postgres,
-    DB_HANDOFF): solo dónde se documenta ese límite."""
+    def __call__(self, valor: list[dict[str, Any]]) -> None:
+        vistas = [tuple(elemento.get(c) for c in self.claves) for elemento in valor]
+        if len(vistas) != len(set(vistas)):
+            raise serializers.ValidationError(self.mensaje, code="elementos_repetidos")
 
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("min_value", 1)
-        super().__init__(**kwargs)
+    def __eq__(self, otro: object) -> bool:
+        return (
+            isinstance(otro, _SinClavesRepetidas)
+            and otro.claves == self.claves
+            and otro.mensaje == self.mensaje
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.claves, self.mensaje))
 
 
 @extend_schema_field({"type": "string", "enum": ["PRINCIPAL", "COPUBLICACION", "CASCADA"]})
@@ -315,7 +322,9 @@ class TipoVersionadoEntradaSerializer(EntradaEstricta):
     vez a nivel de módulo y se reutiliza (nunca anidada) para que drf-spectacular no registre dos
     componentes distintos con el mismo nombre inferido (W001)."""
 
-    id = _CampoIdSinMaximo()
+    # `id_contrato`: `Id` del contrato (int64, mínimo 1, sin `maximum`) y además rechaza ids
+    # fuera de bigint antes del ORM (TKT-032; antes `_CampoIdSinMaximo`, sin ese control).
+    id = id_contrato()
     version = serializers.IntegerField(min_value=1)
 
 
@@ -323,19 +332,44 @@ class EntidadRefEntradaSerializer(EntradaEstricta):
     """EntidadRef de entrada: tipo + id (CHG-API-005). Ídem: definida una sola vez."""
 
     tipo = _tipo_entidad_field()
-    id = _CampoIdSinMaximo()
+    # `id_contrato`: `Id` del contrato (int64, mínimo 1, sin `maximum`) y además rechaza ids
+    # fuera de bigint antes del ORM (TKT-032; antes `_CampoIdSinMaximo`, sin ese control).
+    id = id_contrato()
+
+
+def _copublicar_tipos() -> serializers.ListField:
+    """`copublicar_tipos` del contrato (PublicacionEntrada y CamposOperacionPublicada): `maxItems:
+    12`, `uniqueItems: true` y "sin ids repetidos (400 validacion)" (TKT-032). `lista_unica`
+    (ListField con hijo serializer) documenta y aplica `uniqueItems`; un `Serializer(many=True)`
+    no lo admite. La unicidad se exige por `id` (más estricta que la igualdad de objeto que
+    implica `uniqueItems`, y es lo que el contrato describe)."""
+    return lista_unica(
+        TipoVersionadoEntradaSerializer(),
+        max_length=12,
+        required=False,
+        default=list,
+        esquema_extra={"default": []},
+        validators=[_SinClavesRepetidas(("id",), "No puede haber tipos repetidos.")],
+    )
+
+
+def _cascada_confirmada(maximo: int) -> serializers.ListField:
+    """`cascada_confirmada` del contrato (`maxItems`, `uniqueItems: true`, TKT-032): una entidad
+    (tipo, id) no se confirma dos veces."""
+    return lista_unica(
+        EntidadRefEntradaSerializer(),
+        max_length=maximo,
+        required=False,
+        validators=[_SinClavesRepetidas(("tipo", "id"), "No puede haber entidades repetidas.")],
+    )
 
 
 class OperacionPublicadaMixin(serializers.Serializer[Any]):
     """Solo el destino usa estos campos de control (CamposOperacionPublicada, CHG-API-005)."""
 
-    copublicar_tipos = TipoVersionadoEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=12, default=list
-    )
+    copublicar_tipos = _copublicar_tipos()
     confirmar_cascada = serializers.BooleanField(required=False, default=False)
-    cascada_confirmada = EntidadRefEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=12
-    )
+    cascada_confirmada = _cascada_confirmada(12)
 
 
 class DestinoEntradaSerializer(EntradaEstricta, ComunesMixin, DestinoCamposMixin):
@@ -608,9 +642,7 @@ class TransicionEntradaSerializer(EntradaEstricta):
 
 class PublicacionEntradaSerializer(EntradaEstricta):
     version = serializers.IntegerField(min_value=1)
-    copublicar_tipos = TipoVersionadoEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=12, default=list
-    )
+    copublicar_tipos = _copublicar_tipos()
 
 
 class RetiroEntradaSerializer(EntradaEstricta):
@@ -619,22 +651,15 @@ class RetiroEntradaSerializer(EntradaEstricta):
         PATRON_NO_NUL, min_length=1, max_length=300, trim_whitespace=False
     )
     confirmar_cascada = serializers.BooleanField(required=False, default=False)
-    cascada_confirmada = EntidadRefEntradaSerializer(  # type: ignore[call-arg]
-        many=True, required=False, max_length=212
-    )
+    cascada_confirmada = _cascada_confirmada(212)
 
 
 class AnalisisPublicacionEntradaSerializer(EntradaEstricta):
     version = serializers.IntegerField(min_value=1)
-    # No usa `_id_lista(12)` (a diferencia de los demás `tipos_ids` del archivo): TKT-006 ciclo
-    # oasdiff detectó `request-property-max-set` solo aquí -- `_id_lista` usa `IdSerializerField`
-    # (siempre con `max_value`, DEC-AUTO no documentada por el contrato); este campo necesita el
-    # `child` sin `maximum` (`_CampoIdSinMaximo`) sin tocar `_id_lista`, compartida por otros campos
-    # donde ese hallazgo NO se reportó.
-    tipos_ids = serializers.ListField(
-        child=_CampoIdSinMaximo(), max_length=12, required=False, default=list
-    )
-    tipo_principal_id = _CampoIdOpcionalInt64(min_value=1, required=False, allow_null=True)
+    # TKT-032: `uniqueItems: true` del contrato aplicado (antes `[1, 1]` daba 200). `_id_lista`
+    # (TKT-012) ya emite los ítems como `Id` sin `maximum` y rechaza ids fuera de bigint.
+    tipos_ids = _id_lista(12)
+    tipo_principal_id = _id_opcional()
 
 
 # ---------------------------------------------------------------------------
