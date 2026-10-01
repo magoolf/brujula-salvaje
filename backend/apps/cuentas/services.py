@@ -256,6 +256,9 @@ _SEGMENTO_PANEL = re.compile(r"[A-Za-z0-9._~-]+")
 # Barra y barra invertida codificadas: pueden fabricar segmentos nuevos al decodificarse.
 _SEPARADOR_CODIFICADO = re.compile(r"%(2f|5c)", re.IGNORECASE)
 _MAX_DECODIFICACIONES = 5
+# Formulario de acceso del panel: nunca es destino tras el login (evita volver a él en bucle);
+# misma regla que el cliente (frontend core/auth/destino-seguro.ts, TKT-031 OBS-01).
+_SEGMENTO_ACCESO = "acceso"
 
 
 def _es_ruta_panel(ruta: str) -> bool:
@@ -273,6 +276,13 @@ def _es_ruta_panel(ruta: str) -> bool:
     )
 
 
+def _es_formulario_acceso(ruta: str) -> bool:
+    """Ruta canónica ya validada: /panel/acceso, /panel/acceso/ o /panel/acceso/<...>."""
+    if not ruta.startswith(_PREFIJO_PANEL):
+        return False
+    return ruta[len(_PREFIJO_PANEL) :].split("/")[0] == _SEGMENTO_ACCESO
+
+
 def redireccion_segura(siguiente: str | None) -> str:
     """AC-115 / THREAT-017 / TKT-027: solo rutas internas bajo /panel; si no, /panel.
 
@@ -280,6 +290,8 @@ def redireccion_segura(siguiente: str | None) -> str:
     un valor estable y valida esa forma canónica, que es la que se devuelve. Se rechaza cualquier
     nivel con '/' o '\\' codificadas y cualquier segmento '.' o '..' que aparezca tras decodificar,
     de modo que el resultado nunca sale de /panel. Las query siguen sin admitirse (AC_TKT027_03).
+    El propio formulario de acceso (/panel/acceso y lo que cuelga de él, también en forma
+    codificada) tampoco es destino válido (TKT-031 OBS-01).
     """
     if not siguiente or _PATRON_REDIRECCION.fullmatch(siguiente) is None:
         return REDIRECCION_POR_DEFECTO
@@ -289,7 +301,9 @@ def redireccion_segura(siguiente: str | None) -> str:
             return REDIRECCION_POR_DEFECTO
         decodificada = unquote(actual)  # UTF-8 inválido → U+FFFD, que ningún segmento admite
         if decodificada == actual:
-            return actual if _es_ruta_panel(actual) else REDIRECCION_POR_DEFECTO
+            if _es_ruta_panel(actual) and not _es_formulario_acceso(actual):
+                return actual
+            return REDIRECCION_POR_DEFECTO
         actual = decodificada
     return REDIRECCION_POR_DEFECTO  # sigue cambiando tras el máximo: codificación anómala
 
