@@ -255,7 +255,9 @@ test.describe('Panel · medios (TKT-022)', () => {
     const medio = await subirPorApi(page, pngValido('retiro-e2e.png'));
     await irA(page, `/panel/medios/${medio.id}`);
     const retirar = page.getByTestId('medio-retirar');
-    await retirar.click();
+    // Con teclado (WebKit no enfoca los botones al hacer clic): el foco debe volver al botón.
+    await retirar.focus();
+    await page.keyboard.press('Enter');
     const dialogo = page.getByTestId('medio-dialogo-retiro');
     await expect(dialogo).toBeVisible();
     await expect(page.getByTestId('medio-dialogo-retiro-cancelar')).toBeFocused();
@@ -327,6 +329,7 @@ test.describe('Panel · medios (TKT-022)', () => {
     await expect(carga).toBeVisible();
     await expect(carga.getByRole('status')).toHaveText('Cargando el panel…');
     expect(sesionResuelta).toBe(false);
+    const historial = await page.evaluate(() => history.length);
     await expect(page.getByTestId('pagina-medios')).toBeVisible();
     await expect(page).toHaveURL(/\/panel\/medios\?estado=DISPONIBLE$/);
     await expect(page).toHaveTitle(/^Medios/);
@@ -336,7 +339,7 @@ test.describe('Panel · medios (TKT-022)', () => {
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
     // La carga no añade una entrada al historial.
-    expect(await page.evaluate(() => history.length)).toBe(2);
+    expect(await page.evaluate(() => history.length)).toBe(historial);
 
     // Sin sesión (contexto nuevo): tras la carga, SCR-030 con un `siguiente` seguro.
     const contexto = await browser.newContext();
