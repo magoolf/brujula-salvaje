@@ -314,7 +314,7 @@ tickets:
   - id: TKT-OPS-020
     titulo: "LOW: robustez del smoke anti-evasión (QA TKT-OPS-018 c2): C3 no debe depender del orden de campos del log_format (parsear JSON del log en lugar de buscar una cadena literal, con mensaje de fallo correcto); sustituir la expansión ${linea:-<sin línea>} de la línea 109 para que semgrep pueda analizar el script completo; documentar que tras C3 por_ip queda saturada ~3 s (espera si se añade un paso HTTP posterior)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-OPS-018, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-018]
@@ -326,7 +326,7 @@ tickets:
   - id: TKT-OPS-021
     titulo: "LOW: (a) retirar de infra/ci/oasdiff_err_ignore.txt la excepción de DEC-AUTO-920 (request-body-type-changed en POST /api/v1/panel/medios), que tras TKT-012 ya no casa con ningún hallazgo; (b) gate de cobertura por módulo en CI según Skill_Backend §8 (services >= 90 %, vistas de endpoints críticos >= 95 %) leyendo coverage.json, con umbrales versionados en infra/ci/ y excepciones con caducidad"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-012, TKT-OPS-010, "DEC-AUTO-920"]
     depende_de: [TKT-012]
