@@ -23,14 +23,25 @@ DEC-AUTO-196) compare significado y no forma:
    esquema aplanado ya trae, con tipo/formato/patrón correctos, la unión exacta de propiedades
    que el contrato reparte en esas ramas; aquí solo se reparte esa unión ya generada en los
    mismos sub-componentes, igual mecanismo que `_paginas` generalizado (`_dividir_en_allof`).
+6. Campos con esquema declarado (TKT-012, deuda de los WARNING de oasdiff): `CampoConEsquema` y
+   sus fábricas (`texto_plano`, `texto_html`, `url_http`, `id_contrato`, `lista_ids`...) emiten
+   en el esquema las restricciones del contrato que drf-spectacular no deduce de un campo DRF
+   (`contentMediaType`, `uniqueItems`, `format: int64` sin `maximum`, `number` sin `format`) y,
+   cuando el contrato restringe más que el campo DRF por defecto, las APLICAN además en la
+   validación real (patrón sin NUL, `https?://`, elementos únicos, rango bigint): el contrato
+   manda y el esquema nunca documenta una restricción que la API no cumpla.
 Es infraestructura (Skill_Backend Regla 10): no importa ninguna app.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
+from django.utils.deconstruct import deconstructible
+from drf_spectacular.extensions import OpenApiSerializerFieldExtension
 from drf_spectacular.generators import SchemaGenerator
+from rest_framework import serializers
 
 METODOS = frozenset({"get", "put", "post", "delete", "patch", "head", "options", "trace"})
 _CAMPOS_META = ("total", "pagina", "tamano_pagina", "total_paginas", "siguiente", "anterior")
@@ -296,6 +307,89 @@ _COMPOSICIONES: tuple[tuple[str, tuple[Rama, ...], tuple[str, ...] | None], ...]
         (_resto("PaisCampos"),),
         ("nombre", "slug", "codigo_iso2", "region_id", "activo"),
     ),
+    # --- TKT-012: resto de recursos compuestos con allOf en el contrato. La salida va SIEMPRE
+    # antes que la entrada: el componente {X}Campos compartido se crea (setdefault) con la
+    # primera composición que lo usa, y en dirección "response" drf-spectacular no añade el
+    # `minLength: 1` implícito de `allow_blank=False` que el contrato no declara.
+    (
+        "CategoriaGuiaPanel",
+        (_anon(frozenset({"id"}), ("id",)), _resto("CategoriaGuiaCampos")),
+        None,
+    ),
+    (
+        "CategoriaGuiaEntradaRequest",
+        (_resto("CategoriaGuiaCampos"),),
+        ("nombre", "slug", "descripcion", "orden", "activo"),
+    ),
+    ("Licencia", (_anon(frozenset({"id"}), ("id",)), _resto("LicenciaCampos")), None),
+    (
+        "LicenciaEntradaRequest",
+        (_resto("LicenciaCampos"),),
+        ("codigo", "nombre", "requiere_atribucion", "compatible_publicacion", "activo"),
+    ),
+    # NivelEscala (pública) ya existe con exactamente esos campos: la rama la reutiliza.
+    ("NivelEscalaPanel", (_anon(frozenset({"id"}), ("id",)), _resto("NivelEscala")), None),
+    (
+        "ConfigInicioPanel",
+        (
+            _resto("ConfigInicioCampos"),
+            _anon(
+                frozenset({"actualizado_en", "actualizado_por", "referencias"}),
+                ("actualizado_en", "actualizado_por", "referencias"),
+            ),
+        ),
+        None,
+    ),
+    (
+        "ConfigInicioEntradaRequest",
+        (_resto("ConfigInicioCampos"),),
+        (
+            "hero_titular",
+            "hero_subtitulo",
+            "hero_medio_id",
+            "destinos_ids",
+            "itinerarios_ids",
+            "guias_ids",
+        ),
+    ),
+    (
+        "ConfiguracionSitio",
+        (
+            _resto("ConfiguracionSitioCampos"),
+            _anon(frozenset({"actualizado_en"}), ("actualizado_en",)),
+        ),
+        None,
+    ),
+    (
+        "ConfiguracionSitioEntradaRequest",
+        (_resto("ConfiguracionSitioCampos"),),
+        ("nombre_marca", "texto_descargo"),
+    ),
+    # Contenido: extensiones de un componente ya existente ($ref + rama anónima).
+    (
+        "RevisionDetalle",
+        (_resto("RevisionResumen"), _anon(frozenset({"instantanea"}), ("instantanea",))),
+        None,
+    ),
+    (
+        "EntidadTransitada",
+        (
+            _resto("ContenidoRefPanel"),
+            _anon(
+                frozenset({"version", "numero_revision", "url_publica", "origen"}),
+                ("version", "origen"),
+            ),
+        ),
+        None,
+    ),
+    (
+        "DestinoGuardado",
+        (
+            _resto("DestinoPanel"),
+            _anon(frozenset({"entidades_afectadas"}), ("entidades_afectadas",)),
+        ),
+        None,
+    ),
 )
 
 
@@ -422,3 +516,163 @@ class GeneradorContrato(SchemaGenerator):
         )
         _parametros_a_nivel_de_ruta(esquema.get("paths") or {})
         return esquema
+
+
+# ---------------------------------------------------------------------------------------------
+# 6. Campos con esquema declarado (TKT-012, punto 6 del docstring del módulo).
+# ---------------------------------------------------------------------------------------------
+ID_MAXIMO = 2**63 - 1
+# drf-spectacular emite `\x00` como `\u0000` (`_insert_field_validators`, "unify escaping"): el
+# patrón generado es literalmente el del contrato (`^[^\u0000]*$`).
+PATRON_SIN_NUL = r"^[^\x00]*$"
+PATRON_URL_HTTP = r"^https?://[^\x00]*$"
+
+
+@deconstructible
+class ValidadorRangoBigint:
+    """Rechaza un id mayor que el máximo de un bigint de PostgreSQL (DB_HANDOFF) sin declararlo
+    como `maximum` en el esquema: `components.schemas.Id` del contrato no tiene `maximum`, pero
+    la API nunca debe dejar pasar al ORM un entero que la columna no puede representar."""
+
+    def __call__(self, valor: int | None) -> None:
+        if valor is not None and valor > ID_MAXIMO:
+            raise serializers.ValidationError(
+                f"Asegúrese de que este valor es menor o igual a {ID_MAXIMO}.", code="max_value"
+            )
+
+    def __eq__(self, otro: object) -> bool:
+        return isinstance(otro, ValidadorRangoBigint)
+
+    def __hash__(self) -> int:
+        return hash(ValidadorRangoBigint)
+
+
+@deconstructible
+class ValidadorSinRepetidos:
+    """`uniqueItems: true` del contrato aplicado de verdad: una lista con elementos repetidos es
+    un 400 de validación, no se deduplica en silencio."""
+
+    def __call__(self, valor: list[Any]) -> None:
+        try:
+            repetidos = len(valor) != len(set(valor))
+        except TypeError:  # elementos no hashables
+            repetidos = any(elemento in valor[:i] for i, elemento in enumerate(valor))
+        if repetidos:
+            raise serializers.ValidationError(
+                "No puede haber elementos repetidos.", code="elementos_repetidos"
+            )
+
+    def __eq__(self, otro: object) -> bool:
+        return isinstance(otro, ValidadorSinRepetidos)
+
+    def __hash__(self) -> int:
+        return hash(ValidadorSinRepetidos)
+
+
+class CampoConEsquema:
+    """Mixin de campo DRF con ajustes declarativos de su esquema OpenAPI.
+
+    `esquema_extra` se fusiona sobre el esquema que drf-spectacular genera para el campo y
+    `esquema_sin` quita claves de él. Se pasan como kwargs del constructor (no como atributos
+    puestos después): `Field.__deepcopy__` reconstruye cada campo desde sus `_args`/`_kwargs`
+    originales al instanciar el serializer, así que solo lo que viaja en el constructor
+    sobrevive (mismo motivo que `_con_limite` en apps/contenido/api/panel_serializers.py).
+    Las restricciones de validación (min/max, longitud, patrón) se siguen declarando con los
+    argumentos normales del campo, que drf-spectacular ya traduce y DRF ya aplica."""
+
+    esquema_extra: dict[str, Any]
+    esquema_sin: frozenset[str]
+
+    def __init__(
+        self,
+        *args: Any,
+        esquema_extra: dict[str, Any] | None = None,
+        esquema_sin: Iterable[str] = (),
+        **kwargs: Any,
+    ) -> None:
+        self.esquema_extra = dict(esquema_extra or {})
+        self.esquema_sin = frozenset(esquema_sin)
+        super().__init__(*args, **kwargs)
+
+
+class TextoConEsquema(CampoConEsquema, serializers.RegexField):
+    """`RegexField` (patrón validado y documentado) con ajustes de esquema."""
+
+
+class EnteroConEsquema(CampoConEsquema, serializers.IntegerField):
+    """`IntegerField` con ajustes de esquema."""
+
+
+class NumeroConEsquema(CampoConEsquema, serializers.FloatField):
+    """`FloatField` con ajustes de esquema."""
+
+
+class ListaConEsquema(CampoConEsquema, serializers.ListField):
+    """`ListField` con ajustes de esquema."""
+
+
+class _ExtensionCampoConEsquema(OpenApiSerializerFieldExtension):  # type: ignore[no-untyped-call]
+    target_class = CampoConEsquema
+    match_subclasses = True
+
+    def map_serializer_field(self, auto_schema: Any, direction: Any) -> Any:
+        esquema = auto_schema._map_serializer_field(self.target, direction, bypass_extensions=True)
+        if esquema is None:
+            return None
+        sin = self.target.esquema_sin
+        esquema = {clave: valor for clave, valor in esquema.items() if clave not in sin}
+        # drf-spectacular vuelve a aplicar `nullable` (append_meta) sobre lo que devuelve la
+        # extensión: se quita aquí para no duplicar el "null" de `type`.
+        tipo = esquema.get("type")
+        if isinstance(tipo, list) and "null" in tipo:
+            resto = [t for t in tipo if t != "null"]
+            esquema["type"] = resto[0] if len(resto) == 1 else resto
+        esquema.update(self.target.esquema_extra)
+        return esquema
+
+
+def texto_sin_nul(**kwargs: Any) -> serializers.RegexField:
+    """Texto plano del contrato (`pattern: '^[^\\u0000]*$'`)."""
+    return serializers.RegexField(PATRON_SIN_NUL, **kwargs)
+
+
+def texto_html(**kwargs: Any) -> TextoConEsquema:
+    """Texto enriquecido del contrato (`contentMediaType: text/html` + patrón sin NUL)."""
+    return TextoConEsquema(
+        PATRON_SIN_NUL, esquema_extra={"contentMediaType": "text/html"}, **kwargs
+    )
+
+
+def url_http(**kwargs: Any) -> TextoConEsquema:
+    """URL absoluta http(s) del contrato (`format: uri` + `pattern: '^https?://[^\\u0000]*$'`)."""
+    return TextoConEsquema(PATRON_URL_HTTP, esquema_extra={"format": "uri"}, **kwargs)
+
+
+def id_contrato(**kwargs: Any) -> EnteroConEsquema:
+    """`components.schemas.Id` (`integer`, `int64`, `minimum: 1`, sin `maximum`)."""
+    validadores = [*kwargs.pop("validators", []), ValidadorRangoBigint()]
+    return EnteroConEsquema(
+        min_value=1, validators=validadores, esquema_extra={"format": "int64"}, **kwargs
+    )
+
+
+def numero(**kwargs: Any) -> NumeroConEsquema:
+    """`type: number` sin `format` (el contrato no declara `double`)."""
+    return NumeroConEsquema(esquema_sin=("format",), **kwargs)
+
+
+def lista_unica(child: Any, **kwargs: Any) -> ListaConEsquema:
+    """Lista con `uniqueItems: true` validado de verdad (`ValidadorSinRepetidos`)."""
+    validadores = [*kwargs.pop("validators", []), ValidadorSinRepetidos()]
+    return ListaConEsquema(
+        child=child, validators=validadores, esquema_extra={"uniqueItems": True}, **kwargs
+    )
+
+
+def lista_ids(max_length: int, **kwargs: Any) -> ListaConEsquema:
+    """Lista de `Id` sin repetidos (`uniqueItems: true`, `maxItems`); opcional y vacía por
+    defecto salvo que se indique `required=True`."""
+    kwargs.setdefault("required", False)
+    if not kwargs["required"]:
+        kwargs.setdefault("default", list)
+    return lista_unica(id_contrato(), max_length=max_length, **kwargs)

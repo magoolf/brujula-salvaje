@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
+from io import StringIO
 from typing import Any
 
 import pytest
@@ -55,10 +56,12 @@ CATEGORIAS_GUIA_ESPERADAS = {
 
 
 @pytest.fixture(scope="module")
-def semilla(django_db_setup: None, django_db_blocker: Any) -> Iterator[None]:
+def semilla(django_db_setup: None, django_db_blocker: Any) -> Iterator[str]:
+    """Devuelve la salida (stdout) de la primera ejecución, para comparar contadores."""
     with django_db_blocker.unblock(), transaction.atomic():
-        call_command("cargar_semilla")
-        yield
+        salida = StringIO()
+        call_command("cargar_semilla", stdout=salida)
+        yield salida.getvalue()
         transaction.set_rollback(True)
 
 
@@ -380,6 +383,61 @@ def test_idempotencia_ejecutar_dos_veces_no_duplica_ni_falla(semilla: None, db: 
         ).count(),
     }
     assert antes == despues, "la segunda ejecución no debe crear ni duplicar contenido"
+
+
+_CONTADORES = re.compile(
+    r"Creados: (\d+), reutilizados: (\d+), publicados en esta ejecución: (\d+)"
+)
+
+
+def _contadores(salida: str) -> tuple[int, int, int]:
+    encontrado = _CONTADORES.search(salida)
+    assert encontrado is not None, salida
+    creados, reutilizados, publicados = (int(g) for g in encontrado.groups())
+    return creados, reutilizados, publicados
+
+
+def _estado_inicio() -> dict[str, Any]:
+    from apps.auditoria.models import AccionAuditoria, EventoAuditoria
+    from apps.inicio.models import ConfigInicio, DestacadoInicio
+
+    return {
+        "config": list(
+            ConfigInicio.objects.values(
+                "id", "hero_titular", "hero_subtitulo", "hero_medio_id", "actualizado_en"
+            )
+        ),
+        "destacados": list(
+            DestacadoInicio.objects.order_by("id").values(
+                "id", "seccion", "contenido_id", "tipo_contenido", "orden"
+            )
+        ),
+        "auditoria_config_inicio": EventoAuditoria.objects.filter(
+            accion=AccionAuditoria.CONFIG_INICIO
+        ).count(),
+    }
+
+
+def test_AC_TKT012_03_configurar_inicio_cuenta_reutilizado_y_es_idempotente(
+    semilla: str, db: None
+) -> None:
+    """TKT-012 (hallazgo de QA de TKT-007): en la 2.ª+ ejecución `_configurar_inicio` no
+    incrementaba el contador informativo (y además reejecutaba el servicio, con su auditoría y
+    el borrado/recreado de destacados). Ahora cuenta como reutilizada y no repite efectos: la
+    segunda ejecución reporta 0 creados y reutiliza EXACTAMENTE todo lo que la primera tocó, y la
+    configuración de inicio queda idéntica en BD (mismos ids, mismo `actualizado_en`, ningún
+    evento de auditoría nuevo)."""
+    creados_1, reutilizados_1, _ = _contadores(semilla)
+    assert creados_1 > 0
+    antes = _estado_inicio()
+
+    salida = StringIO()
+    call_command("cargar_semilla", stdout=salida)
+    creados_2, reutilizados_2, publicados_2 = _contadores(salida.getvalue())
+
+    assert (creados_2, publicados_2) == (0, 0)
+    assert reutilizados_2 == creados_1 + reutilizados_1
+    assert _estado_inicio() == antes
 
 
 def test_idempotencia_slugs_estables_get_or_create_semantico(semilla: None, db: None) -> None:

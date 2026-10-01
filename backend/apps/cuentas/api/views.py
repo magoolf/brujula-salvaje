@@ -34,7 +34,6 @@ from apps.cuentas.autenticacion import (
     abrir_sesion,
     cerrar_sesion,
     leer_sesion,
-    redireccion_segura,
     rotar_sesion,
 )
 from apps.cuentas.models import CuentaStaff, EstadoCuenta, RolCuenta
@@ -173,7 +172,7 @@ class IniciarSesion(APIView):
             request.session,
             resultado.cuenta,
             mfa_verificado=not resultado.requiere_mfa,
-            redireccion=redireccion_segura(datos.get("siguiente")),
+            redireccion=services.redireccion_segura(datos.get("siguiente")),
         )
         paso = services.paso_pendiente(
             resultado.cuenta,
