@@ -48,12 +48,16 @@ RUN npx --no-install ng build --configuration production \
 # "apt-get install --only-upgrade" con version fijada explicitamente (REGLA 3, cero versiones
 # ambiguas) resuelve sin necesidad de "apt-get download" + "dpkg --force-depends -i". Se aplica
 # en node-sin-pm, ANTES de aplanar el filesystem con FROM scratch + COPY /.
+# TKT-OPS-017: mismo patron para libpcre2-8-0 (CVE-2026-103111 HIGH en 10.46-1~deb13u2 de la base,
+# corregida en 10.46-1~deb13u3 de trixie-security). A 2026-10-01 el digest publicado de
+# 24.21.0-trixie-slim no ha cambiado y sigue trayendo deb13u2.
 FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS node-sin-pm
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --only-upgrade \
       libssl3t64=3.5.7-1~deb13u3 \
-      openssl-provider-legacy=3.5.7-1~deb13u3; \
+      openssl-provider-legacy=3.5.7-1~deb13u3 \
+      libpcre2-8-0=10.46-1~deb13u3; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
     rm -rf /usr/local/lib/node_modules \
            /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
@@ -66,7 +70,9 @@ RUN set -eu; \
     for p in libssl3t64 openssl-provider-legacy; do \
       v="$(dpkg-query -W -f='${Version}' "$p")"; \
       case "$v" in 3.5.7-1~deb13u3) ;; *) echo "$p en version inesperada '$v'" >&2; exit 1 ;; esac; \
-    done
+    done; \
+    v="$(dpkg-query -W -f='${Version}' libpcre2-8-0)"; \
+    case "$v" in 10.46-1~deb13u3) ;; *) echo "libpcre2-8-0 en version inesperada '$v'" >&2; exit 1 ;; esac
 
 FROM scratch AS node-min
 COPY --from=node-sin-pm / /

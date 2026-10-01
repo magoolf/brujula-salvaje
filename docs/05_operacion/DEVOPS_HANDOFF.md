@@ -10,6 +10,8 @@ Actualizado por **TKT-OPS-006** (F7, mejoras LOW: gate de contrato memoizado + o
 Actualizado por **TKT-OPS-010** (F7, gate de contrato: `oasdiff breaking --fail-on WARN` → `--fail-on ERR`, decisión del usuario, 2026-09-29): ver §20. Línea de índice añadida por TKT-OPS-011 (omitida en la entrega original de TKT-OPS-010; corrección de consistencia documental menor, sin cambio de contenido de §20).
 Actualizado por **TKT-OPS-011** (F7, gate de contrato: excepción puntual `--err-ignore` para `request-body-type-changed` en `POST /api/v1/panel/medios`, decisión del usuario DEC-AUTO-920, 2026-09-29): ver §21.
 Actualizado por **TKT-OPS-012** (F7, línea de `infra/scheduler/crontab` para `vigilar_cache_limites` (TKT-011, DONE) cada 15 min; cierra RSK-OPS-032, 2026-09-29): ver §22.
+Actualizado por **TKT-OPS-016** (F7, HIGH, condición de F9). El limitador de borde gana la zona propia `estaticos` para los assets (fin de la navegación rota tras una IP compartida) y una defensa para que un asset inexistente no se renderice en el SSR. Además, `ruta_pedida` en el log y `X-Robots-Tag` en `/panel/**` (DEC-AUTO-929). 2026-09-30. Ver §23 y **ADR-OPS-001**.
+Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 de las 5 imágenes Debian; actualización fijada a 10.46-1~deb13u3 de trixie-security, sin tocar `.trivyignore`, 2026-10-01): ver §24 (§23 reservado para TKT-OPS-016, PR #38).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -1951,3 +1953,202 @@ Sin riesgos nuevos: es un cambio de una línea sobre un mecanismo (`supercronic`
 1. Registrar el cierre de RSK-OPS-032 y la actualización de RSK-QA004-02 en `audit_log.md`/`kanban.md`.
 2. Marcar TKT-OPS-012 DONE tras confirmar el CI real del PR (build de la imagen `scheduler` y cualquier smoke que la ejercite).
 3. Sin tickets dependientes conocidos: `vigilar_cache_limites` ya corre programada; el runbook de §19.3.6 sigue vigente sin cambios.
+
+## 23. TKT-OPS-016: limitador de borde con zona propia para los assets estáticos y X-Robots-Tag del panel (F7, soporte; condición de F9)
+
+### 23.1 Estado
+**COMPLETADO** en local, en la rama `tkt-ops-016-limitador-estaticos`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). La decisión, las alternativas y los riesgos están en **ADR-OPS-001**.
+
+### 23.2 Objetivo
+QA de TKT-018 (F-3, HIGH) midió que 2-3 visitantes en frío tras una misma IP (NAT, CGNAT, oficina) agotan `por_ip` (20 r/s, burst 60). El 429 cae sobre los chunks JS lazy y el router de Angular no completa la navegación. El problema no se puede corregir desde el frontend. Objetivos:
+- sacar los assets estáticos del cupo de `/api/**` y del HTML SSR, sin debilitar esos dos;
+- que un asset inexistente no se convierta en un render SSR ilimitado.
+
+Ampliación (DEC-AUTO-929): `X-Robots-Tag: noindex, nofollow` en las respuestas de `/panel/**` (RULE-029).
+
+### 23.3 Cambios realizados (solo `infra/proxy/nginx.conf`)
+- **Zona `estaticos`**: `limit_req_zone $binary_remote_addr zone=estaticos:10m rate=50r/s`, con `limit_req zone=estaticos burst=300 nodelay` en:
+  - la nueva location regex de assets: `^/(?:[A-Za-z0-9_-]+\.(?:js|mjs|css)|fonts/[A-Za-z0-9_-]+\.woff2|favicon\.ico)$`;
+  - `location /media/publico/`.
+- **Location de assets**:
+  - envía al SSR `Host: estaticos.invalid` (y `X-Forwarded-Host`). `express.static` sirve el archivo si existe. Si no existe, Angular rechaza el Host con 400 sin renderizar;
+  - `proxy_intercept_errors on`: 400/404 → `404 no_encontrado` (Problem Details), 403/429/5xx → los del catálogo. Los `error_page` se redefinen en la location;
+  - cabeceras idénticas a las de antes: CSP, nosniff, COOP/CORP, XFO, Referrer y Permissions-Policy vía `security-headers-html.conf`, y `Cache-Control $cache_control_ssr`, que conserva el `immutable`;
+  - `limit_except GET HEAD`.
+- **Zonas resultantes**:
+
+  | Zona | Ritmo | Burst | Ámbito |
+  |---|---|---|---|
+  | `por_ip` | 20 r/s | 60 | `/api/**`, HTML del SSR y cualquier otra ruta (incluidas `/destinos/x.js`, `/x.html` y `/api/…/x.js`) |
+  | `salud` | 50 r/s | 200 | `/health/live\|ready` (sin cambios) |
+  | `estaticos` | 50 r/s | 300 | assets en la raíz, `/fonts/*.woff2`, `/favicon.ico` y `/media/publico/**` (nuevo) |
+- **Log**: campo `ruta_pedida` en `brujula_json`. Es la ruta original sin query string, para saber qué recurso recibió un 429. Antes los 429 se registraban como `/_errores_proxy/429`.
+- **`X-Robots-Tag`**: `map $uri $x_robots_borde` vale `"noindex, nofollow"` para `^/panel(/|$)` y está vacío en el resto, así que no se emite. Se añade con `add_header ... always` en `location /`, la misma location que ya define las cabeceras de seguridad, por lo que no se rompe la herencia.
+
+### 23.4 Versiones aprobadas
+Sin cambios. Proxy `nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1…`, Angular/`@angular/ssr` 22.2.0 y Express 5.2.1.
+
+### 23.5 Infraestructura
+Sin cambios de topología, redes, volúmenes, healthchecks, recursos ni `compose*.yaml`.
+
+**Requisito operativo nuevo (RSK-OPS-040):** `NG_ALLOWED_HOSTS` nunca debe contener `*` ni `*.invalid`. Si lo hiciera, un asset inexistente volvería a renderizar en el SSR, aunque acotado por la zona `estaticos`.
+
+### 23.6 Dependencias
+Ninguna.
+
+### 23.7 Variables de entorno
+Sin variables nuevas. `NG_ALLOWED_HOSTS` sigue igual (por defecto `localhost,127.0.0.1`), con la restricción de §23.5.
+
+### 23.8 Validaciones ejecutadas
+Fecha: 2026-09-30. Entorno: Docker Engine 29.6.1 y Compose v5.2.0. Proyecto `-p brujula-ops016` con `APP_NET_PREFIX=10.231.66` y `PROXY_HOST_PORT=18166`. Semilla real (`cargar_semilla`: 98 entidades, 68 publicadas). Chromium de Playwright 1.63.0. Los scripts de medición estaban en el scratchpad, fuera del repositorio.
+
+**Escenario.** N contextos Chromium fríos y simultáneos (misma IP) abren Inicio y a los 300 ms hacen clic en un enlace de la cabecera (rotando entre /destinos, /guias, /itinerarios, /colecciones, /cuando-ir y /tipos-de-aventura). Cada serie tiene 5 rondas con 3 s de reposo entre rondas.
+
+**Criterio de navegación rota.** La URL no llega al destino en 15 s, o aparece "Failed to fetch dynamically imported module". Los 429 se cuentan en el navegador y en el log JSON del proxy.
+
+- **VALIDADO — AC_OPS016_01:**
+
+  | Serie | Antes (`main` @ 1bf5e94) | Después |
+  |---|---|---|
+  | N=2 s1 | 1/10 rotas, 18 × 429 | 0/10 rotas, 0 × 429 (proxy: 0) |
+  | N=2 s2 | 0/10 rotas, 17 × 429 | 0/10 rotas, 0 × 429 (proxy: 0) |
+  | N=3 s1 | 15/15 rotas, 112 × 429 | 0/15 rotas, 0 × 429 (proxy: 0) |
+  | N=3 s2 | 13/15 rotas, 107 × 429 | 0/15 rotas, 0 × 429 (proxy: 0) |
+  | N=5 y N=8 (holgura) | — | 0/15 y 0/24 rotas, 0 × 429 |
+
+  Antes, 252 de los 254 × 429 caían en `chunk-*.js` y `/media/publico/**` (los otros 2, en `/api`).
+- **VALIDADO — AC_OPS016_02** (ráfagas concurrentes desde una IP):
+  - 200 a `/api/v1/publico/destinos`: 61 × 200 y 139 × 429.
+  - 200 a `/`: 62 × 200 y 138 × 429.
+  - 200 a `/destinos`: 61 × 200 y 139 × 429.
+  - Los tres casos coinciden con `por_ip` (burst 60 + reposición).
+  - Separación de cupos: 250 assets y 50 `/api` simultáneos dan 300 × 200.
+- **VALIDADO — AC_OPS016_03:**
+  - 200 assets inexistentes con nombre único: 200 × 404 Problem Details en unos 5 ms. 400 inexistentes: 307 × 404 y 93 × 429 (la zona `estaticos` también los limita).
+  - En el log del SSR: 507 rechazos `Header "host" with value "estaticos.invalid" is not allowed` y **0 renders** (0 `error_ssr`). Antes, `/no-existe-123.js` devolvía el HTML 404 renderizado por Angular.
+  - Rutas con aspecto de asset fuera del patrón (`/api/v1/publico/x.js`, `/destinos/x.js`, `/x.html`, 150 de cada una): 61-62 × 404 y 88-89 × 429. Siguen en `por_ip` y el backend nunca recibe nada de la location de assets.
+- **VALIDADO — AC_OPS016_04:**
+  - `nginx -t` OK en el contenedor; `docker compose config -q` OK (base y base + `compose.ci.yaml`); los 4 servicios healthy y `/health/ready` 200.
+  - Cabeceras de `/main-*.js` idénticas a las de antes: `Cache-Control: public, max-age=31536000, immutable`, CSP con nonce, nosniff, Referrer, Permissions, COOP, CORP y XFO.
+  - gzip activo (`Content-Encoding: gzip`), `If-None-Match` → 304, `POST /main-*.js` → 403 Problem Details.
+  - Medios: `image/avif`, `immutable`, CSP `sandbox` y nosniff, igual que antes. Un medio inexistente da 404 Problem Details.
+- **VALIDADO — AC_OPS016_06:**
+  - `curl -I` a `/panel`, `/panel/` y `/panel/acceso` devuelve `X-Robots-Tag: noindex, nofollow` junto a CSP, nosniff, Referrer, Permissions, COOP, CORP, XFO y `Cache-Control: no-store`.
+  - `/`, `/destinos`, `/main-*.js` y `/panelx` no la devuelven.
+  - El panel aún no está en `main`: el SSR responde hoy 404 HTML en `/panel/**`, y la cabecera se aplica igualmente (`always`).
+- **AC_OPS016_05:** este apartado y ADR-OPS-001.
+- **NOT_RUN:** la ejecución en GitHub Actions se registra en §23.13 tras abrir el PR. Hoy el smoke de CI no cubre la zona `estaticos` ni AC_OPS016_03 (ver §23.10).
+
+### 23.9 Seguridad
+- `/api/**` y el HTML del SSR conservan exactamente la política `por_ip` (DEC-AUTO-111/214).
+- La superficie nueva queda acotada:
+  - los assets tienen un cupo propio de 50 r/s y burst 300 por IP;
+  - un asset inexistente no renderiza;
+  - las rutas fuera del patrón siguen en `por_ip`.
+- El log no contiene query strings: `ruta_pedida` corta en `?` (THREAT-020, REQ-057).
+- Sin cambios de privilegios: uid 101, raíz de solo lectura.
+
+### 23.10 Riesgos / pendientes
+| ID | Riesgo | Sev. | Mitigación / acción | Estado |
+|---|---|---|---|---|
+| RSK-OPS-040 | `NG_ALLOWED_HOSTS` con `*` reabre el render de assets inexistentes (acotado por `estaticos`) | MEDIUM (si se configura mal) | Requisito de §23.5. Recomendado: ticket de CI con un smoke que exija que `/no-existe-<n>.js` dé 404 `application/problem+json` y que una ráfaga de 120 assets no dé 429 (`.github/workflows` queda fuera del alcance de este ticket) | ABIERTO (ticket CI) |
+| RSK-OPS-041 | Cada asset inexistente escribe unas 3 líneas de error en el log del SSR (posible inflado del log) | LOW | json-file de 10 MB × 5. Filtrar o muestrear en los logs centralizados de producción | ACEPTADO |
+| RSK-OPS-042 | Ancho de banda por IP en los assets (50 r/s) | LOW / MEDIUM (prod) | CDN o caché de borde en el ADR de producción (F9), junto con RSK-OPS-022 | ABIERTO (F9) |
+| RSK-OPS-043 | Más de unas 8 cargas en frío por segundo tras una misma IP aún podrían ver 429 en assets | LOW | Recalibrar con métricas reales; en producción, CDN | ACEPTADO |
+| RSK-OPS-022 | Sin `real_ip` tras un balanceador o CDN, todas las zonas se vuelven globales | MEDIUM (prod) | Sin cambios: ADR de producción (F9) | ABIERTO (F9) |
+
+### 23.11 Archivos modificados
+- `infra/proxy/nginx.conf`
+- `docs/adr/ADR-OPS-001.md` (nuevo)
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 23.12 Próximo agente
+**Orquestador.** Pasos:
+1. Registrar en `audit_log.md` y `kanban.md` la decisión de ADR-OPS-001 y RSK-OPS-040 a RSK-OPS-043. Los DEC-AUTO los numera el Orquestador.
+2. Lanzar QA de TKT-OPS-016: escenario de AC_OPS016_01 con el mismo método, ráfagas de AC_02/03 y cabeceras de AC_04/06.
+3. Abrir el ticket de CI del smoke de RSK-OPS-040.
+4. Integrar tras QA PASS y CI verde.
+
+### 23.13 Validación en GitHub Actions (PR #38)
+- **Ejecución 36803048434** (commit 7218b10):
+  - `detectar código`, `infraestructura`, `frontend`: PASS.
+  - `backend`: GitHub canceló el paso `pytest` a los ~6 min con `##[error]The operation was canceled.` (01:58:32Z). No fue `timeout-minutes` (30) ni un relevo por concurrencia (no hubo otro push en la rama).
+  - Desde entonces la ejecución quedó **huérfana** en `in_progress`: `gh run cancel`, `force-cancel` y `rerun` fueron rechazados por la API (409 / "already running").
+  - La rama no toca `backend/` (en `main` @ 1bf5e94 el mismo job pasó en 9 min).
+  - Se relanza con este commit de documentación: la concurrencia `ci-${{ github.ref }}` con `cancel-in-progress` sustituye la ejecución huérfana.
+- Resultado de la nueva ejecución: en el HANDOFF_ENVELOPE de la entrega al Orquestador.
+
+## 24. TKT-OPS-017: CVE-2026-103111 (HIGH) en `libpcre2-8-0` de las imágenes Debian (F7, soporte; desbloquea el CI)
+
+> Numeración: §23 queda para TKT-OPS-016 (PR #38, abierto en paralelo). Si este PR se integra antes, el PR #38 tendrá que reubicar su línea de índice y su §23 tras rebase (solo conflicto textual de "añadido al final"; mantener ambas secciones).
+
+### 24.1 Estado
+COMPLETADO en local (AC_OPS017_01 local, AC_OPS017_02 y AC_OPS017_03). El CI real del PR se reporta en el HANDOFF_ENVELOPE al Orquestador.
+
+### 24.2 Objetivo
+En la ejecución de CI 36806399271 (PR #38) el paso `image scan` del job `build + trivy + SBOM` falla con CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 (corregida en 10.46-1~deb13u3). La corrección existe, por lo que aceptar el CVE en `.trivyignore` no procede (sería además Puerta Humana, CLAUDE.md §0.5): hay que eliminarlo de las imágenes con el cambio mínimo y reproducible.
+
+### 24.3 Diagnóstico
+- Imágenes afectadas (trivy 0.74.0, BD de vulnerabilidades del 2026-10-01 01:24 UTC): `backend`, `scheduler` (deriva del `runtime` de backend), `frontend`, `backup`, `db`. `proxy` (alpine) = 0. El único paquete PCRE presente en las bases es `libpcre2-8-0` (`dpkg-query -W 'libpcre*'` en las bases fijadas por digest).
+- Origen por imagen (todas Debian 13 trixie, fijadas por tag + digest):
+
+  | Imagen | Base (etapa final) | Digest fijado |
+  |---|---|---|
+  | backend / scheduler | `python:3.13.15-slim-trixie` (etapa `python-sin-pip`, aplanada con `FROM scratch`) | `sha256:8d9d0b8b…3ddf0` |
+  | frontend | `node:24.21.0-trixie-slim` (etapa `node-sin-pm`, aplanada) | `sha256:8ec5d755…0cffe` |
+  | db | `postgres:18.6-trixie` | `sha256:5a5a84b1…a9722` |
+  | backup | `debian:13.7-slim` | `sha256:a99cfc51…1b20a` |
+
+- ¿Basta con subir el digest? NO (comprobado el 2026-10-01 con `docker buildx imagetools inspect` y `dpkg-query` dentro de las imágenes):
+  - `node:24.21.0-trixie-slim`, `postgres:18.6-trixie` y `debian:13.7-slim`: el digest publicado del tag es el MISMO que el fijado (sigue con deb13u2).
+  - `python:3.13.15-slim-trixie`: hay un digest nuevo (`sha256:7c61056e…cd3b`), pero también trae `libpcre2-8-0` 10.46-1~deb13u2 (y `libssl3t64` deb13u2).
+  - Rama de Dependabot `dependabot/docker/infra/docker/python-3.14.7-slim-trixie`: `python:3.14.7-slim-trixie@sha256:51dafde8…5b3d` también trae deb13u2 y además cambia el runtime de Python 3.13 a 3.14 (dependencia de producto, Skill_Backend; rutas `python3.13` del Dockerfile y `PYTHON_VERSION` del CI). No sirve para este ticket; no se integra (sin merge de PR de Dependabot).
+- `10.46-1~deb13u3` está publicado en `trixie-security/main` (`apt-cache madison libpcre2-8-0` sobre `debian:13.7-slim` fijada).
+
+### 24.4 Cambios realizados (mismo patrón ya aprobado en TKT-OPS-014/015 para openssl)
+Se añade `libpcre2-8-0=10.46-1~deb13u3` (versión exacta, sin rangos) a la actualización de paquetes que ya existía en cada Dockerfile, más un control en el build que falla si la versión instalada no es exactamente la esperada:
+- `infra/docker/backend.Dockerfile` (etapa `python-sin-pip`, antes del aplanado; llega a `runtime` y a `scheduler`): `apt-get install -y --only-upgrade … libpcre2-8-0=10.46-1~deb13u3`.
+- `infra/docker/frontend.Dockerfile` (etapa `node-sin-pm`, antes del aplanado): ídem.
+- `infra/db/Dockerfile`: `apt-get download … libpcre2-8-0=10.46-1~deb13u3` + `dpkg --force-depends -i … libpcre2-8-0_10.46-1~deb13u3_amd64.deb` (mismo motivo que openssl: el purge de perl con `--force-depends` impide `apt-get install`).
+- `infra/backup/Dockerfile`: `ARG PCRE2_DEB_VERSION=10.46-1~deb13u3` y `"libpcre2-8-0=${PCRE2_DEB_VERSION}"` en el `apt-get install` fijado existente.
+
+Sin cambios de tag ni digest de ninguna imagen base, ni de `.trivyignore`, ni del workflow, ni de `infra/proxy/**`.
+
+### 24.5 Versiones aprobadas
+| Componente | Versión | Imágenes | Estado | Evidencia |
+|---|---|---|---|---|
+| libpcre2-8-0 | 10.46-1~deb13u3 (trixie-security) | backend, scheduler, frontend, backup, db | APROBADO | `dpkg-query -W libpcre2-8-0` en las 5 imágenes + control del build + trivy 0 |
+| Imágenes base | sin cambios (mismos tag + digest) | todas | APROBADO | diff |
+
+### 24.6 Infraestructura / dependencias / variables de entorno
+Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
+
+### 24.7 Validaciones ejecutadas (2026-10-01, Docker Engine 29.6.1, Compose v5.2.0, trivy 0.74.0, proyecto compose `t017`)
+- ANTES (main @ 7ee17b5, imágenes `t017-antes`), misma política del CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1`): backend, frontend, scheduler, backup y db -> exit 1, 1 hallazgo no suprimido cada una (CVE-2026-103111 libpcre2-8-0 10.46-1~deb13u2 -> 10.46-1~deb13u3, HIGH); proxy -> exit 0.
+- DESPUÉS (imágenes `t017-despues`, `docker compose --profile ops build --pull`): las 6 imágenes exit 0, 0 CRITICAL/HIGH no suprimidos. VALIDADO.
+- `docker compose config --quiet` en las 4 variantes (base, `--profile ops`, `+compose.ci.yaml`, `+compose.debug.yaml`): OK.
+- `docker compose up -d --no-build --wait`: db, backend, frontend y proxy healthy; init-volumes y migrate Exited (0).
+- Smoke por el proxy: `/` 200 text/html, `/destinos` 200 text/html, `/api/v1/publico/destinos` 200 application/json, `/health/live` 200, `/health/ready` 200.
+- `supercronic -test` del crontab de `scheduler` y de `backup`: "crontab is valid". `pg_dump --version` 18.6 en backup; `grep -P` (enlaza libpcre2) funciona en backup.
+- Suites de tests de backend/frontend: no afectadas (solo cambian Dockerfiles); NOT_RUN en local, las ejecuta el CI del PR.
+- `docker compose --profile ops down -v` del proyecto `t017` al terminar.
+
+### 24.8 Seguridad
+- CVE-2026-103111 (HIGH, `libpcre2-8-0`) eliminado de las 5 imágenes Debian con la corrección oficial de Debian. `.trivyignore` intacto: las excepciones vigentes (RSK-OPS-001, exp:2026-10-26) siguen siendo solo CVE sin parche.
+- HALLAZGO operativo: la BD de trivy de la caché local compartida (UpdatedAt 2026-09-30 07:10 UTC) aún no contenía CVE-2026-103111 y daba 0 hallazgos con las imágenes vulnerables (falso negativo). Se reprodujo con una BD recién descargada (2026-10-01 01:24 UTC) en una caché privada.
+
+### 24.9 Riesgos / pendientes
+- RSK-OPS-044 (MEDIUM, nuevo): versiones de paquetes Debian fijadas a mano en los Dockerfiles (openssl deb13u3 desde TKT-OPS-014/015, ahora pcre2 deb13u3). Cuando la imagen base publique un digest con estas versiones o superiores, la actualización queda redundante; si Debian retira la versión de `trixie-security` tras un nuevo DSA, el build fallará (fail-fast, deseado) y habrá que subirla. Mitigación: al aceptar un PR de Dependabot de imagen base, revisar si las líneas `--only-upgrade`/`apt-get download` siguen siendo necesarias.
+- RSK-OPS-045 (LOW, nuevo): falso negativo de trivy en local por BD desactualizada (§24.8). Recomendación: en los escaneos locales de evidencia, forzar BD fresca (`trivy image --download-db-only` en una `--cache-dir` propia) y registrar el `UpdatedAt` de la BD junto al resultado.
+- `infra/db/Dockerfile` sigue con nombres `_amd64.deb` fijos (preexistente desde TKT-OPS-014): build solo amd64.
+- Conflicto textual previsible con el PR #38 en este documento (nota inicial de §24).
+
+### 24.10 Archivos modificados
+- `infra/docker/backend.Dockerfile`
+- `infra/docker/frontend.Dockerfile`
+- `infra/db/Dockerfile`
+- `infra/backup/Dockerfile`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 24.11 Próximo agente
+**Orquestador**: confirmar el CI real del PR, integrarlo (sin editar contenido) y relanzar el CI del PR #38 tras rebase sobre `main` para que su job de imágenes pase a verde. Registrar RSK-OPS-044/045 en `audit_log.md`.
