@@ -18,7 +18,7 @@ FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea9
 # ---------------------------------------------------------------------------
 # builder: resuelve dependencias desde uv.lock (--frozen: falla si el lock no cuadra)
 # ---------------------------------------------------------------------------
-FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS builder
+FROM python:3.14.0-slim-trixie@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e AS builder
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -52,7 +52,7 @@ RUN find /src -name '__pycache__' -type d -prune -exec rm -rf {} +  && rm -rf /s
 # TKT-OPS-017: mismo patron para libpcre2-8-0 (CVE-2026-103111 HIGH en 10.46-1~deb13u2 de la base,
 # corregida en 10.46-1~deb13u3 de trixie-security). A 2026-10-01 ningun digest publicado trae la
 # version corregida (ni el actual de 3.13.15-slim-trixie ni el 3.14.7 que propone Dependabot).
-FROM python:3.13.15-slim-trixie@sha256:8d9d0b8bcf6506481eae4907c18f5e3e7902e629f5f6d684f9e7c32e85e3ddf0 AS python-sin-pip
+FROM python:3.14.0-slim-trixie@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e AS python-sin-pip
 RUN set -eu; \
     apt-get update; \
     apt-get install -y --only-upgrade \
