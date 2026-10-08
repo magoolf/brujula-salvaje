@@ -73,6 +73,27 @@ export interface CuentaPrueba {
   ultimoPeriodo: number;
 }
 
+/**
+ * Errores transitorios del motor de Docker (Docker Desktop responde 500 a la API mientras otros
+ * proyectos se construyen o arrancan): el `exec` no llegó a ejecutarse y se repite.
+ */
+const ERROR_DOCKER_TRANSITORIO = /500 Internal Server Error|error during connect/;
+
+function shellBackend(script: string): string {
+  for (let intento = 1; ; intento++) {
+    try {
+      return execFileSync(
+        'docker',
+        ['compose', '-p', PROYECTO_COMPOSE, 'exec', '-T', 'backend', 'python', 'manage.py', 'shell'],
+        { cwd: RAIZ_REPO, input: script, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+      );
+    } catch (error) {
+      if (intento >= 3 || !(error instanceof Error) || !ERROR_DOCKER_TRANSITORIO.test(error.message)) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3_000 * intento);
+    }
+  }
+}
+
 /** Crea una cuenta ACTIVA del staff en el backend del stack bajo prueba. */
 export function crearCuenta(opciones: OpcionesCuenta = {}): CuentaPrueba {
   const rol = opciones.rol ?? 'EDITOR';
@@ -102,11 +123,7 @@ cuenta.set_password(${JSON.stringify(contrasena)})
 cuenta.save()
 print("E2E_CUENTA=" + json.dumps({"secreto": secreto}))
 `;
-  const salida = execFileSync(
-    'docker',
-    ['compose', '-p', PROYECTO_COMPOSE, 'exec', '-T', 'backend', 'python', 'manage.py', 'shell'],
-    { cwd: RAIZ_REPO, input: script, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
-  );
+  const salida = shellBackend(script);
   const linea = salida.split(/\r?\n/).find((l) => l.startsWith('E2E_CUENTA='));
   if (!linea) throw new Error('No se pudo crear la cuenta de prueba');
   const { secreto } = JSON.parse(linea.slice('E2E_CUENTA='.length)) as { secreto: string | null };
