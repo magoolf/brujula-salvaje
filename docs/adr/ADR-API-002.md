@@ -4,10 +4,10 @@
 |---|---|
 | Estado | PROPOSED (Autoridad Delegada, CLAUDE.md §0.2) |
 | Fecha | 2026-09-25 |
-| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) , TKT-F4-007 (CHG-API-002, §1, §5, §17, §18), TKT-F4-008 (CHG-API-003, §7, §19), TKT-F4-009 (CHG-API-004, §20) y TKT-F4-011 (CHG-API-005, §4, §21) |
+| Ticket | TKT-F4-003; modificado por TKT-F4-005 (CHG-API-001, §5) , TKT-F4-007 (CHG-API-002, §1, §5, §17, §18), TKT-F4-008 (CHG-API-003, §7, §19), TKT-F4-009 (CHG-API-004, §20), TKT-F4-011 (CHG-API-005, §4, §21) y CHG-API-006 (TKT-035, §22) |
 | Contrato | `contracts/openapi.yaml` (OpenAPI 3.1.0, 128 operaciones desde CHG-API-005) |
 | Trazabilidad | Skill_Backend §7 (reglas 11-13), §12.1-§12.6; BLUEPRINT §9, §12, §15, §16, §18, §38, §39.3, §40; BLUEPRINT v1.1 (CHG-BP-001: RULE-001/002/003/007/025, FLOW-011 5', FLOW-012, SCR-038, STATE-001, ALT-016/017/019, AC-124..130); DB_HANDOFF (PostgreSQL 18.6, bigint identity, ADR-DB-002/003/005) |
-| DEC-AUTO | 100..119, 216..219 y 265..269 (tablas finales). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles. DEC-AUTO-215 es una decisión del Orquestador (OBS-QA004-06) que este ADR aplica en §17; DEC-AUTO-912 y DEC-AUTO-914 son decisiones del Orquestador que este ADR aplica en §21 |
+| DEC-AUTO | 100..119, 216..219 y 265..269 (tablas finales). ORIGEN: EXPANSIÓN_AUTÓNOMA; todas reversibles. DEC-AUTO-215 es una decisión del Orquestador (OBS-QA004-06) que este ADR aplica en §17; DEC-AUTO-912 y DEC-AUTO-914 son decisiones del Orquestador que este ADR aplica en §21; DEC-AUTO-958 es una decisión del Orquestador que este ADR aplica en §22 |
 
 ## Contexto
 El Blueprint §38 enumera las operaciones públicas y del panel. Skill_Backend exige: versión en la URL, paginación en toda colección, errores RFC 9457 con `trace_id`, contrato documentado para cada endpoint, límites de tasa, idempotencia y health checks. El contrato se escribe antes del código (API-first). El pipeline lo compara con el esquema que genera drf-spectacular y ejecuta schemathesis (§12.5).
@@ -248,6 +248,25 @@ drf-spectacular genera componentes planos (sin `allOf` ni `unevaluatedProperties
 7. Bloqueos `FOR UPDATE` / `FOR SHARE` en orden de id, y pruebas de concurrencia: dos retiros simultáneos de los dos últimos destinos de un tipo, y co-publicación concurrente del mismo tipo desde dos destinos.
 8. Reactivar sin efectos sobre tipos ni itinerarios (AC-130), con una prueba del ciclo completo: retirar → reactivar el destino → publicar falla con `tipo_retirado` → reactivar el tipo → co-publicar.
 9. Prueba del invariante tras cada operación confirmada (AC-127: ningún Tipo PUBLICADO con 0 destinos publicados).
+
+### 22. 409 `conflicto_version` por concurrencia de BD en escrituras que no lo declaraban (CHG-API-006 / TKT-035, DEC-AUTO-958)
+- **Origen:** TKT-035 (integrado en `main` @ 167f2b0). El manejador global de `backend/apps/core/exceptions.py` (`_traducir_error_bd`) responde **409 `conflicto_version`** (Problem Details, RFC 9457) a los errores de concurrencia de PostgreSQL en **cualquier** operación: SQLSTATE `55P03` (espera de bloqueo por encima de `lock_timeout`), `40P01` (interbloqueo), `40001` (fallo de serialización) y `23503` (FK diferida violada en el COMMIT porque otra transacción borró el referenciado). La transacción hace ROLLBACK: la operación no tuvo efectos. Varias escrituras con bloqueos de fila no declaraban 409, así que el contrato no reflejaba una respuesta real (DEC-AUTO-958, condición de F9).
+- **Cambio:** las 8 operaciones siguientes añaden `'409': {$ref: '#/components/responses/Conflicto'}`. Se reutiliza la respuesta existente (`ProblemaConUsos`, `X-Trace-Id`); no se crea ningún esquema ni `code` nuevo.
+
+| Operación | Escritura con bloqueo que puede chocar | Origen en el código |
+|---|---|---|
+| `panelIniciarSesion` | `SELECT ... FOR UPDATE` de la cuenta por usuario normalizado (contador de fallos y bloqueo, RULE-017) y alta de la fila de sesión | `cuentas/services.py::iniciar_sesion`, `cuentas/sesiones.py` |
+| `panelVerificarMfa` | `FOR UPDATE` de la cuenta (contador de fallos, consumo del código de recuperación) y rotación de la sesión | `cuentas/services.py::verificar_mfa` |
+| `panelCambiarContrasena` | `FOR UPDATE` de la cuenta y borrado de sus demás filas de `sesion_panel` | `cuentas/services.py::cambiar_contrasena` |
+| `panelCerrarSesion` | borrado de la fila de `sesion_panel`, que una invalidación concurrente de las sesiones de la cuenta puede tener bloqueada | `cuentas/sesiones.py` (SESSION_ENGINE) |
+| `panelRenovarSesion` | `UPDATE` de la fila de `sesion_panel` dentro de una transacción | `cuentas/sesiones.py::SessionStore.save` |
+| `panelActualizarConfigInicio` | `FOR UPDATE` del singleton `ConfigInicio` | `inicio/services.py` |
+| `panelActualizarConfiguracionSitio` | `FOR UPDATE` del singleton `ConfigSitio` | `inicio/services.py` |
+| `panelActualizarNivelEscala` | `FOR NO KEY UPDATE` del nivel (`_obtener_o_404`) | `catalogos/services.py::actualizar_nivel_escala` |
+
+- **Revisión del resto de escrituras** (grep de `select_for_update` y `transaction.atomic` en `backend/apps/**/services.py`, `cuentas/sesiones.py` y `contenido/services.py::_transaccion`): las demás operaciones HTTP que escriben o bloquean filas ya declaraban 409 `Conflicto` (CRUD y ciclo editorial de contenidos, medios, taxonomías y catálogos, autorización y MFA propios, administración de cuentas). Las vistas previas (`panelVistaPrevia*`) no escriben; `panelAnalizarPublicacion` tampoco escribe y ya declaraba 409. `anonimizar_cuentas_vencidas`, `reaplicar_libro_anonimizaciones` y `cargar_semilla` también bloquean filas, pero son comandos de gestión, no operaciones del contrato. Las lecturas GET no toman bloqueos (MVCC) y no cambian.
+- **Semántica para el cliente:** el `code` es `conflicto_version` en todos los casos. En estas operaciones no lleva `entidades_en_conflicto`, que es exclusivo de las operaciones multi-entidad de §21. El cliente relee el recurso (o repite el login) y reintenta. **No** se documenta `Retry-After`: en la respuesta `Conflicto` queda reservado a `idempotencia_en_curso`, y en los 429 lo llevan `limite_tasa` y `acceso_bloqueado_temporalmente`.
+- **Compatibilidad:** añadir una respuesta de error a operaciones existentes es aditivo y no rompiente. `info.version` sigue en 1.0.0 e `info.x-cambios` añade CHG-API-006. `info.description` (Errores) y la descripción de la respuesta `Conflicto` recogen la norma general. El gate de contrato del CI exige que los códigos que genera drf-spectacular sean ⊆ contrato, así que un contrato con más códigos sigue en verde.
 
 ## Registro DEC-AUTO-265..269 (CHG-API-005)
 | ID | Decisión (elegida) | Alternativas | Motivo | Riesgo | Reversibilidad |
