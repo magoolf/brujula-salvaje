@@ -206,7 +206,7 @@ tickets:
   - id: TKT-016
     titulo: "Investigar y corregir la causa raíz de un layout-shift compartido del shell/hidratación (no específico de una página): CLS medido de forma intermitente entre 0 y 1.16 tanto en Inicio como en /destinos (Skill_UI_UX §47.2 exige ≤0.1), con app-pie-sitio desplazándose 300-420ms después de la hidratación. Documentado por el Developer de TKT-008 tras descartar 4 hipótesis específicas de Inicio (doble fetch ya corregido con TransferState, imágenes rotas, remount real del footer, esqueleto SSR) sin aislar la causa; puede requerir tocar frontend/src/app/app.config.ts (fuera del alcance de un solo Developer-ticket previo, con una restricción de CSP ya documentada ahí por TKT-002 sobre event replay que hay que respetar)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, "Skill_UI_UX#47.2"]
     depende_de: [TKT-008]
@@ -214,7 +214,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente."]
-    actualizado: 2026-10-01
+    actualizado: 2026-10-08
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
     fase: F7
@@ -290,7 +290,7 @@ tickets:
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
     fase: F4
-    estado: TODO
+    estado: IN_PROGRESS
     owner: backend-contrato
     trazabilidad: [TKT-035, "Skill_Backend §12.1"]
     depende_de: [TKT-035]
