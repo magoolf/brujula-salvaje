@@ -347,6 +347,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-951.", "2026-10-08 OBS-1 de la QA de TKT-033: dos PUT concurrentes de contenidos relacionados entre sí (A<->B) producen 40P01, ya traducido a 409 conflicto_version reintentable (15/40 en 20 rondas); considerar un orden de bloqueo global para reducirlo.", "2026-10-08: TKT-033 DONE; despachado al Developer (rama tkt-035-errores-bloqueo-global).", "Entregado @ PR #60 (39dc940, base ee8dfda; update-branch tras #52): core/exceptions traduce 55P03/40P01/40001/23503 -> 409 conflicto_version y ProtectedError/RestrictedError -> 409 dependencia_bloqueante; catalogos con select_for_update(no_key) (defecto hallado: un PUT de retiro reinsertaba un país borrado). 1205 passed, gate 15/15, 6 tests de carrera FAIL en main / PASS en rama. CI run 37787766442 verde. QA ciclo 1/3 despachada. Propuestas -> CHG-API-006 y TKT-037.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 6ff55aa: main 56 x 500 y 2 filas resucitadas en 30 rondas; rama 0 5xx y 0 inconsistencias en 40 rondas; errores reales no relacionados siguen 500; schemathesis 7669 casos 0 5xx; contrato sin cambios; 0 confirmed. CI run 37790112167 verde. Integrado (gh pr merge 60 --merge @ 167f2b0). DONE. OBS-01 -> TKT-038; OBS-02 -> TKT-037; OBS-03 -> CHG-API-006 (antes de F9)."]
     actualizado: 2026-10-08
+  - id: TKT-OPS-028
+    titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-4775 (HIGH, libtiff 4.7.1-r0, ejecución de código/DoS, corregido en 4.7.2-r0) en brujula/proxy (alpine 3.24.2). Corregir sin .trivyignore, con el mismo patrón que TKT-OPS-024 (paquete fijado en infra/proxy/Dockerfile o base nueva); valorar si tiff es necesario en el proxy y quitarlo si no lo es; validar nginx -t, smoke anti-evasión y cabeceras"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [TKT-OPS-024, "RSK-OPS-046"]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-962. Detectado en el run 37830313288 (PR #62 CHG-API-006, ajeno al diff): brujula/proxy Total 1 (HIGH 1) tiff CVE-2026-4775 fixed 4.7.2-r0; el resto de imágenes 0."]
+    actualizado: 2026-10-08
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
