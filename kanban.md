@@ -206,7 +206,7 @@ tickets:
   - id: TKT-016
     titulo: "Investigar y corregir la causa raíz de un layout-shift compartido del shell/hidratación (no específico de una página): CLS medido de forma intermitente entre 0 y 1.16 tanto en Inicio como en /destinos (Skill_UI_UX §47.2 exige ≤0.1), con app-pie-sitio desplazándose 300-420ms después de la hidratación. Documentado por el Developer de TKT-008 tras descartar 4 hipótesis específicas de Inicio (doble fetch ya corregido con TransferState, imágenes rotas, remount real del footer, esqueleto SSR) sin aislar la causa; puede requerir tocar frontend/src/app/app.config.ts (fuera del alcance de un solo Developer-ticket previo, con una restricción de CSP ya documentada ahí por TKT-002 sobre event replay que hay que respetar)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, "Skill_UI_UX#47.2"]
     depende_de: [TKT-008]
@@ -214,7 +214,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente."]
-    actualizado: 2026-10-01
+    actualizado: 2026-10-08
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
     fase: F7
@@ -285,19 +285,19 @@ tickets:
     archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada."]
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 4bc3a9c (ticket idéntico en e4bb112): 1235 passed, sesiones/permisos 100 %, gate sin excepciones PASS, 38/42 mutantes (supervivientes equivalentes salvo S11, cubierto por la suite existente), sin flakiness, 0 confirmed. Merge pendiente de CI verde: image scan rojo solo por CVE-2026-4775 del proxy (TKT-OPS-028). Deuda -> TKT-039."]
     actualizado: 2026-10-08
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
     fase: F4
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: backend-contrato
     trazabilidad: [TKT-035, "Skill_Backend §12.1"]
     depende_de: [TKT-035]
     archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-958."]
+    evidencia: ["DEC-AUTO-958.", "Entregado @ PR #62: 409 Conflicto en 8 operaciones del panel, sin esquemas nuevos, info.version 1.0.0, x-cambios y ADR-API-002 §22. El agente backend-contrato no tenía shell: su parche manual no aplicaba; editó en el worktree y el Orquestador hizo commit/push/PR sin cambiar contenido (DEC-AUTO-961). YAML válido. oasdiff/gate/cliente generado: los verifica el CI."]
     actualizado: 2026-10-08
   - id: TKT-037
     titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
@@ -323,6 +323,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-959."]
     actualizado: 2026-10-08
+  - id: TKT-039
+    titulo: "LOW (QA TKT-034): (S11) prueba propia de que la actualización de sesión persiste expire_date (caducidad deslizante); (INFO-1) corregir el docstring de apps/cuentas/sesiones.py ('cifrado y firmado' -> solo firmado); (INFO-2, defensa en profundidad) traducir a CreateError solo la violación de la PK de sesion_panel para evitar un bucle teórico de SessionStore.create() ante FK inexistente"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-034, THREAT-002]
+    depende_de: [TKT-034]
+    archivos_permitidos: ["backend/apps/cuentas/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-963."]
+    actualizado: 2026-10-08
   - id: TKT-036
     titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
     fase: F7
@@ -347,10 +359,34 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-951.", "2026-10-08 OBS-1 de la QA de TKT-033: dos PUT concurrentes de contenidos relacionados entre sí (A<->B) producen 40P01, ya traducido a 409 conflicto_version reintentable (15/40 en 20 rondas); considerar un orden de bloqueo global para reducirlo.", "2026-10-08: TKT-033 DONE; despachado al Developer (rama tkt-035-errores-bloqueo-global).", "Entregado @ PR #60 (39dc940, base ee8dfda; update-branch tras #52): core/exceptions traduce 55P03/40P01/40001/23503 -> 409 conflicto_version y ProtectedError/RestrictedError -> 409 dependencia_bloqueante; catalogos con select_for_update(no_key) (defecto hallado: un PUT de retiro reinsertaba un país borrado). 1205 passed, gate 15/15, 6 tests de carrera FAIL en main / PASS en rama. CI run 37787766442 verde. QA ciclo 1/3 despachada. Propuestas -> CHG-API-006 y TKT-037.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 6ff55aa: main 56 x 500 y 2 filas resucitadas en 30 rondas; rama 0 5xx y 0 inconsistencias en 40 rondas; errores reales no relacionados siguen 500; schemathesis 7669 casos 0 5xx; contrato sin cambios; 0 confirmed. CI run 37790112167 verde. Integrado (gh pr merge 60 --merge @ 167f2b0). DONE. OBS-01 -> TKT-038; OBS-02 -> TKT-037; OBS-03 -> CHG-API-006 (antes de F9)."]
     actualizado: 2026-10-08
+  - id: TKT-OPS-029
+    titulo: "CRITICAL, PRIORIDAD MÁXIMA (bloquea el job frontend del CI de main y de todos los PR): handlebars 4.0.0-4.7.9 (GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f, inyección de JavaScript), dependencia transitiva del frontend detectada por npm audit (run 37836571528, PR #65). Subir handlebars a la versión corregida solo en frontend/package-lock.json (package.json sin cambios salvo overrides si no hay otra vía, justificado); verificar npm ci, npm audit --audit-level=high, lint, build y tests del frontend; rama propia desde origin/main y PR"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [TKT-OPS-025, "Skill_devops §4.2"]
+    depende_de: []
+    archivos_permitidos: ["frontend/package-lock.json", "frontend/package.json", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-965."]
+    actualizado: 2026-10-08
+  - id: TKT-OPS-028
+    titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-4775 (HIGH, libtiff 4.7.1-r0, ejecución de código/DoS, corregido en 4.7.2-r0) en brujula/proxy (alpine 3.24.2). Corregir sin .trivyignore, con el mismo patrón que TKT-OPS-024 (paquete fijado en infra/proxy/Dockerfile o base nueva); valorar si tiff es necesario en el proxy y quitarlo si no lo es; validar nginx -t, smoke anti-evasión y cabeceras"
+    fase: F7
+    estado: DONE
+    owner: devops
+    trazabilidad: [TKT-OPS-024, "RSK-OPS-046"]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-962. Detectado en el run 37830313288 (PR #62 CHG-API-006, ajeno al diff): brujula/proxy Total 1 (HIGH 1) tiff CVE-2026-4775 fixed 4.7.2-r0; el resto de imágenes 0.", "PR #64 @ ae0cfd9: apk del nginx-module-image-filter (módulo nunca cargado; 41 paquetes en lugar de 70, sin tiff/libgd/libexpat), control en el build; CI verde completo (run 37836015217: build+trivy+SBOM+smoke+schemathesis). DEC-AUTO-964: validación por CI como en TKT-OPS-024. Integrado (gh pr merge 64 --merge @ ea33268). DONE."]
+    actualizado: 2026-10-08
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
     depende_de: []
@@ -362,7 +398,7 @@ tickets:
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: ["Skill_devops §5", "Skill_devops §4.2"]
     depende_de: []
