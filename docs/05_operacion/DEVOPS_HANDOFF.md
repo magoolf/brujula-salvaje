@@ -13,6 +13,7 @@ Actualizado por **TKT-OPS-012** (F7, línea de `infra/scheduler/crontab` para `v
 Actualizado por **TKT-OPS-016** (F7, HIGH, condición de F9). El limitador de borde gana la zona propia `estaticos` para los assets (fin de la navegación rota tras una IP compartida) y una defensa para que un asset inexistente no se renderice en el SSR. Además, `ruta_pedida` en el log y `X-Robots-Tag` en `/panel/**` (DEC-AUTO-929). 2026-09-30. Ver §23 y **ADR-OPS-001**.
 Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 de las 5 imágenes Debian; actualización fijada a 10.46-1~deb13u3 de trixie-security, sin tocar `.trivyignore`, 2026-10-01): ver §24 (§23 reservado para TKT-OPS-016, PR #38).
 Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-016: la location de assets envía al SSR solo la ruta, sin query; ancla `\z`; sin `X-Forwarded-Host`/`X-Forwarded-Proto`; RSK-OPS-041 medido: 8 → 4 líneas, 2026-10-01): ver §25 y **ADR-OPS-001** (punto 7).
+Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 de la imagen `brujula/proxy` (alpine 3.24.2); `pcre2=10.49-r0` fijado en el Dockerfile, sin tocar `.trivyignore` ni la base, 2026-10-01): ver §27.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -78,7 +79,7 @@ Digests consultados en Docker Hub y GHCR el 2026-09-25 (índice multi-arquitectu
 | npm | 11.19.0 (incluido en Node 24.21.0) | Frontend | lockfileVersion 3 | APROBADO | `npm ci` (fixture) |
 | Angular / CLI / SSR | 22.2.0 | Skill_Frontend | TypeScript 6.0.x, Node 24.21, Express 5 | APROBADO | Build SSR `dist/brujula-salvaje/{browser,server/server.mjs}` (fixture) |
 | TypeScript | 6.0.x (lo fija `ng new` 22.2.0; `>=6.0.0 <6.1.0`) | Frontend | Angular 22 | APROBADO | Build (fixture) |
-| nginx (proxy) | 1.30.5 stable — `nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5` (+ libexpat 2.8.5-r0) | Mismo origen (ADR-API-001) | SSR 4000, gunicorn 8000 | APROBADO | `nginx -t`; pruebas con stubs y stack completo; trivy 0 CRITICAL/HIGH |
+| nginx (proxy) | 1.30.5 stable — `nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5` (+ libexpat 2.8.5-r0, + pcre2 10.49-r0 desde TKT-OPS-024) | Mismo origen (ADR-API-001) | SSR 4000, gunicorn 8000 | APROBADO | `nginx -t`; pruebas con stubs y stack completo; trivy 0 CRITICAL/HIGH |
 | supercronic | v0.2.49 (sha256 amd64 `a53ae236…30c1`, arm64 `02aa0cb2…dd5`) | Planificador (DEC-AUTO-122) | — | APROBADO | `supercronic -test` OK en los 2 crontabs |
 | age | 1.2.1-1+b5 (Debian trixie) | Copias cifradas | — | APROBADO | Ida y vuelta cifrar → descifrar → sha256 OK |
 | gitleaks / trivy / syft / cosign | 8.30.1 / 0.74.0 / 1.51.0 / 3.1.3 (sha256 en ci.yaml) | CI §23.2 (VERSIONS.md) | — | APROBADO | trivy y gitleaks ejecutados en local |
@@ -2315,10 +2316,80 @@ El enmascarado reduce la exposición en el log de los secretos efímeros del CI 
 | — | `cuentas/sesiones.py` (76 %) y `cuentas/permisos.py` (94,12 %) bajo el umbral de críticos | LOW | **Ticket de Developer propuesto**: tests de `apps/cuentas/sesiones.py` y `apps/cuentas/permisos.py` hasta > 95 % ambos (ramas sin cubrir del informe de cobertura); al integrarlo, DevOps retira EXC-01/EXC-02 de §26.13 (el gate avisará) | ABIERTO |
 | — | `coverage.json` y `vistas_urlconf.json` no están en `.gitignore` | INFO | `.gitignore` está fuera de `archivos_permitidos` de DevOps: ticket al Developer/Orquestador para añadir `backend/coverage.json` y `backend/vistas_urlconf.json` | PENDIENTE |
 | — | La exclusión por nombre (`*serializers.py`, `*urls.py`, …) sigue siendo un atajo de la vía estructural | INFO | Mitigado: la vía URLconf la contrasta y falla si un excluido sirve rutas (N23) | CERRADO |
-| — | CVE-2026-103111 (HIGH) en `pcre2` de la imagen del proxy (alpine): el CI de `main` y de todos los PR está en rojo en "image scan" | HIGH | Fuera del alcance de TKT-OPS-022 (`infra/proxy/Dockerfile` no está en sus `archivos_permitidos`). Ticket de DevOps propuesto, análogo a TKT-OPS-017: subir `pcre2` a `10.49-r0` en `infra/proxy/Dockerfile` (`apk upgrade --no-cache pcre2` o nuevo digest de la base si ya lo trae) y verificar con trivy. No usar `.trivyignore`: existe corrección (CLAUDE.md §0.5) | ABIERTO |
+| — | CVE-2026-103111 (HIGH) en `pcre2` de la imagen del proxy (alpine): el CI de `main` y de todos los PR está en rojo en "image scan" | HIGH | Fuera del alcance de TKT-OPS-022 (`infra/proxy/Dockerfile` no está en sus `archivos_permitidos`). Ticket de DevOps propuesto, análogo a TKT-OPS-017: subir `pcre2` a `10.49-r0` en `infra/proxy/Dockerfile` (`apk upgrade --no-cache pcre2` o nuevo digest de la base si ya lo trae) y verificar con trivy. No usar `.trivyignore`: existe corrección (CLAUDE.md §0.5). **Corregido por TKT-OPS-024 (PR #53, §27)**; la rama de TKT-OPS-022 se sincronizó con `main` por merge (sin rebase) | CERRADO |
 
 ### 26.18 TKT-OPS-022 — Archivos modificados
 `infra/ci/cobertura_umbrales.toml`, `infra/ci/gate_cobertura.py`, `infra/ci/gate_cobertura_controles.py`, `infra/ci/vistas_urlconf.py` (nuevo), `infra/ci/enmascarar_env.sh` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
 
 ### 26.19 TKT-OPS-022 — Próximo agente
 **Orquestador**: registrar como DEC-AUTO la retirada de EXC-01/EXC-02, las excepciones de §26.13, la regla de suelo (−25 puntos / 60 %) y la ampliación de críticos (incluidos `panel_urls.py` y `core/permisos.py`); abrir el ticket de Developer de §26.17, el de `.gitignore` y el de DevOps para CVE-2026-103111 en el proxy (bloquea el CI de `main` y de todos los PR); lanzar la QA de TKT-OPS-022.
+
+## 27. TKT-OPS-024: CVE-2026-103111 (HIGH) en `pcre2` de la imagen del proxy (F7, soporte; desbloquea el CI)
+
+> Numeración: el PR #52 (TKT-OPS-022) añade §26.10-26.18 al final de este documento. Si se integra antes, este PR tendrá un conflicto solo textual de "añadido al final": hay que mantener ambas partes, §26.10-26.18 antes de §27.
+
+### 27.1 Estado
+COMPLETADO. Validado en local con BD de trivy fresca y en el CI real del PR #53 (el resultado se reporta en el HANDOFF_ENVELOPE al Orquestador).
+
+### 27.2 Objetivo
+El CI de `main` (run 36913373742 @ d453dae) y el de todos los PR fallan en `image scan`: `brujula/proxy` (alpine 3.24.2, base `nginxinc/nginx-unprivileged:1.30.5-alpine`) tiene CVE-2026-103111 HIGH en `pcre2` 10.48-r0, corregida en 10.49-r0. Es la variante Alpine del CVE que TKT-OPS-017 corrigió en las imágenes Debian (§24). Como existe corrección, no procede `.trivyignore`: aceptar un HIGH con parche sería Puerta Humana (CLAUDE.md §0.5; DEC-AUTO-930/950).
+
+### 27.3 Diagnóstico y alternativas (comprobado el 2026-10-01 con `apk info -v` dentro de cada imagen)
+| Opción | Imagen | pcre2 | libexpat | ¿Corrige? |
+|---|---|---|---|---|
+| Base fijada hoy | `1.30.5-alpine@sha256:4714e0b1…bc5` | 10.48-r0 | 2.8.4-r0 (el Dockerfile ya la sube a 2.8.5-r0) | NO |
+| (b) Digest actual del tag | `1.30.5-alpine@sha256:ed04ec1f…20b1e` (creado 2026-09-28) | 10.48-r0 | 2.8.5-r0 | NO |
+| (c) PR #22 de Dependabot | `1.31.5-alpine@sha256:19c132c9…2a07` (creado 2026-09-14) | 10.48-r0 | **2.8.4-r0** (CVE-2026-93990 HIGH si se quitara la línea de libexpat) | NO; además cambia de la rama stable 1.30 a la mainline 1.31 |
+| **(a) `apk add` fijado** | base sin cambios + `pcre2=10.49-r0` | **10.49-r0** | 2.8.5-r0 | **SÍ** |
+
+Decisión: opción **(a)**. Es el único cambio que corrige la CVE y el mínimo posible. Sigue el patrón ya aprobado en el mismo Dockerfile para libexpat (F6) y en las imágenes Debian (TKT-OPS-014/015/017). Ni (b) ni (c) corrigen la CVE. El PR #22 no la resuelve, así que **no se integra en este ticket**. Su cambio de rama nginx (1.30 stable a 1.31 mainline) debe evaluarse aparte, contrastando sus notas de versión con `nginx.conf`. Se recomienda al Orquestador dejarlo abierto (Dependabot lo rebasará) o cerrarlo, pero no integrarlo para resolver este CVE.
+
+### 27.4 Cambios realizados
+`infra/proxy/Dockerfile`, en el `RUN` que ya existía (como `USER root`, antes de volver a `USER 101`):
+```dockerfile
+RUN apk add --no-cache "libexpat=2.8.5-r0" "pcre2=10.49-r0" \
+ && apk info -e "pcre2=10.49-r0" "libexpat=2.8.5-r0" \
+ && rm -f /etc/nginx/conf.d/default.conf \
+ ...
+```
+- Versión exacta, sin rangos. `apk info -e` hace fallar el build si no quedan exactamente esas versiones (control análogo al `dpkg-query` de §24).
+- Sin cambios en la imagen base (tag y digest), `nginx.conf`, `snippets/`, usuario (`USER 101`), `EXPOSE`, `HEALTHCHECK`, `.trivyignore` ni el workflow.
+
+### 27.5 Versiones aprobadas
+| Componente | Versión | Imagen | Estado | Evidencia |
+|---|---|---|---|---|
+| pcre2 | 10.49-r0 (alpine v3.24 main) | proxy | APROBADO | `apk info -v` en la imagen y en el contenedor; control `apk info -e` del build; trivy 0 |
+| libexpat | 2.8.5-r0 (sin cambios) | proxy | APROBADO | ídem |
+| nginx | 1.30.5-r1 (sin cambios) | proxy | APROBADO | `nginx -t` en el stack |
+| Imagen base | sin cambios (`1.30.5-alpine@sha256:4714e0b1…bc5`) | proxy | APROBADO | diff |
+
+### 27.6 Infraestructura / dependencias / variables de entorno
+Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
+
+### 27.7 Validaciones ejecutadas (2026-10-01, Docker Engine 29.6.1, trivy 0.74.0, proyecto compose `brujulaops024`, `APP_NET_PREFIX=10.231.124`, `PROXY_HOST_PORT=18124`)
+- **trivy con BD fresca** (RSK-OPS-045): BD descargada de `ghcr.io/aquasecurity/trivy-db:2` en una `--cache-dir` propia, **UpdatedAt 2026-10-01 19:00:16 UTC** (DownloadedAt 20:20:48 UTC). La caché compartida (UpdatedAt 2026-09-30 07:10 UTC) no se usó. Misma política que el CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1`).
+  - Control negativo: proxy de `main` (`git archive origin/main:infra/proxy | docker build -`), Total 1 (HIGH 1): pcre2 CVE-2026-103111 10.48-r0 -> 10.49-r0. Se reproduce el fallo del CI.
+  - Rama: las 6 imágenes (`docker compose --profile ops build --pull`): backend, frontend, proxy, scheduler, backup y db dan exit 0 con 0 CRITICAL/HIGH. Las 5 Debian no cambian (no se tocan).
+- **Paquetes**: `apk info -v` en la imagen y en el contenedor en marcha: `pcre2-10.49-r0`, `libexpat-2.8.5-r0`, `nginx-1.30.5-r1`.
+- **Usuario**: `id` en el contenedor da `uid=101(nginx) gid=101(nginx)`; `Config.User=101`.
+- **`nginx -t`** dentro del stack: "syntax is ok / test is successful". Fuera del stack falla por resolución de `backend:8000`, lo esperado.
+- **Healthcheck**: `docker compose up -d --no-build --wait`: db, backend, frontend y proxy `healthy`; init-volumes y migrate Exited (0). Semilla `cargar_semilla`: creados 98, publicados 68.
+- **Cabeceras A/B frente a `main`** (mismo stack y semilla; solo cambia el contenedor proxy: imagen de la rama frente a la de `main`). Se capturaron estado y cabeceras de 13 respuestas, con valores volátiles normalizados (Date, X-Trace-Id, ETag, Last-Modified, Content-Length, nonces, valores de cookies): `/` 200, `/destinos` 200, asset `/main-*.js` 200 (gzip), `/api/v1/health` 404 (esa ruta no existe en el contrato; el health real es `/health/ready`, también capturado: 200), `/api/v1/publico/inicio` 200, `/panel` 200, `/panel/login` 200, `/no-existe-ops024` 404, `/no-existe-ops024.js` 404, `/media/privado/x.jpg` 404, `POST /` 403 y `/api/v1/publico/inicio` 429 durante la saturación de `por_ip`. **`diff` vacío: idénticas.**
+- **Smoke anti-evasión** (`scripts/ops/smoke-anti-evasion.sh http://127.0.0.1:18124`): 3 ejecuciones seguidas, las 3 con **6/6 OK** y exit 0 (C3: 20/20, 20/20 y 19/20 sondas con 429 del borde). C6 ejercita la regex PCRE con `\z` de la location de assets, es decir, la propia pcre2 actualizada.
+- Suites de tests de backend y frontend: no afectadas (solo cambia el Dockerfile del proxy). Las ejecuta el CI del PR.
+
+### 27.8 Seguridad
+- CVE-2026-103111 (HIGH, `pcre2`) queda eliminada de `brujula/proxy` con la corrección oficial de Alpine. `.trivyignore` sigue intacto.
+- Con esto, las 6 imágenes del proyecto están en 0 CRITICAL/HIGH no suprimidos (BD del 2026-10-01 19:00 UTC).
+
+### 27.9 Riesgos / pendientes
+- **RSK-OPS-046 (MEDIUM, nuevo; análogo a RSK-OPS-044 en Alpine)**: el proxy fija a mano `pcre2=10.49-r0` y `libexpat=2.8.5-r0`. Alpine conserva en `main` solo la última revisión de cada paquete por rama. Si se publica `pcre2` 10.49-r1 o `libexpat` 2.8.6, el `apk add` con versión exacta fallará en el siguiente build con `--pull`. Es fail-fast deseado, porque el build no queda silenciosamente desactualizado, pero bloquearía el CI hasta subir la versión. Mitigación: en cada PR de Dependabot de la base del proxy y ante un fallo de `apk add`, comprobar las versiones de la nueva base (`docker run --rm --entrypoint apk <imagen> info -v`) y retirar o subir las líneas fijadas. Cuando la base traiga pcre2 ≥ 10.49-r0 y libexpat ≥ 2.8.5-r0, retirarlas.
+- PR #22 (Dependabot, 1.31.5-alpine): no corrige la CVE y baja libexpat a 2.8.4-r0. No se integra. Si en el futuro se evalúa, las líneas fijadas lo cubrirían, pero el salto a la rama mainline exige revisar las notas de versión frente a `nginx.conf` (fuera del alcance de este ticket).
+- Conflicto textual previsible con el PR #52 en este documento (ver la nota inicial de §27).
+
+### 27.10 Archivos modificados
+- `infra/proxy/Dockerfile`
+- `docs/05_operacion/DEVOPS_HANDOFF.md`
+
+### 27.11 Próximo agente
+**Orquestador**: confirmar el CI real del PR #53 e integrarlo (sin editar contenido). Después, relanzar el CI de los PR abiertos (#50, #51, #52) tras sincronizarlos con `main`. Registrar RSK-OPS-046 en `audit_log.md` y decidir sobre el PR #22 (§27.3).
