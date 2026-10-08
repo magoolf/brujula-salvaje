@@ -299,6 +299,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-951."]
     actualizado: 2026-10-01
+  - id: TKT-OPS-025
+    titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): GHSA-68fv-2mgg-jv7q (HIGH, DoS del bucle de eventos) en source-map-js 1.2.1, dependencia transitiva del frontend (postcss, @tailwindcss/node, css-tree, magicast, sass). Subir source-map-js a la versión corregida solo en frontend/package-lock.json (package.json sin cambios); verificar npm ci, npm audit --audit-level=high, build y tests del frontend; rama propia desde origin/main y PR"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: devops
+    trazabilidad: [TKT-OPS-022, "CLAUDE.md §0.3 (lockfiles)", "Skill_devops §5"]
+    depende_de: []
+    archivos_permitidos: ["frontend/package-lock.json", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-953. Detectado por el DevOps de TKT-OPS-022 en el run 37772199219 (PR #52 @ 815a5e7): job frontend FAIL solo en npm audit; frontend/** idéntico a main, aviso publicado tras el último CI verde de main (36947600250)."]
+    actualizado: 2026-10-08
   - id: TKT-OPS-024
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-103111 (HIGH, pcre2 10.48-r0, corregido en 10.49-r0) en brujula/proxy (alpine 3.24.2, nginxinc/nginx-unprivileged:1.30.5-alpine). Corregir sin .trivyignore (hay parche): apk upgrade de pcre2 fijado o nuevo digest de la base; revisar si el PR #22 de Dependabot (1.31.5-alpine) lo resuelve y es compatible; validar el proxy (nginx -t, smoke anti-evasión 6/6, cabeceras idénticas)"
     fase: F7
@@ -333,7 +345,7 @@ tickets:
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950).", "2026-10-01: TKT-OPS-024 integrado (CVE del proxy corregida en main); QA ciclo 1/3 despachada sobre PR #52 @ c9d1e79 (CI rojo solo por image scan previo a #53).", "2026-10-08 (reanudación): la QA del 2026-10-01 no emitió QA_VERDICT (NOT_RUN). PR #52 en conflicto con main (DEVOPS_HANDOFF.md, tras #53): DevOps sincroniza la rama con origin/main (merge normal) y luego se relanza la QA."]
+    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950).", "2026-10-01: TKT-OPS-024 integrado (CVE del proxy corregida en main); QA ciclo 1/3 despachada sobre PR #52 @ c9d1e79 (CI rojo solo por image scan previo a #53).", "2026-10-08 (reanudación): la QA del 2026-10-01 no emitió QA_VERDICT (NOT_RUN). PR #52 en conflicto con main (DEVOPS_HANDOFF.md, tras #53): DevOps sincroniza la rama con origin/main (merge normal) y luego se relanza la QA.", "2026-10-08: rama sincronizada con main por merge normal (815a5e7; solo DEVOPS_HANDOFF.md en conflicto, fila de CVE-2026-103111 marcada CERRADA). CI run 37772199219: backend PASS (1163 tests, 97,26 %, controles 39/39), frontend FAIL por GHSA-68fv-2mgg-jv7q ajena -> TKT-OPS-025; image scan NOT_RUN (omitido). La QA espera a TKT-OPS-025."]
     actualizado: 2026-10-08
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
