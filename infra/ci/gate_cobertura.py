@@ -1,23 +1,36 @@
-"""Gate de cobertura POR MÓDULO del backend (TKT-OPS-021, DEC-AUTO-940; Skill_Backend §8).
+"""Gate de cobertura POR MÓDULO del backend (TKT-OPS-021/022, DEC-AUTO-940; Skill_Backend §8).
 
 Uso:  python gate_cobertura.py COVERAGE_JSON UMBRALES_TOML RAIZ_BACKEND [--hoy AAAA-MM-DD]
+                               [--vistas-urlconf VISTAS_JSON]
       Sale 0 si todo cumple; 1 si algo incumple o no se puede evaluar (falla CERRADO);
       2 si la invocación es incorrecta. Solo biblioteca estándar (json, tomllib, fnmatch).
+      VISTAS_JSON lo genera infra/ci/vistas_urlconf.py (vistas REALES del URLconf de Django).
 
 Qué comprueba (umbrales y listas en UMBRALES_TOML, versionado en infra/ci/):
   - Cada [[reglas]]: todo archivo de RAIZ_BACKEND que casa con algún "patrones" (glob relativo,
     "/" como separador) debe tener cobertura ESTRICTAMENTE MAYOR que "umbral" (Skill_Backend §8:
     "Services > 90 %", "Endpoints críticos > 95 %", "Total > 80 %"). La regla especial con
-    patrones = ["TOTAL"] usa totals.percent_covered.
-  - Falla cerrado si: falta o no es JSON válido el coverage.json; una regla no casa con ningún
-    archivo (renombrado silencioso); un archivo que casa existe en disco pero no está en el
-    coverage.json (no medido); un archivo de vistas ("clasificar_vistas") no está clasificado como
-    crítico (en una regla) ni como no crítico (en [vistas_no_criticas], con motivo).
+    patrones = ["TOTAL"] usa totals.percent_covered. "patrones_si_existen" se aplican igual pero
+    pueden no casar con nada todavía (p. ej. paquetes apps/*/services/*.py).
+  - Falla cerrado si: falta o no es JSON válido el coverage.json; un patrón de "patrones" no casa
+    con ningún archivo (renombrado silencioso); un archivo que casa existe en disco pero no está en
+    el coverage.json (no medido).
+  - Clasificación de vistas SIN depender del nombre del archivo (TKT-OPS-022, F-QA021-01):
+    1) estructural: todo archivo que casa con [clasificar_vistas].patrones (apps/*/api/*.py, ...) y
+       no con "excluir" ni está en [api_soporte] (con motivo) debe ser crítico (en una regla con
+       clasifica_vistas = true) o no crítico ([vistas_no_criticas], con motivo);
+    2) URLconf (--vistas-urlconf): todo archivo que sirve una ruta o un handlerXXX debe estar
+       clasificado igual, esté donde esté y se llame como se llame; un archivo excluido o de
+       [api_soporte] que sirve rutas falla; un módulo externo (fuera de backend/) debe estar en
+       [vistas_externas] con motivo. Con urlconf_obligatorio = true, omitir --vistas-urlconf falla.
   - [[excepciones]] nombradas, con caducidad (como .trivyignore): rebajan el umbral de UN archivo a
     "umbral_minimo" (suelo: tampoco puede bajar de ahí) hasta "caduca". Al caducar el gate falla.
-    Obligatorios: archivo, umbral_minimo, registrada, caduca, ticket, decision, motivo; la ventana
-    registrada -> caduca no puede superar MAX_DIAS_EXCEPCION. Una excepción ya innecesaria (el
-    archivo cumple el umbral normal) solo avisa (::warning::) para que se retire.
+    Obligatorios: archivo, umbral_minimo, registrada, caduca, ticket, decision, motivo. Reglas:
+      registrada <= hoy (no se registran en el futuro) y registrada <= caduca;
+      registrada -> caduca <= MAX_DIAS_EXCEPCION y también hoy -> caduca <= MAX_DIAS_EXCEPCION;
+      umbral_minimo < umbral normal, >= umbral normal - MAX_REBAJA_PUNTOS y >= SUELO_ABSOLUTO
+      (F-QA021-03: una excepción no puede vaciar el gate con un suelo 0).
+    Una excepción ya innecesaria (el archivo cumple el umbral normal) solo avisa (::warning::).
 La cobertura es percent_covered de coverage.py (con branch = true incluye ramas), sin redondear.
 """
 
@@ -26,12 +39,17 @@ from __future__ import annotations
 import datetime as dt
 import fnmatch
 import json
+import os
 import pathlib
 import sys
 import tomllib
 from typing import Any
 
 MAX_DIAS_EXCEPCION = 45
+# F-QA021-03 (TKT-OPS-022): suelo de una excepción. Nunca más de 25 puntos por debajo del umbral
+# normal de su regla (crítico 95 -> suelo >= 70; services 90 -> >= 65) ni por debajo de 60 %.
+MAX_REBAJA_PUNTOS = 25.0
+SUELO_ABSOLUTO = 60.0
 CAMPOS_EXCEPCION = (
     "archivo",
     "umbral_minimo",
@@ -41,7 +59,19 @@ CAMPOS_EXCEPCION = (
     "decision",
     "motivo",
 )
-PODAR = {".venv", "__pycache__", "node_modules", "tests"}
+# F-QA021-06: directorios que NO se recorren (se podan en os.walk, no se filtran después).
+PODAR = {
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    "tests",
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "htmlcov",
+}
 
 
 def out(texto: str = "") -> None:
@@ -54,11 +84,12 @@ def error(msg: str) -> None:
 
 def archivos_backend(raiz: pathlib.Path) -> list[str]:
     salida = []
-    for p in raiz.rglob("*.py"):
-        rel = p.relative_to(raiz)
-        if PODAR.intersection(rel.parts[:-1]):
-            continue
-        salida.append(rel.as_posix())
+    for actual, dirs, ficheros in os.walk(raiz):
+        dirs[:] = [d for d in dirs if d not in PODAR and not d.startswith(".")]
+        base = pathlib.Path(actual)
+        for nombre in ficheros:
+            if nombre.endswith(".py"):
+                salida.append((base / nombre).relative_to(raiz).as_posix())
     return sorted(salida)
 
 
@@ -66,8 +97,16 @@ def casa(ruta: str, patrones: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(ruta, pat) for pat in patrones)
 
 
+def es_numero(valor: Any) -> bool:
+    return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+
+
 def evaluar(
-    cov_path: pathlib.Path, umb_path: pathlib.Path, raiz: pathlib.Path, hoy: dt.date
+    cov_path: pathlib.Path,
+    umb_path: pathlib.Path,
+    raiz: pathlib.Path,
+    hoy: dt.date,
+    urlconf_path: pathlib.Path | None = None,
 ) -> int:
     fallos = 0
     try:
@@ -90,7 +129,12 @@ def evaluar(
         conf = tomllib.loads(umb_path.read_text(encoding="utf-8"))
         reglas: list[dict[str, Any]] = conf["reglas"]
         no_criticas: dict[str, str] = conf.get("vistas_no_criticas", {})
-        clasificar: list[str] = conf["clasificar_vistas"]["patrones"]
+        clasif: dict[str, Any] = conf["clasificar_vistas"]
+        clasificar: list[str] = clasif["patrones"]
+        excluir: list[str] = clasif.get("excluir", [])
+        urlconf_obligatorio = clasif.get("urlconf_obligatorio", False) is True
+        soporte: dict[str, str] = conf.get("api_soporte", {})
+        externas: dict[str, str] = conf.get("vistas_externas", {})
         excepciones: list[dict[str, Any]] = conf.get("excepciones", [])
     except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError) as exc:
         error(f"umbrales ilegibles en {umb_path} ({type(exc).__name__}: {exc}): falla cerrado")
@@ -99,66 +143,145 @@ def evaluar(
         error(f"RAIZ_BACKEND {raiz} no es un directorio: falla cerrado")
         return 1
 
+    urlconf: dict[str, list[str]] | None = None
+    urlconf_ext: dict[str, list[str]] = {}
+    if urlconf_path is not None:
+        try:
+            datos = json.loads(urlconf_path.read_text(encoding="utf-8"))
+            urlconf = {str(k): list(v) for k, v in datos["archivos"].items()}
+            urlconf_ext = {str(k): list(v) for k, v in datos.get("externos", {}).items()}
+            if not urlconf:
+                raise ValueError("sin archivos")
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            error(
+                f"inventario de vistas del URLconf {urlconf_path} ilegible o vacío "
+                f"({type(exc).__name__}: {exc}): falla cerrado"
+            )
+            return 1
+    elif urlconf_obligatorio:
+        error(
+            "urlconf_obligatorio = true y no se pasó --vistas-urlconf "
+            "(infra/ci/vistas_urlconf.py): falla cerrado"
+        )
+        return 1
+
     en_disco = archivos_backend(raiz)
 
     # --- Reglas: qué archivo se exige a qué umbral (el más alto si casa con varias) ---
     exigido: dict[str, tuple[float, str]] = {}
+    criticos: set[str] = set()
     for regla in reglas:
-        nombre, umbral, patrones = regla.get("nombre"), regla.get("umbral"), regla.get("patrones")
-        if not isinstance(nombre, str) or not isinstance(umbral, (int, float)) or not patrones:
+        nombre, umbral_raw, patrones = (
+            regla.get("nombre"),
+            regla.get("umbral"),
+            regla.get("patrones"),
+        )
+        opcionales = regla.get("patrones_si_existen", [])
+        if (
+            not isinstance(nombre, str)
+            or not isinstance(umbral_raw, (int, float))
+            or isinstance(umbral_raw, bool)
+            or not isinstance(patrones, list)
+            or not patrones
+            or not isinstance(opcionales, list)
+        ):
             error(f"regla mal formada: {regla!r}")
             fallos += 1
             continue
+        umbral = float(umbral_raw)
         if patrones == ["TOTAL"]:
-            exigido["TOTAL"] = (float(umbral), nombre)
+            exigido["TOTAL"] = (umbral, nombre)
             continue
-        casados = [f for f in en_disco if casa(f, patrones)]
         for pat in patrones:
             if not any(fnmatch.fnmatchcase(f, pat) for f in en_disco):
                 error(
                     f"regla '{nombre}': el patrón {pat} no casa con ningún archivo (¿renombrado?)"
                 )
                 fallos += 1
+        casados = [f for f in en_disco if casa(f, patrones + opcionales)]
+        if regla.get("clasifica_vistas") is True:
+            criticos.update(casados)
         for f in casados:
-            if f not in exigido or float(umbral) > exigido[f][0]:
-                exigido[f] = (float(umbral), nombre)
+            if f not in exigido or umbral > exigido[f][0]:
+                exigido[f] = (umbral, nombre)
 
-    # --- Toda vista debe estar clasificada (crítica = cubierta por una regla; o no crítica) ---
+    def clasificada(f: str) -> bool:
+        return f in criticos or f in no_criticas
+
+    # --- Clasificación estructural: apps/*/api/*.py y similares, salvo soporte declarado ---
     for f in en_disco:
-        if casa(f, clasificar) and f not in exigido and f not in no_criticas:
+        if not casa(f, clasificar) or casa(f, excluir) or f in soporte:
+            continue
+        if not clasificada(f):
             error(
-                f"vista sin clasificar: {f} (añádela a una regla de "
-                "endpoints críticos o a [vistas_no_criticas] con motivo)"
+                f"vista sin clasificar: {f} (añádela a la regla de endpoints críticos, a "
+                "[vistas_no_criticas] con motivo, o -si no sirve rutas- a [api_soporte] con motivo)"
             )
             fallos += 1
-    for f, motivo in no_criticas.items():
-        if f not in en_disco:
-            error(f"[vistas_no_criticas] cita {f}, que no existe")
-            fallos += 1
-        elif f in exigido:
-            error(f"{f} está a la vez en una regla y en [vistas_no_criticas]")
-            fallos += 1
-        elif not str(motivo).strip():
-            error(f"[vistas_no_criticas] {f} sin motivo")
-            fallos += 1
+    for tabla, nombre_tabla in ((no_criticas, "vistas_no_criticas"), (soporte, "api_soporte")):
+        for f, motivo in tabla.items():
+            if f not in en_disco:
+                error(f"[{nombre_tabla}] cita {f}, que no existe")
+                fallos += 1
+            elif f in criticos:
+                error(f"{f} está a la vez en una regla de vistas críticas y en [{nombre_tabla}]")
+                fallos += 1
+            elif not str(motivo).strip():
+                error(f"[{nombre_tabla}] {f} sin motivo")
+                fallos += 1
+    for f in set(no_criticas) & set(soporte):
+        error(f"{f} está a la vez en [vistas_no_criticas] y en [api_soporte]")
+        fallos += 1
+
+    # --- Clasificación por URLconf: lo que REALMENTE sirve rutas ---
+    if urlconf is not None:
+        for f, rutas in sorted(urlconf.items()):
+            ejemplo = ", ".join(rutas[:3]) + (" ..." if len(rutas) > 3 else "")
+            if f in soporte or (casa(f, excluir) and not clasificada(f)):
+                error(
+                    f"{f} sirve rutas del URLconf ({ejemplo}) pero está declarado como "
+                    "soporte/excluido: clasifícalo como vista crítica o no crítica"
+                )
+                fallos += 1
+            elif not clasificada(f):
+                error(
+                    f"vista del URLconf sin clasificar: {f} ({ejemplo}): añádela a la regla de "
+                    "endpoints críticos o a [vistas_no_criticas] con motivo"
+                )
+                fallos += 1
+            elif f not in en_disco:
+                error(f"el URLconf cita {f}, que no está en {raiz} (¿podado o fuera del árbol?)")
+                fallos += 1
+        for mod, rutas in sorted(urlconf_ext.items()):
+            if not str(externas.get(mod, "")).strip():
+                error(
+                    f"vista externa sin clasificar: módulo {mod} sirve {', '.join(rutas[:3])}: "
+                    "añádelo a [vistas_externas] con motivo"
+                )
+                fallos += 1
 
     # --- Excepciones nombradas con caducidad ---
     suelo: dict[str, dict[str, Any]] = {}
-    for exc in excepciones:
-        faltan = [c for c in CAMPOS_EXCEPCION if c not in exc or exc[c] in ("", None)]
+    for ex in excepciones:
+        faltan = [c for c in CAMPOS_EXCEPCION if c not in ex or ex[c] in ("", None)]
         if faltan:
-            error(f"excepción sin {', '.join(faltan)}: {exc!r}")
+            error(f"excepción sin {', '.join(faltan)}: {ex!r}")
             fallos += 1
             continue
-        archivo, reg, cad = exc["archivo"], exc["registrada"], exc["caduca"]
+        archivo, reg, cad = ex["archivo"], ex["registrada"], ex["caduca"]
         if (
             not isinstance(reg, dt.date)
             or not isinstance(cad, dt.date)
+            or isinstance(reg, dt.datetime)
             or isinstance(cad, dt.datetime)
         ):
             error(
                 f"excepción {archivo}: 'registrada' y 'caduca' deben ser fechas TOML (AAAA-MM-DD)"
             )
+            fallos += 1
+            continue
+        if not es_numero(ex["umbral_minimo"]):
+            error(f"excepción {archivo}: umbral_minimo debe ser un número")
             fallos += 1
             continue
         if archivo not in exigido or archivo == "TOTAL":
@@ -172,30 +295,52 @@ def evaluar(
             error(f"excepción duplicada para {archivo}")
             fallos += 1
             continue
-        if (cad - reg).days > MAX_DIAS_EXCEPCION or cad < reg:
+        if reg > hoy:
+            error(
+                f"excepción {archivo}: registrada {reg} es POSTERIOR a hoy ({hoy}): la ventana de "
+                f"{MAX_DIAS_EXCEPCION} días se cuenta desde una fecha real"
+            )
+            fallos += 1
+            continue
+        if cad < reg or (cad - reg).days > MAX_DIAS_EXCEPCION:
             error(
                 f"excepción {archivo}: ventana {reg} -> {cad} fuera de 0..{MAX_DIAS_EXCEPCION} días"
             )
             fallos += 1
             continue
+        if (cad - hoy).days > MAX_DIAS_EXCEPCION:
+            error(
+                f"excepción {archivo}: caduca {cad}, a más de "
+                f"{MAX_DIAS_EXCEPCION} días de hoy ({hoy})"
+            )
+            fallos += 1
+            continue
         if hoy > cad:
             error(
-                f"excepción {archivo} ({exc['ticket']}, {exc['decision']}) "
+                f"excepción {archivo} ({ex['ticket']}, {ex['decision']}) "
                 f"CADUCADA el {cad}: retírala o renuévala con una nueva decisión"
             )
             fallos += 1
             continue
-        if not float(exc["umbral_minimo"]) < exigido[archivo][0]:
+        normal = exigido[archivo][0]
+        minimo = float(ex["umbral_minimo"])
+        if not minimo < normal:
+            error(f"excepción {archivo}: umbral_minimo {minimo:g} no es menor que el umbral normal")
+            fallos += 1
+            continue
+        limite = max(normal - MAX_REBAJA_PUNTOS, SUELO_ABSOLUTO)
+        if minimo < limite:
             error(
-                f"excepción {archivo}: umbral_minimo "
-                f"{exc['umbral_minimo']} no es menor que el umbral normal"
+                f"excepción {archivo}: umbral_minimo {minimo:g} por debajo del suelo permitido "
+                f"{limite:g} (umbral {normal:g} - {MAX_REBAJA_PUNTOS:g} puntos, mínimo absoluto "
+                f"{SUELO_ABSOLUTO:g}): una excepción no puede vaciar el gate"
             )
             fallos += 1
             continue
-        suelo[archivo] = exc
+        suelo[archivo] = ex
 
     # --- Evaluación ---
-    filas = []  # (archivo, cobertura, umbral, regla, estado)
+    filas: list[tuple[str, float | None, float, str, str]] = []  # archivo, %, umbral, regla, estado
     for f, (umbral, nombre) in sorted(exigido.items()):
         if f == "TOTAL":
             pct: float | None = total
@@ -241,8 +386,9 @@ def evaluar(
             error(f"{f}: {pct_s} (exige > {umbral:g} %, {nombre}) [{estado}]")
         fallos += len(malos)
     out()
+    vistas = "" if urlconf is None else f", {len(urlconf)} archivos de vistas del URLconf"
     out(
-        f"gate de cobertura por módulo: {len(filas)} evaluados, {len(malos)} "
+        f"gate de cobertura por módulo: {len(filas)} evaluados{vistas}, {len(malos)} "
         f"por debajo, {fallos} fallos -> {'FAIL' if fallos else 'PASS'}"
     )
     return 1 if fallos else 0
@@ -251,6 +397,7 @@ def evaluar(
 def main(argv: list[str]) -> int:
     args = list(argv[1:])
     hoy = dt.date.today()
+    urlconf: pathlib.Path | None = None
     if "--hoy" in args:
         i = args.index("--hoy")
         try:
@@ -259,10 +406,19 @@ def main(argv: list[str]) -> int:
             sys.stderr.write("uso: --hoy AAAA-MM-DD\n")
             return 2
         del args[i : i + 2]
+    if "--vistas-urlconf" in args:
+        i = args.index("--vistas-urlconf")
+        if i + 1 >= len(args):
+            sys.stderr.write("uso: --vistas-urlconf VISTAS_JSON\n")
+            return 2
+        urlconf = pathlib.Path(args[i + 1])
+        del args[i : i + 2]
     if len(args) != 3:
-        sys.stderr.write(__doc__.splitlines()[2] + "\n")
+        sys.stderr.write("\n".join(__doc__.splitlines()[2:4]) + "\n")
         return 2
-    return evaluar(pathlib.Path(args[0]), pathlib.Path(args[1]), pathlib.Path(args[2]), hoy)
+    return evaluar(
+        pathlib.Path(args[0]), pathlib.Path(args[1]), pathlib.Path(args[2]), hoy, urlconf
+    )
 
 
 if __name__ == "__main__":
