@@ -2431,3 +2431,63 @@ Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend
 
 ### 28.9 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (incluido el image scan) e integrarlo (sin editar contenido). Después, sincronizar los PR #50, #51 y #52 con `main` y relanzar su CI.
+
+## 30. TKT-OPS-028: CVE-2026-4775 (HIGH) en `tiff` de la imagen del proxy: se retira el módulo `image-filter` (F7, soporte; desbloquea el CI; DEC-AUTO-962)
+
+> Numeración: el PR #63 (TKT-OPS-026) añade §29 al final de este documento. Si este PR se integra antes, el conflicto con #63 será solo textual: hay que mantener ambas partes, §29 antes de §30.
+
+### 30.1 Estado
+COMPLETADO en la rama `tkt-ops-028-tiff-proxy`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 30.2 Objetivo
+El image scan del run 37830313288 (PR #62) detecta en `brujula/proxy` (alpine 3.24.2) **CVE-2026-4775 (HIGH)** en `tiff` 4.7.1-r0, corregida en 4.7.2-r0. El resto de imágenes daban 0. Bloquea el CI de `main` y de todos los PR. Como existe corrección, no procede `.trivyignore` (CLAUDE.md §0.5).
+
+### 30.3 Diagnóstico y alternativas (2026-10-08, `apk info` dentro de la base fijada)
+- Cadena de dependencias: `tiff` ← `libgd` ← `nginx-module-image-filter` (en el `world` de la base oficial, que instala los módulos dinámicos `geoip`, `image-filter`, `njs` y `xslt`).
+- `nginx.conf` y `snippets/` **no cargan ningún módulo dinámico** (no hay `load_module`, `image_filter` ni `include` de módulos): el filtro de imágenes nunca se usa.
+- Opciones: (a) fijar `tiff=4.7.2-r0` con `apk add`, como en TKT-OPS-024. Corrige, pero conserva 29 paquetes sin uso y añade otra versión fijada (RSK-OPS-046). (b) **`apk del nginx-module-image-filter`**: elimina el módulo y 28 dependencias huérfanas (`libgd`, `tiff`, `libwebp`, `libavif`, `aom-libs`, `libdav1d`, `libjpeg-turbo`, `libpng`, `freetype`, `fontconfig`, `libexpat`, `libx11`/`libxcb`/`libxpm`/…, `libstdc++`, `libgcc`…). Corrige la CVE y reduce la superficie de ataque.
+- Decisión: **(b)**. `libexpat` (CVE-2026-93990, fijada a 2.8.5-r0 desde F6) solo la requería `fontconfig`. Sale con ellas y se retira su línea fijada: queda solo `pcre2=10.49-r0`, que nginx sí usa.
+
+### 30.4 Cambios realizados
+`infra/proxy/Dockerfile`, en el `RUN` existente (como `USER root`):
+```dockerfile
+RUN apk add --no-cache "pcre2=10.49-r0" \
+ && apk del --no-cache --no-network nginx-module-image-filter \
+ && apk info -e "pcre2=10.49-r0" \
+ && for p in nginx-module-image-filter libgd tiff libexpat; do \
+      if apk info -e "$p" >/dev/null; then echo "TKT-OPS-028: $p sigue instalado" >&2; exit 1; fi; \
+    done \
+ ...
+```
+- El build falla si alguno de esos paquetes vuelve a quedar instalado (por ejemplo, con una base nueva que lo arrastre por otra vía).
+- Sin cambios en la imagen base (tag y digest), `nginx.conf`, `snippets/`, usuario (`USER 101`), `EXPOSE`, `HEALTHCHECK`, `.trivyignore` ni el workflow.
+
+### 30.5 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| nginx | 1.30.5-r1 (sin cambios) | APROBADO | `nginx -t` |
+| pcre2 | 10.49-r0 (sin cambios) | APROBADO | `apk info -v`; control `apk info -e` |
+| nginx-module-image-filter, libgd, tiff, libexpat (+ 25 dependencias) | **retirados** | APROBADO | `apk info -v` (41 paquetes en lugar de 70); control del build |
+| Módulos geoip, njs, xslt | sin cambios (instalados y sin cargar) | — | ver §30.8 |
+
+### 30.6 Infraestructura / dependencias / variables de entorno
+Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
+
+### 30.7 Validaciones ejecutadas (2026-10-08, Docker Engine 29.6.1, trivy 0.74.0)
+- **Build** de la rama (`docker build --pull`): OK, con el control del `RUN` en verde. Imagen: uid 101, `pcre2-10.49-r0`, `nginx-1.30.5-r1`, sin `tiff`, `libgd`, `libexpat` ni `image-filter`; en `/usr/lib/nginx/modules` ya no está `ngx_http_image_filter_module`.
+- **trivy con BD fresca** en una `--cache-dir` propia (**UpdatedAt 2026-10-08 15:33:46 UTC**), con la misma política que el CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1`). Control negativo (proxy de `main`): exit 1, Total 1 (HIGH 1), `tiff` CVE-2026-4775 4.7.1-r0 → 4.7.2-r0. Rama: exit 0, 0 CRITICAL/HIGH. Las otras 5 imágenes no cambian; las escanea el CI.
+- **`nginx -t`** (con `--add-host` para `backend` y `frontend`): "syntax is ok / test is successful" en la rama y en `main`.
+- **Cabeceras A/B frente a `main`**, sin stack completo por la RAM disponible (~1,2 GB libres). Se usó un upstream stub (nginx mínimo con los alias `backend:8000` y `frontend:4000`) y los dos proxies en la misma red. Se capturaron estado y cabeceras de 14 peticiones, con valores volátiles normalizados: `/`, `/destinos`, `/panel`, `/panel/login`, `/api/v1/publico/inicio`, `/api/v1/no-existe`, `/health/ready`, `/no-existe-ops028`, `/no-existe-ops028.js`, `/no-existe-ops028.js%0A`, `/media/privado/x.jpg`, `POST /` (403), `HEAD /` y `/main-abc.js?x=1`. **`diff` vacío: idénticas.**
+- **Regex PCRE con `\z`** (equivalente a C6, ejercita pcre2): `/x.js%0A` va a la location `/` (HTML del SSR) y `/x.js` da 404 Problem Details del proxy, igual en ambas imágenes. **Limitador `por_ip`** (equivalente a C3): una ráfaga de 300 peticiones a `/api/v1/publico/inicio` recibe 429 del borde en ambas imágenes.
+- **Smoke anti-evasión completo** (`scripts/ops/smoke-anti-evasion.sh`): no se ejecutó en local porque requiere el stack completo (SSR con `NG_ALLOWED_HOSTS` y logs de compose) y la RAM no alcanza. Lo ejecuta el job de imágenes del CI con el stack completo; el resultado se reporta en el HANDOFF_ENVELOPE.
+
+### 30.8 Riesgos / pendientes
+- **RSK-OPS-046** se reduce: queda una sola versión fijada a mano (`pcre2`) en lugar de dos.
+- **Recomendación (INFO, fuera del alcance)**: los módulos `geoip`, `njs` y `xslt` tampoco se cargan y arrastran `libxml2`, `libxslt`, `geoip` y njs/quickjs, que son fuentes habituales de CVE. Retirarlos con el mismo patrón requiere un ticket propio y otra validación A/B.
+- PR #22 (Dependabot, 1.31.5-alpine): si se evaluara, el `apk del` y el control se aplican igual a la base nueva.
+
+### 30.9 Archivos modificados
+`infra/proxy/Dockerfile`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 30.10 Próximo agente
+**Orquestador**: confirmar el CI real de este PR (image scan de las 6 imágenes y smoke anti-evasión) e integrarlo (sin editar contenido). Después, sincronizar los PR abiertos con `main`. Actualizar RSK-OPS-046 (ahora solo `pcre2`) en `audit_log.md`.
