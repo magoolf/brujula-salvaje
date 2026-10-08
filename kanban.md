@@ -302,14 +302,14 @@ tickets:
   - id: TKT-037
     titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [RULE-007, TKT-035, TKT-033]
     depende_de: [TKT-035]
     archivos_permitidos: ["backend/apps/contenido/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-958.", "2026-10-08 OBS-02 QA TKT-035: el retiro con FOR NO KEY UPDATE no choca con el FOR KEY SHARE de la FK al crear: creación y retiro concurrentes ambos tienen éxito (6 destinos con país retirado tras la carrera). Exigir activo bajo FOR KEY SHARE (o FOR SHARE) de la fila del catálogo y prueba de carrera retiro vs altas."]
+    evidencia: ["DEC-AUTO-958.", "2026-10-08 OBS-02 QA TKT-035: el retiro con FOR NO KEY UPDATE no choca con el FOR KEY SHARE de la FK al crear: creación y retiro concurrentes ambos tienen éxito (6 destinos con país retirado tras la carrera). Exigir activo bajo FOR KEY SHARE (o FOR SHARE) de la fila del catálogo y prueba de carrera retiro vs altas.", "Entregado @ PR #67 (da2e1ee): RULE-007 exige catálogo activo (FOR SHARE) al asignar y al publicar; _transaccion eliminado; 1232 passed, cobertura 97,18 %, gate 39/39; carreras 6/6 FAIL en main, PASS en rama. DEV-037-01..04 aceptadas. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-08
   - id: TKT-038
     titulo: "LOW (OBS-01 QA TKT-035): el manejador global traduce cualquier 23503 a 409 conflicto_version y lo registra como WARNING sin traza, incluidas violaciones de FK por defectos de validación (no carreras). Registrar 23503 a nivel ERROR con exc_info y/o limitar la traducción a la comprobación diferida en COMMIT; (OBS-04 INFO) usar nombres de dominio en usos.tipo_entidad en lugar de db_table en mayúsculas"
