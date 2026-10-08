@@ -319,12 +319,12 @@ tickets:
     trazabilidad: [RULE-007, TKT-035, TKT-033]
     depende_de: [TKT-035]
     archivos_permitidos: ["backend/apps/contenido/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-958.", "2026-10-08 OBS-02 QA TKT-035: el retiro con FOR NO KEY UPDATE no choca con el FOR KEY SHARE de la FK al crear: creación y retiro concurrentes ambos tienen éxito (6 destinos con país retirado tras la carrera). Exigir activo bajo FOR KEY SHARE (o FOR SHARE) de la fila del catálogo y prueba de carrera retiro vs altas.", "Entregado @ PR #67 (da2e1ee): RULE-007 exige catálogo activo (FOR SHARE) al asignar y al publicar; _transaccion eliminado; 1232 passed, cobertura 97,18 %, gate 39/39; carreras 6/6 FAIL en main, PASS en rama. DEV-037-01..04 aceptadas. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-958.", "2026-10-08 OBS-02 QA TKT-035: el retiro con FOR NO KEY UPDATE no choca con el FOR KEY SHARE de la FK al crear: creación y retiro concurrentes ambos tienen éxito (6 destinos con país retirado tras la carrera). Exigir activo bajo FOR KEY SHARE (o FOR SHARE) de la fila del catálogo y prueba de carrera retiro vs altas.", "Entregado @ PR #67 (da2e1ee): RULE-007 exige catálogo activo (FOR SHARE) al asignar y al publicar; _transaccion eliminado; 1232 passed, cobertura 97,18 %, gate 39/39; carreras 6/6 FAIL en main, PASS en rama. DEV-037-01..04 aceptadas. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ da2e1ee: pytest 1232 passed, gate 21 módulos OK; RULE-007 por API: publicar con país/región/categoría retirados -> 422, asignar -> 400; carreras 35 rondas rama 0 5xx/0 inconsistencias/0 deadlocks (main: 23 publicados con catálogo retirado, 40 deadlocks); schemathesis sin 5xx; 0 confirmed. OBS-01 INFO (datos previos inconsistentes) -> consulta de diagnóstico en F9; OBS-02 INFO (vista previa no comprueba existencia de pais_id/categoria_id) -> TKT-038. update-branch y merge tras CI verde."]
     actualizado: 2026-10-08
   - id: TKT-038
-    titulo: "LOW (OBS-01 QA TKT-035): el manejador global traduce cualquier 23503 a 409 conflicto_version y lo registra como WARNING sin traza, incluidas violaciones de FK por defectos de validación (no carreras). Registrar 23503 a nivel ERROR con exc_info y/o limitar la traducción a la comprobación diferida en COMMIT; (OBS-04 INFO) usar nombres de dominio en usos.tipo_entidad en lugar de db_table en mayúsculas"
+    titulo: "LOW (OBS-01 QA TKT-035): el manejador global traduce cualquier 23503 a 409 conflicto_version y lo registra como WARNING sin traza, incluidas violaciones de FK por defectos de validación (no carreras). Registrar 23503 a nivel ERROR con exc_info y/o limitar la traducción a la comprobación diferida en COMMIT; (OBS-04 INFO) usar nombres de dominio en usos.tipo_entidad en lugar de db_table en mayúsculas; (OBS-02 QA TKT-037, INFO) la vista previa de contenidos acepta pais_id/categoria_id inexistentes sin marcarlos"
     fase: F7
     estado: TODO
     owner: Skill_Developer
