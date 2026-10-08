@@ -96,7 +96,7 @@ def _sin_excepciones(logs: Callable[[], list[dict[str, Any]]]) -> None:
 
 # Códigos documentados que puede dar cada petición de la carrera. 409 `conflicto_version` solo
 # si una espera de bloqueo supera `lock_timeout` (p. ej. el host se detiene unos segundos): es
-# reintentable y no ha cambiado nada (`services._transaccion`).
+# reintentable y no ha cambiado nada (manejador global de `core.exceptions`, TKT-035).
 CODIGOS_ALTA = {(201, None), (400, "validacion"), (409, "conflicto_version")}
 CODIGOS_BORRADO = {(204, None), (409, "dependencia_bloqueante"), (409, "conflicto_version")}
 
