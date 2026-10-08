@@ -14,7 +14,7 @@ import {
   publicarPorApi,
   sufijo,
 } from './panel-contenidos-soporte';
-import { entrarComoEditorCompartido, esperarTransiciones, irA, omitirSinStack } from './panel-soporte';
+import { entrarComoEditorCompartido, irA, omitirSinStack } from './panel-soporte';
 import { sinViolacionesGraves } from './utilidades';
 
 // Límites de tasa reales del entorno: los reintentos tras un 429 pueden alargar un caso.
@@ -28,9 +28,30 @@ async function entrarComoEditor(page: Page): Promise<void> {
   await entrarComoEditorCompartido(page);
 }
 
+/**
+ * Como `esperarTransiciones` (panel-soporte.ts, TKT-022 F-01), pero solo para elementos visibles y con
+ * tope: en Firefox, una transición iniciada sobre un elemento que deja de pintarse (el botón «Retirar»
+ * del menú «Más acciones» ya cerrado) queda pendiente para siempre (startTime null, currentTime 0) y su
+ * `finished` no se resuelve nunca. Esa transición no la ve nadie, así que no debe bloquear la medición.
+ */
+async function esperarTransicionesVisibles(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    const finitas = document.getAnimations().filter((a) => {
+      if (!Number.isFinite(Number(a.effect?.getComputedTiming().endTime ?? Infinity))) return false;
+      const destino = (a.effect as KeyframeEffect | null)?.target;
+      return !destino || destino.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+    });
+    await Promise.race([
+      Promise.allSettled(finitas.map((a) => a.finished)),
+      new Promise((r) => setTimeout(r, 3_000)),
+    ]);
+  });
+}
+
 /** axe tras las transiciones en curso (un fotograma intermedio no es el estado que se ve, TKT-022 F-01). */
 async function axe(page: Page): Promise<void> {
-  await esperarTransiciones(page);
+  await esperarTransicionesVisibles(page);
   await sinViolacionesGraves(page);
 }
 
