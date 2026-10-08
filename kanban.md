@@ -287,6 +287,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 4bc3a9c (ticket idéntico en e4bb112): 1235 passed, sesiones/permisos 100 %, gate sin excepciones PASS, 38/42 mutantes (supervivientes equivalentes salvo S11, cubierto por la suite existente), sin flakiness, 0 confirmed. Merge pendiente de CI verde: image scan rojo solo por CVE-2026-4775 del proxy (TKT-OPS-028). Deuda -> TKT-039.", "2026-10-08: update-branch tras #64/#66, CI verde completo; integrado (gh pr merge 61 --merge @ ece6cb5). DONE. Desbloquea F-QA022-03 de TKT-OPS-027 (retirar EXC-01/02)."]
     actualizado: 2026-10-08
+  - id: TKT-041
+    titulo: "HIGH (decisión del usuario 2026-10-08): sustituir las ilustraciones geométricas de la semilla (backend/seed/imagenes.py) por fotografías reales y pertinentes con licencia libre verificada (Wikimedia Commons u otra fuente sin claves de API; solo CC0, PDM, CC BY y CC BY-SA, añadiendo al catálogo de licencias las versiones 2.0/3.0 si hacen falta), con autor, fuente y licencia registrados (REQ-043/071, créditos) y texto alternativo en español; cada foto debe mostrar de verdad el lugar/actividad (verificación visual). Cubrir portadas y galerías de los 24 destinos, itinerarios, guías, tipos de aventura, colecciones, páginas e imagen principal de inicio; procesar por el pipeline de medios existente (recodificación, sin EXIF, derivados); idempotente; tamaño acotado en el repo"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
+    depende_de: []
+    archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias)."]
+    actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
