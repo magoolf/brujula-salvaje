@@ -59,6 +59,7 @@
 - **TKT-OPS-007**: `scripts/ops/restore-local.sh` con lista TOC filtrada (excluir `SCHEMA app/ext`, `pg_stat_statements`, ACL de `public`) para que el simulacro AC-054 pase sobre BD limpia. **Bloquea F9.**
 
 ### 4.5 F9 — Release (tras todos los tickets DONE, incluido TKT-OPS-016)
+- Antes del release: consulta de diagnóstico de contenidos PUBLICADO con país/región/categoría retirados (OBS-01 QA TKT-037); CHG-API-006 y TKT-040 integrados.
 1. DevOps: build final de las 6 imágenes, SBOM (syft), trivy con `.trivyignore` vigente, firma (cosign keyless opcional), simulacro de restauración (AC-054), pruebas de carga (p95).
 2. Orquestador: auditoría de seguridad completa con `security-audit-skill` en *Full audit mode*, perfil `standard`, salida en `~/security-audit-skill/<repo>/run-<N>`; cualquier `confirmed` CRITICAL/HIGH bloquea.
 3. Producción: **Puerta Humana**. Requiere decisión del usuario sobre plataforma, dominio, costes, secretos reales, responsable del tratamiento (Ley 1581, GAP-004) y revisión humana del contenido (GAP-008).
