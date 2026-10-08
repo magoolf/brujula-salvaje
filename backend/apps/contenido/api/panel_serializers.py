@@ -781,7 +781,9 @@ class ValidacionEntidadSerializer(serializers.Serializer[Any]):
 
 
 class TipoVersionadoSerializer(serializers.Serializer[Any]):
-    id = IdSerializerField()
+    # `id_contrato`: `Id` del contrato sin `maximum` también en la respuesta (TKT-033, INFO de la
+    # QA de TKT-032: `IdSerializerField` documentaba `maximum` en AnalisisPublicacion).
+    id = id_contrato()
     version = serializers.IntegerField(min_value=1)
 
 
