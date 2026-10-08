@@ -18,6 +18,9 @@ __pycache__/
 venv/
 htmlcov/
 .coverage
+# Informes del gate de cobertura por módulo (CI y local, TKT-OPS-022 / TKT-034)
+backend/coverage.json
+backend/vistas_urlconf.json
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

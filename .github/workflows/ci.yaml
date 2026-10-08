@@ -71,8 +71,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false, fetch-depth: 0}
+      # TKT-OPS-022 (F-PRE-01): toda contraseña/clave efímera del .env se enmascara (comando add-mask
+      # de Actions) nada más generarse, antes de cualquier salida que pudiera contenerla.
       - name: .env efímero (valores aleatorios por ejecución, no secretos reales)
-        run: bash scripts/ops/init-env.sh .env
+        run: |
+          bash scripts/ops/init-env.sh .env
+          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
       - name: docker compose config (todas las variantes)
         run: |
           docker compose config --quiet
@@ -167,6 +171,10 @@ jobs:
         working-directory: .
         run: |
           bash scripts/ops/init-env.sh .env
+          # TKT-OPS-022 (F-PRE-01): enmascarado (add-mask) de DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY,
+          # MFA_FERNET_KEY, APP_MIGRATOR_PASSWORD (= DB_PASSWORD) y del resto de *_PASSWORD/*_KEY ANTES
+          # de exportarlos a GITHUB_ENV: el runner imprime el env de cada paso; desde aquí, como ***.
+          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
           {
             grep -E '^(DJANGO_SECRET_KEY|THROTTLE_HMAC_KEY|MFA_FERNET_KEY)=' .env
             echo "DB_PASSWORD=$(grep '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
@@ -192,14 +200,20 @@ jobs:
       # apps/*/services.py > 90 %, vistas de endpoints críticos -panel y cuentas/auth- > 95 %).
       # Umbrales, clasificación de vistas y excepciones nombradas con caducidad (como .trivyignore,
       # el gate falla al caducar) en infra/ci/cobertura_umbrales.toml. Falla cerrado si falta el
-      # coverage.json. Antes se ejecutan sus controles: 16 sintéticos + 4 sobre el coverage.json real
-      # (umbral imposible, coverage.json manipulado, fecha tras la caducidad). Detalle: DEVOPS_HANDOFF §26.
-      - name: "cobertura por módulo: controles del gate (sintéticos + coverage.json real manipulado)"
+      # coverage.json. TKT-OPS-022 (F-QA021-01): las vistas se clasifican sin depender del nombre del
+      # archivo, también a partir del URLconf REAL (vistas_urlconf.py resuelve con django.urls cada ruta
+      # y handlerXXX a su archivo; sin dependencias nuevas). Antes se ejecutan sus controles: 33
+      # sintéticos (incluidos X1-X5 de la QA) + 6 sobre el coverage.json y el URLconf reales.
+      # Detalle: DEVOPS_HANDOFF §26.
+      - name: "cobertura por módulo: inventario de vistas del URLconf (django.urls)"
         timeout-minutes: 5
-        run: python ../infra/ci/gate_cobertura_controles.py ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml .
+        run: uv run --frozen python ../infra/ci/vistas_urlconf.py vistas_urlconf.json
+      - name: "cobertura por módulo: controles del gate (sintéticos + coverage.json y URLconf reales)"
+        timeout-minutes: 5
+        run: python ../infra/ci/gate_cobertura_controles.py ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml . vistas_urlconf.json
       - name: "cobertura por módulo (Skill_Backend §8: services > 90 %, endpoints críticos > 95 %)"
         timeout-minutes: 5
-        run: python ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml .
+        run: python ../infra/ci/gate_cobertura.py coverage.json ../infra/ci/cobertura_umbrales.toml . --vistas-urlconf vistas_urlconf.json
       - name: check --deploy
         env: {DJANGO_DEBUG: "false", DJANGO_SECURE_SSL_REDIRECT: "true", DJANGO_SECURE_HSTS_SECONDS: "31536000"}
         run: uv run --frozen python manage.py check --deploy --fail-level WARNING
@@ -294,8 +308,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: .env efímero
-        run: bash scripts/ops/init-env.sh .env
+      - name: .env efímero (enmascarado, TKT-OPS-022)
+        run: |
+          bash scripts/ops/init-env.sh .env
+          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
       - name: build imágenes (sin push)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: docker compose --profile ops build --pull
