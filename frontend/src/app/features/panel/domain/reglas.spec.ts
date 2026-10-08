@@ -111,10 +111,11 @@ describe('catálogo de secciones (DEC-ESTRUCTURA-03, RULE-030)', () => {
     expect(accesosRapidos('ADMINISTRADOR', catalogo).map((a) => a.id)).toEqual(['subir', 'cuentas']);
   });
 
-  it('AC_TKT010_09 el catálogo real solo contiene secciones implementadas (sin accesos rápidos aún)', () => {
-    expect(SECCIONES_PANEL.map((s) => s.ruta)).toEqual(['/panel', '/panel/cuenta']);
-    expect(accesosRapidos('ADMINISTRADOR')).toEqual([]);
-    expect(seccionesVisibles('EDITOR').length).toBe(2);
+  it('AC_TKT010_09 el catálogo real solo contiene secciones implementadas (TKT-022 añade Medios)', () => {
+    expect(SECCIONES_PANEL.map((s) => s.ruta)).toEqual(['/panel', '/panel/medios', '/panel/cuenta']);
+    expect(accesosRapidos('EDITOR').map((a) => a.ruta)).toEqual(['/panel/medios']);
+    expect(accesosRapidos('ADMINISTRADOR').map((a) => a.id)).toEqual(['subir-medios']);
+    expect(seccionesVisibles('EDITOR').length).toBe(3);
   });
 
   it('sección de una URL: prefijo más largo; el Tablero solo coincide exacto', () => {
