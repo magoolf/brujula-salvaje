@@ -111,11 +111,30 @@ describe('catálogo de secciones (DEC-ESTRUCTURA-03, RULE-030)', () => {
     expect(accesosRapidos('ADMINISTRADOR', catalogo).map((a) => a.id)).toEqual(['subir', 'cuentas']);
   });
 
-  it('AC_TKT010_09 el catálogo real solo contiene secciones implementadas (TKT-022 añade Medios)', () => {
-    expect(SECCIONES_PANEL.map((s) => s.ruta)).toEqual(['/panel', '/panel/medios', '/panel/cuenta']);
-    expect(accesosRapidos('EDITOR').map((a) => a.ruta)).toEqual(['/panel/medios']);
-    expect(accesosRapidos('ADMINISTRADOR').map((a) => a.id)).toEqual(['subir-medios']);
-    expect(seccionesVisibles('EDITOR').length).toBe(3);
+  it('AC_TKT010_09 / AC_TKT023_17 el catálogo real solo contiene secciones implementadas (TKT-022 Medios, TKT-023 contenidos)', () => {
+    expect(SECCIONES_PANEL.map((s) => s.ruta)).toEqual([
+      '/panel',
+      '/panel/contenido/destinos',
+      '/panel/contenido/itinerarios',
+      '/panel/contenido/guias',
+      '/panel/contenido/tipos-aventura',
+      '/panel/contenido/colecciones',
+      '/panel/contenido/glosario',
+      '/panel/contenido/paginas',
+      '/panel/medios',
+      '/panel/cuenta',
+    ]);
+    expect(accesosRapidos('EDITOR').map((a) => a.ruta)).toEqual([
+      '/panel/contenido/destinos/nuevo',
+      '/panel/medios',
+    ]);
+    expect(accesosRapidos('ADMINISTRADOR').map((a) => a.id)).toEqual(['nuevo-destino', 'subir-medios']);
+    expect(seccionesVisibles('EDITOR').length).toBe(10);
+    // Las URL de los contenidos (listado, editor y vista previa) pertenecen a su sección.
+    expect(seccionDeRuta('/panel/contenido/guias/4')?.id).toBe('contenido-guias');
+    expect(enlaceDisponible('/panel/contenido/destinos?estado=BORRADOR', 'EDITOR')).toBe(
+      '/panel/contenido/destinos?estado=BORRADOR',
+    );
   });
 
   it('sección de una URL: prefijo más largo; el Tablero solo coincide exacto', () => {
