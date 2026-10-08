@@ -2,9 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-01.
+> y `audit_log.md`. Última actualización: 2026-10-08.
 
 ## 1. Estado en una línea
+
+2026-10-08 (reanudación): las QA del 2026-10-01 no emitieron veredicto. Relanzadas: QA TKT-022 (PR #50, worktree %TEMP%\qa022r3, stack brujulaqa022c) y QA TKT-033 (PR #51, %TEMP%\qa033r3*, stacks brujulaqa033c*), ambas con checkpoint en `<scratchpad>/qa022|qa033/PROGRESO.md`: si se cortan, reanudar leyendo ese archivo, no desde cero. DevOps sincroniza PR #52 con main (conflicto en DEVOPS_HANDOFF.md); después, QA de TKT-OPS-022. Dependabot #54–#58 nuevos, sin tratar. El resto del párrafo siguiente sigue vigente.
 
 2026-10-01 (reanudación tras corte): TKT-OPS-024 DONE (PR #53 integrado @ 4c1d362; CVE del proxy corregida, CI de main desbloqueado). En curso: QA ciclo 1/3 de TKT-022 (PR #50 @ 05f5a62), TKT-033 (PR #51 @ b273b62, relanzada desde cero) y TKT-OPS-022 (PR #52 @ c9d1e79), tres subagentes qa en paralelo (stacks brujulaqa022*, brujulaqa033b/base, brujulaqaops022). PENDIENTE DEL USUARIO (denegado por el clasificador de permisos, no reintentar): (a) `gh pr update-branch 50/51/52` antes de cada merge (checks strict exigen rama al día); (b) bajar los stacks huérfanos `brujulaqa033`, `brujulaqa033m`, `brujulaqa033t` (`docker compose -p <nombre> down -v`) y quitar los worktrees `%TEMP%\qa033r1` y `qa033r1m` (`git worktree remove --force`). Tras cada QA PASS: update-branch, CI verde, `gh pr merge <n> --merge`, DONE; si QA FAIL, ticket al Developer/DevOps (ciclo 2/3). Luego TODO: TKT-023 (depende de TKT-022), TKT-024, TKT-034, TKT-035, TKT-OPS-023, TKT-016/019/021/025/026/028/029/030, TKT-OPS-008/009; después F9/F10. PR #22 y #21 (Dependabot): no integrar (#21 en conflicto). No enviar docs a main entre la sincronización de un PR y su merge.
 
