@@ -11,15 +11,30 @@
  * Requiere `E2E_COMPOSE_PROJECT` (proyecto de Compose del stack bajo prueba, p. ej. brujula-tkt010)
  * y `E2E_BASE_URL`. Sin ellos, las pruebas del panel se omiten con el motivo.
  *
- * Límite real del login (`panel-login`, 10/min por IP, DEC-AUTO-111): las pruebas que no tratan del
- * login entran por la API (page.request comparte las cookies con la página) y reintentan tras el
- * Retry-After de un 429 `limite_tasa`.
+ * Límite real del login (`panel-login`, 10/min por IP para /auth/csrf y /auth/login juntos,
+ * DEC-AUTO-111): todos los workers y motores salen de la misma IP, así que el límite es compartido.
+ * Por eso (TKT-022, F-02):
+ * - las pruebas que no tratan del login entran por la API (page.request comparte las cookies con la
+ *   página) y reintentan tras el Retry-After de un 429 `limite_tasa`;
+ * - cada espera por el límite AMPLÍA el timeout del caso en lo que dura (no consume su presupuesto:
+ *   el límite es del entorno compartido, no del caso);
+ * - las pruebas a las que les basta «un editor con sesión» reutilizan una sesión por worker y origen
+ *   (`entrarComoEditorCompartido`) en lugar de crear cuenta y entrar en cada caso.
+ *
+ * Requisitos del entorno (OBS-03):
+ * - stack de Compose levantado con la semilla cargada
+ *   (`docker compose -p <proyecto> exec backend python manage.py cargar_semilla`);
+ * - si el stack se sirve por http (sin TLS, p. ej. http://127.0.0.1:<puerto>), el `.env` local debe
+ *   tener `DJANGO_SESSION_COOKIE_SECURE=false` y `DJANGO_CSRF_COOKIE_SECURE=false`; si no, el
+ *   navegador descarta las cookies `Secure` y ningún login se mantiene;
+ * - las E2E del selector (SCR-041) requieren además `E2E_SELECTOR_URL` (ver
+ *   panel-selector-medios.spec.ts).
  */
 import { execFileSync } from 'node:child_process';
 import { createHmac, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 
-import { APIResponse, Page, expect, test } from '@playwright/test';
+import { APIResponse, Cookie, Page, expect, test } from '@playwright/test';
 
 export const PROYECTO_COMPOSE = process.env['E2E_COMPOSE_PROJECT'] ?? '';
 const RAIZ_REPO = resolve(__dirname, '..', '..');
@@ -133,6 +148,12 @@ export async function siguienteCodigo(cuenta: CuentaPrueba, secreto = cuenta.sec
 // ---------------------------------------------------------------------------------------------
 // Entrada por la API con reintento ante el límite de tasa
 // ---------------------------------------------------------------------------------------------
+/**
+ * Con 4 workers y 3 motores compitiendo por 10 peticiones/min, un caso puede perder varias ventanas
+ * seguidas; como cada espera amplía el timeout, el tope solo evita un bucle infinito.
+ */
+const MAX_REINTENTOS_LIMITE = 20;
+
 async function csrf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   return cookies.find((c) => c.name === 'csrftoken')?.value ?? '';
@@ -150,12 +171,20 @@ async function esperarSiLimite(respuesta: RespuestaHttp): Promise<boolean> {
   const cuerpo = (await respuesta.json().catch(() => ({}))) as { code?: string };
   if (cuerpo.code !== 'limite_tasa') return false;
   const segundos = Number(respuesta.headers()['retry-after'] ?? '10');
-  await new Promise((r) => setTimeout(r, (Number.isFinite(segundos) ? segundos + 1 : 11) * 1000));
+  const esperaMs = (Number.isFinite(segundos) ? segundos + 1 : 11) * 1000;
+  ampliarTimeout(esperaMs);
+  await new Promise((r) => setTimeout(r, esperaMs));
   return true;
 }
 
+/** Suma la espera impuesta por el límite (más un margen) al timeout del caso en curso. */
+function ampliarTimeout(esperaMs: number): void {
+  const info = test.info();
+  if (info.timeout > 0) info.setTimeout(info.timeout + esperaMs + 2_000);
+}
+
 async function postConReintento(page: Page, ruta: string, datos: unknown): Promise<APIResponse> {
-  for (let intento = 0; intento < 8; intento++) {
+  for (let intento = 0; intento < MAX_REINTENTOS_LIMITE; intento++) {
     const respuesta = await page.request.post(`${API}${ruta}`, {
       data: datos,
       headers: { 'X-CSRFToken': await csrf(page) },
@@ -167,13 +196,14 @@ async function postConReintento(page: Page, ruta: string, datos: unknown): Promi
 
 export async function asegurarCsrf(page: Page): Promise<void> {
   if (await csrf(page)) return;
-  for (let intento = 0; intento < 8; intento++) {
+  for (let intento = 0; intento < MAX_REINTENTOS_LIMITE; intento++) {
     const respuesta = await page.request.get(`${API}/auth/csrf`);
     if (!(await esperarSiLimite(respuesta))) {
       expect(respuesta.status()).toBe(204);
       return;
     }
   }
+  throw new Error('Límite de tasa persistente en /auth/csrf');
 }
 
 /** Intento de login por la API (sin completar pasos): devuelve la respuesta. */
@@ -195,6 +225,65 @@ export async function entrarPorApi(page: Page, cuenta: CuentaPrueba): Promise<vo
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Sesión de editor compartida por worker (F-02)
+// ---------------------------------------------------------------------------------------------
+/**
+ * Cookies de la sesión de editor de este worker. Las cookies son del host (no del puerto), así que
+ * el stack y el `ng serve` del selector las comparten; si apuntan a backends distintos, la comprobación
+ * de vigencia lo detecta y se vuelve a entrar.
+ */
+let sesionEditor: Cookie[] | null = null;
+
+/** Margen mínimo de vigencia (inactividad) para reutilizar una sesión guardada. */
+const VIGENCIA_MINIMA_MS = 5 * 60_000;
+
+async function sesionVigente(page: Page): Promise<boolean> {
+  const respuesta = await page.request.get(`${API}/auth/sesion`);
+  if (respuesta.status() !== 200) return false;
+  const estado = (await respuesta.json()) as { rol: string; paso_pendiente: string; expira_inactividad_en: string };
+  return (
+    estado.rol === 'EDITOR' &&
+    estado.paso_pendiente === 'NINGUNO' &&
+    Date.parse(estado.expira_inactividad_en) - Date.now() > VIGENCIA_MINIMA_MS
+  );
+}
+
+/**
+ * Deja la página con la sesión de un EDITOR activo sin MFA. Para las pruebas en las que la cuenta es
+ * irrelevante: el worker crea una cuenta y entra una sola vez, y los casos siguientes reutilizan esas
+ * cookies (si la sesión sigue vigente) en vez de gastar 2 peticiones del límite `panel-login` cada uno.
+ * Las pruebas que dependen de la cuenta (rol, MFA, cambio de credencial, cierre de sesión…) siguen
+ * usando crearCuenta + entrarPorApi.
+ */
+export async function entrarComoEditorCompartido(page: Page): Promise<void> {
+  if (sesionEditor) {
+    await page.context().addCookies(sesionEditor);
+    if (await sesionVigente(page)) return;
+    await page.context().clearCookies();
+    sesionEditor = null;
+  }
+  await entrarPorApi(page, crearCuenta());
+  sesionEditor = await page.context().cookies();
+}
+
+/**
+ * Espera a que terminen las transiciones y animaciones finitas en curso (las infinitas, p. ej. un
+ * indicador de carga, se ignoran). axe mide el color calculado: en mitad de una transición
+ * (p. ej. el fondo de un botón que se habilita, --bs-motion-duration-fast) capturaría un fotograma
+ * intermedio con contraste insuficiente que la persona nunca ve estable (TKT-022, F-01).
+ */
+export async function esperarTransiciones(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    // Dos fotogramas: el cambio de estado ya se ha pintado y sus transiciones están registradas.
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    const finitas = document
+      .getAnimations()
+      .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime ?? Infinity)));
+    await Promise.allSettled(finitas.map((a) => a.finished));
+  });
+}
+
 /**
  * Login por la interfaz (SCR-030). Si el servidor aplica el límite por origen (no el bloqueo de la
  * cuenta), espera y reintenta: el límite es del entorno de prueba compartido, no del caso.
@@ -205,7 +294,7 @@ export async function entrarPorUi(
   contrasena: string,
   envio: 'clic' | 'enter' = 'clic',
 ): Promise<void> {
-  for (let intento = 0; intento < 8; intento++) {
+  for (let intento = 0; intento < MAX_REINTENTOS_LIMITE; intento++) {
     await page.getByTestId('acceso-usuario').fill(usuario);
     await page.getByTestId('acceso-contrasena').fill(contrasena);
     const login = page
