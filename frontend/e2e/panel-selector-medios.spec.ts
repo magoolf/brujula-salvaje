@@ -11,10 +11,16 @@
  * Sin ella, se omite con el motivo.
  */
 import AxeBuilder from '@axe-core/playwright';
-import { Locator, Page, expect, test } from '@playwright/test';
+import { Locator, Page, test } from '@playwright/test';
 
 import { catalogarPorApi, pngValido, subirPorApi } from './medios-soporte';
-import { PROYECTO_COMPOSE, entrarComoEditorCompartido, esperarTransiciones, irA } from './panel-soporte';
+import {
+  PROYECTO_COMPOSE,
+  entrarComoEditorCompartido,
+  esperarTransiciones,
+  expectPanel as expect,
+  irA,
+} from './panel-soporte';
 
 const URL_SELECTOR = process.env['E2E_SELECTOR_URL'] ?? '';
 const BANCO = '/panel/desarrollo/selector-medios';

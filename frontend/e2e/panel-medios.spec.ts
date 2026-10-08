@@ -4,7 +4,7 @@
  * Requiere E2E_BASE_URL y E2E_COMPOSE_PROJECT (ver panel-soporte.ts).
  */
 import AxeBuilder from '@axe-core/playwright';
-import { Page, expect, test } from '@playwright/test';
+import { Page, test } from '@playwright/test';
 
 import {
   archivoGrande,
@@ -22,6 +22,7 @@ import {
   entrarComoEditorCompartido,
   entrarPorApi,
   esperarTransiciones,
+  expectPanel as expect,
   irA,
   omitirSinStack,
 } from './panel-soporte';

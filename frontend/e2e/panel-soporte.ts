@@ -40,6 +40,14 @@ export const PROYECTO_COMPOSE = process.env['E2E_COMPOSE_PROJECT'] ?? '';
 const RAIZ_REPO = resolve(__dirname, '..', '..');
 const API = '/api/v1/panel';
 
+/**
+ * `expect` de las suites de medios (TKT-022, QA ciclo 2): con 4 workers, los navegadores (sobre todo
+ * Firefox) quedan sin CPU mientras pintan rejillas con decenas de miniaturas y suben imágenes; el
+ * proxy registra respuestas de 15-30 ms que el navegador procesa varios segundos después. 15 s de
+ * margen para las aserciones web-first evitan fallos por la carga del equipo, no por el producto.
+ */
+export const expectPanel = expect.configure({ timeout: 15_000 });
+
 export function omitirSinStack(): void {
   test.skip(
     PROYECTO_COMPOSE === '' || !process.env['E2E_BASE_URL'],
