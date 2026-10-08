@@ -22,8 +22,9 @@ no existen (DB_HANDOFF). La cuenta de la sesión se lee de la clave CLAVE_CUENTA
     `conflicto_version` en los métodos no seguros que lo declaran: no hubo efectos y reintentar es
     seguro; en GET/HEAD y en las vistas previas (que no declaran 409) → 401 `sesion_expirada`.
   * Lo que una vista cambia en la sesión DESPUÉS de su efecto (abrir y rotar la sesión) se guarda
-    en la propia vista; si falla, 401 `sesion_expirada` y la cookie se borra: nunca un 409 que
-    invite a repetir una operación ya confirmada.
+    en la propia vista y nunca responde 409 (que invitaría a repetir una operación ya confirmada):
+    contención → la respuesta de éxito (la renovación no se aplica, queda en el log); fila ya
+    borrada → 401 `sesion_expirada` y la cookie se borra.
   * `cerrar_sesion` borra la fila antes del efecto (la auditoría LOGOUT va después): contención →
     409 `conflicto_version` sin efectos.
   * Red de seguridad para cualquier otro caso: apps.cuentas.middleware.SesionPanelMiddleware.
@@ -55,6 +56,7 @@ from apps.cuentas.sesiones import (
     CLAVE_CUENTA,
     descartar_en_memoria,
     fallo_por_contencion,
+    marcar_guardada,
 )
 
 if TYPE_CHECKING:
@@ -147,16 +149,40 @@ def marcar_actividad(sesion: SessionBase, ahora: datetime | None = None) -> None
     _fijar_caducidad(sesion)
 
 
-def _error_tras_efecto(sesion: SessionBase, exc: Exception) -> ErrorApi | None:
-    """Fallo al guardar o borrar la sesión cuando el efecto de la vista ya está confirmado: la
-    sesión se descarta (cookie borrada) y se responde 401 sesion_expirada, no un 409 que invite a
-    repetir la operación. None si no es un fallo de sesión (se relanza tal cual)."""
-    contencion = fallo_por_contencion(exc)
-    if not contencion and not isinstance(exc, UpdateError):
-        return None
-    logger.warning("sesion_no_guardada", momento="tras_efecto", contencion=contencion)
-    descartar_en_memoria(sesion)
-    return ErrorApi(codigo="sesion_expirada")
+def _guardar_tras_efecto(sesion: SessionBase) -> None:
+    """Guarda la sesión cuando el efecto de la vista ya está confirmado (TKT-040, OBS-01 de la QA
+    de CHG-API-006). Nunca un 409 (el contrato lo define "sin efectos, reintentable"):
+    - contención (55P03/40P01/40001) → la respuesta de éxito de la operación; lo que no pudo
+      guardarse (la renovación de la inactividad) simplemente no se aplica y queda en el log;
+    - fila de la sesión ya borrada (invalidación concurrente), o alta de una sesión nueva que no
+      pudo hacerse → 401 sesion_expirada y la cookie se borra."""
+    try:
+        sesion.save()
+    except UpdateError as exc:
+        if fallo_por_contencion(exc):
+            logger.warning("sesion_no_guardada", momento="tras_efecto", contencion=True)
+            marcar_guardada(sesion)  # el middleware fija la cookie sin volver a intentarlo
+            return
+        logger.warning("sesion_no_guardada", momento="tras_efecto", contencion=False)
+        descartar_en_memoria(sesion)
+        raise ErrorApi(codigo="sesion_expirada") from exc
+    except DatabaseError as exc:
+        # Alta de una sesión nueva (login) que choca con un bloqueo: no hay sesión que entregar
+        # y el efecto ya está confirmado → 401 sesion_expirada, no 409.
+        if not fallo_por_contencion(exc):
+            raise
+        logger.warning("sesion_no_creada", contencion=True)
+        descartar_en_memoria(sesion)
+        raise ErrorApi(codigo="sesion_expirada") from exc
+
+
+def _borrar_anterior_tolerante(exc: DatabaseError) -> None:
+    """El borrado de la fila de la sesión ANTERIOR (al abrir o rotar tras el efecto) choca con un
+    bloqueo: se sigue con la sesión nueva y la anterior la retira quien la tiene bloqueada (una
+    invalidación de las sesiones de la cuenta) o su expiración por inactividad."""
+    if not fallo_por_contencion(exc):
+        raise exc
+    logger.warning("sesion_anterior_no_borrada", contencion=True)
 
 
 def abrir_sesion(
@@ -164,47 +190,54 @@ def abrir_sesion(
 ) -> None:
     """Nueva sesión (identificador nuevo; la anterior se borra) tras validar la contraseña.
 
-    Se guarda ya (TKT-040): el login ya está confirmado; un fallo → 401 sesion_expirada."""
+    Se guarda ya, dentro de DRF (TKT-040): el login ya está confirmado (_guardar_tras_efecto)."""
     try:
-        sesion.flush()
-        ahora = timezone.now().isoformat()
-        sesion[CLAVE_CUENTA] = cuenta.pk
-        sesion[CLAVE_AUTENTICADO_EN] = ahora
-        sesion[CLAVE_ULTIMA_ACTIVIDAD] = ahora
-        sesion[CLAVE_MFA_VERIFICADO] = mfa_verificado
-        sesion[CLAVE_REDIRECCION] = redireccion
-        _fijar_caducidad(sesion)
-        sesion.save()
-    except (UpdateError, DatabaseError) as exc:
-        error = _error_tras_efecto(sesion, exc)
-        if error is None:
-            raise
-        raise error from exc
+        sesion.delete()
+    except DatabaseError as exc:
+        _borrar_anterior_tolerante(exc)
+    descartar_en_memoria(sesion)
+    ahora = timezone.now().isoformat()
+    sesion[CLAVE_CUENTA] = cuenta.pk
+    sesion[CLAVE_AUTENTICADO_EN] = ahora
+    sesion[CLAVE_ULTIMA_ACTIVIDAD] = ahora
+    sesion[CLAVE_MFA_VERIFICADO] = mfa_verificado
+    sesion[CLAVE_REDIRECCION] = redireccion
+    _fijar_caducidad(sesion)
+    _guardar_tras_efecto(sesion)
 
 
 def rotar_sesion(sesion: SessionBase, *, mfa_verificado: bool | None = None) -> None:
     """Cambia el identificador conservando los datos (MFA, contraseña, privilegios).
 
-    Se guarda ya (TKT-040): la vista la llama tras su efecto; un fallo → 401 sesion_expirada."""
+    La vista la llama tras su efecto: se guarda ya (TKT-040, ver _guardar_tras_efecto)."""
+    if mfa_verificado is not None:
+        sesion[CLAVE_MFA_VERIFICADO] = mfa_verificado
+    anterior = sesion.session_key
     try:
-        if mfa_verificado is not None:
-            sesion[CLAVE_MFA_VERIFICADO] = mfa_verificado
-        sesion.cycle_key()
-        _fijar_caducidad(sesion)
-        sesion.save()
-    except (UpdateError, DatabaseError) as exc:
-        error = _error_tras_efecto(sesion, exc)
-        if error is None:
+        sesion.cycle_key()  # alta de la clave nueva con los datos y borrado de la anterior
+    except DatabaseError as exc:
+        if sesion.session_key != anterior:  # la nueva existe; solo falló borrar la anterior
+            _borrar_anterior_tolerante(exc)
+        elif fallo_por_contencion(exc):
+            # No hay clave nueva y el efecto ya está confirmado: ni 409 (reintentable) ni seguir
+            # con el identificador anterior (THREAT-002). La sesión se descarta: 401.
+            logger.warning("sesion_no_rotada", contencion=True)
+            descartar_en_memoria(sesion)
+            raise ErrorApi(codigo="sesion_expirada") from exc
+        else:
             raise
-        raise error from exc
+    _fijar_caducidad(sesion)
+    _guardar_tras_efecto(sesion)
 
 
 def cerrar_sesion(sesion: SessionBase) -> None:
     """Borra la sesión en la BD. Las vistas la llaman ANTES de auditar el cierre (TKT-040): si el
     borrado choca con un bloqueo (p. ej. una invalidación concurrente de las sesiones de la
     cuenta), 409 conflicto_version sin efectos (traducción global de core) y la sesión sigue
-    intacta para reintentar."""
-    sesion.flush()
+    intacta para reintentar: se borra la fila ANTES de vaciar la sesión en memoria (`flush()`
+    la vacía primero y, si el borrado fallara, el middleware guardaría una sesión vacía)."""
+    sesion.delete()
+    descartar_en_memoria(sesion)
 
 
 def descartar_sesion(sesion: SessionBase) -> None:

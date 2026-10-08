@@ -336,13 +336,13 @@ def _serializar_login(normalizado: str) -> None:
         )
 
 
-def _fallo_por_contencion(normalizado: str, ip: str | None) -> None:
+def _fallo_por_contencion(ip: str | None) -> None:
     """Intento que no pudo evaluarse por contención: no se comprobó la contraseña, así que no
-    cuenta como fallo (no da información ni intentos al atacante), pero se audita LOGIN_FALLIDO
-    igual que el de un usuario inexistente o no operativo (actor si la cuenta existe)."""
-    existente = selectors.cuenta_por_usuario(normalizado)
+    cuenta como fallo (no da información ni intentos al atacante), pero se audita LOGIN_FALLIDO.
+    Siempre SIN actor, exista o no la cuenta: la FK del actor pediría FOR KEY SHARE sobre la fila
+    de la cuenta, que puede ser justo la bloqueada, y esa espera volvería a distinguirla."""
     logger.warning("login_contencion")
-    _auditar(AccionAuditoria.LOGIN_FALLIDO, existente, resultado=ResultadoAuditoria.FALLO, ip=ip)
+    _auditar(AccionAuditoria.LOGIN_FALLIDO, None, resultado=ResultadoAuditoria.FALLO, ip=ip)
 
 
 def iniciar_sesion(usuario: str, contrasena: str, ip: str | None) -> ResultadoLogin:
@@ -357,7 +357,7 @@ def iniciar_sesion(usuario: str, contrasena: str, ip: str | None) -> ResultadoLo
     except DatabaseError as exc:
         if sqlstate_de(exc) not in SQLSTATE_CONCURRENCIA:
             raise
-        _fallo_por_contencion(normalizado, ip)
+        _fallo_por_contencion(ip)
         raise CredencialesInvalidas() from exc
 
 

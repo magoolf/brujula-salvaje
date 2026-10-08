@@ -61,6 +61,13 @@ def descartar_en_memoria(sesion: SessionBase) -> None:
     sesion._session_key = None
 
 
+def marcar_guardada(sesion: SessionBase) -> None:
+    """Da por guardados los datos actuales: el guardado final de SessionMiddleware no repite un
+    UPDATE que acaba de fallar por contención (la cookie se sigue fijando)."""
+    if isinstance(sesion, SessionStore) and sesion.session_key is not None:
+        sesion._guardado = (sesion.session_key, dict(sesion._get_session()))  # type: ignore[attr-defined]
+
+
 class SessionStore(SessionStoreBD):
     def __init__(self, session_key: str | None = None) -> None:
         super().__init__(session_key)

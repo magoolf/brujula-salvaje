@@ -7,9 +7,11 @@ consultas (SessionStore no repite un UPDATE de datos ya guardados) y solo fija l
 
 Si aun así fallara (p. ej. un cambio de la sesión fuera de esos caminos), Django lanzaría
 `SessionInterrupted`, que fuera de DRF se responde 400 `validacion`: un código no declarado y, en
-una escritura, con el efecto ya confirmado (ATOMIC_REQUESTS=False). Esta red de seguridad responde
-en su lugar 401 `sesion_expirada` (Problem Details, declarado en todas las operaciones con sesión)
-y borra la cookie: nunca un 409 que invite a repetir una operación que pudo confirmarse.
+una escritura, con el efecto ya confirmado (ATOMIC_REQUESTS=False). Esta red de seguridad nunca
+responde 409 (que invitaría a repetir una operación que pudo confirmarse): si el fallo es por
+contención entrega la respuesta de la vista (la sesión sigue existiendo; solo no se aplica la
+renovación, y queda en el log); si la fila ya no existe, 401 `sesion_expirada` (Problem Details,
+declarado en todas las operaciones con sesión) y borra la cookie.
 """
 
 from __future__ import annotations
@@ -33,12 +35,17 @@ class SesionPanelMiddleware(SessionMiddleware):
             return super().process_response(request, response)
         except SessionInterrupted as exc:
             causa = exc.__context__
+            contencion = causa is not None and fallo_por_contencion(causa)
             logger.warning(
                 "sesion_no_guardada",
                 momento="middleware",
-                contencion=causa is not None and fallo_por_contencion(causa),
+                contencion=contencion,
                 status_original=response.status_code,
             )
+            if contencion:
+                # La sesión sigue existiendo: la respuesta de la vista se entrega tal cual y solo
+                # la renovación de la inactividad no se aplica (OBS-01 QA CHG-API-006).
+                return response
             descartar_en_memoria(request.session)
             respuesta = respuesta_problema("sesion_expirada")
             respuesta.delete_cookie(
