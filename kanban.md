@@ -278,14 +278,14 @@ tickets:
   - id: TKT-034
     titulo: "LOW: tests de backend/apps/cuentas/sesiones.py (76 %) y permisos.py (94,12 %) hasta > 95 % (críticos desde TKT-OPS-022), y añadir backend/coverage.json y backend/vistas_urlconf.json a .gitignore. Al integrar, DevOps retira TKT-OPS-022-EXC-01/EXC-02 (caducan 2026-11-15)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-OPS-022, "Skill_Backend §8"]
     depende_de: [TKT-OPS-022]
     archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03)."]
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-08
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
