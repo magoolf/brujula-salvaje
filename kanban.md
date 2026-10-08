@@ -302,14 +302,14 @@ tickets:
   - id: TKT-OPS-025
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): GHSA-68fv-2mgg-jv7q (HIGH, DoS del bucle de eventos) en source-map-js 1.2.1, dependencia transitiva del frontend (postcss, @tailwindcss/node, css-tree, magicast, sass). Subir source-map-js a la versión corregida solo en frontend/package-lock.json (package.json sin cambios); verificar npm ci, npm audit --audit-level=high, build y tests del frontend; rama propia desde origin/main y PR"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-022, "CLAUDE.md §0.3 (lockfiles)", "Skill_devops §5"]
     depende_de: []
     archivos_permitidos: ["frontend/package-lock.json", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-953. Detectado por el DevOps de TKT-OPS-022 en el run 37772199219 (PR #52 @ 815a5e7): job frontend FAIL solo en npm audit; frontend/** idéntico a main, aviso publicado tras el último CI verde de main (36947600250)."]
+    evidencia: ["DEC-AUTO-953. Detectado por el DevOps de TKT-OPS-022 en el run 37772199219 (PR #52 @ 815a5e7): job frontend FAIL solo en npm audit; frontend/** idéntico a main, aviso publicado tras el último CI verde de main (36947600250).", "Entregado @ PR #59 (8dcf633): lockfile 1.2.1 -> 1.2.2, diff verificado; CI run 37774069616 verde completo, trivy 0 HIGH/CRITICAL en 6 imágenes. Integrado en main por el usuario (gh pr merge 59 --merge @ 8b2ea8c). DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-024
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-103111 (HIGH, pcre2 10.48-r0, corregido en 10.49-r0) en brujula/proxy (alpine 3.24.2, nginxinc/nginx-unprivileged:1.30.5-alpine). Corregir sin .trivyignore (hay parche): apk upgrade de pcre2 fijado o nuevo digest de la base; revisar si el PR #22 de Dependabot (1.31.5-alpine) lo resuelve y es compatible; validar el proxy (nginx -t, smoke anti-evasión 6/6, cabeceras idénticas)"
