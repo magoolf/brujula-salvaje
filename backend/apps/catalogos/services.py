@@ -45,7 +45,17 @@ _M = TypeVar("_M", Region, Pais, CategoriaGuia, Licencia, NivelEscala)
 
 
 def _obtener_o_404(modelo: type[_M], pk: int) -> _M:  # noqa: UP047
-    obj = modelo.objects.filter(pk=pk).first()
+    """Fila del catálogo bloqueada para la edición en curso (Regla 06, TKT-035).
+
+    `FOR NO KEY UPDATE`: dos PUT del mismo elemento se serializan, así que la comprobación de usos
+    al retirar (RULE-007) y la escritura ven el mismo estado (el segundo relee la fila ya
+    confirmada), y un borrado físico concurrente (fuera de la API) no puede colarse entre la lectura
+    y el `save()`: sin el bloqueo, el UPDATE de 0 filas de `save()` se convertía en INSERT y la
+    edición RESUCITABA el elemento borrado. No choca con el `FOR KEY SHARE` que PostgreSQL toma al
+    comprobar las FK de las altas y ediciones de contenido que lo referencian: el catálogo no se
+    borra (retirar es `activo=false`), así que esas escrituras no tienen que esperar. Una espera
+    que supere `lock_timeout`, o un interbloqueo, es 409 `conflicto_version` (core.exceptions)."""
+    obj = modelo.objects.select_for_update(no_key=True).filter(pk=pk).first()
     if obj is None:
         raise NoEncontrado()
     return obj

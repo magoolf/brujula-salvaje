@@ -1,8 +1,11 @@
 """Excepciones de negocio y manejador DRF que responde RFC 9457 (Skill_Backend §6 y §12.1).
 
 Toda excepción controlada hereda de `ErrorApi`. Las excepciones de DRF y de Django se traducen
-al catálogo cerrado de `code`. Cualquier otra excepción se registra (con trace_id y traza) y se
-responde como 500 `error_interno` sin detalles técnicos (ALT-025, THREAT-028).
+al catálogo cerrado de `code`. Los errores de BD que son un conflicto con otra transacción en curso
+(espera de bloqueo agotada, interbloqueo, fallo de serialización, FK violada por un cambio
+concurrente) y los borrados que impide una FK PROTECT/RESTRICT se traducen a su 409 documentado en
+TODAS las apps (TKT-035). Cualquier otra excepción se registra (con trace_id y traza) y se responde
+como 500 `error_interno` sin detalles técnicos (ALT-025, THREAT-028).
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from typing import Any
 import structlog
 from django.core.exceptions import PermissionDenied as PermisoDjango
 from django.core.exceptions import RequestDataTooBig
+from django.db import DatabaseError
+from django.db.models import Model, ProtectedError, RestrictedError
 from django.http import Http404
 from rest_framework import exceptions as drf
 from rest_framework.response import Response
@@ -66,6 +71,73 @@ class PaginaFueraDeRango(ErrorApi):
 
 class ServicioNoDisponible(ErrorApi):
     codigo = "servicio_no_disponible"
+
+
+# ---------------------------------------------------------------------------
+# Errores de BD de concurrencia (TKT-035, Skill_Backend Regla 06)
+# ---------------------------------------------------------------------------
+# SQLSTATE de PostgreSQL que significan "otra transacción en curso choca con esta"; la operación
+# fallida no ha cambiado nada (rollback) y repetirla es seguro:
+#   55P03 lock_not_available   (lock_timeout del rol: 3 s app_rw, 5 s app_migrator; o NOWAIT)
+#   40P01 deadlock_detected    (PostgreSQL aborta una de dos transacciones que se esperan)
+#   40001 serialization_failure (solo con REPEATABLE READ/SERIALIZABLE; defensa si se adopta)
+SQLSTATE_CONCURRENCIA = frozenset({"55P03", "40P01", "40001"})
+# 23503 foreign_key_violation: las FK de Django son DEFERRABLE INITIALLY DEFERRED, así que un
+# referenciado borrado por otra transacción entre la validación y el COMMIT se detecta en el
+# COMMIT. Los servicios validan las referencias antes de escribir: la que llega aquí es esa carrera.
+SQLSTATE_FK_VIOLADA = "23503"
+DETALLE_CONCURRENCIA = (
+    "Otra operación está modificando este recurso o uno relacionado. Recarga y vuelve a intentarlo."
+)
+MAX_USOS = 100  # `ProblemaConUsos.usos.maxItems` del contrato; `total_usos` lleva el total real.
+
+
+def sqlstate_de(exc: BaseException) -> str | None:
+    """SQLSTATE del error de psycopg que envuelve un `django.db.DatabaseError` (o None)."""
+    origen = exc.__cause__
+    sqlstate = getattr(origen, "sqlstate", None)
+    return sqlstate if isinstance(sqlstate, str) else None
+
+
+def _referencia_uso(objeto: Model) -> dict[str, Any]:
+    """`ReferenciaUso` del contrato a partir de un objeto que impide el borrado. Sin `__str__`:
+    podría incluir datos personales (p. ej. una cuenta); `titulo` solo si el modelo lo tiene."""
+    tipo = str(objeto._meta.db_table).upper()[:40]
+    titulo = getattr(objeto, "titulo", None)
+    estado = getattr(objeto, "estado_editorial", None)
+    return {
+        "tipo_entidad": tipo,
+        "id": objeto.pk,
+        "titulo": str(titulo)[:150] if titulo else f"{tipo} #{objeto.pk}"[:150],
+        "estado_editorial": estado if isinstance(estado, str) else None,
+    }
+
+
+def _traducir_error_bd(exc: Exception) -> ErrorApi | None:
+    """409 documentado para los errores de BD de concurrencia; None si no es uno de ellos."""
+    if isinstance(exc, ProtectedError | RestrictedError):
+        objetos = (
+            exc.protected_objects if isinstance(exc, ProtectedError) else exc.restricted_objects
+        )
+        usos = sorted(
+            (_referencia_uso(o) for o in objetos), key=lambda u: (u["tipo_entidad"], u["id"])
+        )
+        logger.warning("dependencia_bloqueante_bd", tipo=type(exc).__name__, total_usos=len(usos))
+        return ErrorApi(
+            codigo="dependencia_bloqueante",
+            detalle="No se puede eliminar: otros elementos lo usan. Quita esas referencias.",
+            extra={"usos": usos[:MAX_USOS], "total_usos": len(usos)},
+        )
+    if not isinstance(exc, DatabaseError):
+        return None
+    sqlstate = sqlstate_de(exc)
+    if sqlstate not in SQLSTATE_CONCURRENCIA and sqlstate != SQLSTATE_FK_VIOLADA:
+        return None
+    restriccion = getattr(getattr(exc.__cause__, "diag", None), "constraint_name", None)
+    logger.warning("conflicto_concurrencia_bd", sqlstate=sqlstate, restriccion=restriccion)
+    traducida = ErrorApi(codigo="conflicto_version", detalle=DETALLE_CONCURRENCIA)
+    traducida.__cause__ = exc
+    return traducida
 
 
 # Traducción de excepciones de DRF (se busca por herencia, en orden).
@@ -158,6 +230,8 @@ def manejador_excepciones(exc: Exception, context: Mapping[str, Any]) -> Respons
         exc = ErrorApi(codigo="permiso_denegado")
     elif isinstance(exc, RequestDataTooBig):
         exc = ErrorApi(codigo="carga_demasiado_grande")
+    else:
+        exc = _traducir_error_bd(exc) or exc
 
     if isinstance(exc, ErrorApi):
         return _respuesta(
