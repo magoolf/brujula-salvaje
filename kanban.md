@@ -278,15 +278,15 @@ tickets:
   - id: TKT-034
     titulo: "LOW: tests de backend/apps/cuentas/sesiones.py (76 %) y permisos.py (94,12 %) hasta > 95 % (críticos desde TKT-OPS-022), y añadir backend/coverage.json y backend/vistas_urlconf.json a .gitignore. Al integrar, DevOps retira TKT-OPS-022-EXC-01/EXC-02 (caducan 2026-11-15)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-OPS-022, "Skill_Backend §8"]
     depende_de: [TKT-OPS-022]
     archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950)."]
-    actualizado: 2026-10-01
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03)."]
+    actualizado: 2026-10-08
   - id: TKT-036
     titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
     fase: F7
@@ -310,6 +310,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-951.", "2026-10-08 OBS-1 de la QA de TKT-033: dos PUT concurrentes de contenidos relacionados entre sí (A<->B) producen 40P01, ya traducido a 409 conflicto_version reintentable (15/40 en 20 rondas); considerar un orden de bloqueo global para reducirlo.", "2026-10-08: TKT-033 DONE; despachado al Developer (rama tkt-035-errores-bloqueo-global)."]
+    actualizado: 2026-10-08
+  - id: TKT-OPS-027
+    titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
+    depende_de: []
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-957."]
     actualizado: 2026-10-08
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
@@ -362,14 +374,14 @@ tickets:
   - id: TKT-OPS-022
     titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-021, TKT-032, "Skill_Backend §8", TKT-OPS-003]
     depende_de: [TKT-OPS-021]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950).", "2026-10-01: TKT-OPS-024 integrado (CVE del proxy corregida en main); QA ciclo 1/3 despachada sobre PR #52 @ c9d1e79 (CI rojo solo por image scan previo a #53).", "2026-10-08 (reanudación): la QA del 2026-10-01 no emitió QA_VERDICT (NOT_RUN). PR #52 en conflicto con main (DEVOPS_HANDOFF.md, tras #53): DevOps sincroniza la rama con origin/main (merge normal) y luego se relanza la QA.", "2026-10-08: rama sincronizada con main por merge normal (815a5e7; solo DEVOPS_HANDOFF.md en conflicto, fila de CVE-2026-103111 marcada CERRADA). CI run 37772199219: backend PASS (1163 tests, 97,26 %, controles 39/39), frontend FAIL por GHSA-68fv-2mgg-jv7q ajena -> TKT-OPS-025; image scan NOT_RUN (omitido). La QA espera a TKT-OPS-025.", "2026-10-08: re-sincronizado tras #59 (bc5c5ee, merge limpio), CI run 37780187419 verde completo con trivy 0 HIGH/CRITICAL en 6 imágenes. Tras integrar #51, update-branch de #52. QA ciclo 1/3 relanzada."]
+    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950).", "2026-10-01: TKT-OPS-024 integrado (CVE del proxy corregida en main); QA ciclo 1/3 despachada sobre PR #52 @ c9d1e79 (CI rojo solo por image scan previo a #53).", "2026-10-08 (reanudación): la QA del 2026-10-01 no emitió QA_VERDICT (NOT_RUN). PR #52 en conflicto con main (DEVOPS_HANDOFF.md, tras #53): DevOps sincroniza la rama con origin/main (merge normal) y luego se relanza la QA.", "2026-10-08: rama sincronizada con main por merge normal (815a5e7; solo DEVOPS_HANDOFF.md en conflicto, fila de CVE-2026-103111 marcada CERRADA). CI run 37772199219: backend PASS (1163 tests, 97,26 %, controles 39/39), frontend FAIL por GHSA-68fv-2mgg-jv7q ajena -> TKT-OPS-025; image scan NOT_RUN (omitido). La QA espera a TKT-OPS-025.", "2026-10-08: re-sincronizado tras #59 (bc5c5ee, merge limpio), CI run 37780187419 verde completo con trivy 0 HIGH/CRITICAL en 6 imágenes. Tras integrar #51, update-branch de #52. QA ciclo 1/3 relanzada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 3ecc4f4 (39/39 controles, 31/31 mutantes, E2E de URLconf, enmascarado verificado en el log real, 0 confirmed). CI run 37782526694 verde. Integrado en main (gh pr merge 52 --merge @ 409d9c0). DONE. Hallazgos LOW/INFO F-QA022-01..04 -> TKT-OPS-027."]
     actualizado: 2026-10-08
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
