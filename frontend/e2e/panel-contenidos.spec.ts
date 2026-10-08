@@ -14,7 +14,7 @@ import {
   publicarPorApi,
   sufijo,
 } from './panel-contenidos-soporte';
-import { crearCuenta, entrarPorApi, irA, omitirSinStack } from './panel-soporte';
+import { entrarComoEditorCompartido, esperarTransiciones, irA, omitirSinStack } from './panel-soporte';
 import { sinViolacionesGraves } from './utilidades';
 
 // Límites de tasa reales del entorno: los reintentos tras un 429 pueden alargar un caso.
@@ -23,8 +23,15 @@ test.beforeEach(() => {
   test.setTimeout(120_000);
 });
 
+/** La cuenta es irrelevante en estos casos: sesión de EDITOR compartida por worker (límite panel-login). */
 async function entrarComoEditor(page: Page): Promise<void> {
-  await entrarPorApi(page, crearCuenta());
+  await entrarComoEditorCompartido(page);
+}
+
+/** axe tras las transiciones en curso (un fotograma intermedio no es el estado que se ve, TKT-022 F-01). */
+async function axe(page: Page): Promise<void> {
+  await esperarTransiciones(page);
+  await sinViolacionesGraves(page);
 }
 
 test.describe('Panel · contenidos (TKT-023)', () => {
@@ -38,7 +45,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.getByTestId('contenidos-tabla')).toBeVisible();
     await expect(page.getByTestId('contenidos-recuento')).toContainText('destinos');
     await expect(page.getByTestId('contenidos-fila').first()).toBeVisible();
-    await sinViolacionesGraves(page);
+    await axe(page);
 
     await page.getByTestId('contenidos-estado').selectOption('PUBLICADO');
     await page.getByTestId('contenidos-aplicar').click();
@@ -66,8 +73,11 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     const resumen = page.getByTestId('editor-resumen-errores');
     await expect(resumen).toBeFocused();
     await expect(resumen).toContainText('Corrige 1 problema');
+    // Href real al campo (con <base href="/"> un «#» llevaría a Inicio): se queda en el editor.
+    await expect(page.getByTestId('editor-resumen-enlace')).toHaveAttribute('href', /\/panel\/contenido\/destinos\/nuevo#campo-titulo$/);
     await page.getByTestId('editor-resumen-enlace').click();
     await expect(page.getByTestId('campo-titulo')).toBeFocused();
+    await expect(page).toHaveURL(/\/panel\/contenido\/destinos\/nuevo#campo-titulo$/);
 
     const id = sufijo();
     const titulo = `Volcán E2E ${id}`;
@@ -75,7 +85,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.getByTestId('campo-slug')).toHaveValue(`volcan-e2e-${id}`);
     await page.getByTestId('campo-resumen').fill('Un volcán activo con lagunas de altura.');
     await expect(page.getByTestId('editor-guardado')).toContainText('Cambios sin guardar');
-    await sinViolacionesGraves(page);
+    await axe(page);
 
     // Vista previa del formulario en memoria (DEC-AUTO-120): nada se crea.
     const creaciones: string[] = [];
@@ -89,7 +99,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
     await expect(page).toHaveTitle(new RegExp(`Vista previa \\(no publicado\\) — ${titulo}`));
     await expect(page.getByRole('region', { name: 'Vista previa' })).toBeVisible();
-    await sinViolacionesGraves(page);
+    await axe(page);
     await page.getByTestId('vista-previa-volver').click();
     await expect(page.getByTestId('campo-titulo')).toHaveValue(titulo);
     await expect(page.getByTestId('editor-aviso')).toContainText('Recuperamos los cambios');
@@ -114,7 +124,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(dialogo).toBeVisible();
     await expect(page.getByTestId('publicacion-resumen')).toContainText(`/guias/${guia.slug}`);
     await expect(page.getByTestId('publicacion-aviso-slug')).toBeVisible();
-    await sinViolacionesGraves(page);
+    await axe(page);
     const publicar = page.waitForResponse((r) => r.url().endsWith(`/contenidos/guias/${guia.id}/publicar`));
     await page.getByTestId('publicacion-confirmar').click();
     const respuesta = await publicar;
@@ -146,7 +156,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     const errores = page.getByTestId('publicacion-errores');
     await expect(errores).toContainText('No se puede publicar todavía');
     await expect(page.getByTestId('publicacion-confirmar')).toHaveCount(0);
-    await sinViolacionesGraves(page);
+    await axe(page);
     await page.getByTestId('publicacion-error-campo').filter({ hasText: 'Resumen' }).click();
     await expect(page.getByTestId('dialogo-publicacion')).toBeHidden();
     await expect(page.getByTestId('campo-resumen')).toBeFocused();
@@ -165,7 +175,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.getByTestId('retiro-impacto')).toBeVisible();
     await expect(page.getByTestId('retiro-motivo')).toBeFocused();
     await expect(page.getByTestId('retiro-confirmar')).toBeDisabled();
-    await sinViolacionesGraves(page);
+    await axe(page);
     await page.getByTestId('retiro-motivo').fill('Contenido desactualizado (E2E)');
     const retiro = page.waitForResponse((r) => r.url().endsWith(`/contenidos/guias/${guia.id}/retirar`));
     await page.getByTestId('retiro-confirmar').click();
@@ -195,7 +205,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.getByTestId('editor-conflicto')).toContainText('Otra persona guardó cambios');
     await expect(page.getByTestId('campo-resumen')).toHaveValue('Mi cambio');
     expect((await obtenerContenido(page, 'colecciones', tipo.id))['resumen']).toBe('Cambio de otra persona');
-    await sinViolacionesGraves(page);
+    await axe(page);
     await page.getByTestId('editor-recargar').click();
     await page.getByTestId('editor-confirmacion-confirmar').click();
     await expect(page.getByTestId('editor-conflicto')).toHaveCount(0);
@@ -247,7 +257,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await page.getByTestId('campo-descripcion-url').fill('https://example.org');
     await page.getByTestId('campo-descripcion-url-aplicar').click();
     await expect(area.locator('a[href="https://example.org"]')).toHaveCount(1);
-    await sinViolacionesGraves(page);
+    await axe(page);
 
     const guardado = page.waitForResponse((r) => r.url().endsWith(`/contenidos/tipos-aventura/${tipo.id}`) && r.request().method() === 'PUT');
     await page.getByTestId('editor-guardar').click();

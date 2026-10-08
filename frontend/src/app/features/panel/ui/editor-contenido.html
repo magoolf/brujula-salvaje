@@ -78,7 +78,7 @@
         <ul class="lista-secciones">
           @for (s of secciones; track s.id) {
             <li>
-              <a [href]="'#seccion-' + s.id" (click)="irASeccion($event, s.id)" [attr.data-testid]="'editor-nav-' + s.id">
+              <a routerLink="." queryParamsHandling="preserve" [replaceUrl]="true" [fragment]="'seccion-' + s.id" (click)="irASeccion($event, s.id)" [attr.data-testid]="'editor-nav-' + s.id">
                 <span>{{ s.titulo }}</span>
                 @if (seccionesPendientes().has(s.id)) {
                   <span class="marca-pendiente">Pendiente</span>
@@ -103,7 +103,7 @@
             <p class="titulo-errores">{{ tituloResumen() }}</p>
             <ul>
               @for (e of listaErrores(); track e.campo) {
-                <li><a href="#" (click)="$event.preventDefault(); irACampo(e.campo)" data-testid="editor-resumen-enlace">{{ etiqueta(e.campo) }}: {{ e.mensaje }}</a></li>
+                <li><a routerLink="." queryParamsHandling="preserve" [replaceUrl]="true" [fragment]="destinoCampo(e.campo)" (click)="irACampo(e.campo)" data-testid="editor-resumen-enlace">{{ etiqueta(e.campo) }}: {{ e.mensaje }}</a></li>
               }
             </ul>
           </div>
@@ -834,7 +834,7 @@
               @if (r.pendientes.length > 0) {
                 <ul>
                   @for (p of r.pendientes; track $index) {
-                    <li><a href="#" (click)="$event.preventDefault(); irACampo(p.campo)">{{ textoReq(p) }}</a></li>
+                    <li><a routerLink="." queryParamsHandling="preserve" [replaceUrl]="true" [fragment]="destinoCampo(p.campo)" (click)="irACampo(p.campo)">{{ textoReq(p) }}</a></li>
                   }
                 </ul>
               } @else {

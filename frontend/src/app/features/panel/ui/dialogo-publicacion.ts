@@ -18,7 +18,7 @@ import { Banner } from '../../../shared/ui/banner/banner';
 import { Boton } from '../../../shared/ui/boton/boton';
 import { textoRequisito, tituloResumenErrores } from '../domain/ciclo-editorial';
 import { ContenidoEditable, DEFINICION_TIPO, rutaEditor } from '../domain/contenidos';
-import { FormularioContenido, RefContenido, proponerSlug } from '../domain/formulario-contenido';
+import { FormularioContenido, RefContenido, idDestinoCampo, proponerSlug } from '../domain/formulario-contenido';
 import { formatearFechaLarga } from '../domain/fechas';
 import { ETIQUETA_TIPO_SINGULAR } from '../domain/tablero';
 import { PublicacionStore } from '../state/publicacion.store';
@@ -80,7 +80,7 @@ import { PublicacionStore } from '../state/publicacion.store';
                   <ul>
                     @for (req of store.pendientesPrincipal(); track $index) {
                       <li>
-                        <a href="#" (click)="$event.preventDefault(); irACampo.emit(req.campo)" data-testid="publicacion-error-campo">{{ texto(req) }}</a>
+                        <a routerLink="." queryParamsHandling="preserve" [replaceUrl]="true" [fragment]="destinoCampo(req.campo)" (click)="irACampo.emit(req.campo)" data-testid="publicacion-error-campo">{{ texto(req) }}</a>
                         @for (ref of req.referencias; track ref.tipo + ref.id) {
                           <span> · <a [routerLink]="enlaceEditor(ref)" (click)="cerrar()">{{ etiquetaTipo[ref.tipo] }} «{{ ref.titulo }}»</a></span>
                         }
@@ -192,6 +192,8 @@ export class DialogoPublicacion {
   readonly reintentarOperacion = output<void>();
   /** Enlace del ErrorSummary: cierra el diálogo y enfoca el campo. */
   readonly irACampo = output<string>();
+  /** Fragmento del enlace a un campo del editor (href real, no «#»). */
+  protected readonly destinoCampo = idDestinoCampo;
 
   protected readonly store = inject(PublicacionStore);
   protected readonly enLinea = inject(Conectividad).enLinea;

@@ -147,6 +147,8 @@ export class EditorContenido {
   protected readonly etiquetaAccion = ETIQUETA_ACCION;
   protected readonly hoy = fechaLocal(new Date());
   protected readonly id = idCampo;
+  /** Fragmento de los enlaces a un campo (ErrorSummary, CompletenessPanel): href real, no «#». */
+  protected readonly destinoCampo = idDestinoCampo;
   protected readonly etiqueta = etiquetaCampo;
   protected readonly textoReq = textoRequisito;
   protected readonly variante = varianteEstado;

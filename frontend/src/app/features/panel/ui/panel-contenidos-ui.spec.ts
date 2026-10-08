@@ -332,9 +332,13 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(resumenErrores.textContent).toContain('No se puede guardar todavía. Corrige 1 problema:');
     expect(document.activeElement).toBe(resumenErrores);
     expect(el('campo-titulo-error').textContent).toContain('obligatorio');
+    // Enlace con href real al campo (con <base href="/"> un «#» llevaría a Inicio).
+    expect(el('editor-resumen-enlace').getAttribute('href')).toBe('/panel/contenido/destinos/nuevo#campo-titulo');
     el('editor-resumen-enlace').click();
     await estable(m.harness);
     expect(document.activeElement?.id).toBe('campo-titulo');
+    expect(m.router.url).toBe('/panel/contenido/destinos/nuevo#campo-titulo');
+    expect(existe('editor-contenido')).toBe(true);
     escribir('campo-titulo', 'Cañón del Colca');
     await estable(m.harness);
     expect(el<HTMLInputElement>('campo-slug').value).toBe('canon-del-colca');
@@ -506,6 +510,7 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(el('publicacion-errores').querySelector('a[href="/panel/contenido/tipos-aventura/6"]')).not.toBeNull();
     expect(existe('publicacion-bloqueo-cascada')).toBe(true);
     expect(existe('publicacion-confirmar')).toBe(false);
+    expect(todos('publicacion-error-campo')[1].getAttribute('href')).toBe('/panel/contenido/destinos/11#campo-resumen');
     todos('publicacion-error-campo')[1].click();
     await estable(m.harness);
     expect(el('dialogo-publicacion').hasAttribute('open')).toBe(false);
