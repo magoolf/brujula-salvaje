@@ -266,14 +266,74 @@ tickets:
   - id: TKT-033
     titulo: "MEDIUM (hallazgos de TKT-032 y su QA): (F-032-02, MEDIUM, preexistente) DELETE /panel/contenidos/destinos/{id} de un borrador referenciado por un itinerario (PROTECT) da 500 ProtectedError: debe dar el 409 documentado; (F-032-01, LOW) carrera alta/DELETE concurrente: traducir IntegrityError 23503 y ProtectedError residuales a 409 o bloquear referencias con SELECT ... FOR SHARE, y DoesNotExist en _datos_regla_itinerario; (F-032-03, LOW, preexistente) POST /panel/medios/{id}/retirar con 409 medio_en_uso devuelve usos[] con campos distintos del ReferenciaUso del contrato {tipo_entidad, id, titulo}: alinear al contrato; (cascada) retirar con cascada_confirmada distinta y cascada calculada vacía da 200 en lugar de 409 impacto_modificado; (INFO) AnalisisPublicacion.copublicar_tipos[].id documenta maximum en la respuesta; (INFO F-032-04) mensaje del 400 en tipo_principal_id cuando el PUT omite tipos_ids"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-032, TKT-006]
     depende_de: [TKT-032]
     archivos_permitidos: ["backend/apps/contenido/**", "backend/apps/medios/**", "backend/apps/core/esquema.py"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-945.", "Entregado @ PR #51 (b273b62); diff en contenido y medios. CI verde salvo image scan (CVE del proxy, TKT-OPS-024). Bloqueo FOR KEY SHARE de referencias ordenado por id, DELETE con FOR UPDATE y ediciones con FOR NO KEY UPDATE; 55P03/40P01 -> 409 conflicto_version; 409 dependencia_bloqueante con ReferenciaUso al borrar borradores referenciados; 409 medio_en_uso con ReferenciaUso; impacto_modificado también con cascada vacía (retirar y PUT destino). Carrera A/B: main 500 en la ronda 0, rama 0 5xx en 2560 peticiones. Traducción global de 55P03/40P01 propuesta a TKT-035 (DEC-AUTO-951). QA ciclo 1/3 despachada.", "2026-10-01 (reanudación tras corte): la QA ciclo 1 no emitió QA_VERDICT; stacks brujulaqa033* y worktrees qa033r1* de esa QA quedaron huérfanos (su baja fue denegada por el clasificador: pendiente del usuario); se relanza desde cero sobre PR #51 @ b273b62 con proyectos nuevos."]
+    actualizado: 2026-10-01
+  - id: TKT-034
+    titulo: "LOW: tests de backend/apps/cuentas/sesiones.py (76 %) y permisos.py (94,12 %) hasta > 95 % (críticos desde TKT-OPS-022), y añadir backend/coverage.json y backend/vistas_urlconf.json a .gitignore. Al integrar, DevOps retira TKT-OPS-022-EXC-01/EXC-02 (caducan 2026-11-15)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-OPS-022, "Skill_Backend §8"]
+    depende_de: [TKT-OPS-022]
+    archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-945."]
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950)."]
+    actualizado: 2026-10-01
+  - id: TKT-035
+    titulo: "LOW (propuesta del Developer de TKT-033): traducir de forma global en backend/apps/core (manejador de excepciones de DRF) los OperationalError 55P03 lock_timeout y 40P01 deadlock_detected a 409 conflicto_version reintentable en todas las apps (hoy solo lo hace contenido), y revisar la carrera de DELETE de catálogos (pais_id, categoria_id) frente a altas de contenido"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-033, TKT-032]
+    depende_de: [TKT-033]
+    archivos_permitidos: ["backend/apps/core/**", "backend/apps/catalogos/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-951."]
+    actualizado: 2026-10-01
+  - id: TKT-OPS-024
+    titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-103111 (HIGH, pcre2 10.48-r0, corregido en 10.49-r0) en brujula/proxy (alpine 3.24.2, nginxinc/nginx-unprivileged:1.30.5-alpine). Corregir sin .trivyignore (hay parche): apk upgrade de pcre2 fijado o nuevo digest de la base; revisar si el PR #22 de Dependabot (1.31.5-alpine) lo resuelve y es compatible; validar el proxy (nginx -t, smoke anti-evasión 6/6, cabeceras idénticas)"
+    fase: F7
+    estado: DONE
+    owner: devops
+    trazabilidad: [TKT-OPS-017, "RSK-OPS-044", "RSK-OPS-045"]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/Dockerfile", "infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Detectado por el DevOps de TKT-OPS-022 y verificado por el Orquestador en el run 36913373742 de main (d453dae): brujula/proxy Total 1 (HIGH 1), pcre2 CVE-2026-103111 fixed 10.49-r0. DEC-AUTO-950.", "Entregado @ PR #53 (577b9e4; pcre2 y libexpat fijados en infra/proxy/Dockerfile, RSK-OPS-046 MEDIUM). Trivy del CI: 6 imágenes 0 HIGH/CRITICAL (run 36922497210). Sincronizado con main (c5853fe) y CI verde completo; integrado en main 2026-10-01 (gh pr merge --merge @ 4c1d362). DONE. PR #22 de Dependabot no integra la corrección: no se integra."]
+    actualizado: 2026-10-01
+  - id: TKT-OPS-023
+    titulo: "LOW (CHG de TKT-022): las miniaturas del panel salen de /api/v1/panel/medios/{id}/archivo y consumen el limitador por_ip del borde (20 r/s, burst 60): con navegación rápida por la biblioteca aparecen 429 y 'Vista previa no disponible'. Dar a /api/v1/panel/medios/*/archivo (GET, autenticado) una zona limit_req propia y adecuada, sin debilitar /api ni la anti-evasión (ADR-OPS-001), con prueba de carga de una página de 48 miniaturas x 3 navegaciones rápidas sin 429"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-022, TKT-OPS-016, "ADR-OPS-001", SCR-039]
+    depende_de: [TKT-022]
+    archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-001.md", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-949."]
+    actualizado: 2026-10-01
+  - id: TKT-OPS-022
+    titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: devops
+    trazabilidad: [TKT-OPS-021, TKT-032, "Skill_Backend §8", TKT-OPS-003]
+    depende_de: [TKT-OPS-021]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-948.", "Entregado @ PR #52 (c9d1e79). Gate por estructura + URLconf real (vistas_urlconf.py; hallazgo: contenido/api/panel_urls.py sirve 18 rutas del panel con vistas de fábrica y no se clasificaba), reglas de fecha y suelo, críticos de auth, sin recorrer .venv, 8 secretos efímeros enmascarados (*** verificado en el log real). EXC-01/02 de TKT-OPS-021 retiradas; nuevas EXC sesiones.py (76 %) y permisos.py (94,12 %) hasta 2026-11-15 -> TKT-034. Controles 39/39. CI: todo verde salvo image scan por CVE-2026-103111 en el proxy (ajeno, también en main) -> TKT-OPS-024. QA tras CI verde (DEC-AUTO-950).", "2026-10-01: TKT-OPS-024 integrado (CVE del proxy corregida en main); QA ciclo 1/3 despachada sobre PR #52 @ c9d1e79 (CI rojo solo por image scan previo a #53)."]
     actualizado: 2026-10-01
   - id: TKT-OPS-016
     titulo: "HIGH, CONDICIÓN DE F9: recalibrar el limitador de borde nginx (zone=por_ip 20r/s burst=60, clave $binary_remote_addr) -- 2-3 visitantes fríos tras una misma IP compartida (NAT/CGNAT, oficinas, operadores móviles) reciben 429 en chunks JS lazy y la navegación del router nunca completa (QA TKT-018 F-3: N=2 1/10, N=3 7-9/15 navegaciones rotas tras el fix de frontend). Una carga fría ya son ~30 peticiones: no corregible desde frontend. Opción recomendada por QA: excluir o dar zona propia generosa a los assets estáticos inmutables (chunks /*.js y /*.css con hash, /media/publico/**) y mantener por_ip 20r/s burst=60 en /api/** y HTML SSR. Documentar en ADR la decisión frente a agotamiento de recursos (DEC-AUTO-111/190/193/195/214)"
@@ -314,26 +374,26 @@ tickets:
   - id: TKT-OPS-020
     titulo: "LOW: robustez del smoke anti-evasión (QA TKT-OPS-018 c2): C3 no debe depender del orden de campos del log_format (parsear JSON del log en lugar de buscar una cadena literal, con mensaje de fallo correcto); sustituir la expansión ${linea:-<sin línea>} de la línea 109 para que semgrep pueda analizar el script completo; documentar que tras C3 por_ip queda saturada ~3 s (espera si se añade un paso HTTP posterior)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-018, "ADR-OPS-001", RSK-OPS-040]
     depende_de: [TKT-OPS-018]
     archivos_permitidos: ["scripts/ops/**", ".github/workflows/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939).", "Entregado @ PR #49 (7fc3a64), CI verde (run 36900650511, smoke 6/6). C3 por campos JSON del log (control nuevo con log_format reordenado 3/3 PASS), C6 sin la expansión que rompía semgrep, espera de 4 s tras C3. Controles negativos correctos; shellcheck 0. Pendiente documentar en DEVOPS_HANDOFF en F9 junto a TKT-OPS-018. QA despachada."]
+    evidencia: ["F-QA018c2-01 LOW, F-QA018c2-04 INFO y riesgo de saturación posterior de la QA de TKT-OPS-018 ciclo 2 (DEC-AUTO-939).", "Entregado @ PR #49 (7fc3a64), CI verde (run 36900650511, smoke 6/6). C3 por campos JSON del log (control nuevo con log_format reordenado 3/3 PASS), C6 sin la expansión que rompía semgrep, espera de 4 s tras C3. Controles negativos correctos; shellcheck 0. Pendiente documentar en DEVOPS_HANDOFF en F9 junto a TKT-OPS-018. QA despachada.", "QA_VERDICT PASS (ciclo 1/3): 12/12 smoke sin falsos FAIL (C3 17-20/20), parser C3 probado con entradas preparadas, controles negativos (estaticos, $, log_format reordenado, ruta_pedida renombrada, proxy pre-TKT-OPS-016, NG_ALLOWED_HOSTS) correctos; shellcheck 0; semgrep sin error de parseo; #48 y #49 se integran sin conflicto en ambos órdenes.", "PR #49 integrado en main (gh pr merge --merge), CI verde. DONE."]
     actualizado: 2026-10-01
   - id: TKT-OPS-021
     titulo: "LOW: (a) retirar de infra/ci/oasdiff_err_ignore.txt la excepción de DEC-AUTO-920 (request-body-type-changed en POST /api/v1/panel/medios), que tras TKT-012 ya no casa con ningún hallazgo; (b) gate de cobertura por módulo en CI según Skill_Backend §8 (services >= 90 %, vistas de endpoints críticos >= 95 %) leyendo coverage.json, con umbrales versionados en infra/ci/ y excepciones con caducidad"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-012, TKT-OPS-010, "DEC-AUTO-920"]
     depende_de: [TKT-012]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube).", "Entregado @ PR #48 (4794311), CI verde (run 36898054477). Diff: infra/ci/** + ci.yaml + DEVOPS_HANDOFF.md §26 (artefacto de DevOps según §0.12). Excepción de oasdiff retirada (mecanismo conservado vacío); gate de cobertura por módulo (gate_cobertura.py, umbrales en cobertura_umbrales.toml, excepciones con caducidad ≤45 días, falla cerrado; 20 controles). Excepciones EXC-01 (catalogos/api/views.py, suelo 71) y EXC-02 (inicio/api/views.py, suelo 93), caducidad 2026-10-31, se retiran tras integrar TKT-032 (DEC-AUTO-946). QA despachada."]
+    evidencia: ["CHG-OPS propuestos por el Developer de TKT-012 (DEC-AUTO-940).", "QA TKT-012 confirma que la excepción de err-ignore de DEC-AUTO-920 sobra (rama: 0 cambios con --fail-on WARN sin err-ignore). Al gate por módulo: catalogos/api/views.py 71,8 % e inicio/api/views.py 93,8 % (TKT-032 los sube).", "Entregado @ PR #48 (4794311), CI verde (run 36898054477). Diff: infra/ci/** + ci.yaml + DEVOPS_HANDOFF.md §26 (artefacto de DevOps según §0.12). Excepción de oasdiff retirada (mecanismo conservado vacío); gate de cobertura por módulo (gate_cobertura.py, umbrales en cobertura_umbrales.toml, excepciones con caducidad ≤45 días, falla cerrado; 20 controles). Excepciones EXC-01 (catalogos/api/views.py, suelo 71) y EXC-02 (inicio/api/views.py, suelo 93), caducidad 2026-10-31, se retiran tras integrar TKT-032 (DEC-AUTO-946). QA despachada.", "QA_VERDICT PASS (ciclo 1/3): oasdiff 0 sin la excepción y mecanismo de err-ignore verificado con mutantes; gate leído entero, 20/20 controles propios del DevOps + 26 de QA (estricto '>', caducidad, suelos, vistas sin clasificar, json vacío/ausente/NaN) con el exit esperado; pytest Linux 1073, 96,51 %; clasificación de críticos completa frente a /api/v1/panel/**. Hallazgos LOW/INFO a TKT-OPS-022 (DEC-AUTO-948).", "PR #48 integrado en main (gh pr merge --merge), CI verde. DONE."]
     actualizado: 2026-10-01
   - id: TKT-OPS-019
     titulo: "LOW: en la location de assets de infra/proxy/nginx.conf, enviar al SSR solo la ruta sin query (p. ej. proxy_pass http://frontend$uri, seguro porque la regex limita la ruta a [A-Za-z0-9_./-]) para que la query de un asset inexistente no acabe en el log del SSR (QA TKT-OPS-016 F-1: 'ERROR: Bad Request (http://estaticos.invalid/qaB.js?x=1)', contrario a REQ-057/THREAT-020 'logs sin query strings'); quitar el proxy_set_header X-Forwarded-Host redundante (Angular 22.2 lo ignora sin trustProxyHeaders y genera 2 avisos por petición) y corregir RSK-OPS-041 en ADR-OPS-001/DEVOPS_HANDOFF (8 líneas por asset inexistente, no ~3)"
@@ -458,14 +518,14 @@ tickets:
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-011, FEAT-041, FEAT-042, FLOW-013, SCR-039, SCR-040, SCR-041, RULE-005, RULE-021, "DEC-AUTO-044"]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1)."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1).", "Entregado @ PR #50 (05f5a62), CI verde (run 36909515276), diff solo en features/panel y e2e. SCR-039/040/041 + CargaPanel (OBS-C3-01); E2E 234/234 en 3 motores; unit 601; chunks públicos iguales a main. DEC-DEV-022-01..05 (banco del selector solo en dev, miniaturas diferidas con reintentos por el limitador del borde, sin APIs de señales que engorden el chunk inicial, licencia/crédito al catalogar, ruta de carga). EnlaceValor ampliado (change, textarea, select, name). CHG de miniaturas a TKT-OPS-023 (DEC-AUTO-949). QA ciclo 1/3 despachada.", "2026-10-01 (reanudación tras corte): la QA ciclo 1 no emitió QA_VERDICT; se relanza desde cero (NOT_RUN del ciclo anterior) sobre PR #50 @ 05f5a62."]
     actualizado: 2026-10-01
   - id: TKT-023
     titulo: "Panel 3/4 -- contenidos: SCR-035 Listado por tipo (filtros estado/texto, orden por última modificación), SCR-036 Editor de los 7 tipos (destino, itinerario con días, guía, tipo con checklist, colección, término, página), SCR-037 Vista previa sin persistir (noindex, marca BORRADOR), SCR-038 Publicar/Actualizar/Retirar/Reactivar con análisis de publicación e impacto de retiro, revisiones y restauración, bloqueo optimista"

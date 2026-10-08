@@ -14,7 +14,12 @@ LABEL org.opencontainers.image.title="brujula-proxy" \
 USER root
 # libexpat 2.8.5-r0: corrige CVE-2026-93990 (HIGH) presente en la imagen base (trivy, F6).
 # Retirar esta línea cuando la imagen base fijada ya la incluya.
-RUN apk add --no-cache "libexpat=2.8.5-r0" \
+# pcre2 10.49-r0: corrige CVE-2026-103111 (HIGH) de pcre2 10.48-r0 de la imagen base (TKT-OPS-024).
+# Ni el digest más reciente de 1.30.5-alpine ni 1.31.5-alpine la incluyen (verificado 2026-10-01).
+# Versiones fijadas a mano (RSK-OPS-044/RSK-OPS-046): revisarlas en cada bump de la imagen base y
+# retirarlas cuando la base ya traiga una versión igual o superior. El build falla si no quedan.
+RUN apk add --no-cache "libexpat=2.8.5-r0" "pcre2=10.49-r0" \
+ && apk info -e "pcre2=10.49-r0" "libexpat=2.8.5-r0" \
  && rm -f /etc/nginx/conf.d/default.conf \
  && rm -rf /docker-entrypoint.d/* \
  && mkdir -p /etc/nginx/snippets /srv/media

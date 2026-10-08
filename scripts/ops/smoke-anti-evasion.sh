@@ -16,7 +16,10 @@
 #   C3  /api sigue en la zona "por_ip": con por_ip saturada por peticiones baratas que nunca llegan a un
 #       upstream (POST / -> 403 de limit_except, evaluado DESPUÉS de limit_req), unas sondas GET
 #       /api/v1/publico/inicio reciben 429 DEL PROPIO LIMITADOR (log JSON del proxy: /_errores_proxy/429
-#       sin upstream). No depende de la velocidad del backend ni del estado del límite de DRF.
+#       sin upstream). No depende de la velocidad del backend ni del estado del límite de DRF. El log
+#       se analiza como JSON y se filtra por campos (no depende del orden del log_format, TKT-OPS-020).
+#       Tras C3, por_ip queda saturada ~3 s: C3 termina con una espera explícita de
+#       SMOKE_ESPERA_TRAS_C3 s (por defecto 4) para no dar 429 a pasos HTTP posteriores.
 # Ejecuta TODAS las comprobaciones y sale con 1 si alguna falla (diagnóstico completo en una pasada).
 # Uso (desde la raíz del repositorio, con las mismas variables de compose que levantaron el stack):
 #   bash scripts/ops/smoke-anti-evasion.sh [URL_BASE]     (por defecto http://127.0.0.1:8080)
@@ -36,6 +39,39 @@ hechas=0
 ok()    { echo "OK    $*"; }
 fallo() { echo "::error::FALLO $*"; fallos=$((fallos + 1)); }
 logs()  { docker compose logs --no-color --no-log-prefix "$1" 2>&1; }
+
+# Lee el log del proxy por stdin, analiza cada línea como JSON (las que no lo son -avisos de nginx- se
+# ignoran) y cuenta los 429 que emite el PROPIO limitador para /api/v1/publico/inicio, filtrando por
+# CAMPOS: ruta == /_errores_proxy/429, ruta_pedida == /api/v1/publico/inicio, upstream_s == "" (sin
+# upstream) y estado == 429. Independiente del orden de los campos del log_format. Imprime el número,
+# o "ERROR <motivo>" si no hay líneas JSON o les faltan esos campos (falla cerrado con mensaje claro).
+log_proxy_borde_api() {
+  python3 -c '
+import json, sys
+CAMPOS = ("ruta", "ruta_pedida", "upstream_s", "estado")
+n_json, sin_campos, n = 0, 0, 0
+for linea in sys.stdin:
+    try:
+        d = json.loads(linea)
+    except ValueError:
+        continue
+    if not isinstance(d, dict):
+        continue
+    n_json += 1
+    if any(c not in d for c in CAMPOS):
+        sin_campos += 1
+        continue
+    if (d["ruta"] == "/_errores_proxy/429" and d["ruta_pedida"] == "/api/v1/publico/inicio"
+            and d["upstream_s"] in ("", None) and str(d["estado"]) == "429"):
+        n += 1
+if n_json == 0:
+    print("ERROR el log del proxy no tiene ninguna línea JSON (¿cambió access_log/log_format?)")
+elif sin_campos:
+    print(f"ERROR {sin_campos} de {n_json} líneas JSON del log del proxy sin alguno de los campos {CAMPOS} (¿se renombraron en el log_format?)")
+else:
+    print(n)
+'
+}
 
 # Ráfaga concurrente con conexiones keep-alive: rápida y determinista en cualquier runner.
 # Uso: rafaga <hilos> <fichero de rutas> -> una línea "<estado> <content-type>" por petición.
@@ -106,7 +142,9 @@ c6() {
   echo "C6 ${pedida} -> ${res}"
   sleep 1
   linea="$(logs proxy | grep -F "\"ruta_pedida\":\"${pedida}\"" | tail -1 || true)"
-  echo "C6 log del proxy: ${linea:-<sin línea>}"
+  # Sin "${linea:-...}" con "<" en el valor por defecto: semgrep no sabía analizar esa expansión y
+  # dejaba el script entero sin analizar (QA TKT-OPS-018 c2, F-QA018c2-04; TKT-OPS-020).
+  if [[ -n "${linea}" ]]; then echo "C6 log del proxy: ${linea}"; else echo "C6 log del proxy: (sin línea)"; fi
   if [[ -z "${linea}" ]]; then
     fallo "C6 la petición ${pedida} no aparece en el log del proxy"
   elif [[ "${res}" == 404\ text/html* && "${linea}" != *'"ruta":"/_errores_proxy/'* ]]; then
@@ -167,9 +205,22 @@ c2() {
 # respuestas 403/429 las emite el propio proxy en ~1 ms). A los 0,4 s, 20 sondas GET /api/v1/publico/inicio
 # cada 50 ms. Con por_ip intacto TODAS las sondas encuentran la zona vacía -> 429 del borde, sin tocar
 # el backend. Si /api saliera de por_ip (otra zona o sin límite), las sondas llegarían a Django.
+#
+# El log del proxy se analiza como JSON línea a línea y se filtra POR CAMPOS (ruta, ruta_pedida,
+# upstream_s, estado), no por una cadena literal: reordenar los campos del log_format no rompe C3
+# (QA TKT-OPS-018 c2, F-QA018c2-01; TKT-OPS-020). Si faltan esos campos o el log deja de ser JSON,
+# el mensaje de fallo lo dice en lugar de culpar a por_ip.
+#
+# AVISO (TKT-OPS-020): al terminar la inundación, por_ip queda saturada ~3 s (cupo de 60 a 20 r/s).
+# Cualquier petición HTTP posterior que pase por por_ip (location "/", /api…) recibiría 429. Por eso
+# C3 termina con una espera explícita (ESPERA_TRAS_C3) y va la última.
+ESPERA_TRAS_C3="${SMOKE_ESPERA_TRAS_C3:-4}"
 c3() {
-  local patron='"ruta":"/_errores_proxy/429","ruta_pedida":"/api/v1/publico/inicio"' antes inund sondas n429 borde
-  antes="$(logs proxy | grep -F "${patron}" | grep -F '"upstream_s":""' | grep -c . || true)"
+  local antes inund sondas n429 borde despues
+  antes="$(logs proxy | log_proxy_borde_api)"
+  if [[ "${antes}" == ERROR* ]]; then
+    fallo "C3 no se puede evaluar: ${antes#ERROR }"; return
+  fi
   python3 - "${B}" > "${TMP}/c3.txt" <<'PY'
 import collections, http.client, sys, threading, time, urllib.parse
 u = urllib.parse.urlsplit(sys.argv[1]); fin = threading.Event(); inund = collections.Counter(); cerrojo = threading.Lock()
@@ -206,20 +257,30 @@ PY
   inund="$(sed -n 's/^INUNDACION //p' "${TMP}/c3.txt")"
   sondas="$(grep '^SONDA ' "${TMP}/c3.txt" | cut -d' ' -f2- | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
   n429="$(grep -c '^SONDA 429 application/problem+json' "${TMP}/c3.txt" || true)"
-  borde=$(( $(logs proxy | grep -F "${patron}" | grep -F '"upstream_s":""' | grep -c . || true) - antes ))
+  despues="$(logs proxy | log_proxy_borde_api)"
   echo "C3 inundación POST / (por_ip): ${inund}"
   echo "C3 sondas GET /api/v1/publico/inicio: ${sondas}"
-  echo "C3 429 del limitador de borde para /api en el log del proxy (esta comprobación): ${borde}"
-  # Las sondas son las únicas peticiones a /api de esta comprobación: con por_ip intacto son 429 del
-  # borde (se exige la mitad o más como margen frente a un runner muy lento). Los 429 de DRF no cuentan.
-  if [[ "${borde}" -ge 10 && "${n429}" -ge "${borde}" && "${inund}" == *"429="* ]]; then
-    ok "C3 /api en por_ip: ${borde}/20 sondas con 429 del limitador de borde durante la saturación"
+  if [[ "${despues}" == ERROR* ]]; then
+    fallo "C3 no se puede evaluar: ${despues#ERROR }"
   else
-    fallo "C3 /api no la limita por_ip: ${borde}/20 sondas con 429 del borde (se exigen >=10; 429 Problem Details totales=${n429}); inundación: ${inund}"
+    borde=$(( despues - antes ))
+    echo "C3 429 del limitador de borde para /api en el log del proxy (esta comprobación): ${borde}"
+    # Las sondas son las únicas peticiones a /api de esta comprobación: con por_ip intacto son 429 del
+    # borde (se exige la mitad o más como margen frente a un runner muy lento). Los 429 de DRF no cuentan.
+    if [[ "${borde}" -ge 10 && "${n429}" -ge "${borde}" && "${inund}" == *"429="* ]]; then
+      ok "C3 /api en por_ip: ${borde}/20 sondas con 429 del limitador de borde durante la saturación"
+    elif [[ "${inund}" != *"429="* ]]; then
+      fallo "C3 la inundación POST / no saturó por_ip (inundación: ${inund}): ¿location / fuera de por_ip o límite cambiado?"
+    else
+      fallo "C3 /api no la limita por_ip: ${borde}/20 sondas con 429 del borde (se exigen >=10; 429 Problem Details recibidos=${n429}); inundación: ${inund}"
+    fi
   fi
+  echo "C3 espera de ${ESPERA_TRAS_C3} s: por_ip queda saturada tras la inundación (pasos HTTP posteriores)"
+  sleep "${ESPERA_TRAS_C3}"
 }
 
-# C3 deja por_ip saturada durante ~3 s: va la última (C6 usa location "/", que está en por_ip).
+# C3 deja por_ip saturada durante ~3 s: va la última (C6 usa location "/", que está en por_ip) y termina
+# con la espera ESPERA_TRAS_C3, que protege a los pasos HTTP que vengan después del script en el CI.
 for c in ${COMPROBACIONES}; do
   case "${c}" in
     C1|C2|C3|C4|C5|C6) ;;
