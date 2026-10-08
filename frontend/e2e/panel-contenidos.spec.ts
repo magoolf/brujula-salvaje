@@ -23,6 +23,12 @@ test.beforeEach(() => {
   test.setTimeout(120_000);
 });
 
+// La ruta que absorbe el 429 del borde (entrarComoEditorCompartido) puede tener una lectura en vuelo al
+// cerrar la página; sin esto, Firefox atribuye al caso un «Fetch response has been disposed».
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 /** La cuenta es irrelevante en estos casos: sesión de EDITOR compartida por worker (límite panel-login). */
 async function entrarComoEditor(page: Page): Promise<void> {
   await entrarComoEditorCompartido(page);
