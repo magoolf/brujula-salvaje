@@ -191,12 +191,29 @@ function ampliarTimeout(esperaMs: number): void {
   if (info.timeout > 0) info.setTimeout(info.timeout + esperaMs + 2_000);
 }
 
+/**
+ * Errores de transporte de una conexión keep-alive que el otro extremo cerró mientras estaba ociosa
+ * (p. ej. tras esperar ~30 s el Retry-After del límite, el reenvío de puertos de Docker la cierra y
+ * APIRequestContext la reutiliza: «socket hang up»). La petición no llegó al servidor: se repite.
+ */
+const ERROR_CONEXION_OCIOSA = /socket hang up|ECONNRESET|EPIPE/;
+
+async function conReintentoRed<T>(peticion: () => Promise<T>): Promise<T> {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await peticion();
+    } catch (error) {
+      if (intento >= 3 || !(error instanceof Error) || !ERROR_CONEXION_OCIOSA.test(error.message)) throw error;
+    }
+  }
+}
+
 async function postConReintento(page: Page, ruta: string, datos: unknown): Promise<APIResponse> {
   for (let intento = 0; intento < MAX_REINTENTOS_LIMITE; intento++) {
-    const respuesta = await page.request.post(`${API}${ruta}`, {
-      data: datos,
-      headers: { 'X-CSRFToken': await csrf(page) },
-    });
+    const token = await csrf(page);
+    const respuesta = await conReintentoRed(() =>
+      page.request.post(`${API}${ruta}`, { data: datos, headers: { 'X-CSRFToken': token } }),
+    );
     if (!(await esperarSiLimite(respuesta))) return respuesta;
   }
   throw new Error(`Límite de tasa persistente en ${ruta}`);
@@ -205,7 +222,7 @@ async function postConReintento(page: Page, ruta: string, datos: unknown): Promi
 export async function asegurarCsrf(page: Page): Promise<void> {
   if (await csrf(page)) return;
   for (let intento = 0; intento < MAX_REINTENTOS_LIMITE; intento++) {
-    const respuesta = await page.request.get(`${API}/auth/csrf`);
+    const respuesta = await conReintentoRed(() => page.request.get(`${API}/auth/csrf`));
     if (!(await esperarSiLimite(respuesta))) {
       expect(respuesta.status()).toBe(204);
       return;
@@ -247,7 +264,7 @@ let sesionEditor: Cookie[] | null = null;
 const VIGENCIA_MINIMA_MS = 5 * 60_000;
 
 async function sesionVigente(page: Page): Promise<boolean> {
-  const respuesta = await page.request.get(`${API}/auth/sesion`);
+  const respuesta = await conReintentoRed(() => page.request.get(`${API}/auth/sesion`));
   if (respuesta.status() !== 200) return false;
   const estado = (await respuesta.json()) as { rol: string; paso_pendiente: string; expira_inactividad_en: string };
   return (
