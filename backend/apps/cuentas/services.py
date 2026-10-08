@@ -12,6 +12,10 @@ Reglas clave:
   tras 1 h sin bloqueos. Se lleva por usuario normalizado exista o no la cuenta: en la fila de la
   cuenta si puede operar, y en la caché (clave HMAC) si no existe o no está operativa.
 - Los fallos del segundo factor cuentan como intentos fallidos (FEAT-030).
+- Anti enumeración ante concurrencia (NV-01, CWE-204, TKT-040): los intentos de login se
+  serializan por usuario normalizado con un bloqueo consultivo, exista o no la cuenta, ANTES de
+  bloquear su fila; si la espera supera `lock_timeout` (o hay interbloqueo) la respuesta es la
+  misma 401 `credenciales_invalidas` para cualquier usuario (antes, 409 solo si existía).
 - Toda acción se audita en la misma transacción (FEAT-046). Nunca se registran secretos.
 - Las contraseñas temporales se devuelven una sola vez y solo se guarda su hash (AC-106).
 """
@@ -31,7 +35,7 @@ import structlog
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import CommonPasswordValidator
 from django.core.cache import cache
-from django.db import IntegrityError, connection, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.utils import timezone
 
 from apps.auditoria.models import AccionAuditoria, ResultadoAuditoria
@@ -41,7 +45,7 @@ from apps.auditoria.services import (
     seudonimizar_eventos_de_cuenta,
 )
 from apps.core import idempotencia
-from apps.core.exceptions import ErrorApi
+from apps.core.exceptions import SQLSTATE_CONCURRENCIA, ErrorApi, sqlstate_de
 from apps.core.throttling import huella_hmac
 from apps.cuentas import libro, mfa, selectors
 from apps.cuentas.models import (
@@ -62,6 +66,9 @@ LONGITUD_MINIMA_CONTRASENA = 12
 TIPO_ENTIDAD_CUENTA = "CUENTA"
 _TTL_ANTI_REPETICION_TOTP = 120
 _LOCK_CUENTAS_ADMIN = "cuentas_admin"
+# Espacio de claves (int4, int4) del bloqueo consultivo del login: no se solapa con el espacio
+# bigint de hashtext('cuentas_admin') ni con el de las tareas de ops (PostgreSQL los separa).
+_ESPACIO_BLOQUEO_LOGIN = "login"
 
 
 class Paso(StrEnum):
@@ -317,13 +324,49 @@ class ResultadoLogin:
     requiere_mfa: bool
 
 
+def _serializar_login(normalizado: str) -> None:
+    """Bloqueo consultivo de la transacción por usuario normalizado (clave HMAC), exista o no la
+    cuenta (NV-01, TKT-040). Los intentos simultáneos sobre un mismo usuario esperan aquí de la
+    misma forma tanto si la cuenta existe como si no: la contención (55P03 tras `lock_timeout`,
+    o 40P01) ya no depende de que exista una fila de cuenta_staff que bloquear."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
+            [_ESPACIO_BLOQUEO_LOGIN, huella_hmac(f"login|{normalizado}")],
+        )
+
+
+def _fallo_por_contencion(normalizado: str, ip: str | None) -> None:
+    """Intento que no pudo evaluarse por contención: no se comprobó la contraseña, así que no
+    cuenta como fallo (no da información ni intentos al atacante), pero se audita LOGIN_FALLIDO
+    igual que el de un usuario inexistente o no operativo (actor si la cuenta existe)."""
+    existente = selectors.cuenta_por_usuario(normalizado)
+    logger.warning("login_contencion")
+    _auditar(AccionAuditoria.LOGIN_FALLIDO, existente, resultado=ResultadoAuditoria.FALLO, ip=ip)
+
+
 def iniciar_sesion(usuario: str, contrasena: str, ip: str | None) -> ResultadoLogin:
-    """Primer paso del login. Lanza CredencialesInvalidas o AccesoBloqueado."""
+    """Primer paso del login. Lanza CredencialesInvalidas o AccesoBloqueado.
+
+    NV-01 (TKT-040): un error de concurrencia de la BD durante el intento (espera de bloqueo por
+    encima de `lock_timeout`, interbloqueo o fallo de serialización) responde 401
+    `credenciales_invalidas`, nunca 409, para no revelar que la cuenta existe."""
     normalizado = normalizar_usuario(usuario)
+    try:
+        return _intento_login(normalizado, contrasena, ip)
+    except DatabaseError as exc:
+        if sqlstate_de(exc) not in SQLSTATE_CONCURRENCIA:
+            raise
+        _fallo_por_contencion(normalizado, ip)
+        raise CredencialesInvalidas() from exc
+
+
+def _intento_login(normalizado: str, contrasena: str, ip: str | None) -> ResultadoLogin:
     ahora = timezone.now()
     bloqueo: datetime | None = None
     exito: ResultadoLogin | None = None
     with transaction.atomic():
+        _serializar_login(normalizado)
         cuenta = (
             CuentaStaff.objects.select_for_update()
             .filter(usuario=normalizado, estado__in=selectors.ESTADOS_CON_SESION)
