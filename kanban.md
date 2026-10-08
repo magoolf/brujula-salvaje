@@ -285,7 +285,7 @@ tickets:
     archivos_permitidos: ["backend/apps/cuentas/tests/**", ".gitignore"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada."]
+    evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 4bc3a9c (ticket idéntico en e4bb112): 1235 passed, sesiones/permisos 100 %, gate sin excepciones PASS, 38/42 mutantes (supervivientes equivalentes salvo S11, cubierto por la suite existente), sin flakiness, 0 confirmed. Merge pendiente de CI verde: image scan rojo solo por CVE-2026-4775 del proxy (TKT-OPS-028). Deuda -> TKT-039."]
     actualizado: 2026-10-08
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
@@ -322,6 +322,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-959."]
+    actualizado: 2026-10-08
+  - id: TKT-039
+    titulo: "LOW (QA TKT-034): (S11) prueba propia de que la actualización de sesión persiste expire_date (caducidad deslizante); (INFO-1) corregir el docstring de apps/cuentas/sesiones.py ('cifrado y firmado' -> solo firmado); (INFO-2, defensa en profundidad) traducir a CreateError solo la violación de la PK de sesion_panel para evitar un bucle teórico de SessionStore.create() ante FK inexistente"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-034, THREAT-002]
+    depende_de: [TKT-034]
+    archivos_permitidos: ["backend/apps/cuentas/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-963."]
     actualizado: 2026-10-08
   - id: TKT-036
     titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
