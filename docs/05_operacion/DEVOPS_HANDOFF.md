@@ -2393,3 +2393,41 @@ Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
 
 ### 27.11 Próximo agente
 **Orquestador**: confirmar el CI real del PR #53 e integrarlo (sin editar contenido). Después, relanzar el CI de los PR abiertos (#50, #51, #52) tras sincronizarlos con `main`. Registrar RSK-OPS-046 en `audit_log.md` y decidir sobre el PR #22 (§27.3).
+
+## 28. TKT-OPS-025: GHSA-68fv-2mgg-jv7q (HIGH) en `source-map-js` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-953)
+
+> Numeración: el PR #52 (TKT-OPS-022) también añade contenido al final de este documento (§26.10-26.19, antes de §27). Si un PR se integra antes que el otro, el conflicto será solo textual: hay que mantener ambas partes, §26.10-26.19 antes de §27 y §27 antes de §28.
+
+### 28.1 Estado
+COMPLETADO en la rama `tkt-ops-025-source-map-js`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 28.2 Objetivo
+El job `frontend` falla en `SCA (npm audit --audit-level=high)` (run 37772199219 del PR #52, 2026-10-08) por **GHSA-68fv-2mgg-jv7q / CVE-2026-93749 (HIGH)**: denegación de servicio del bucle de eventos en `source-map-js` (`>= 1.0.0, < 1.2.2`; corregida en **1.2.2**, según el aviso de GitHub). El lockfile fijaba 1.2.1. `frontend/**` es idéntico en `main`, cuyo último CI verde (36947600250, 2026-10-02) es anterior a la entrada del aviso en la base de npm audit: el fallo afecta a `main` y a todos los PR. Como existe corrección, no procede aceptarlo (CLAUDE.md §0.5).
+
+### 28.3 Cambios realizados
+- `frontend/package-lock.json`: solo la entrada `node_modules/source-map-js` (`version`, `resolved` e `integrity`) pasa de 1.2.1 a 1.2.2. El `integrity` es el de `npm view source-map-js@1.2.2 dist.integrity`. 1.2.2 no tiene dependencias propias, así que el árbol no cambia.
+- `package.json` sin cambios: todos los dependientes aceptan la versión nueva (`postcss` 8.5.28 [prod], `@tailwindcss/node` 4.3.3, `css-tree` 3.2.1, `magicast` 0.5.5 con `^1.2.1`; `sass` 1.104.1 con `>=0.6.2 <2.0.0`).
+- Sin `npm audit fix` general. `npm update source-map-js --package-lock-only` (npm 11.19.0 en Windows) añadía además 6 entradas `inBundle` de `@tailwindcss/oxide-wasm32-wasi` ajenas al aviso, así que se descartó y se editó solo la entrada afectada. El diff es de 3 líneas.
+
+### 28.4 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| source-map-js | 1.2.2 (transitiva; deduplicada en los 5 dependientes) | APROBADO | `npm ls source-map-js`; `npm audit` 0 |
+| Node.js / npm | 24.21.0 / 11.19.0 (sin cambios, `engines` y `NODE_VERSION`) | APROBADO | — |
+
+### 28.5 Infraestructura / dependencias / variables de entorno
+Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend se reconstruye en el CI con el lockfile nuevo (`npm ci`).
+
+### 28.6 Validaciones ejecutadas (2026-10-08, en local, Node 24.21.0 / npm 11.19.0)
+- `npm ci`: OK con el lockfile modificado (comprueba el `integrity`). `npm ls source-map-js`: 1.2.2 en todos los dependientes.
+- `npm audit --audit-level=high`: **0 vulnerabilidades** (exit 0).
+- Mismos pasos que el job `frontend`: `eslint . --max-warnings=0` 0; `tsc --noEmit -p tsconfig.app.json` 0; `ng test --watch=false --coverage` **546/546** (97 archivos); `npm run api:generate` + `git diff --exit-code -- src/app`: **cliente generado sin cambios**; `ng build --configuration production` OK.
+
+### 28.7 Riesgos / pendientes
+- Ninguno nuevo. Mientras no se integre, el CI de `main` y de los PR abiertos (#50, #51, #52) sigue en rojo en `npm audit`, y el job de imágenes (trivy) queda omitido en ellos.
+
+### 28.8 Archivos modificados
+`frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 28.9 Próximo agente
+**Orquestador**: confirmar el CI real de este PR (incluido el image scan) e integrarlo (sin editar contenido). Después, sincronizar los PR #50, #51 y #52 con `main` y relanzar su CI.
