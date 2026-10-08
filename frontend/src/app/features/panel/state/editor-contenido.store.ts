@@ -87,7 +87,7 @@ export class EditorContenidoStore {
   });
   private readonly recursoRevisiones = resource({
     params: () => {
-      const contenido = this._contenido();
+      const contenido = this.contenido();
       if (contenido === null) return undefined;
       return {
         tipo: contenido.tipo,
