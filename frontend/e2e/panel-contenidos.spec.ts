@@ -17,7 +17,11 @@ import {
 import { crearCuenta, entrarPorApi, irA, omitirSinStack } from './panel-soporte';
 import { sinViolacionesGraves } from './utilidades';
 
-test.beforeEach(() => omitirSinStack());
+// Límites de tasa reales del entorno: los reintentos tras un 429 pueden alargar un caso.
+test.beforeEach(() => {
+  omitirSinStack();
+  test.setTimeout(120_000);
+});
 
 async function entrarComoEditor(page: Page): Promise<void> {
   await entrarPorApi(page, crearCuenta());
@@ -65,9 +69,10 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await page.getByTestId('editor-resumen-enlace').click();
     await expect(page.getByTestId('campo-titulo')).toBeFocused();
 
-    const titulo = `Volcán E2E ${sufijo()}`;
+    const id = sufijo();
+    const titulo = `Volcán E2E ${id}`;
     await page.getByTestId('campo-titulo').fill(titulo);
-    await expect(page.getByTestId('campo-slug')).toHaveValue(titulo.toLowerCase().replace(/ /g, '-'));
+    await expect(page.getByTestId('campo-slug')).toHaveValue(`volcan-e2e-${id}`);
     await page.getByTestId('campo-resumen').fill('Un volcán activo con lagunas de altura.');
     await expect(page.getByTestId('editor-guardado')).toContainText('Cambios sin guardar');
     await sinViolacionesGraves(page);
@@ -100,7 +105,6 @@ test.describe('Panel · contenidos (TKT-023)', () => {
   });
 
   test('AC_TKT023_07 / AC_TKT023_12 publicar una guía: análisis, confirmación, «Ver en el sitio» e historial', async ({ page }) => {
-    test.setTimeout(120_000);
     await entrarComoEditor(page);
     const guia = await crearGuiaPublicable(page);
     await irA(page, `/panel/contenido/guias/${guia.id}`);
@@ -150,7 +154,6 @@ test.describe('Panel · contenidos (TKT-023)', () => {
   });
 
   test('AC_TKT023_10 / AC_TKT023_11 retirar con motivo (impacto) y reactivar como borrador', async ({ page }) => {
-    test.setTimeout(120_000);
     await entrarComoEditor(page);
     const guia = await crearGuiaPublicable(page);
     await publicarPorApi(page, 'guias', guia);

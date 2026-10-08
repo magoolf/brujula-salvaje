@@ -45,8 +45,8 @@ const ESPERA_MS = 300;
         (blur)="alSalir()"
       />
       <p class="bs-solo-lectores" role="status">{{ anuncio() }}</p>
-      @if (abierto()) {
-        <ul class="lista" role="listbox" [id]="idBase() + '-lista'" [attr.aria-label]="etiqueta()">
+      <ul class="lista" role="listbox" [id]="idBase() + '-lista'" [attr.aria-label]="etiqueta()" [hidden]="!abierto()">
+        @if (abierto()) {
           @for (opcion of opciones(); track opcion.ref.tipo + opcion.ref.id; let i = $index) {
             <li
               role="option"
@@ -69,8 +69,8 @@ const ESPERA_MS = 300;
           } @empty {
             <li class="vacio" role="presentation">{{ textoVacio() }}</li>
           }
-        </ul>
-      }
+        }
+      </ul>
     </div>
   `,
   styleUrls: ['./panel-formularios.css'],
@@ -79,6 +79,9 @@ const ESPERA_MS = 300;
       position: relative;
       display: grid;
       gap: var(--bs-space-1);
+    }
+    .lista[hidden] {
+      display: none;
     }
     .lista {
       position: absolute;
