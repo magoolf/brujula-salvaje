@@ -22,6 +22,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from django.db import connection, connections, transaction
 from django.test import Client
 
@@ -34,6 +35,13 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 PLAZO_S = 60
 LOCK_TIMEOUT_S = 5  # ALTER ROLE app_migrator SET lock_timeout = '5s' (infra/db/init)
+
+
+@pytest.fixture(autouse=True)
+def _limites_limpios() -> None:
+    """cache_limites (límite de tasa por IP y fallos por usuario) no la vacía el flush de las
+    pruebas transaccionales: otras pruebas con COMMIT pueden haber agotado el límite de la IP."""
+    cache.clear()
 
 
 class _Bloqueador(threading.Thread):
