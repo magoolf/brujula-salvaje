@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.utils import OpenApiResponse, extend_schema_field
 from rest_framework import serializers
 
 from apps.core.exceptions import ErrorApi
+from apps.core.problemas import MEDIA_TYPE_PROBLEMA
 
 
 class EstadoSaludSerializer(serializers.Serializer[dict[str, str]]):
@@ -56,6 +57,20 @@ class ProblemaConUsosSerializer(ProblemSerializer):
 
     usos = ReferenciaUsoSerializer(many=True, required=False, max_length=100)  # type: ignore[call-arg]
     total_usos = serializers.IntegerField(min_value=0, required=False)
+
+
+def respuesta_conflicto_bd() -> dict[Any, OpenApiResponse]:
+    """`responses` de extend_schema para el 409 `conflicto_version` por concurrencia de BD
+    (CHG-API-006, ADR-API-002 §22): components.responses.Conflicto (ProblemaConUsos)."""
+    return {
+        (409, MEDIA_TYPE_PROBLEMA): OpenApiResponse(
+            ProblemaConUsosSerializer,
+            description=(
+                "409 conflicto_version: bloqueo, interbloqueo o fallo de serialización en la BD "
+                "(sin efectos; releer y reintentar)."
+            ),
+        )
+    }
 
 
 class IdSerializerField(serializers.IntegerField):
