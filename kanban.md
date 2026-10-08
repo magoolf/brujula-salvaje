@@ -287,6 +287,30 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03)."]
     actualizado: 2026-10-08
+  - id: CHG-API-006
+    titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
+    fase: F4
+    estado: TODO
+    owner: backend-contrato
+    trazabilidad: [TKT-035, "Skill_Backend §12.1"]
+    depende_de: [TKT-035]
+    archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-958."]
+    actualizado: 2026-10-08
+  - id: TKT-037
+    titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [RULE-007, TKT-035, TKT-033]
+    depende_de: [TKT-035]
+    archivos_permitidos: ["backend/apps/contenido/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-958."]
+    actualizado: 2026-10-08
   - id: TKT-036
     titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
     fase: F7
@@ -302,14 +326,14 @@ tickets:
   - id: TKT-035
     titulo: "LOW (propuesta del Developer de TKT-033): traducir de forma global en backend/apps/core (manejador de excepciones de DRF) los OperationalError 55P03 lock_timeout y 40P01 deadlock_detected a 409 conflicto_version reintentable en todas las apps (hoy solo lo hace contenido), y revisar la carrera de DELETE de catálogos (pais_id, categoria_id) frente a altas de contenido"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-033, TKT-032]
     depende_de: [TKT-033]
     archivos_permitidos: ["backend/apps/core/**", "backend/apps/catalogos/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-951.", "2026-10-08 OBS-1 de la QA de TKT-033: dos PUT concurrentes de contenidos relacionados entre sí (A<->B) producen 40P01, ya traducido a 409 conflicto_version reintentable (15/40 en 20 rondas); considerar un orden de bloqueo global para reducirlo.", "2026-10-08: TKT-033 DONE; despachado al Developer (rama tkt-035-errores-bloqueo-global)."]
+    evidencia: ["DEC-AUTO-951.", "2026-10-08 OBS-1 de la QA de TKT-033: dos PUT concurrentes de contenidos relacionados entre sí (A<->B) producen 40P01, ya traducido a 409 conflicto_version reintentable (15/40 en 20 rondas); considerar un orden de bloqueo global para reducirlo.", "2026-10-08: TKT-033 DONE; despachado al Developer (rama tkt-035-errores-bloqueo-global).", "Entregado @ PR #60 (39dc940, base ee8dfda; update-branch tras #52): core/exceptions traduce 55P03/40P01/40001/23503 -> 409 conflicto_version y ProtectedError/RestrictedError -> 409 dependencia_bloqueante; catalogos con select_for_update(no_key) (defecto hallado: un PUT de retiro reinsertaba un país borrado). 1205 passed, gate 15/15, 6 tests de carrera FAIL en main / PASS en rama. CI run 37787766442 verde. QA ciclo 1/3 despachada. Propuestas -> CHG-API-006 y TKT-037."]
     actualizado: 2026-10-08
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
