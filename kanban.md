@@ -362,14 +362,14 @@ tickets:
   - id: TKT-OPS-029
     titulo: "CRITICAL, PRIORIDAD MÁXIMA (bloquea el job frontend del CI de main y de todos los PR): handlebars 4.0.0-4.7.9 (GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f, inyección de JavaScript), dependencia transitiva del frontend detectada por npm audit (run 37836571528, PR #65). Subir handlebars a la versión corregida solo en frontend/package-lock.json (package.json sin cambios salvo overrides si no hay otra vía, justificado); verificar npm ci, npm audit --audit-level=high, lint, build y tests del frontend; rama propia desde origin/main y PR"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-025, "Skill_devops §4.2"]
     depende_de: []
     archivos_permitidos: ["frontend/package-lock.json", "frontend/package.json", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-965."]
+    evidencia: ["DEC-AUTO-965.", "PR #66 @ 684ebb8: handlebars 4.7.9 -> 4.7.10 solo en el lockfile (vía ng-openapi-gen, dev; no entra en el bundle), package.json sin cambios; npm audit 0, 546/546 tests, build OK; CI verde completo (run 37840174099). Validación por CI (DEC-AUTO-964). Integrado (gh pr merge 66 --merge @ 85dd738). DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-028
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): CVE-2026-4775 (HIGH, libtiff 4.7.1-r0, ejecución de código/DoS, corregido en 4.7.2-r0) en brujula/proxy (alpine 3.24.2). Corregir sin .trivyignore, con el mismo patrón que TKT-OPS-024 (paquete fijado en infra/proxy/Dockerfile o base nueva); valorar si tiff es necesario en el proxy y quitarlo si no lo es; validar nginx -t, smoke anti-evasión y cabeceras"
