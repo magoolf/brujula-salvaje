@@ -2431,3 +2431,36 @@ Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend
 
 ### 28.9 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (incluido el image scan) e integrarlo (sin editar contenido). Después, sincronizar los PR #50, #51 y #52 con `main` y relanzar su CI.
+
+## 29. TKT-OPS-026: grupo `vitest` en Dependabot (F7, soporte; DEC-AUTO-956)
+
+> Numeración: TKT-OPS-027 (§30) y TKT-OPS-028 se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
+
+### 29.1 Estado
+COMPLETADO en la rama `tkt-ops-026-grupo-vitest`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 29.2 Objetivo
+El PR #58 de Dependabot (vitest 5.0.2 -> 5.0.3) falla en `npm ci` con `ERESOLVE` (run 37780415306): `@vitest/coverage-v8` 5.0.2 declara como peer la versión exacta `vitest@5.0.2`, así que actualizar uno sin el otro rompe el árbol. Hay que actualizarlos en el mismo PR.
+
+### 29.3 Cambios realizados
+- `.github/dependabot.yml`, ecosistema `npm` de `/frontend`: nuevo grupo `vitest` con `patterns: ["vitest", "@vitest/*"]` y `update-types: ["minor", "patch"]`, junto al grupo `angular`, que no cambia.
+- No cambia la política: siguen ignorándose las majors (`ignore` `version-update:semver-major` para `*`), se mantiene `versioning-strategy: "increase"` (versiones exactas en `package.json`), `open-pull-requests-limit: 3` y el prefijo de commit. Los patrones no se solapan con los de `angular`.
+- El PR #58 lo cierra el Orquestador tras integrar este cambio, para que Dependabot lo regenere agrupado. DevOps no lo cierra.
+
+### 29.4 Versiones / infraestructura / dependencias / variables de entorno
+Sin cambios de dependencias, lockfiles, imágenes, compose, workflows ni variables.
+
+### 29.5 Validaciones ejecutadas (2026-10-08, en local)
+- Validación contra el esquema JSON de SchemaStore `dependabot-2.0.json` (copia de `raw.githubusercontent.com/SchemaStore/schemastore/master`) con `jsonschema` 4.25.1 y `pyyaml` 6.0.3: **válido**. Grupos npm resultantes: `angular` y `vitest`. `ignore` y `versioning-strategy` sin cambios.
+- Control negativo: la misma copia, con `update-types: ["minor", "bogus"]`, **falla** con `ValidationError: 'bogus' is not one of ['major', 'minor', 'patch']`. Esto confirma que el validador no da por buena cualquier entrada.
+- `bash infra/ci/dependabot_cobertura.sh .`: exit 0 (el ecosistema docker no cambia).
+- NO VALIDADO en local: la agrupación real solo se ve cuando Dependabot regenere el PR (siguiente ejecución o "Check for updates" tras cerrar #58).
+
+### 29.6 Riesgos / pendientes
+- Ninguno nuevo. Si en el futuro se añade otro plugin `@vitest/*` (p. ej. `@vitest/ui`), el grupo lo cubre sin más cambios.
+
+### 29.7 Archivos modificados
+`.github/dependabot.yml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 29.8 Próximo agente
+**Orquestador**: confirmar el CI de este PR e integrarlo sin editar contenido. Después, cerrar #58 con un comentario para que Dependabot lo regenere agrupado (vitest + @vitest/coverage-v8), y someter el PR nuevo al CI y a la QA de regresión como el resto de PR de Dependabot.
