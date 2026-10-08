@@ -1,0 +1,2203 @@
+{
+  "descripcion": "Fotografías de la carga semilla (TKT-007/TKT-041). Fuente: Wikimedia Commons; licencia, autor y página verificados por archivo (imageinfo/extmetadata) el 2026-10-08. Solo CC0, dominio público, CC BY y CC BY-SA. Archivos redimensionados (lado mayor 1280 px; galerías de destino 1200 px; portada de inicio 1920 px), recodificados en JPEG sin metadatos.",
+  "fuente": "https://commons.wikimedia.org/",
+  "fotos": [
+    {
+      "archivo": "destino-arenal-y-monteverde-0.jpg",
+      "sha256": "547d0b275769b3a2884c4ca972a55b2c6ddafde2bf645a0e6021b44a3a902700",
+      "ancho": 1280,
+      "alto": 707,
+      "bytes": 179248,
+      "titulo_commons": "File:Arenal volcano (70785p) (cropped).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Arenal_volcano_(70785p)_(cropped).jpg",
+      "autor": "Rhododendrites",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Cono perfecto del volcán Arenal sobre un bosque tropical verde, bajo un cielo azul con nubes blancas",
+      "asignado_a": [
+        "destino:arenal-y-monteverde:0"
+      ]
+    },
+    {
+      "archivo": "destino-arenal-y-monteverde-1.jpg",
+      "sha256": "69952dae641fb6d65cbdaea207e72fef2751713708632860a21dfc11fa08039a",
+      "ancho": 1200,
+      "alto": 870,
+      "bytes": 272250,
+      "titulo_commons": "File:Arenal Volcano (70602).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Arenal_Volcano_(70602).jpg",
+      "autor": "Rhododendrites",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "El volcán Arenal enmarcado por los árboles y las ramas del bosque tropical que lo rodea",
+      "asignado_a": [
+        "destino:arenal-y-monteverde:1"
+      ]
+    },
+    {
+      "archivo": "destino-arenal-y-monteverde-2.jpg",
+      "sha256": "c3cf39f38c54a44131da874c37a51f6e8172b83a34bcfb1feebfcb555b61f8b0",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 209001,
+      "titulo_commons": "File:Monteverde bosque.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Monteverde_bosque.jpg",
+      "autor": "Haakon S. Krohn",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Interior del bosque nuboso de Monteverde, con árboles cubiertos de musgo y epífitas entre la niebla",
+      "asignado_a": [
+        "destino:arenal-y-monteverde:2"
+      ]
+    },
+    {
+      "archivo": "destino-arenal-y-monteverde-3.jpg",
+      "sha256": "3dd4185ecabc243421fbcf976208277bece6eda71df1daf66828f3640cebb65a",
+      "ancho": 1200,
+      "alto": 896,
+      "bytes": 300534,
+      "titulo_commons": "File:Hanging bridge in Monteverde.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Hanging_bridge_in_Monteverde.jpg",
+      "autor": "Alessandro Vernet",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Puente colgante metálico de color rojo que se adentra en el dosel del bosque nuboso de Monteverde",
+      "asignado_a": [
+        "destino:arenal-y-monteverde:3"
+      ]
+    },
+    {
+      "archivo": "destino-bahia-de-ha-long-0.jpg",
+      "sha256": "1df01ea77af0406eb9bbfe42a5609d5d115e34dec1c732cf38d440f5a98cc79b",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 186979,
+      "titulo_commons": "File:Halong Bay in Vietnam.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Halong_Bay_in_Vietnam.jpg",
+      "autor": "Thomas Hirsch / User:Ravn",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Islotes de roca caliza cubiertos de vegetación que se alzan sobre las aguas tranquilas de la bahía de Ha Long, con una barca diminuta",
+      "asignado_a": [
+        "destino:bahia-de-ha-long:0"
+      ]
+    },
+    {
+      "archivo": "destino-bahia-de-ha-long-1.jpg",
+      "sha256": "7c09a37b3847c59e70e41b4b4cfdc3fe8045f321f1199a644fd3c6eb3051a812",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 103024,
+      "titulo_commons": "File:Ha Long Bay, Vietnam, View from above.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Ha_Long_Bay,_Vietnam,_View_from_above.jpg",
+      "autor": "Vyacheslav Argenberg",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "Barcos tradicionales en un canal de la bahía de Ha Long entre farallones de caliza envueltos en bruma",
+      "asignado_a": [
+        "destino:bahia-de-ha-long:1"
+      ]
+    },
+    {
+      "archivo": "destino-bahia-de-ha-long-2.jpg",
+      "sha256": "49d251f64b57576dcf15a252312940a90157702fce2082dd4e158fc4d7742224",
+      "ancho": 1200,
+      "alto": 540,
+      "bytes": 164855,
+      "titulo_commons": "File:Ha Long Bay 24.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Ha_Long_Bay_24.jpg",
+      "autor": "Shyamal",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Un barco de crucero navega entre islas kársticas verdes en las aguas azules de la bahía de Ha Long",
+      "asignado_a": [
+        "destino:bahia-de-ha-long:2"
+      ]
+    },
+    {
+      "archivo": "destino-bahia-de-ha-long-3.jpg",
+      "sha256": "4272a4e1b64d2b0eb6abd191b2af4289b60a470a78e3229dc5872e5f66de0305",
+      "ancho": 1200,
+      "alto": 801,
+      "bytes": 185976,
+      "titulo_commons": "File:Cat Ba Island, Vietnam, 20240131 1431 4699.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cat_Ba_Island,_Vietnam,_20240131_1431_4699.jpg",
+      "autor": "Jakub Hałun",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "Casas flotantes de colores con barcas amarradas al pie de un farallón de caliza en la bahía de Ha Long, reflejadas en el agua verde",
+      "asignado_a": [
+        "destino:bahia-de-ha-long:3"
+      ]
+    },
+    {
+      "archivo": "destino-banff-0.jpg",
+      "sha256": "694f4e1109cbcd5f2f7b1df355767645ab4248993f28b29ea8f40672136d55e3",
+      "ancho": 1280,
+      "alto": 914,
+      "bytes": 183802,
+      "titulo_commons": "File:Moraine Lake-Banff NP.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Moraine_Lake-Banff_NP.JPG",
+      "autor": "Tobias Alt, Tobi 87",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Lago Moraine, de aguas turquesas, al pie del Valle de los Diez Picos y rodeado de bosque de coníferas en el Parque Nacional Banff",
+      "asignado_a": [
+        "destino:banff:0"
+      ]
+    },
+    {
+      "archivo": "destino-banff-1.jpg",
+      "sha256": "ab67ada86dbd320ec7f652ffceeacb7986f09f77575fdda9b39f3776746d29ea",
+      "ancho": 1200,
+      "alto": 713,
+      "bytes": 189796,
+      "titulo_commons": "File:Peyto Lake-Banff NP-Canada.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Peyto_Lake-Banff_NP-Canada.jpg",
+      "autor": "Tobias Alt, Tobi 87",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Lago Peyto, de color turquesa intenso, en un valle glaciar flanqueado por montañas y bosque en Banff",
+      "asignado_a": [
+        "destino:banff:1"
+      ]
+    },
+    {
+      "archivo": "destino-banff-2.jpg",
+      "sha256": "9d6771b350a3afcf4ef6be6c16b783e9a5d029c56358812ff365fa054fa0fab3",
+      "ancho": 1200,
+      "alto": 674,
+      "bytes": 186934,
+      "titulo_commons": "File:1 lake louise pano 2019.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:1_lake_louise_pano_2019.jpg",
+      "autor": "Chensiyuan",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Lago Louise visto desde lo alto de una montaña, con aguas lechosas turquesas, bosque denso y picos rocosos",
+      "asignado_a": [
+        "destino:banff:2"
+      ]
+    },
+    {
+      "archivo": "destino-banff-3.jpg",
+      "sha256": "fe6c61b365212dcc955646269c0ec4ab1379cf1fd354907e09a118c0f92f5583",
+      "ancho": 1200,
+      "alto": 801,
+      "bytes": 187666,
+      "titulo_commons": "File:Rockies in the morning.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Rockies_in_the_morning.jpg",
+      "autor": "Sergey Pesterev / Wikimedia Commons",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Montañas nevadas y nubes reflejadas en un lago tranquilo rodeado de praderas doradas y abetos en Banff",
+      "asignado_a": [
+        "destino:banff:3"
+      ]
+    },
+    {
+      "archivo": "destino-camino-inca-machu-picchu-0.jpg",
+      "sha256": "9c669982be15aa3270a9343004b4f2cbbe3f45e5d07e8d9c1fe66ad9946b8dfb",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 212759,
+      "titulo_commons": "File:Machu Picchu, Perú, 2015-07-30, DD 40.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Machu_Picchu,_Per%C3%BA,_2015-07-30,_DD_40.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Vista clásica de la ciudadela inca de Machu Picchu sobre una cresta, con el Huayna Picchu detrás y el cañón del Urubamba",
+      "asignado_a": [
+        "destino:camino-inca-machu-picchu:0"
+      ]
+    },
+    {
+      "archivo": "destino-camino-inca-machu-picchu-1.jpg",
+      "sha256": "24da5dc89b4ff596bf593a51c50e4fe2c71b142b4a35a9f5b5f471c1dfbe2ce5",
+      "ancho": 1200,
+      "alto": 797,
+      "bytes": 183669,
+      "titulo_commons": "File:Machu Picchu, Perú, 2015-07-30, DD 47.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Machu_Picchu,_Per%C3%BA,_2015-07-30,_DD_47.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Terrazas de césped y construcciones de piedra de Machu Picchu con el Huayna Picchu y montañas al fondo",
+      "asignado_a": [
+        "destino:camino-inca-machu-picchu:1"
+      ]
+    },
+    {
+      "archivo": "destino-camino-inca-machu-picchu-2.jpg",
+      "sha256": "f4f4506610e458a0d3fb265b3039c9b2ce9f45385972b030237717cf0c1d916e",
+      "ancho": 1200,
+      "alto": 675,
+      "bytes": 188444,
+      "titulo_commons": "File:Inca Trail, Peru.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Inca_Trail,_Peru.jpg",
+      "autor": "Christoph Strässler",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Sendero del Camino Inca que avanza por un valle verde entre montañas, con un pico nevado al fondo",
+      "asignado_a": [
+        "destino:camino-inca-machu-picchu:2"
+      ]
+    },
+    {
+      "archivo": "destino-camino-inca-machu-picchu-3.jpg",
+      "sha256": "ceaf1d6bb2a00a354dc1afba1637eb97097cd8ad919d76ee1a67fa6644cc3519",
+      "ancho": 1200,
+      "alto": 675,
+      "bytes": 235172,
+      "titulo_commons": "File:Inca Trail, Peru - 52390139372.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Inca_Trail,_Peru_-_52390139372.jpg",
+      "autor": "Christoph Strässler",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Escalones de piedra del Camino Inca que suben entre árboles retorcidos del bosque nublado, con excursionistas de espaldas al fondo",
+      "asignado_a": [
+        "destino:camino-inca-machu-picchu:3"
+      ]
+    },
+    {
+      "archivo": "destino-cano-cristales-0.jpg",
+      "sha256": "0deeff99c70030fdb8ec5feee670c1f3867dec3c35ea520ec3307206ff96682b",
+      "ancho": 1280,
+      "alto": 848,
+      "bytes": 323723,
+      "titulo_commons": "File:Cascadas Manto de La Virgen - Caño Cristales - La Macarena - Meta - Colombia.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cascadas_Manto_de_La_Virgen_-_Ca%C3%B1o_Cristales_-_La_Macarena_-_Meta_-_Colombia.jpg",
+      "autor": "Gicaman",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Río Caño Cristales con su lecho de plantas acuáticas rojas, pequeñas cascadas y una poza amarilla entre rocas y vegetación",
+      "asignado_a": [
+        "destino:cano-cristales:0"
+      ]
+    },
+    {
+      "archivo": "destino-cano-cristales-1.jpg",
+      "sha256": "ccddc9b6aceeb57ca9cfbc1fc5295f34c1a13194a0b65d2bb2f37f2b8e8ba841",
+      "ancho": 1200,
+      "alto": 795,
+      "bytes": 245365,
+      "titulo_commons": "File:Los Ocho en Caño Cristales.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Los_Ocho_en_Ca%C3%B1o_Cristales.jpg",
+      "autor": "Gicaman",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Cascada que cae en una grieta de la roca del Caño Cristales, rodeada de plantas acuáticas rojas",
+      "asignado_a": [
+        "destino:cano-cristales:1"
+      ]
+    },
+    {
+      "archivo": "destino-cano-cristales-2.jpg",
+      "sha256": "e02e49d74e7c6f48f616e2628672f6d6ea1e6e4ca616859a794454621f053b71",
+      "ancho": 1200,
+      "alto": 795,
+      "bytes": 189888,
+      "titulo_commons": "File:Cascada los Cuarzos - Caño Cristales - La Macarena.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cascada_los_Cuarzos_-_Ca%C3%B1o_Cristales_-_La_Macarena.jpg",
+      "autor": "Gicaman",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Cascada de varios saltos sobre rocas oscuras en Caño Cristales, con agua sedosa y vegetación en lo alto",
+      "asignado_a": [
+        "destino:cano-cristales:2"
+      ]
+    },
+    {
+      "archivo": "destino-cano-cristales-3.jpg",
+      "sha256": "23cff3931dfaa81a5a3860bc3aa5f7e2198e4f80f4fcf4f5aed226d1b08c8add",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 282807,
+      "titulo_commons": "File:Canno Cristales-20180822-131651.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Canno_Cristales-20180822-131651.jpg",
+      "autor": "Xatly2",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Tramo del río Caño Cristales teñido de rojo por las plantas acuáticas, entre arbustos y árboles bajo cielo azul",
+      "asignado_a": [
+        "destino:cano-cristales:3"
+      ]
+    },
+    {
+      "archivo": "destino-cenotes-de-yucatan-0.jpg",
+      "sha256": "c4ca86a4fc1fb410645d100b709adce9caf15e81f3a81c0711d3ace248196e69",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 213200,
+      "titulo_commons": "File:Cenote Pool Uinic, Homun, Yucatan, Mexico - 04.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cenote_Pool_Uinic,_Homun,_Yucatan,_Mexico_-_04.jpg",
+      "autor": "Sharon Hahn Darlin",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Cenote en una caverna con aguas turquesas y cristalinas bajo una bóveda de roca caliza con estalactitas, en Homún, Yucatán",
+      "asignado_a": [
+        "destino:cenotes-de-yucatan:0",
+        "coleccion:mundos-de-agua-buceo-cenotes-y-fiordos"
+      ]
+    },
+    {
+      "archivo": "destino-cenotes-de-yucatan-1.jpg",
+      "sha256": "1afadabe650e325b20e75467900e58b32ca555cb5da32375c196f9d811f77d7c",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 280778,
+      "titulo_commons": "File:Cenote Zaci, Valladolid, Yucatan, Mexico 30 Marzo 2021.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cenote_Zaci,_Valladolid,_Yucatan,_Mexico_30_Marzo_2021.jpg",
+      "autor": "Sharon Hahn Darlin",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Cenote a cielo abierto de aguas turquesas rodeado de árboles y paredes de roca, con bañistas pequeños, en Valladolid, Yucatán",
+      "asignado_a": [
+        "destino:cenotes-de-yucatan:1"
+      ]
+    },
+    {
+      "archivo": "destino-cenotes-de-yucatan-2.jpg",
+      "sha256": "f74c7439cfd9397da003b04e3e220618ed24ce25436d5b9b57976e6505d4c812",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 237832,
+      "titulo_commons": "File:Cenote Santa Barbara, Homun, Yucatan, Mexico.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cenote_Santa_Barbara,_Homun,_Yucatan,_Mexico.jpg",
+      "autor": "Sharon Hahn Darlin",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Cenote abierto entre altas paredes de roca caliza con vegetación, cuyas aguas verdes reflejan el cielo, en Homún, Yucatán",
+      "asignado_a": [
+        "destino:cenotes-de-yucatan:2"
+      ]
+    },
+    {
+      "archivo": "destino-cenotes-de-yucatan-3.jpg",
+      "sha256": "b1fa5b4daa823889e713e4b2547933b67515d2aa9b233ea26d9b27b9c4fe82af",
+      "ancho": 1200,
+      "alto": 803,
+      "bytes": 186393,
+      "titulo_commons": "File:Cenote Zaci Yucatan 2008.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cenote_Zaci_Yucatan_2008.jpg",
+      "autor": "Bernard DUPONT",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Cenote Zací, poza de agua azul oscura bajo una gran bóveda de roca con raíces colgantes, en Valladolid, Yucatán",
+      "asignado_a": [
+        "destino:cenotes-de-yucatan:3"
+      ]
+    },
+    {
+      "archivo": "destino-chamonix-mont-blanc-0.jpg",
+      "sha256": "dcc6458f9a64ea8e679be69d965d1e3aaa3a42985018dc624ce41bf423d18008",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 187941,
+      "titulo_commons": "File:Chamonix valley from la Flégère,2010 07.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Chamonix_valley_from_la_Fl%C3%A9g%C3%A8re,2010_07.JPG",
+      "autor": "Simo Räsänen (Ximonic)",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Macizo del Mont Blanc con sus glaciares sobre el valle de Chamonix, visto desde una ladera verde con abetos",
+      "asignado_a": [
+        "destino:chamonix-mont-blanc:0"
+      ]
+    },
+    {
+      "archivo": "destino-chamonix-mont-blanc-1.jpg",
+      "sha256": "220e5030e544a9b44e9d7585f9a4a8d25ab5ee00bd4db651aa6f9fdf62fb47b8",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 172751,
+      "titulo_commons": "File:Glacier du Mont Mallet (Glacier du Géant) & Mont Blanc, 2010 July.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Glacier_du_Mont_Mallet_(Glacier_du_G%C3%A9ant)_%26_Mont_Blanc,_2010_July.jpg",
+      "autor": "Simo Räsänen (Ximonic)",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Glaciar agrietado del Géant bajo agujas de granito y la cumbre nevada del Mont Blanc",
+      "asignado_a": [
+        "destino:chamonix-mont-blanc:1"
+      ]
+    },
+    {
+      "archivo": "destino-chamonix-mont-blanc-2.jpg",
+      "sha256": "919f4f817286d2cb16f4d9f26e86bd08a252fea6e013dc61aec335f9a212c1e1",
+      "ancho": 1200,
+      "alto": 651,
+      "bytes": 153435,
+      "titulo_commons": "File:AiguilleDuMidiTM.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:AiguilleDuMidiTM.jpg",
+      "autor": "Nicolas Sanchez",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "La estación de la Aiguille du Midi encaramada sobre un pico rocoso nevado, con el valle de Chamonix entre nubes al fondo",
+      "asignado_a": [
+        "destino:chamonix-mont-blanc:2"
+      ]
+    },
+    {
+      "archivo": "destino-chamonix-mont-blanc-3.jpg",
+      "sha256": "4950a59252f18fb7cd15f52c694d51bb6e8b333a52acba2b610515e72b5a6a1c",
+      "ancho": 1200,
+      "alto": 790,
+      "bytes": 145868,
+      "titulo_commons": "File:Glacier Argentiere.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Glacier_Argentiere.jpg",
+      "autor": "Benh LIEU SONG",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Valle verde y boscoso que asciende hacia el glaciar de Argentière y una aguja nevada en el macizo del Mont Blanc",
+      "asignado_a": [
+        "destino:chamonix-mont-blanc:3"
+      ]
+    },
+    {
+      "archivo": "destino-ciudad-perdida-teyuna-0.jpg",
+      "sha256": "7684cb447545186e8b8c5303966293ee0716430a592a823f6dc2270b85207696",
+      "ancho": 1280,
+      "alto": 720,
+      "bytes": 181107,
+      "titulo_commons": "File:Panorámica Terraza Final Ciudad Perdida 16-04-2019.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Panor%C3%A1mica_Terraza_Final_Ciudad_Perdida_16-04-2019.jpg",
+      "autor": "Lilo2111",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Terrazas circulares de piedra de Ciudad Perdida cubiertas de césped, entre palmas y selva húmeda de la Sierra Nevada de Santa Marta",
+      "asignado_a": [
+        "destino:ciudad-perdida-teyuna:0"
+      ]
+    },
+    {
+      "archivo": "destino-ciudad-perdida-teyuna-1.jpg",
+      "sha256": "cde70eb8029f32b36829128697431e172891cb24542a4f6ab3d2eec22a0b8361",
+      "ancho": 1200,
+      "alto": 674,
+      "bytes": 183055,
+      "titulo_commons": "File:Lost City Ruins.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Lost_City_Ruins.jpg",
+      "autor": "Gavin Rough from Waterloo, Canada",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Escalinatas y terrazas de piedra de Ciudad Perdida rodeadas de palmas y montañas cubiertas de selva",
+      "asignado_a": [
+        "destino:ciudad-perdida-teyuna:1"
+      ]
+    },
+    {
+      "archivo": "destino-ciudad-perdida-teyuna-2.jpg",
+      "sha256": "d2e6d709479b0077eb31444fe77c3fb5fd0c1b3fedb45a25cb4c685288fe7f0d",
+      "ancho": 1200,
+      "alto": 675,
+      "bytes": 183669,
+      "titulo_commons": "File:Frondosa vegetación sobre los escalones de Piedra hacia Ciudad Perdida 16-04-2019.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Frondosa_vegetaci%C3%B3n_sobre_los_escalones_de_Piedra_hacia_Ciudad_Perdida_16-04-2019.jpg",
+      "autor": "Lilo2111",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Antiguo camino de escalones de piedra que asciende entre la vegetación frondosa de la selva hacia Ciudad Perdida",
+      "asignado_a": [
+        "destino:ciudad-perdida-teyuna:2"
+      ]
+    },
+    {
+      "archivo": "destino-ciudad-perdida-teyuna-3.jpg",
+      "sha256": "74423304d0cfc44253c2b597b3d6df7cc6c6870eed46e2b7a6d23a824a1f57b8",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 265943,
+      "titulo_commons": "File:Colombia - Ciudad Perdida trek 77.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Colombia_-_Ciudad_Perdida_trek_77.jpg",
+      "autor": "McKay Savage",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Bohíos circulares de techo de paja junto al sendero de Ciudad Perdida, entre plantas de selva",
+      "asignado_a": [
+        "destino:ciudad-perdida-teyuna:3"
+      ]
+    },
+    {
+      "archivo": "destino-delta-del-okavango-0.jpg",
+      "sha256": "764c18045abce1fef9d1947ba7c4b691bec50a574a6f171603b81b82654955e8",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 186856,
+      "titulo_commons": "File:Vista aérea del delta del Okavango, Botsuana, 2018-08-01, DD 24.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Vista_a%C3%A9rea_del_delta_del_Okavango,_Botsuana,_2018-08-01,_DD_24.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Vista aérea del delta del Okavango, con canales de agua azul, islas de hierba dorada y árboles, y canoas mokoro diminutas",
+      "asignado_a": [
+        "destino:delta-del-okavango:0"
+      ]
+    },
+    {
+      "archivo": "destino-delta-del-okavango-1.jpg",
+      "sha256": "21e72c012da814dbc6b9dc6772fa843c8e541dc37bc8ae31ba47295b34e0629a",
+      "ancho": 1200,
+      "alto": 806,
+      "bytes": 130549,
+      "titulo_commons": "File:Elefantes africanos de sabana (Loxodonta africana), delta del Okavango, Botsuana, 2018-07-31, DD 03.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Elefantes_africanos_de_sabana_(Loxodonta_africana),_delta_del_Okavango,_Botsuana,_2018-07-31,_DD_03.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Dos elefantes africanos junto al agua del delta del Okavango, reflejados en la superficie al atardecer",
+      "asignado_a": [
+        "destino:delta-del-okavango:1"
+      ]
+    },
+    {
+      "archivo": "destino-delta-del-okavango-2.jpg",
+      "sha256": "db39581061c0af3f92a3ad6478d3d61051d115ace98a57e99d92f18f233b0870",
+      "ancho": 1200,
+      "alto": 630,
+      "bytes": 98251,
+      "titulo_commons": "File:Travesía del delta del Okavango en makoro, Botsuana, 2018-08-01, DD 22.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Traves%C3%ADa_del_delta_del_Okavango_en_makoro,_Botsuana,_2018-08-01,_DD_22.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Un barquero de espaldas impulsa con una pértiga una canoa mokoro entre juncos del delta del Okavango, a contraluz",
+      "asignado_a": [
+        "destino:delta-del-okavango:2"
+      ]
+    },
+    {
+      "archivo": "destino-delta-del-okavango-3.jpg",
+      "sha256": "6d8e89622918bfbc7e51a548cfc7d807462db8fa16ea7480201909a5d0534996",
+      "ancho": 1200,
+      "alto": 776,
+      "bytes": 232359,
+      "titulo_commons": "File:Cebras de Burchell (Equus quagga burchellii), vista aérea del delta del Okavango, Botsuana, 2018-08-01, DD 30.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cebras_de_Burchell_(Equus_quagga_burchellii),_vista_a%C3%A9rea_del_delta_del_Okavango,_Botsuana,_2018-08-01,_DD_30.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Manada de cebras de Burchell vadeando aguas poco profundas del delta del Okavango, vista desde el aire",
+      "asignado_a": [
+        "destino:delta-del-okavango:3"
+      ]
+    },
+    {
+      "archivo": "destino-dolomitas-0.jpg",
+      "sha256": "5de14cd2d82680c6a59dd9de57f9e5618703993cd6b920208ce4c5846ade9d2f",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 229769,
+      "titulo_commons": "File:Tre Cime di Lavaredo from Monte Specie, Val Pusteria, Trentino-Alto Adige, Italy, 2025 October.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Tre_Cime_di_Lavaredo_from_Monte_Specie,_Val_Pusteria,_Trentino-Alto_Adige,_Italy,_2025_October.jpg",
+      "autor": "Simo Räsänen (Ximonic)",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Las Tres Cimas de Lavaredo, tres torres de roca dolomítica con nieve en su base, bajo un cielo azul con nubes",
+      "asignado_a": [
+        "destino:dolomitas:0"
+      ]
+    },
+    {
+      "archivo": "destino-dolomitas-1.jpg",
+      "sha256": "8812753484944cb094d4aa803463d3fcdbcbe754910517267faac1812dc12683",
+      "ancho": 1200,
+      "alto": 801,
+      "bytes": 108525,
+      "titulo_commons": "File:Odles as seen from Seceda.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Odles_as_seen_from_Seceda.JPG",
+      "autor": "Wolfgang Moroder",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Cresta del Seceda, con sus agujas de roca y laderas de hierba inclinadas, entre nubes sobre los valles de las Dolomitas",
+      "asignado_a": [
+        "destino:dolomitas:1"
+      ]
+    },
+    {
+      "archivo": "destino-dolomitas-2.jpg",
+      "sha256": "c4e344706fc7b82ffb384eddd7a24bd7f9ea2eaeed9da269e684df0554acd560",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 185986,
+      "titulo_commons": "File:Lago di Misurina Tre Cime di Lavaredo 1.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Lago_di_Misurina_Tre_Cime_di_Lavaredo_1.jpg",
+      "autor": "kallerna",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Lago de Misurina rodeado de bosque de abetos, con las Tres Cimas de Lavaredo al fondo bajo un cielo despejado",
+      "asignado_a": [
+        "destino:dolomitas:2"
+      ]
+    },
+    {
+      "archivo": "destino-dolomitas-3.jpg",
+      "sha256": "34a9e4ce2319bd988ac620eedb18281844bd77114d64f18b19e14e5b123f7bf8",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 189970,
+      "titulo_commons": "File:Dolomites - Cortina area - Cristallo ski area - start of Via Ferrata routes (11059116204).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Dolomites_-_Cortina_area_-_Cristallo_ski_area_-_start_of_Via_Ferrata_routes_(11059116204).jpg",
+      "autor": "Murray Foubister",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Excursionistas con casco recorren una vía ferrata equipada con cables y pasarelas entre rocas calizas en las Dolomitas de Cortina",
+      "asignado_a": [
+        "destino:dolomitas:3"
+      ]
+    },
+    {
+      "archivo": "destino-el-chalten-fitz-roy-0.jpg",
+      "sha256": "0f362c1ec834f655ea5faeb23b0e400fbeb5c81021dd9976c73f59b361c4155e",
+      "ancho": 1280,
+      "alto": 913,
+      "bytes": 189599,
+      "titulo_commons": "File:Fitz Roy and Laguna Sucia.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Fitz_Roy_and_Laguna_Sucia.jpg",
+      "autor": "oliver.dodd",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "El monte Fitz Roy y sus agujas de granito con glaciares, sobre la Laguna de los Tres y una morrena rocosa bajo cielo azul",
+      "asignado_a": [
+        "destino:el-chalten-fitz-roy:0"
+      ]
+    },
+    {
+      "archivo": "destino-el-chalten-fitz-roy-1.jpg",
+      "sha256": "4b29f963fda03cd1072f4bbfb717fdd01f60bf7b1e912444febf5fc8b45ec2b7",
+      "ancho": 1200,
+      "alto": 700,
+      "bytes": 96920,
+      "titulo_commons": "File:Mount Fitz Roy at Sunset.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Mount_Fitz_Roy_at_Sunset.jpg",
+      "autor": "Masa Sakano",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Cerro Fitz Roy y agujas vecinas teñidos de rojo intenso por la luz del amanecer, bajo un cielo rosado",
+      "asignado_a": [
+        "destino:el-chalten-fitz-roy:1"
+      ]
+    },
+    {
+      "archivo": "destino-el-chalten-fitz-roy-2.jpg",
+      "sha256": "2f751b3a735e55fa605d66c6b4ccb79914de21e613e27822b4cfd66192d72936",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 161264,
+      "titulo_commons": "File:Hike to Mount Fitz Roy (5463772589).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Hike_to_Mount_Fitz_Roy_(5463772589).jpg",
+      "autor": "Liam Quinn from Canada",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Valle del río de las Vueltas cerca de El Chaltén, con el río trenzado entre praderas y mesetas bajo un cielo con nubes",
+      "asignado_a": [
+        "destino:el-chalten-fitz-roy:2"
+      ]
+    },
+    {
+      "archivo": "destino-el-chalten-fitz-roy-3.jpg",
+      "sha256": "3c2b9281c93a5611fbd54959b58d0473614acd359e9c4362e15fef019b6793f3",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 186521,
+      "titulo_commons": "File:Los Glaciares - Fitz Roy 005.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Los_Glaciares_-_Fitz_Roy_005.jpg",
+      "autor": "Gedankenstuecke",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Laguna de los Tres y Laguna Sucia a los pies del Fitz Roy y sus glaciares, con excursionistas diminutos sobre la morrena",
+      "asignado_a": [
+        "destino:el-chalten-fitz-roy:3"
+      ]
+    },
+    {
+      "archivo": "destino-everest-campo-base-0.jpg",
+      "sha256": "74873e65ff4189ba221d9011ffe317a229ddb74ce2585d0ae949530e83284a3d",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 242731,
+      "titulo_commons": "File:Mount Everest's west shoulder, Mt. Everest, Mt. Nuptse near EBC, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Mount_Everest%27s_west_shoulder,_Mt._Everest,_Mt._Nuptse_near_EBC,_Nepal.jpg",
+      "autor": "Rohit Sharma",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "La cara oeste del Everest y el Nuptse sobre el glaciar del Khumbu, cerca del campo base, bajo un cielo azul intenso",
+      "asignado_a": [
+        "destino:everest-campo-base:0"
+      ]
+    },
+    {
+      "archivo": "destino-everest-campo-base-1.jpg",
+      "sha256": "9f826070dda2f3b92a1c6c39e449d17b016f42fb89618101a28b5cac9b7330cf",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 179708,
+      "titulo_commons": "File:Himalayas, Ama Dablam, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Himalayas,_Ama_Dablam,_Nepal.jpg",
+      "autor": "Vyacheslav Argenberg",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "El Ama Dablam, pico nevado y puntiagudo, sobre un valle glaciar del Khumbu con nubes blancas",
+      "asignado_a": [
+        "destino:everest-campo-base:1"
+      ]
+    },
+    {
+      "archivo": "destino-everest-campo-base-2.jpg",
+      "sha256": "723ed4f431e50768d635abb118f188baa5797f6db72fe1a4fa9804bf612222b2",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 187041,
+      "titulo_commons": "File:Dughla Pass, Sagarmatha National Park, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Dughla_Pass,_Sagarmatha_National_Park,_Nepal.jpg",
+      "autor": "Lesley Junlakan",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Banderas de oración tibetanas de colores ondeando sobre un montículo de piedras, con cumbres del Himalaya entre nubes",
+      "asignado_a": [
+        "destino:everest-campo-base:2"
+      ]
+    },
+    {
+      "archivo": "destino-everest-campo-base-3.jpg",
+      "sha256": "f0aeaa84a9af609b7caf4c2ba9b9b629e1ff94e4321edc817c511e47d550e820",
+      "ancho": 1200,
+      "alto": 854,
+      "bytes": 105345,
+      "titulo_commons": "File:Sunset Over Mount Lhotse, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Sunset_Over_Mount_Lhotse,_Nepal.jpg",
+      "autor": "Rohit Sharma",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Las cumbres del Everest y el Lhotse encendidas por el atardecer bajo nubes lenticulares naranjas",
+      "asignado_a": [
+        "destino:everest-campo-base:3"
+      ]
+    },
+    {
+      "archivo": "destino-fiordos-de-noruega-0.jpg",
+      "sha256": "5af0148cd5ac99550cd8921f6ddb128fd346a7490e760ac503afbd436753c85c",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 195230,
+      "titulo_commons": "File:Geirangerfjord .jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Geirangerfjord_.jpg",
+      "autor": "Andreas Trepte",
+      "licencia": "CC-BY-SA-2.5",
+      "licencia_commons": "CC BY-SA 2.5",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.5/",
+      "alt": "El fiordo de Geiranger serpenteando entre montañas verdes y escarpadas, con el pueblo y barcos diminutos al fondo",
+      "asignado_a": [
+        "destino:fiordos-de-noruega:0"
+      ]
+    },
+    {
+      "archivo": "destino-fiordos-de-noruega-1.jpg",
+      "sha256": "67ba7b368a3b7601ca23bcf060fd32c2ffb8e4e65bad63d0aaed8cc0f62b27a6",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 145664,
+      "titulo_commons": "File:Nærøyfjorden mot Gudvangen.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:N%C3%A6r%C3%B8yfjorden_mot_Gudvangen.jpg",
+      "autor": "mcxurxo",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Aguas quietas del Nærøyfjord reflejando montañas verdes con cumbres nevadas y un cielo con nubes",
+      "asignado_a": [
+        "destino:fiordos-de-noruega:1"
+      ]
+    },
+    {
+      "archivo": "destino-fiordos-de-noruega-2.jpg",
+      "sha256": "27b1306f651c04a28b6cc5d3339ec56f081896d6a5a4da3583f2e765ab4685ca",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 185638,
+      "titulo_commons": "File:Nærøyfjord-cruise-view.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:N%C3%A6r%C3%B8yfjord-cruise-view.jpg",
+      "autor": "Cbliu",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "La estela de un barco surca el Nærøyfjord entre paredes de montaña verdes bajo un cielo con nubes",
+      "asignado_a": [
+        "destino:fiordos-de-noruega:2"
+      ]
+    },
+    {
+      "archivo": "destino-fiordos-de-noruega-3.jpg",
+      "sha256": "33f8be2aa418483afa6603a4c2792def03bda31c5df51d699808d51f59b526c4",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 186013,
+      "titulo_commons": "File:Pulpit Rock, Preekstoel, Preikestolen - panoramio.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Pulpit_Rock,_Preekstoel,_Preikestolen_-_panoramio.jpg",
+      "autor": "jace48",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El Preikestolen, una plataforma de roca que cae en vertical sobre el Lysefjord, con numerosos excursionistas pequeños en lo alto",
+      "asignado_a": [
+        "destino:fiordos-de-noruega:3"
+      ]
+    },
+    {
+      "archivo": "destino-gran-barrera-de-coral-0.jpg",
+      "sha256": "2ce27a15a0ef3c960991f1f1fdbcbf300014035bc8ab83af6da435331e2416b5",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 189828,
+      "titulo_commons": "File:Coral Outcrop Flynn Reef.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Coral_Outcrop_Flynn_Reef.jpg",
+      "autor": "Toby Hudson",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Formación de corales de varias formas y colores en el arrecife Flynn, parte de la Gran Barrera de Coral, frente a Cairns",
+      "asignado_a": [
+        "destino:gran-barrera-de-coral:0"
+      ]
+    },
+    {
+      "archivo": "destino-gran-barrera-de-coral-1.jpg",
+      "sha256": "ed7c72967a4413b96fb91586e11384bd9f1efb198e1eecdd76acf34935cf1b79",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 188014,
+      "titulo_commons": "File:Aerial View of Great Barrier Reef (Ank Kumar) 05.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Aerial_View_of_Great_Barrier_Reef_(Ank_Kumar)_05.jpg",
+      "autor": "Ank Kumar",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Vista aérea de la Gran Barrera de Coral, con un banco de arena blanca rodeado de arrecifes y aguas turquesas",
+      "asignado_a": [
+        "destino:gran-barrera-de-coral:1"
+      ]
+    },
+    {
+      "archivo": "destino-gran-barrera-de-coral-2.jpg",
+      "sha256": "28302090d9b4a51cce4bcb337728b47764a9737d82fb3a641309ae4a62a82713",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 210255,
+      "titulo_commons": "File:Great Barrier Reef Corals.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Great_Barrier_Reef_Corals.jpg",
+      "autor": "Gökhan Tolun",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Jardín de corales duros y blandos de colores en aguas claras cerca del arrecife Michaelmas, en la Gran Barrera de Coral",
+      "asignado_a": [
+        "destino:gran-barrera-de-coral:2"
+      ]
+    },
+    {
+      "archivo": "destino-gran-barrera-de-coral-3.jpg",
+      "sha256": "63e23b8768d1a6b43cf94553e3dc4aa1f5aa8cee4201e3b9ebb88240d991cb10",
+      "ancho": 1200,
+      "alto": 799,
+      "bytes": 107838,
+      "titulo_commons": "File:Whitehaven Beach - Northern End.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Whitehaven_Beach_-_Northern_End.jpg",
+      "autor": "Hush Neo",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Remolinos de arena blanca y aguas turquesas en Whitehaven Beach, islas Whitsunday, junto a la Gran Barrera de Coral",
+      "asignado_a": [
+        "destino:gran-barrera-de-coral:3"
+      ]
+    },
+    {
+      "archivo": "destino-islas-galapagos-0.jpg",
+      "sha256": "1881d7c5e3c6e82ba0366ce99c4a96f5d92f64a4c94cdb6ffe0840d610cb7d4f",
+      "ancho": 1280,
+      "alto": 821,
+      "bytes": 180348,
+      "titulo_commons": "File:Bartolomé Island Pinnacle Rock.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Bartolom%C3%A9_Island_Pinnacle_Rock.jpg",
+      "autor": "Cayambe",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Bahía de la isla Bartolomé, en Galápagos, con el pináculo de roca volcánica, una playa de arena y conos de toba bajo cielo nublado, y un velero anclado",
+      "asignado_a": [
+        "destino:islas-galapagos:0"
+      ]
+    },
+    {
+      "archivo": "destino-islas-galapagos-1.jpg",
+      "sha256": "43594354f11d0c3e4d3a71f3ec170ef869565eac0c15f88f46deff882210a330",
+      "ancho": 1200,
+      "alto": 895,
+      "bytes": 185050,
+      "titulo_commons": "File:Piquero patiazul (Sula nebouxii), isla Lobos, islas Galápagos, Ecuador, 2015-07-25, DD 35.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Piquero_patiazul_(Sula_nebouxii),_isla_Lobos,_islas_Gal%C3%A1pagos,_Ecuador,_2015-07-25,_DD_35.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Pareja de piqueros de patas azules sobre la arena de una playa en las islas Galápagos",
+      "asignado_a": [
+        "destino:islas-galapagos:1"
+      ]
+    },
+    {
+      "archivo": "destino-islas-galapagos-2.jpg",
+      "sha256": "e449ddce0a6e623c12a033f967710fe40a0ae2ccde659e18e2f937e4e5063b3a",
+      "ancho": 1200,
+      "alto": 664,
+      "bytes": 175071,
+      "titulo_commons": "File:Iguana marina (Amblyrhynchus cristatus), Las Bachas, isla Santa Cruz, islas Galápagos, Ecuador, 2015-07-23, DD 23.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Iguana_marina_(Amblyrhynchus_cristatus),_Las_Bachas,_isla_Santa_Cruz,_islas_Gal%C3%A1pagos,_Ecuador,_2015-07-23,_DD_23.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Iguana marina tomando el sol sobre rocas de lava negra en la isla Santa Cruz, Galápagos",
+      "asignado_a": [
+        "destino:islas-galapagos:2"
+      ]
+    },
+    {
+      "archivo": "destino-islas-galapagos-3.jpg",
+      "sha256": "df853764bdddafa20d0fe01ed3c71fc1834cb4600af83f9f0ae8e3671ba1c141",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 186696,
+      "titulo_commons": "File:Lobo marino (Zalophus californianus wollebaeki), Punta Pitt, isla de San Cristóbal, islas Galápagos, Ecuador, 2015-07-24, DD 11.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Lobo_marino_(Zalophus_californianus_wollebaeki),_Punta_Pitt,_isla_de_San_Crist%C3%B3bal,_islas_Gal%C3%A1pagos,_Ecuador,_2015-07-24,_DD_11.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Lobo marino de Galápagos saliendo del mar a una playa de arena dorada, con acantilados y aguas azules al fondo",
+      "asignado_a": [
+        "destino:islas-galapagos:3"
+      ]
+    },
+    {
+      "archivo": "destino-kilimanjaro-0.jpg",
+      "sha256": "9b6057c5706d1fccd7cd2682322a4198e5f7cab88c0e87172e905cefb5e2f5b5",
+      "ancho": 1280,
+      "alto": 857,
+      "bytes": 188852,
+      "titulo_commons": "File:Kilimanjaro from Amboseli.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kilimanjaro_from_Amboseli.jpg",
+      "autor": "Sergey Pesterev / Wikimedia Commons",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "El Kilimanjaro con su cumbre nevada sobre un mar de nubes, visto desde la sabana con acacias de copa plana",
+      "asignado_a": [
+        "destino:kilimanjaro:0",
+        "coleccion:techos-y-volcanes-de-alta-montana"
+      ]
+    },
+    {
+      "archivo": "destino-kilimanjaro-1.jpg",
+      "sha256": "a98c5e51dd066cd37ae9fb722cdf7efec10d6358c6361f26de9fdc18d34a0267",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 127599,
+      "titulo_commons": "File:Kilimanjaro, Tanzania, 2024-05-22, DD 109.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kilimanjaro,_Tanzania,_2024-05-22,_DD_109.jpg",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "La cima nevada del Kibo, en el Kilimanjaro, emerge por encima de las nubes sobre la vegetación de la ladera",
+      "asignado_a": [
+        "destino:kilimanjaro:1"
+      ]
+    },
+    {
+      "archivo": "destino-kilimanjaro-2.jpg",
+      "sha256": "ba181d2ee0f42e090e68d971787e46dc9efb5916a53f3e934d5eb0574b2b5b51",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 181059,
+      "titulo_commons": "File:Glacier at the peak of Mount Kilimanjaro at sunrise.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Glacier_at_the_peak_of_Mount_Kilimanjaro_at_sunrise.jpg",
+      "autor": "Roryjm0",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Paredes de hielo de un glaciar en la cumbre del Kilimanjaro al amanecer, sobre el mar de nubes",
+      "asignado_a": [
+        "destino:kilimanjaro:2"
+      ]
+    },
+    {
+      "archivo": "destino-kilimanjaro-3.jpg",
+      "sha256": "f26a01f7f5f0d882998cb200b5fac2c8d014983595a2c598888fa62d993c1167",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 188494,
+      "titulo_commons": "File:Uitzicht vanaf top kilimanjaro.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Uitzicht_vanaf_top_kilimanjaro.jpg",
+      "autor": "Vakantie43",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Montañeros diminutos en la arista de la cumbre del Kilimanjaro, sobre un campo de penitentes de hielo y nubes bajas",
+      "asignado_a": [
+        "destino:kilimanjaro:3"
+      ]
+    },
+    {
+      "archivo": "destino-pnn-los-nevados-0.jpg",
+      "sha256": "be0f3b6093611feb48568c0e245c1395c2a7db03714d9783fbb9e676eca6f8af",
+      "ancho": 1280,
+      "alto": 720,
+      "bytes": 210508,
+      "titulo_commons": "File:Parque Nacional Natural Los Nevados y Nevado del Ruiz (16986).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Parque_Nacional_Natural_Los_Nevados_y_Nevado_del_Ruiz_(16986).jpg",
+      "autor": "AmiGueko",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Cumbre volcánica cubierta de nieve y glaciar sobre laderas rocosas y páramo en el Parque Nacional Natural Los Nevados",
+      "asignado_a": [
+        "destino:pnn-los-nevados:0"
+      ]
+    },
+    {
+      "archivo": "destino-pnn-los-nevados-1.jpg",
+      "sha256": "7d6065935cb6831e3fc7d2abe3e54a7408230d1edb07dd8e62e5f086019d18bd",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 189945,
+      "titulo_commons": "File:Bosque de Frailejones Vía Laguna el Otún.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Bosque_de_Frailejones_V%C3%ADa_Laguna_el_Ot%C3%BAn.JPG",
+      "autor": "Montoya Conde",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Frailejones en flor en el páramo de Los Nevados, con montañas nevadas al fondo bajo un cielo azul",
+      "asignado_a": [
+        "destino:pnn-los-nevados:1"
+      ]
+    },
+    {
+      "archivo": "destino-pnn-los-nevados-2.jpg",
+      "sha256": "2c5fb91a9f05eba16f61c5d67265e608e1f39820320f6e1a1b7f333ad370ff1c",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 277642,
+      "titulo_commons": "File:Patrón natural de un bosque de frailejones en el Ruiz.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Patr%C3%B3n_natural_de_un_bosque_de_frailejones_en_el_Ruiz.jpg",
+      "autor": "Johan Andrés Toro",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Ladera de páramo cubierta de frailejones de tallos oscuros y rosetas plateadas en Los Nevados",
+      "asignado_a": [
+        "destino:pnn-los-nevados:2"
+      ]
+    },
+    {
+      "archivo": "destino-pnn-los-nevados-3.jpg",
+      "sha256": "d64f950b40bb61bf53ad98c48af7cf30aa099890d81ea54f1957b2a3f78abad0",
+      "ancho": 1200,
+      "alto": 661,
+      "bytes": 165329,
+      "titulo_commons": "File:Parque Nacional Natural Los Nevados y Nevado del Ruiz (18248).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Parque_Nacional_Natural_Los_Nevados_y_Nevado_del_Ruiz_(18248).jpg",
+      "autor": "AmiGueko",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Volcán nevado asomando entre nubes sobre mesetas rocosas y valles de páramo en el Parque Nacional Natural Los Nevados",
+      "asignado_a": [
+        "destino:pnn-los-nevados:3"
+      ]
+    },
+    {
+      "archivo": "destino-queenstown-0.jpg",
+      "sha256": "c6202ed2b0785e9ef59b8ae26deb1e8eb355c5405b150786044c7004f8cea925",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 188403,
+      "titulo_commons": "File:The Remarkables from Queenstown, New Zealand 08.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:The_Remarkables_from_Queenstown,_New_Zealand_08.jpg",
+      "autor": "Σ64",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "La cordillera de The Remarkables, con cumbres nevadas, sobre Queenstown y las aguas del lago Wakatipu",
+      "asignado_a": [
+        "destino:queenstown:0"
+      ]
+    },
+    {
+      "archivo": "destino-queenstown-1.jpg",
+      "sha256": "18fab5fc2cb0040f0191763edad8605578e154605398eae37e4c38467e5574c9",
+      "ancho": 1200,
+      "alto": 778,
+      "bytes": 189879,
+      "titulo_commons": "File:Queenstown - The Remarkables 21 (30868110723).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Queenstown_-_The_Remarkables_21_(30868110723).jpg",
+      "autor": "Tony Hisgett from Birmingham, UK",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Picos de The Remarkables con nieve y nubes, sobre un bosque de coníferas cerca de Queenstown",
+      "asignado_a": [
+        "destino:queenstown:1"
+      ]
+    },
+    {
+      "archivo": "destino-queenstown-2.jpg",
+      "sha256": "89cb87ee534b0e79aa3a2da13c595e99175398bee06c01168b2699a48b0bfa6e",
+      "ancho": 1200,
+      "alto": 392,
+      "bytes": 100365,
+      "titulo_commons": "File:Lake Wakatipu from Queenstown gondola.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Lake_Wakatipu_from_Queenstown_gondola.jpg",
+      "autor": "Avenue",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Queenstown a orillas del lago Wakatipu visto desde lo alto, con montañas y la cordillera al fondo",
+      "asignado_a": [
+        "destino:queenstown:2"
+      ]
+    },
+    {
+      "archivo": "destino-queenstown-3.jpg",
+      "sha256": "757ec651e76b34b912941485004be46253152cfd290981de80cab3d511509bd3",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 279721,
+      "titulo_commons": "File:Kawarau Bridge 43m Bungy Jumping - 8605901798.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kawarau_Bridge_43m_Bungy_Jumping_-_8605901798.jpg",
+      "autor": "sussexbirder",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Puente colgante de Kawarau sobre un cañón rocoso y el río turquesa, cerca de Queenstown",
+      "asignado_a": [
+        "destino:queenstown:3",
+        "coleccion:deportes-de-adrenalina-y-expediciones"
+      ]
+    },
+    {
+      "archivo": "destino-ruta-laugavegur-0.jpg",
+      "sha256": "72633e32febe29748b82b43bf2439a0599749545bde0742f5644c40f08e124ef",
+      "ancho": 1280,
+      "alto": 834,
+      "bytes": 185967,
+      "titulo_commons": "File:Landmannalaugar, Iceland 04.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Landmannalaugar,_Iceland_04.jpg",
+      "autor": "Michal Klajban",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Montañas de riolita de Landmannalaugar en tonos ocres, verdes y rosados con manchas de nieve, surcadas por barrancos",
+      "asignado_a": [
+        "destino:ruta-laugavegur:0"
+      ]
+    },
+    {
+      "archivo": "destino-ruta-laugavegur-1.jpg",
+      "sha256": "202e8e8a97fc8c86d27f136583ea80de73cdd0e0d8f11fcb4f7062471df2847c",
+      "ancho": 1200,
+      "alto": 751,
+      "bytes": 171569,
+      "titulo_commons": "File:Landmannalaugar in summer 2009 (13).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Landmannalaugar_in_summer_2009_(13).jpg",
+      "autor": "Chmee2 / Valtameri",
+      "licencia": "CC-BY-3.0",
+      "licencia_commons": "CC BY 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/3.0/",
+      "alt": "Llanura con un arroyo y pastos verdes ante las montañas multicolores de Landmannalaugar, inicio de la ruta Laugavegur",
+      "asignado_a": [
+        "destino:ruta-laugavegur:1"
+      ]
+    },
+    {
+      "archivo": "destino-ruta-laugavegur-2.jpg",
+      "sha256": "1183b3040f486ff15cd348570b979e8ca144b2b72de25d896f24101f387c8896",
+      "ancho": 1200,
+      "alto": 803,
+      "bytes": 183838,
+      "titulo_commons": "File:Landscape during Laugavegur hiking trail 2.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Landscape_during_Laugavegur_hiking_trail_2.jpg",
+      "autor": "Chmee2 / Valtameri",
+      "licencia": "CC-BY-3.0",
+      "licencia_commons": "CC BY 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/3.0/",
+      "alt": "Sendero de la ruta Laugavegur junto a un arroyo pedregoso, entre laderas cubiertas de musgo verde y montañas con nieve al fondo",
+      "asignado_a": [
+        "destino:ruta-laugavegur:2",
+        "coleccion:grandes-travesias-de-trekking"
+      ]
+    },
+    {
+      "archivo": "destino-ruta-laugavegur-3.jpg",
+      "sha256": "bd77169009dbdba5a8d4dd570c7e1dd633c5df72c2c25ba334da7ee06aed8f6d",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 191158,
+      "titulo_commons": "File:Hattfell from Laugavegur hiking trail, Iceland 12.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Hattfell_from_Laugavegur_hiking_trail,_Iceland_12.jpg",
+      "autor": "Michal Klajban",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "El monte Hattfell, cubierto de musgo verde, se alza sobre una llanura de grava volcánica negra junto a la ruta Laugavegur",
+      "asignado_a": [
+        "destino:ruta-laugavegur:3"
+      ]
+    },
+    {
+      "archivo": "destino-salar-de-uyuni-0.jpg",
+      "sha256": "72e582fc237bcaf53853b2efc46942cc503f2852d4e61248c065fab0340d3b13",
+      "ancho": 1280,
+      "alto": 845,
+      "bytes": 187498,
+      "titulo_commons": "File:Piles of Salt Salar de Uyuni Bolivia Luca Galuzzi 2006 a.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Piles_of_Salt_Salar_de_Uyuni_Bolivia_Luca_Galuzzi_2006_a.jpg",
+      "autor": "Luca Galuzzi (Lucag), edición de Trialsanderrors",
+      "licencia": "CC-BY-SA-2.5",
+      "licencia_commons": "CC BY-SA 2.5",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.5/",
+      "alt": "Montículos cónicos de sal apilados sobre la superficie blanca y húmeda del Salar de Uyuni, con montañas lejanas en el horizonte",
+      "asignado_a": [
+        "destino:salar-de-uyuni:0"
+      ]
+    },
+    {
+      "archivo": "destino-salar-de-uyuni-1.jpg",
+      "sha256": "060c460ab2a01e1dd062788812522bba02c9686911afe50cc9c04d45054ec21e",
+      "ancho": 1200,
+      "alto": 641,
+      "bytes": 182203,
+      "titulo_commons": "File:Isla del Pescado, Salar de Uyuni, Bolivia, 2016-02-04, DD 42.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Isla_del_Pescado,_Salar_de_Uyuni,_Bolivia,_2016-02-04,_DD_42.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Cactus gigantes sobre las rocas de una isla en medio del Salar de Uyuni, con la llanura blanca de sal y un volcán al fondo",
+      "asignado_a": [
+        "destino:salar-de-uyuni:1"
+      ]
+    },
+    {
+      "archivo": "destino-salar-de-uyuni-2.jpg",
+      "sha256": "f170dd623613167d28d4160db72019a1106314b3fb88435058cad3db7c8360ff",
+      "ancho": 1200,
+      "alto": 675,
+      "bytes": 77704,
+      "titulo_commons": "File:Salar de Uyuni, Bolivia, 2016-02-04, DD 10-12 HDR.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Salar_de_Uyuni,_Bolivia,_2016-02-04,_DD_10-12_HDR.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Un cerro rojizo se refleja como en un espejo sobre la fina capa de agua del Salar de Uyuni bajo un cielo despejado",
+      "asignado_a": [
+        "destino:salar-de-uyuni:2"
+      ]
+    },
+    {
+      "archivo": "destino-salar-de-uyuni-3.jpg",
+      "sha256": "597c6f0f950dcbe98f3230ed0118b9d26d6ec789bbcec1531f207226feeeee6c",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 95211,
+      "titulo_commons": "File:Salar de Uyuni, Bolivia, 2016-02-04, DD 44.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Salar_de_Uyuni,_Bolivia,_2016-02-04,_DD_44.JPG",
+      "autor": "Diego Delso",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Llanura del Salar de Uyuni cubierta por una fina capa de agua, con un vehículo y dos personas diminutas y un volcán en el horizonte bajo cielo azul intenso",
+      "asignado_a": [
+        "destino:salar-de-uyuni:3"
+      ]
+    },
+    {
+      "archivo": "destino-san-gil-canon-del-chicamocha-0.jpg",
+      "sha256": "9cbd21d2d5d50a48c32a450a4124f2ac7fa2009a4cb11ceaf14b889c2267a741",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 209175,
+      "titulo_commons": "File:Cañón del Río Chicamocha 03.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Ca%C3%B1%C3%B3n_del_R%C3%ADo_Chicamocha_03.jpg",
+      "autor": "Bernard Gagnon",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Cañón del Chicamocha, con laderas áridas y montañas plegadas que encierran el lecho del río al fondo del valle",
+      "asignado_a": [
+        "destino:san-gil-canon-del-chicamocha:0"
+      ]
+    },
+    {
+      "archivo": "destino-san-gil-canon-del-chicamocha-1.jpg",
+      "sha256": "f6c8d2546b33764ed32ca99431d515188ef62934c5c49146ac1b98015c754d4e",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 138665,
+      "titulo_commons": "File:Cañón Del Chicamocha.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Ca%C3%B1%C3%B3n_Del_Chicamocha.jpg",
+      "autor": "PapiPijuan",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Vista amplia del cañón del Chicamocha con cordilleras azuladas, el río serpenteando al fondo y nubes blancas",
+      "asignado_a": [
+        "destino:san-gil-canon-del-chicamocha:1"
+      ]
+    },
+    {
+      "archivo": "destino-san-gil-canon-del-chicamocha-2.jpg",
+      "sha256": "57c03c7b14e36e3833b5f801780cf8d10fca90ccbe3ad84e41dfec9fab9bd4f5",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 178841,
+      "titulo_commons": "File:Rio Chicamocha on PANACHI 01.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Rio_Chicamocha_on_PANACHI_01.JPG",
+      "autor": "Petruss",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El río Chicamocha avanza por el fondo de un valle profundo entre laderas verdes y escarpadas",
+      "asignado_a": [
+        "destino:san-gil-canon-del-chicamocha:2"
+      ]
+    },
+    {
+      "archivo": "destino-san-gil-canon-del-chicamocha-3.jpg",
+      "sha256": "003ee4d49ca3edabdf7087745e0a297064c818fa73bccc900f462fba6ed94db6",
+      "ancho": 1200,
+      "alto": 802,
+      "bytes": 188849,
+      "titulo_commons": "File:Rafting San Gil - Río Fonce.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Rafting_San_Gil_-_R%C3%ADo_Fonce.jpg",
+      "autor": "Tisquesusa",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "Balsa de rafting con remeros con casco y chaleco salvavidas atravesando aguas bravas del río Fonce, en San Gil",
+      "asignado_a": [
+        "destino:san-gil-canon-del-chicamocha:3"
+      ]
+    },
+    {
+      "archivo": "destino-torres-del-paine-0.jpg",
+      "sha256": "2fda35d594b12e3310af500bd1d2a75026936b68f58a28644633f76e1b93b677",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 185508,
+      "titulo_commons": "File:Towers of Paine - Torres del Paine National Park 13.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Towers_of_Paine_-_Torres_del_Paine_National_Park_13.jpg",
+      "autor": "Thomas Fuhrmann",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Las tres Torres del Paine, agujas de granito sobre una laguna turquesa rodeada de morrena y paredes rocosas, bajo un cielo con nubes",
+      "asignado_a": [
+        "destino:torres-del-paine:0"
+      ]
+    },
+    {
+      "archivo": "destino-torres-del-paine-1.jpg",
+      "sha256": "02d7fac3f6ddd3d67244d1214a171fc913bb96c18ff68a7e85981097178c59c7",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 142064,
+      "titulo_commons": "File:A view towards Torres Del Paine.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:A_view_towards_Torres_Del_Paine.jpg",
+      "autor": "Winky de Oxford, UK",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Los Cuernos del Paine, picos de granito y nieve, sobre las aguas turquesas de un lago patagónico y laderas verdes",
+      "asignado_a": [
+        "destino:torres-del-paine:1"
+      ]
+    },
+    {
+      "archivo": "destino-torres-del-paine-2.jpg",
+      "sha256": "08d6e62685e6f6c035ed1ef189cbad3d342192397ecb7c69eb218ee6dfd685de",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 188845,
+      "titulo_commons": "File:Cuernos del Paine in Torres del Paine National Park.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cuernos_del_Paine_in_Torres_del_Paine_National_Park.jpg",
+      "autor": "Pedro Szekely from Los Angeles, USA",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Macizo del Paine al amanecer, con nubes rosadas sobre los Cuernos y picos nevados, un bosque bajo y un lago en primer plano",
+      "asignado_a": [
+        "destino:torres-del-paine:2"
+      ]
+    },
+    {
+      "archivo": "destino-torres-del-paine-3.jpg",
+      "sha256": "120f8b4ae5d6e1ea1cff60b0eb98659fe98dd2b798d829d67515178557bd8b8c",
+      "ancho": 1200,
+      "alto": 900,
+      "bytes": 186076,
+      "titulo_commons": "File:Kayakistas en Glaciar Grey.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kayakistas_en_Glaciar_Grey.jpg",
+      "autor": "Pablo A. Cumillaf",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Kayak rojo con varios remeros frente al frente de hielo azul del glaciar Grey, sobre un lago de aguas turquesas",
+      "asignado_a": [
+        "destino:torres-del-paine:3"
+      ]
+    },
+    {
+      "archivo": "destino-wadi-rum-0.jpg",
+      "sha256": "03bcb015e696e382a149ccf3a4396a70f664f10012f037535c7f938bbc987b4b",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 188531,
+      "titulo_commons": "File:Wadi rum desert.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Wadi_rum_desert.jpg",
+      "autor": "Peter Chisholm",
+      "licencia": "CC0-1.0",
+      "licencia_commons": "CC0",
+      "url_licencia": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "alt": "Formaciones de arenisca rojiza sobre la arena anaranjada del desierto de Wadi Rum bajo un cielo azul intenso",
+      "asignado_a": [
+        "destino:wadi-rum:0"
+      ]
+    },
+    {
+      "archivo": "destino-wadi-rum-1.jpg",
+      "sha256": "a5af920157add32e53f2a32cc0dde6d559eba56873da2f3522b160bce5f1eee0",
+      "ancho": 1200,
+      "alto": 571,
+      "bytes": 118765,
+      "titulo_commons": "File:Seven Pillars 2008 e5.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Seven_Pillars_2008_e5.jpg",
+      "autor": "Tomobe03",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Los Siete Pilares de la Sabiduría, macizo de arenisca estriada que se eleva sobre la llanura desértica de Wadi Rum",
+      "asignado_a": [
+        "destino:wadi-rum:1"
+      ]
+    },
+    {
+      "archivo": "destino-wadi-rum-2.jpg",
+      "sha256": "16cc03e14b6d33c39de86469671a7dfd83c7fcf664f6c63a499dd919240b83c1",
+      "ancho": 1200,
+      "alto": 803,
+      "bytes": 152808,
+      "titulo_commons": "File:Wadi Rum BW 16.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Wadi_Rum_BW_16.JPG",
+      "autor": "Berthold Werner",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Todoterreno recorriendo la llanura de arena rosada de Wadi Rum frente a una larga meseta rocosa",
+      "asignado_a": [
+        "destino:wadi-rum:2"
+      ]
+    },
+    {
+      "archivo": "destino-wadi-rum-3.jpg",
+      "sha256": "43f02c2d39d1edc8ddfd0cf9c43ef0219daf6461b33986df24c5ca8566c15f91",
+      "ancho": 1200,
+      "alto": 803,
+      "bytes": 187572,
+      "titulo_commons": "File:Wadi Rum BW 9.JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Wadi_Rum_BW_9.JPG",
+      "autor": "Berthold Werner",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Imponentes paredes de arenisca rojiza junto a la llanura de arena de Wadi Rum, con un vehículo diminuto en la base",
+      "asignado_a": [
+        "destino:wadi-rum:3"
+      ]
+    },
+    {
+      "archivo": "destino-yosemite-0.jpg",
+      "sha256": "7b427af968c8dec8220f047118449c4b036d9d5615a2e752e5eb74133d7188e0",
+      "ancho": 1280,
+      "alto": 835,
+      "bytes": 198882,
+      "titulo_commons": "File:Tunnel View, Yosemite Valley, Yosemite NP - Diliff.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Tunnel_View,_Yosemite_Valley,_Yosemite_NP_-_Diliff.jpg",
+      "autor": "Diliff",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Valle de Yosemite desde Tunnel View, con la pared de El Capitan, la cascada Bridalveil y el Half Dome al fondo sobre un bosque de coníferas",
+      "asignado_a": [
+        "destino:yosemite:0"
+      ]
+    },
+    {
+      "archivo": "destino-yosemite-1.jpg",
+      "sha256": "f0d022cb9f00fe87f398c350901086ac1ddc4cefbfd758225a9db02e5f42b83e",
+      "ancho": 1200,
+      "alto": 795,
+      "bytes": 205593,
+      "titulo_commons": "File:Valley View Yosemite August 2013 002.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Valley_View_Yosemite_August_2013_002.jpg",
+      "autor": "King of Hearts",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El Capitan y las Catedrales reflejadas en el río Merced, con rocas, pastos verdes y pinos en la orilla",
+      "asignado_a": [
+        "destino:yosemite:1"
+      ]
+    },
+    {
+      "archivo": "destino-yosemite-2.jpg",
+      "sha256": "1a6efeb99e8ba076672e9bd44db60b0f9e6190830d6b47a3a6084391e36fe96a",
+      "ancho": 1200,
+      "alto": 761,
+      "bytes": 207844,
+      "titulo_commons": "File:Half Dome with Eastern Yosemite Valley.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Half_Dome_with_Eastern_Yosemite_Valley.jpg",
+      "autor": "Thomas Wolf, www.foto-tw.de",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El Half Dome y el valle de Yosemite vistos desde Glacier Point, con cúpulas de granito y bosque bajo un cielo con nubes",
+      "asignado_a": [
+        "destino:yosemite:2"
+      ]
+    },
+    {
+      "archivo": "destino-yosemite-3.jpg",
+      "sha256": "795b4a97350a179b251ccb75fb201f680ca214316cf3e8bcd572d20ea8022db6",
+      "ancho": 1200,
+      "alto": 800,
+      "bytes": 159213,
+      "titulo_commons": "File:Yosemite night elcapitan climbers.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Yosemite_night_elcapitan_climbers.jpg",
+      "autor": "C-M",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "La pared de El Capitan al anochecer, con las luces de los escaladores que vivaquean en la roca bajo un cielo violeta",
+      "asignado_a": [
+        "destino:yosemite:3"
+      ]
+    },
+    {
+      "archivo": "guia-como-elegir-y-organizar-la-mochila-de-trekking.jpg",
+      "sha256": "71b953ea82a457303c2c91b3548ffa4b4bdce02e4035bd61e041fde7b1a3841d",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 189100,
+      "titulo_commons": "File:Hiking in the Voronezh Oblast - 004.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Hiking_in_the_Voronezh_Oblast_-_004.jpg",
+      "autor": "Alexander Novikov",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Varias mochilas de trekking con fundas impermeables de colores apoyadas contra una cabaña de madera pintada sobre la hierba",
+      "asignado_a": [
+        "guia:como-elegir-y-organizar-la-mochila-de-trekking"
+      ]
+    },
+    {
+      "archivo": "guia-como-entrenar-antes-de-tu-primera-aventura.jpg",
+      "sha256": "bf87d49bee341f86f48a45af427032ce0594f2166f05739ef05d5f3cdfdda569",
+      "ancho": 1280,
+      "alto": 720,
+      "bytes": 187819,
+      "titulo_commons": "File:Grand Canyon National Park — Hikers Ascending Bright Angel Trail 20862 (50843788687).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Grand_Canyon_National_Park_%E2%80%94_Hikers_Ascending_Bright_Angel_Trail_20862_(50843788687).jpg",
+      "autor": "Grand Canyon National Park",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Grupo de excursionistas con mochila ascendiendo por un sendero tallado en la pared del Gran Cañón, con capas de roca rojiza al fondo",
+      "asignado_a": [
+        "guia:como-entrenar-antes-de-tu-primera-aventura"
+      ]
+    },
+    {
+      "archivo": "guia-como-evaluar-riesgos-antes-de-salir-al-terreno.jpg",
+      "sha256": "7dc4e21d8a4396e42306d9be3e75cb9e48e391b39dbf34e438c3c830114e631d",
+      "ancho": 1280,
+      "alto": 882,
+      "bytes": 187197,
+      "titulo_commons": "File:Red Cloud Peak WSA (9473405298).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Red_Cloud_Peak_WSA_(9473405298).jpg",
+      "autor": "Bob Wick, Bureau of Land Management",
+      "licencia": "PDM-1.0",
+      "licencia_commons": "Public domain",
+      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "alt": "Tormenta eléctrica con un rayo sobre montañas y bosque de coníferas bajo un cielo oscuro y amenazante",
+      "asignado_a": [
+        "guia:como-evaluar-riesgos-antes-de-salir-al-terreno"
+      ]
+    },
+    {
+      "archivo": "guia-como-planificar-el-presupuesto-de-un-viaje-de-aventura.jpg",
+      "sha256": "4c038f7e4bf6f4519b183adc5bf17bdd72398fbca50c64bf3733273d61c992f5",
+      "ancho": 1280,
+      "alto": 852,
+      "bytes": 185449,
+      "titulo_commons": "File:A member of the A-10 recovery team checks his heading with a compass and map as he searches for the four 500 pound Mark 82 bombs that were carried by the A-10 that crashed on Gold D - DPLA - 23f1c408cba2de431ae1517c991323d9.jpeg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:A_member_of_the_A-10_recovery_team_checks_his_heading_with_a_compass_and_map_as_he_searches_for_the_four_500_pound_Mark_82_bombs_that_were_carried_by_the_A-10_that_crashed_on_Gold_D_-_DPLA_-_23f1c408cba2de431ae1517c991323d9.jpeg",
+      "autor": "U.S. Department of Defense, Defense Visual Information Center",
+      "licencia": "PDM-1.0",
+      "licencia_commons": "Public domain",
+      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "alt": "Mano sujetando una brújula de placa sobre un mapa topográfico con curvas de nivel y una ruta marcada a mano",
+      "asignado_a": [
+        "guia:como-planificar-el-presupuesto-de-un-viaje-de-aventura"
+      ]
+    },
+    {
+      "archivo": "guia-fotografia-de-paisaje-en-condiciones-de-montana.jpg",
+      "sha256": "2cb87b07df38bd73060b33bf21609032897419f49370972f9a476c2e0d216ce3",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 126204,
+      "titulo_commons": "File:Live FB Stream at Sunrise 4 3 16 (26041230210).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Live_FB_Stream_at_Sunrise_4_3_16_(26041230210).jpg",
+      "autor": "GlacierNPS",
+      "licencia": "PDM-1.0",
+      "licencia_commons": "Public domain",
+      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "alt": "Teléfono montado en un trípode a orillas de un lago de montaña en calma, fotografiando los picos nevados reflejados en el agua",
+      "asignado_a": [
+        "guia:fotografia-de-paisaje-en-condiciones-de-montana"
+      ]
+    },
+    {
+      "archivo": "guia-mal-de-altura-como-prevenirlo-y-reconocerlo.jpg",
+      "sha256": "a25dfca34a6bebbade6048c3bf204a0fbbaa492d2e7fa22f4583170993ee766d",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 183820,
+      "titulo_commons": "File:Thorong La 2, Himalaya, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Thorong_La_2,_Himalaya,_Nepal.jpg",
+      "autor": "Vyacheslav Argenberg",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "Dos excursionistas ascienden por un sendero de piedras y nieve hacia el paso de Thorong La, con cordilleras del Himalaya al fondo",
+      "asignado_a": [
+        "guia:mal-de-altura-como-prevenirlo-y-reconocerlo"
+      ]
+    },
+    {
+      "archivo": "guia-primeros-pasos-para-elegir-tu-primera-aventura.jpg",
+      "sha256": "c3255b0487cc80bc7a03936760728d95f37af00f8ac12f803bece7018910c011",
+      "ancho": 1280,
+      "alto": 530,
+      "bytes": 143615,
+      "titulo_commons": "File:Catbells Northern Ascent, Lake District - June 2009.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Catbells_Northern_Ascent,_Lake_District_-_June_2009.jpg",
+      "autor": "Diliff",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Excursionistas pequeños ascendiendo por un sendero de cresta cubierto de hierba verde en el Distrito de los Lagos, con valles y montañas al fondo",
+      "asignado_a": [
+        "guia:primeros-pasos-para-elegir-tu-primera-aventura"
+      ]
+    },
+    {
+      "archivo": "guia-principios-de-no-dejar-rastro-en-la-naturaleza.jpg",
+      "sha256": "f4f7226a5abbc3aa952b5b202a283235347c86463e9d778662292144b0411f26",
+      "ancho": 1280,
+      "alto": 939,
+      "bytes": 189998,
+      "titulo_commons": "File:Tent at High Shelf Camp.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Tent_at_High_Shelf_Camp.jpg",
+      "autor": "JJ Harrison",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Tienda de campaña montada sobre roca plana en un claro de alta montaña, al pie de un acantilado iluminado por el atardecer",
+      "asignado_a": [
+        "guia:principios-de-no-dejar-rastro-en-la-naturaleza"
+      ]
+    },
+    {
+      "archivo": "guia-que-llevar-en-un-botiquin-de-aventura.jpg",
+      "sha256": "556cf86956f592794c8c63c4ea83e48389dd517aa41ca029c814c30332ecae5d",
+      "ancho": 1280,
+      "alto": 907,
+      "bytes": 168391,
+      "titulo_commons": "File:Kit pronto soccorso moto (aperto).JPG",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kit_pronto_soccorso_moto_(aperto).JPG",
+      "autor": "Umberto NURS",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Botiquín de primeros auxilios abierto, con vendas, apósitos, manta térmica y guantes ordenados en sus compartimentos transparentes",
+      "asignado_a": [
+        "guia:que-llevar-en-un-botiquin-de-aventura"
+      ]
+    },
+    {
+      "archivo": "guia-que-preguntar-antes-de-reservar-con-un-operador-local.jpg",
+      "sha256": "e6a3d3ae0236f234bb94b461548a6d41ca51116d36a3e4eec895fb34781d5675",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 185655,
+      "titulo_commons": "File:A porter carrying a heavy load in the Everest region, Nepal.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:A_porter_carrying_a_heavy_load_in_the_Everest_region,_Nepal.jpg",
+      "autor": "Agnes Kwong",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Porteador con una gran carga a la espalda caminando por un sendero del Khumbu, frente a montañas nevadas bajo cielo azul",
+      "asignado_a": [
+        "guia:que-preguntar-antes-de-reservar-con-un-operador-local"
+      ]
+    },
+    {
+      "archivo": "inicio-hero.jpg",
+      "sha256": "422201089fe3a1da35149d23e27227d5c82135fac7504d2b690672a662358590",
+      "ancho": 1920,
+      "alto": 1374,
+      "bytes": 504822,
+      "titulo_commons": "File:Laguna Torre reflection.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Laguna_Torre_reflection.jpg",
+      "autor": "360around",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "El Cerro Torre y las cumbres nevadas del campo de hielo se reflejan en la Laguna Torre, cerca de El Chaltén, bajo un cielo azul intenso",
+      "asignado_a": [
+        "inicio:hero"
+      ]
+    },
+    {
+      "archivo": "itinerario-camino-inca-en-4-dias.jpg",
+      "sha256": "c4b457c7590db916e5e2acbeb4685410a2b0705857dea68ebed20eb942072af7",
+      "ancho": 1280,
+      "alto": 720,
+      "bytes": 199210,
+      "titulo_commons": "File:Ground Camp close to Patallacta Inca site, Inca Trail, Peru.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Ground_Camp_close_to_Patallacta_Inca_site,_Inca_Trail,_Peru.jpg",
+      "autor": "Christoph Strässler",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Campamento de tiendas de campaña en una pradera del Camino Inca, junto a terrazas incas y montañas áridas",
+      "asignado_a": [
+        "itinerario:camino-inca-en-4-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-ciudad-perdida-en-4-dias.jpg",
+      "sha256": "d89c638b15e55c5c5239e47fb9c2504b3eb74162d41ee42ff138e354913132ec",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 267163,
+      "titulo_commons": "File:Cienaga, Magdalena, Colombia - Ciudad Perdida trek 78.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cienaga,_Magdalena,_Colombia_-_Ciudad_Perdida_trek_78.jpg",
+      "autor": "McKay Savage",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Bohío de techo de paja junto a un camino empedrado en plena selva, en la ruta de trekking a Ciudad Perdida",
+      "asignado_a": [
+        "itinerario:ciudad-perdida-en-4-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-dolomitas-via-ferrata-en-5-dias.jpg",
+      "sha256": "150a8ab2e5ed0427aca669b2db7dbdf524ecc19da632afb1ab659d54d787928e",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 181784,
+      "titulo_commons": "File:Dolomites (Italy, October-November 2019) - 12 (50587498532).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Dolomites_(Italy,_October-November_2019)_-_12_(50587498532).jpg",
+      "autor": "Bruno Rijsman",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "Montañero con mochila roja avanza agarrado al cable de acero de una vía ferrata sobre roca nevada en las Dolomitas",
+      "asignado_a": [
+        "itinerario:dolomitas-via-ferrata-en-5-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-el-chalten-en-4-dias.jpg",
+      "sha256": "f5eb1352b9cfb5f18f99318737fccb78b2ef8f88e1d47c9a6a703504721a87f5",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 185686,
+      "titulo_commons": "File:Hike to Mount Fitz Roy (5464225356).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Hike_to_Mount_Fitz_Roy_(5464225356).jpg",
+      "autor": "Liam Quinn from Canada",
+      "licencia": "CC-BY-SA-2.0",
+      "licencia_commons": "CC BY-SA 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "alt": "El Fitz Roy con una nube lenticular sobre su cumbre, visto por encima de un bosque de lengas desde el sendero",
+      "asignado_a": [
+        "itinerario:el-chalten-en-4-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-everest-campo-base-en-12-dias.jpg",
+      "sha256": "30b86e545ae2391cb8902e36c079092da281faeb89f60bad30026f6dafb5f4eb",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 265594,
+      "titulo_commons": "File:Working yaks in Everest region.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Working_yaks_in_Everest_region.jpg",
+      "autor": "TT4FT",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Caravana de yaks cargados avanzando por un sendero del valle del Khumbu, con picos nevados del Himalaya al fondo",
+      "asignado_a": [
+        "itinerario:everest-campo-base-en-12-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-queenstown-en-4-dias.jpg",
+      "sha256": "5166dfb182991cefdbfd6e3d07e22b129c98e9a4d592425fb9d919e468f544cb",
+      "ancho": 1280,
+      "alto": 443,
+      "bytes": 142408,
+      "titulo_commons": "File:Queenstown-Lakes 23.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Queenstown-Lakes_23.jpg",
+      "autor": "LBM1948",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Orilla del lago Wakatipu al atardecer, con la luz dorada sobre las montañas de The Remarkables",
+      "asignado_a": [
+        "itinerario:queenstown-en-4-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-salar-de-uyuni-en-3-dias.jpg",
+      "sha256": "4ef621aeb3e069698b604d9fc910f859bc90f901b5b61c217cdec540f55674d5",
+      "ancho": 1280,
+      "alto": 950,
+      "bytes": 177086,
+      "titulo_commons": "File:Im Salar de Uyuni.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Im_Salar_de_Uyuni.jpg",
+      "autor": "Thomas Wilken",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El Árbol de Piedra, roca erosionada por el viento con forma de árbol, en el desierto de altura del altiplano boliviano",
+      "asignado_a": [
+        "itinerario:salar-de-uyuni-en-3-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-san-gil-en-3-dias.jpg",
+      "sha256": "f5e4d433ec4714de42b447fc36a1036eac1eca0f8742b49c605643b32fc86bbc",
+      "ancho": 1280,
+      "alto": 720,
+      "bytes": 76453,
+      "titulo_commons": "File:Parapente chicamocha.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Parapente_chicamocha.jpg",
+      "autor": "Jukahogo",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Parapente sobrevolando el profundo cañón del Chicamocha, con el río serpenteando al fondo entre laderas montañosas brumosas",
+      "asignado_a": [
+        "itinerario:san-gil-en-3-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-torres-del-paine-circuito-w-en-5-dias.jpg",
+      "sha256": "0ec6799390f191d00b5d0744e8dcec4f1254ea1e4e6a9c1cde66263a556bff0d",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 187049,
+      "titulo_commons": "File:Cerro Paine Grande, glaciar, río y valle del Francés, Cordillera Paine, Magallanes, Chile.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cerro_Paine_Grande,_glaciar,_r%C3%ADo_y_valle_del_Franc%C3%A9s,_Cordillera_Paine,_Magallanes,_Chile.jpg",
+      "autor": "CARLOS TEIXIDOR CADENAS",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Río de aguas bravas entre rocas y bosque en el Valle del Francés, con el glaciar y las cumbres nevadas del Paine Grande al fondo",
+      "asignado_a": [
+        "itinerario:torres-del-paine-circuito-w-en-5-dias"
+      ]
+    },
+    {
+      "archivo": "itinerario-wadi-rum-en-3-dias.jpg",
+      "sha256": "03c928028c7804d83edb8508ae9f4efd48f10e46ac6f84839a69162365ada48b",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 187012,
+      "titulo_commons": "File:Wadi Rum 02.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Wadi_Rum_02.jpg",
+      "autor": "Bernard Gagnon",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Grandes bloques de arenisca erosionados por el viento sobre la arena clara de Wadi Rum, bajo un cielo con pequeñas nubes",
+      "asignado_a": [
+        "itinerario:wadi-rum-en-3-dias"
+      ]
+    },
+    {
+      "archivo": "tipo-alta-montana-y-alpinismo.jpg",
+      "sha256": "397cd7e5265f2b2612238587aa24701c4b11c9d37676789f7c0a7ca3e3e372ba",
+      "ancho": 1280,
+      "alto": 960,
+      "bytes": 183764,
+      "titulo_commons": "File:LADDER CROSSING.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:LADDER_CROSSING.jpg",
+      "autor": "Malaymukherjee",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Alpinista con casco y crampones cruza una escalera tendida sobre una grieta del glaciar, entre seracs y cumbres nevadas del Himalaya",
+      "asignado_a": [
+        "tipo:alta-montana-y-alpinismo"
+      ]
+    },
+    {
+      "archivo": "tipo-buceo-y-snorkel.jpg",
+      "sha256": "aa4e6990539aa55ad07c92af9782026af46ff95963d160a20a4bd9bd119aa130",
+      "ancho": 1280,
+      "alto": 851,
+      "bytes": 186445,
+      "titulo_commons": "File:GRNMS - Diver On Reef (32490355423).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:GRNMS_-_Diver_On_Reef_(32490355423).jpg",
+      "autor": "National Marine Sanctuaries",
+      "licencia": "PDM-1.0",
+      "licencia_commons": "Public domain",
+      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "alt": "Buceador con máscara y regulador detrás de esponjas anaranjadas y gorgonias de un arrecife, en aguas azules",
+      "asignado_a": [
+        "tipo:buceo-y-snorkel"
+      ]
+    },
+    {
+      "archivo": "tipo-ciclismo-de-montana.jpg",
+      "sha256": "f8a78eced53794593031fc4aa5c49cc32e2497a5b43009b94f9af5ac9e69918c",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 236883,
+      "titulo_commons": "File:MTB-Downhill-Piste.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:MTB-Downhill-Piste.jpg",
+      "autor": "Hungerburg",
+      "licencia": "CC-BY-4.0",
+      "licencia_commons": "CC BY 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
+      "alt": "Ciclista de montaña descendiendo por un sendero estrecho de tierra en un bosque de pinos con luz filtrada",
+      "asignado_a": [
+        "tipo:ciclismo-de-montana"
+      ]
+    },
+    {
+      "archivo": "tipo-escalada-y-via-ferrata.jpg",
+      "sha256": "ebc9cdc70ddcb85ac6413c51d4efde7eb2d5bad52d5e96da7d465036269e1348",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 297758,
+      "titulo_commons": "File:Rock Climber (53611501110).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Rock_Climber_(53611501110).jpg",
+      "autor": "Joshua Tree National Park",
+      "licencia": "PDM-1.0",
+      "licencia_commons": "Public domain",
+      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "alt": "Escalador con casco y arnés, visto desde arriba, progresando por una pared de granito con la cuerda verde de seguridad",
+      "asignado_a": [
+        "tipo:escalada-y-via-ferrata"
+      ]
+    },
+    {
+      "archivo": "tipo-espeleologia-y-cenotes.jpg",
+      "sha256": "913a46b7ba33d703186b59c99072f6ec1c5b52f76eda6d5d058e534ab8b816b2",
+      "ancho": 1280,
+      "alto": 914,
+      "bytes": 327925,
+      "titulo_commons": "File:Catedral II.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Catedral_II.jpg",
+      "autor": "JOSE HUMBERTO MATIAS DE PAULA",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Espeleólogo con casco y luz en una gran sala de cueva repleta de estalactitas y estalagmitas",
+      "asignado_a": [
+        "tipo:espeleologia-y-cenotes"
+      ]
+    },
+    {
+      "archivo": "tipo-kayak-y-navegacion.jpg",
+      "sha256": "4e47611944bd6212e5edd40e120320e000ab01fd047b464883a23cd790827aa5",
+      "ancho": 1280,
+      "alto": 644,
+      "bytes": 158199,
+      "titulo_commons": "File:Sea kayaking from Coles Bay.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Sea_kayaking_from_Coles_Bay.jpg",
+      "autor": "Takver (www.takver.com)",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Grupo de kayaks de mar en fila sobre aguas tranquilas al pie de montañas de granito en la costa de Tasmania",
+      "asignado_a": [
+        "tipo:kayak-y-navegacion"
+      ]
+    },
+    {
+      "archivo": "tipo-parapente-y-deportes-aereos.jpg",
+      "sha256": "1d136a650f006e823387913bb37eef9a9853822951ce1e751bd0cc20516fa921",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 145376,
+      "titulo_commons": "File:Parapente - 166.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Parapente_-_166.jpg",
+      "autor": "William Crochot (Medium69)",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Parapente blanco sobrevolando colinas verdes y conos volcánicos bajo un cielo con nubes",
+      "asignado_a": [
+        "tipo:parapente-y-deportes-aereos"
+      ]
+    },
+    {
+      "archivo": "tipo-rafting-y-deportes-de-rio.jpg",
+      "sha256": "f4599441accc05f12813f9163652826ff58bb825a50aef8838ddbcb2e46aeb92",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 187260,
+      "titulo_commons": "File:Kiira rafting in uganda is the best.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Kiira_rafting_in_uganda_is_the_best.jpg",
+      "autor": "Ypstudio",
+      "licencia": "CC0-1.0",
+      "licencia_commons": "CC0",
+      "url_licencia": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "alt": "Balsa de rafting con un grupo de remeros con casco atravesando un gran rápido de aguas blancas en el Nilo, en Uganda",
+      "asignado_a": [
+        "tipo:rafting-y-deportes-de-rio"
+      ]
+    },
+    {
+      "archivo": "tipo-safari-y-observacion-de-fauna.jpg",
+      "sha256": "80ac61f2528c1e4ccee7c90843710c395c4007b22aae3b4bda2894861b943835",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 181281,
+      "titulo_commons": "File:020 The lion king Snyggve in the Serengeti National Park Photo by Giles Laurent.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:020_The_lion_king_Snyggve_in_the_Serengeti_National_Park_Photo_by_Giles_Laurent.jpg",
+      "autor": "Giles Laurent, gileslaurent.com",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "León macho de melena oscura tumbado sobre una roca en la sabana del Parque Nacional del Serengeti",
+      "asignado_a": [
+        "tipo:safari-y-observacion-de-fauna"
+      ]
+    },
+    {
+      "archivo": "tipo-senderismo-y-trekking.jpg",
+      "sha256": "e05d80bc25b7b66aa702ab41b0aaae18c1be6df1cc7be2dea97c4653e9d35f64",
+      "ancho": 1280,
+      "alto": 768,
+      "bytes": 185770,
+      "titulo_commons": "File:Mountaineering Man Trail Path Mountains.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Mountaineering_Man_Trail_Path_Mountains.jpg",
+      "autor": "Hermann",
+      "licencia": "CC0-1.0",
+      "licencia_commons": "CC0",
+      "url_licencia": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "alt": "Excursionista con mochila, de espaldas, caminando por un sendero de grava entre prados y abetos en una ladera de montaña",
+      "asignado_a": [
+        "tipo:senderismo-y-trekking"
+      ]
+    },
+    {
+      "archivo": "tipo-surf.jpg",
+      "sha256": "a6e213fe0767cf03cf1264a77f801e70d0e0c1e5595c185657a9c0b6d267da3f",
+      "ancho": 1280,
+      "alto": 847,
+      "bytes": 171710,
+      "titulo_commons": "File:Mavericks Surf Contest 2010b.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Mavericks_Surf_Contest_2010b.jpg",
+      "autor": "Shalom Jacobovitz",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "Surfista diminuto con traje amarillo bajando la pared de una ola gigante que rompe en Mavericks, California",
+      "asignado_a": [
+        "tipo:surf"
+      ]
+    },
+    {
+      "archivo": "tipo-travesias-por-desierto-y-expediciones.jpg",
+      "sha256": "382b270b7a357331f6eaa054af8f0a3bea4244ed4486e5ba2299c0896672f1c8",
+      "ancho": 1280,
+      "alto": 854,
+      "bytes": 96368,
+      "titulo_commons": "File:Cavalier de chameaux au passage dans une dune de sable au Maroc.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Cavalier_de_chameaux_au_passage_dans_une_dune_de_sable_au_Maroc.jpg",
+      "autor": "Merzougaloisirs",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Caravana de dromedarios con jinetes cruzando las dunas anaranjadas del Erg Chebbi, en el Sahara marroquí",
+      "asignado_a": [
+        "tipo:travesias-por-desierto-y-expediciones"
+      ]
+    }
+  ]
+}
