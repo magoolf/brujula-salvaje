@@ -90,18 +90,47 @@ async function hrefs(page: Page, testId: string): Promise<string[]> {
     .evaluateAll((enlaces) => enlaces.map((a) => a.getAttribute('href') ?? ''));
 }
 
+/**
+ * El SSR reenvía la IP del cliente (X-Forwarded-For), así que el rastreo de AC_TKT019_04 consume
+ * el mismo cupo «publico-lectura» del ejecutor de pruebas. Si el backend responde 429 al SSR, la
+ * página sale con 200 y su estado de error (comportamiento correcto): se espera y se reintenta.
+ */
+const REINTENTOS_LIMITE = 8;
+const ESPERA_LIMITE_MS = 10_000;
+
+/** HTML del SSR del mapa con contenido (reintenta mientras el SSR muestre el estado de error). */
+async function htmlSsrMapa(page: Page): Promise<string> {
+  let html = '';
+  for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
+    const respuesta = await getConReintento(page, RUTA);
+    expect(respuesta.status()).toBe(200);
+    html = await respuesta.text();
+    if (!html.includes('data-testid="estado-error"')) return html;
+    await page.waitForTimeout(ESPERA_LIMITE_MS);
+  }
+  return html;
+}
+
 async function abrirMapa(page: Page): Promise<void> {
-  const respuesta = await page.goto(RUTA);
-  expect(respuesta?.status()).toBe(200);
-  await esperarHidratacion(page);
+  for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
+    const respuesta = await page.goto(RUTA);
+    expect(respuesta?.status()).toBe(200);
+    await esperarHidratacion(page);
+    const total = page.getByTestId('mapa-total');
+    const error = page.getByTestId('estado-error');
+    await expect(total.or(error).first()).toBeVisible({ timeout: 15_000 });
+    if (await total.isVisible()) return;
+    await page.waitForTimeout(ESPERA_LIMITE_MS);
+  }
   await expect(page.getByTestId('mapa-total')).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe('Mapa del sitio (SCR-022)', () => {
+  // Margen para las esperas por límite de tasa (htmlSsrMapa / abrirMapa).
+  test.describe.configure({ timeout: 180_000 });
+
   test('AC_TKT019_01 responde 200 con SSR, título, canónica y h1', async ({ page }) => {
-    const ssr = await getConReintento(page, RUTA);
-    expect(ssr.status()).toBe(200);
-    const html = await ssr.text();
+    const html = await htmlSsrMapa(page);
     // CON-007: el contenido llega en el HTML inicial (no solo tras hidratar).
     expect(html).toContain('data-testid="mapa-total"');
     expect(html).toMatch(/href="\/destinos\/[a-z0-9-]+"/);
@@ -193,7 +222,7 @@ test.describe('Mapa del sitio (SCR-022)', () => {
 
   test('AC_TKT019_05 ningún contenido retirado ni borrador aparece', async ({ page }) => {
     omitirSinStack();
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const sufijo = randomBytes(4).toString('hex');
     const retirado = { slug: `e2e-retirado-${sufijo}`, titulo: `E2E Retirado ${sufijo}` };
     const borrador = { slug: `e2e-borrador-${sufijo}`, titulo: `E2E Borrador ${sufijo}` };
