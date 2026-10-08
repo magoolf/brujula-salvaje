@@ -1,4 +1,4 @@
-"""Reglas de publicación del panel editorial (RULE-002..006, 009, 023..027, ADR-DB-004).
+"""Reglas de publicación del panel editorial (RULE-002..007, 009, 023..027, ADR-DB-004).
 
 Funciones puras (sin acceso a BD ni a HTTP, Skill_Backend §4.2/§4.3): reciben los datos ya
 resueltos por `apps.contenido.services` (valores del borrador o del formulario en edición, más los
@@ -83,12 +83,46 @@ class DatosDestino:
     medios_disponibles_en_galeria: int = 0
     relacionados_publicados: int = 0
     seo_descripcion_en_uso: bool = False
+    # RULE-007 (TKT-037): país referenciado y si él y su región están activos.
+    pais_id: int | None = None
+    pais_activo: bool = True
+    region_activa: bool = True
+
+
+# RULE-007 (TKT-037): el contenido publicado no puede apuntar a un catálogo retirado
+# (`activo=false`). El catálogo comprueba el uso al retirarse; esta regla cierra el otro orden
+# (retirar con el contenido en borrador y publicar después). Mensajes compartidos con la
+# validación de entrada de services.py, que impide ASIGNAR un catálogo retirado.
+MENSAJE_PAIS_RETIRADO = "El país está retirado. Elige un país activo."
+MENSAJE_REGION_RETIRADA = (
+    "La región de este país está retirada. Elige un país de una región activa."
+)
+MENSAJE_CATEGORIA_RETIRADA = "La categoría está retirada. Elige una categoría activa."
+
+
+def mensaje_pais_no_activo(pais_activo: bool, region_activa: bool) -> str | None:
+    """Mensaje si el país (o su región) está retirado; None si ambos están activos."""
+    if not pais_activo:
+        return MENSAJE_PAIS_RETIRADO
+    if not region_activa:
+        return MENSAJE_REGION_RETIRADA
+    return None
+
+
+def _catalogo_pais(d: DatosDestino) -> dict[str, object] | None:
+    if d.pais_id is None:
+        return None
+    if not d.pais_activo:
+        return _err("pais_id", "pais_retirado", MENSAJE_PAIS_RETIRADO)
+    if not d.region_activa:
+        return _err("pais_id", "region_retirada", MENSAJE_REGION_RETIRADA)
+    return None
 
 
 def validar_destino(d: DatosDestino) -> list[dict[str, object]]:
-    """RULE-002, RULE-006, RULE-023, RULE-027. No valida el estado de los tipos (RULE-025/RULE-002
-    v1.1): eso lo evalúa el orquestador multi-entidad de `services.py`, que conoce el resultado de
-    la operación completa (co-publicación incluida)."""
+    """RULE-002, RULE-006, RULE-007, RULE-023, RULE-027. No valida el estado de los tipos
+    (RULE-025/RULE-002 v1.1): eso lo evalúa el orquestador multi-entidad de `services.py`, que
+    conoce el resultado de la operación completa (co-publicación incluida)."""
     errores = [
         e
         for e in (
@@ -151,6 +185,9 @@ def validar_destino(d: DatosDestino) -> list[dict[str, object]]:
         )
     if d.latitud is None or d.longitud is None:
         errores.append(_err("latitud", "requerido", "Las coordenadas son obligatorias."))
+    error_pais = _catalogo_pais(d)
+    if error_pais is not None:
+        errores.append(error_pais)
     if d.medios_disponibles_en_galeria < 3:
         errores.append(
             _err(
@@ -276,10 +313,11 @@ class DatosGuia:
     numero_fuentes: int
     relacionados_publicados: int = 0
     seo_descripcion_en_uso: bool = False
+    categoria_activa: bool = True  # RULE-007 (TKT-037)
 
 
 def validar_guia(d: DatosGuia) -> list[dict[str, object]]:
-    """RULE-004, RULE-006, RULE-027."""
+    """RULE-004, RULE-006, RULE-007, RULE-027."""
     errores = [
         e
         for e in (
@@ -292,6 +330,8 @@ def validar_guia(d: DatosGuia) -> list[dict[str, object]]:
         )
         if e is not None
     ]
+    if d.categoria_id is not None and not d.categoria_activa:
+        errores.append(_err("categoria_id", "categoria_retirada", MENSAJE_CATEGORIA_RETIRADA))
     if not d.remite_a_metodologia and d.numero_fuentes < 1:
         errores.append(
             _err(
