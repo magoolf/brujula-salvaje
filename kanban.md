@@ -290,14 +290,14 @@ tickets:
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
     fase: F4
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: backend-contrato
     trazabilidad: [TKT-035, "Skill_Backend §12.1"]
     depende_de: [TKT-035]
     archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-958."]
+    evidencia: ["DEC-AUTO-958.", "Entregado @ PR #62: 409 Conflicto en 8 operaciones del panel, sin esquemas nuevos, info.version 1.0.0, x-cambios y ADR-API-002 §22. El agente backend-contrato no tenía shell: su parche manual no aplicaba; editó en el worktree y el Orquestador hizo commit/push/PR sin cambiar contenido (DEC-AUTO-961). YAML válido. oasdiff/gate/cliente generado: los verifica el CI."]
     actualizado: 2026-10-08
   - id: TKT-037
     titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
