@@ -287,6 +287,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950)."]
     actualizado: 2026-10-01
+  - id: TKT-036
+    titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-022, "Skill_UI_UX §47", "WCAG 1.4.3"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/styles/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-954."]
+    actualizado: 2026-10-08
   - id: TKT-035
     titulo: "LOW (propuesta del Developer de TKT-033): traducir de forma global en backend/apps/core (manejador de excepciones de DRF) los OperationalError 55P03 lock_timeout y 40P01 deadlock_detected a 409 conflicto_version reintentable en todas las apps (hoy solo lo hace contenido), y revisar la carrera de DELETE de catálogos (pais_id, categoria_id) frente a altas de contenido"
     fase: F7
@@ -530,14 +542,14 @@ tickets:
   - id: TKT-022
     titulo: "Panel 2/4 -- medios: SCR-039 Biblioteca de medios con subida (FLOW-013: JPEG/PNG/WebP ≤10 MB, licencia y créditos obligatorios), SCR-040 Detalle de medio (usos, retirar/reactivar), SCR-041 Selector de medios reutilizable por el editor de TKT-023"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-011, FEAT-041, FEAT-042, FLOW-013, SCR-039, SCR-040, SCR-041, RULE-005, RULE-021, "DEC-AUTO-044"]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1).", "Entregado @ PR #50 (05f5a62), CI verde (run 36909515276), diff solo en features/panel y e2e. SCR-039/040/041 + CargaPanel (OBS-C3-01); E2E 234/234 en 3 motores; unit 601; chunks públicos iguales a main. DEC-DEV-022-01..05 (banco del selector solo en dev, miniaturas diferidas con reintentos por el limitador del borde, sin APIs de señales que engorden el chunk inicial, licencia/crédito al catalogar, ruta de carga). EnlaceValor ampliado (change, textarea, select, name). CHG de miniaturas a TKT-OPS-023 (DEC-AUTO-949). QA ciclo 1/3 despachada.", "2026-10-01 (reanudación tras corte): la QA ciclo 1 no emitió QA_VERDICT; se relanza desde cero (NOT_RUN del ciclo anterior) sobre PR #50 @ 05f5a62.", "2026-10-08 (reanudación): la QA relanzada el 2026-10-01 tampoco emitió QA_VERDICT (sesión cortada, NOT_RUN); se relanza de nuevo sobre PR #50 @ 05f5a62 con checkpoint de progreso en scratchpad."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "OBS-C3-01 (QA TKT-010 c3, LOW preexistente): al cargar por completo una URL /panel/** hay un cuadro sin armazón y sin <main> hasta que resuelve el guard de sesión (350-650 ms con latencia); añadir un estado de carga mínimo del armazón del panel. INFO OBS-C3-02: zonaDeUrl no reconoce parámetros matriz (/panel;x=1).", "Entregado @ PR #50 (05f5a62), CI verde (run 36909515276), diff solo en features/panel y e2e. SCR-039/040/041 + CargaPanel (OBS-C3-01); E2E 234/234 en 3 motores; unit 601; chunks públicos iguales a main. DEC-DEV-022-01..05 (banco del selector solo en dev, miniaturas diferidas con reintentos por el limitador del borde, sin APIs de señales que engorden el chunk inicial, licencia/crédito al catalogar, ruta de carga). EnlaceValor ampliado (change, textarea, select, name). CHG de miniaturas a TKT-OPS-023 (DEC-AUTO-949). QA ciclo 1/3 despachada.", "2026-10-01 (reanudación tras corte): la QA ciclo 1 no emitió QA_VERDICT; se relanza desde cero (NOT_RUN del ciclo anterior) sobre PR #50 @ 05f5a62.", "2026-10-08 (reanudación): la QA relanzada el 2026-10-01 tampoco emitió QA_VERDICT (sesión cortada, NOT_RUN); se relanza de nuevo sobre PR #50 @ 05f5a62 con checkpoint de progreso en scratchpad.", "2026-10-08 QA ciclo 1/3 FAIL (validado 05f5a62; código del ticket idéntico en b11bd25): tests/a11y/contrato/seguridad/performance PASS; e2e FAIL por robustez: F-01 LOW (axe de SCR-041 en WebKit captura el fotograma de la transición de 100 ms de .bs-boton, 3/4 fallos) y F-02 LOW (con 4 workers, login por API recibe 429 del limitador de auth en /panel/auth/csrf y agota timeouts; en serie 18/18). OBS-03: documentar requisitos de entorno de las E2E (semilla, cookies no Secure por http). OBS-01 -> TKT-036. Devuelto al Developer, ciclo 2/3."]
     actualizado: 2026-10-08
   - id: TKT-023
     titulo: "Panel 3/4 -- contenidos: SCR-035 Listado por tipo (filtros estado/texto, orden por última modificación), SCR-036 Editor de los 7 tipos (destino, itinerario con días, guía, tipo con checklist, colección, término, página), SCR-037 Vista previa sin persistir (noindex, marca BORRADOR), SCR-038 Publicar/Actualizar/Retirar/Reactivar con análisis de publicación e impacto de retiro, revisiones y restauración, bloqueo optimista"
