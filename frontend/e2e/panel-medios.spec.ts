@@ -4,7 +4,7 @@
  * Requiere E2E_BASE_URL y E2E_COMPOSE_PROJECT (ver panel-soporte.ts).
  */
 import AxeBuilder from '@axe-core/playwright';
-import { Page, expect, test } from '@playwright/test';
+import { Page, test } from '@playwright/test';
 
 import {
   archivoGrande,
@@ -17,15 +17,24 @@ import {
   pngValido,
   subirPorApi,
 } from './medios-soporte';
-import { crearCuenta, entrarPorApi, irA, omitirSinStack } from './panel-soporte';
+import {
+  crearCuenta,
+  entrarComoEditorCompartido,
+  entrarPorApi,
+  esperarTransiciones,
+  expectPanel as expect,
+  irA,
+  omitirSinStack,
+} from './panel-soporte';
 
 test.beforeEach(() => omitirSinStack());
 
 async function entrarComoEditor(page: Page): Promise<void> {
-  await entrarPorApi(page, crearCuenta());
+  await entrarComoEditorCompartido(page);
 }
 
 async function axeSinGraves(page: Page): Promise<void> {
+  await esperarTransiciones(page);
   const resultado = await new AxeBuilder({ page }).analyze();
   const graves = resultado.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(graves.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);

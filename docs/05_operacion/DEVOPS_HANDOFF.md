@@ -2232,7 +2232,7 @@ Fecha: 2026-10-01. Docker Engine 29.6.1, Compose v5.2.0. Proyecto propio `-p ops
 - `infra/ci/gate_cobertura_controles.py` (nuevo): 16 controles sintéticos (P1-P2, N1-N13) + 4 sobre el `coverage.json` real (R1 configuración real → 0; R2 umbral imposible → 1; R3 `coverage.json` manipulado → 1; R4 fecha simulada tras la caducidad → 1).
 - `.github/workflows/ci.yaml` (job backend): `pytest --cov-report=json:coverage.json` y, a continuación, dos pasos nuevos: los controles del gate y el gate. Comentario del gate de contrato actualizado (excepción retirada).
 
-### 26.4 Excepciones vigentes (propuestas: el Orquestador debe registrarlas como DEC-AUTO)
+### 26.4 Excepciones de TKT-OPS-021 (RETIRADAS en TKT-OPS-022, ver §26.12)
 | Id | Archivo | Cobertura en main | Suelo | Caduca | Retirar con |
 |---|---|---|---|---|---|
 | TKT-OPS-021-EXC-01 | `apps/catalogos/api/views.py` | 71,81 % | 71 % | 2026-10-31 | TKT-032 (en QA) |
@@ -2262,6 +2262,67 @@ Sin cambios. oasdiff v1.32.1 (binario Windows verificado contra `checksums.txt` 
 
 ### 26.9 Próximo agente
 **Orquestador**: registrar las excepciones de §26.4 como DEC-AUTO, lanzar QA de TKT-OPS-021 y, al integrar TKT-032, abrir la retirada de las excepciones.
+
+### 26.10 TKT-OPS-022 — Estado
+**COMPLETADO** en la rama `tkt-ops-022-gate-cobertura` (hallazgos LOW/INFO de la QA de TKT-OPS-021 y retirada de EXC-01/EXC-02; DEC-AUTO-948). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). Sin dependencias nuevas.
+
+### 26.11 TKT-OPS-022 — Objetivo
+Que el gate de cobertura por módulo no dependa del nombre de los archivos, que sus excepciones no puedan vaciarlo (fecha futura, suelo 0), que cubra los módulos de soporte de la autenticación, que no recorra `.venv`/`node_modules`, y enmascarar en el log del CI los secretos efímeros (F-PRE-01).
+
+### 26.12 TKT-OPS-022 — Cambios realizados
+- **(0) Excepciones EXC-01 y EXC-02 retiradas** de `infra/ci/cobertura_umbrales.toml`: con TKT-032 en `main`, `apps/catalogos/api/views.py` e `apps/inicio/api/views.py` están al **100,00 %** (coverage.json real, §26.15).
+- **(F-QA021-01) Clasificación de vistas sin depender del nombre**, por dos vías:
+  1. *Estructural*: todo `apps/*/api/*.py` (y `apps/*/views.py`, `apps/*/views/*.py`) es vista salvo los que casan con `excluir` (`__init__.py`, `*serializers.py`, `*urls.py`, `filtros.py`) o están en la tabla nueva `[api_soporte]` con motivo (`contenido/api/base.py`, `contenido/api/panel_selectors.py`). Un `endpoints.py` o `vistas_mfa.py` nuevo en `api/` falla hasta clasificarse.
+  2. *URLconf* (`infra/ci/vistas_urlconf.py`, nuevo): con `django.urls.get_resolver()` recorre todas las rutas (con `include()` anidados) y los `handler400/403/404/500`, resuelve cada callback a su módulo (`view_class` / `cls` / `__module__`) y de ahí a su archivo. El gate (`--vistas-urlconf`) exige que todo archivo que sirve rutas esté clasificado como crítico o no crítico, esté donde esté; un archivo excluido por nombre o de `[api_soporte]` que sirve rutas **falla**; un módulo fuera de `backend/` debe estar en `[vistas_externas]` con motivo (vacío hoy: 0 externos). Con `urlconf_obligatorio = true`, omitir el inventario falla cerrado. Solo Django (ya en `uv.lock`) y biblioteca estándar; se ejecuta en el job `backend` con `uv run --frozen`.
+  - **Hallazgo real del inventario**: `apps/contenido/api/panel_urls.py` sirve **18 rutas** del panel (`/api/v1/panel/contenidos/{destinos,itinerarios,guias,...}` con sus detalles y vistas previas) con clases de vista generadas por fábricas dentro del propio módulo de URLs. La clasificación por nombre de TKT-OPS-021 no las veía. Se clasifica como **crítico** (97,87 %, cumple > 95).
+  - Services: la regla añade `patrones_si_existen = ["apps/*/services/*.py"]` (paquetes como `services/publicar.py` quedan sujetos a > 90 % sin tocar la lista; pueden no existir aún).
+  - La regla de críticos lleva `clasifica_vistas = true`: solo ella clasifica una vista como crítica (una vista dentro de un `services.py` no queda "clasificada" a 90 %).
+- **(F-QA021-02)** Excepciones: `registrada <= hoy` (una fecha futura falla), `registrada <= caduca`, ventana `registrada -> caduca` ≤ 45 días y además `hoy -> caduca` ≤ 45 días.
+- **(F-QA021-03)** Suelo mínimo de una excepción (regla documentada en el TOML y en el gate): `umbral_minimo < umbral normal`, `>= umbral normal - 25 puntos` y `>= 60 %`. Para un crítico (95) el suelo más bajo posible es 70; para un services (90), 65. `umbral_minimo` debe ser numérico.
+- **(F-QA021-04)** Críticos (> 95 %) ampliados con los módulos de soporte de la autenticación: `cuentas/sesiones.py`, `cuentas/autenticacion.py`, `cuentas/permisos.py`, `cuentas/mfa.py` y `core/permisos.py` (permisos base de DRF). Dos quedan por debajo y se registran como excepción (§26.13); DevOps no toca código de aplicación.
+- **(F-QA021-06)** `archivos_backend()` usa `os.walk` podando en el sitio `.venv`, `venv`, `node_modules`, `tests`, `__pycache__`, cachés y directorios ocultos: ya no se recorren (antes `rglob` los recorría enteros y filtraba después). Lo prueba P4 vigilando `os.scandir`.
+- **(F-PRE-01)** `infra/ci/enmascarar_env.sh` (nuevo): emite `::add-mask::` para todo valor de `*_PASSWORD`, `*_KEY`, `*_SECRET`, `*_TOKEN` del `.env` efímero y falla si falta alguna obligatoria (`DJANGO_SECRET_KEY`, `THROTTLE_HMAC_KEY`, `MFA_FERNET_KEY`, `APP_MIGRATOR_PASSWORD` = `DB_PASSWORD`). Se ejecuta justo después de `init-env.sh` y **antes** de exportar a `GITHUB_ENV` en el job `backend`, y también en los jobs `infra` y de imágenes, que generan el mismo `.env`.
+- `.github/workflows/ci.yaml`: paso nuevo "inventario de vistas del URLconf" tras pytest; controles y gate reciben `vistas_urlconf.json`; enmascarado en los tres jobs que crean `.env`.
+- `infra/ci/gate_cobertura_controles.py`: de 20 a **39 controles** (33 sintéticos + 6 reales). Nuevos: P3 suelo en el límite (70) → 0; P4 `.venv`/`node_modules` sin recorrer → 0; P5 URLconf coherente → 0; N14 (X1) `registrada` futura; N15 (X2) suelo 0; N16 suelo 69; N17 suelo no numérico; N18 (X3) `api/vistas_mfa.py`; N19 (X4) `api/endpoints.py`; N20/N21 (X5) `services/publicar.py` no medido / al 50 %; N22 URLconf con vista fuera de `api/`; N23 `serializers.py` que sirve rutas; N24 `[api_soporte]` que sirve rutas; N25 módulo externo sin clasificar; N26 `urlconf_obligatorio` sin inventario; N27 inventario vacío (todos → exit 1 con `::error::` explícito); R5 inventario real + `apps/cuentas/vistas_mfa.py` → 1; R6 configuración real sin `--vistas-urlconf` → 1.
+
+### 26.13 TKT-OPS-022 — Excepciones vigentes (propuestas: el Orquestador debe registrarlas como DEC-AUTO)
+| Id | Archivo | Cobertura en main (d453dae) | Suelo | Registrada | Caduca | Retirar con |
+|---|---|---|---|---|---|---|
+| TKT-OPS-022-EXC-01 | `apps/cuentas/sesiones.py` | 76,00 % | 75 % | 2026-10-01 | 2026-11-15 | ticket de Developer propuesto (§26.17) |
+| TKT-OPS-022-EXC-02 | `apps/cuentas/permisos.py` | 94,12 % | 94 % | 2026-10-01 | 2026-11-15 | el mismo ticket |
+
+Ambas respetan la regla de suelo (≥ 70 para un crítico). Si el ticket no se integra antes del 2026-11-15, el gate falla.
+
+### 26.14 TKT-OPS-022 — Versiones, infraestructura, dependencias y variables de entorno
+Sin cambios de versiones ni de dependencias (Django ya estaba en `backend/uv.lock`; el resto, biblioteca estándar). Sin variables nuevas: `vistas_urlconf.py` usa el entorno que el job `backend` ya define (`DJANGO_SETTINGS_MODULE`, `DB_*`, claves efímeras).
+
+### 26.15 TKT-OPS-022 — Validaciones ejecutadas (2026-10-01)
+- **pytest real en Linux** (contenedor `python:3.13.15-slim-bookworm` + uv 0.12.19, `uv sync --frozen`, PostgreSQL 18.6 efímero con `compose.yaml + compose.ci.yaml`, proyecto `brujulaops022`), sobre `main` @ d453dae: **1163 passed**, total **97,26 %**. `catalogos/api/views.py` e `inicio/api/views.py` al 100,00 %.
+- **Inventario del URLconf**: 98 rutas en 9 archivos del backend, 0 módulos externos.
+- **Gate real**: 21 módulos evaluados, 9 archivos de vistas del URLconf, 0 por debajo → PASS (con las 2 excepciones de §26.13). Antes de clasificar `panel_urls.py`, el gate fallaba con "sirve rutas del URLconf … pero está declarado como soporte/excluido" (hallazgo de §26.12).
+- **Controles**: 39/39 en Linux (33/33 sintéticos también en Windows con Python 3.11). **Mutantes**: gate sin poda → P4 falla; gate anterior (`rglob`) → 17 controles fallan, P4 incluido.
+- `enmascarar_env.sh`: 8 valores enmascarados sobre un `.env` de `init-env.sh`; con una obligatoria inexistente, `::error::` y exit 1.
+- `ruff check` y `ruff format --check` (configuración del backend) limpios en los 3 scripts Python; `mypy --strict` limpio en el gate y sus controles (corrigió la variable `exc` del bucle de excepciones, que sombreaba la de los `except`).
+- **gitleaks** 8.30.1 sobre el diff (`--staged`): sin fugas. **semgrep** 1.178.0 (`p/python`, `p/github-actions`) sobre los archivos tocados: 0 hallazgos (la primera pasada marcó `unsafe-add-mask-workflow-command` por el literal del comando en dos comentarios de `ci.yaml`; se reformularon. El riesgo que describe la regla, `stop-commands`, no expone secretos reales: los valores son aleatorios por ejecución y no hay secretos de repositorio en esos jobs).
+- **CI real del PR #52** (run 36916436375, commit 33b525b): `infraestructura`, `detectar código`, `frontend` y `backend` en verde. En el job `backend`: 1163 passed, 97,26 %; inventario del URLconf 98 rutas / 9 archivos; controles **39/39**; gate **PASS** (21 evaluados, 0 por debajo, 2 excepciones vigentes). Enmascarado verificado en el log real: `enmascarar_env: 8 valores enmascarados` en los tres jobs y, en el bloque `env:` de cada paso del backend, `DJANGO_SECRET_KEY: ***`, `THROTTLE_HMAC_KEY: ***`, `MFA_FERNET_KEY: ***`, `DB_PASSWORD: ***`; ninguna línea `::add-mask::` aparece en el log.
+- El job `build + trivy + SBOM` falla en "image scan" por **CVE-2026-103111 (HIGH)** en `pcre2 10.48-r0` (corregido en `10.49-r0`) de `brujula/proxy` (alpine 3.24.2, base `nginxinc/nginx-unprivileged:1.30.5-alpine`). **Ajeno a este diff**: `main` @ d453dae falla en el mismo paso (run 36913373742). Ver §26.17.
+
+### 26.16 TKT-OPS-022 — Seguridad
+El enmascarado reduce la exposición en el log de los secretos efímeros del CI (aleatorios por ejecución, no reales). `vistas_urlconf.py` solo hace `django.setup()` y carga el URLconf en el job `backend`, que ya ejecuta ese código en pytest.
+
+### 26.17 TKT-OPS-022 — Riesgos / pendientes
+| ID | Riesgo | Sev. | Acción | Estado |
+|---|---|---|---|---|
+| — | `cuentas/sesiones.py` (76 %) y `cuentas/permisos.py` (94,12 %) bajo el umbral de críticos | LOW | **Ticket de Developer propuesto**: tests de `apps/cuentas/sesiones.py` y `apps/cuentas/permisos.py` hasta > 95 % ambos (ramas sin cubrir del informe de cobertura); al integrarlo, DevOps retira EXC-01/EXC-02 de §26.13 (el gate avisará) | ABIERTO |
+| — | `coverage.json` y `vistas_urlconf.json` no están en `.gitignore` | INFO | `.gitignore` está fuera de `archivos_permitidos` de DevOps: ticket al Developer/Orquestador para añadir `backend/coverage.json` y `backend/vistas_urlconf.json` | PENDIENTE |
+| — | La exclusión por nombre (`*serializers.py`, `*urls.py`, …) sigue siendo un atajo de la vía estructural | INFO | Mitigado: la vía URLconf la contrasta y falla si un excluido sirve rutas (N23) | CERRADO |
+| — | CVE-2026-103111 (HIGH) en `pcre2` de la imagen del proxy (alpine): el CI de `main` y de todos los PR está en rojo en "image scan" | HIGH | Fuera del alcance de TKT-OPS-022 (`infra/proxy/Dockerfile` no está en sus `archivos_permitidos`). Ticket de DevOps propuesto, análogo a TKT-OPS-017: subir `pcre2` a `10.49-r0` en `infra/proxy/Dockerfile` (`apk upgrade --no-cache pcre2` o nuevo digest de la base si ya lo trae) y verificar con trivy. No usar `.trivyignore`: existe corrección (CLAUDE.md §0.5). **Corregido por TKT-OPS-024 (PR #53, §27)**; la rama de TKT-OPS-022 se sincronizó con `main` por merge (sin rebase) | CERRADO |
+
+### 26.18 TKT-OPS-022 — Archivos modificados
+`infra/ci/cobertura_umbrales.toml`, `infra/ci/gate_cobertura.py`, `infra/ci/gate_cobertura_controles.py`, `infra/ci/vistas_urlconf.py` (nuevo), `infra/ci/enmascarar_env.sh` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 26.19 TKT-OPS-022 — Próximo agente
+**Orquestador**: registrar como DEC-AUTO la retirada de EXC-01/EXC-02, las excepciones de §26.13, la regla de suelo (−25 puntos / 60 %) y la ampliación de críticos (incluidos `panel_urls.py` y `core/permisos.py`); abrir el ticket de Developer de §26.17, el de `.gitignore` y el de DevOps para CVE-2026-103111 en el proxy (bloquea el CI de `main` y de todos los PR); lanzar la QA de TKT-OPS-022.
 
 ## 27. TKT-OPS-024: CVE-2026-103111 (HIGH) en `pcre2` de la imagen del proxy (F7, soporte; desbloquea el CI)
 
@@ -2370,3 +2431,104 @@ Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend
 
 ### 28.9 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (incluido el image scan) e integrarlo (sin editar contenido). Después, sincronizar los PR #50, #51 y #52 con `main` y relanzar su CI.
+
+## 30. TKT-OPS-028: CVE-2026-4775 (HIGH) en `tiff` de la imagen del proxy: se retira el módulo `image-filter` (F7, soporte; desbloquea el CI; DEC-AUTO-962)
+
+> Numeración: el PR #63 (TKT-OPS-026) añade §29 al final de este documento. Si este PR se integra antes, el conflicto con #63 será solo textual: hay que mantener ambas partes, §29 antes de §30.
+
+### 30.1 Estado
+COMPLETADO en la rama `tkt-ops-028-tiff-proxy`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 30.2 Objetivo
+El image scan del run 37830313288 (PR #62) detecta en `brujula/proxy` (alpine 3.24.2) **CVE-2026-4775 (HIGH)** en `tiff` 4.7.1-r0, corregida en 4.7.2-r0. El resto de imágenes daban 0. Bloquea el CI de `main` y de todos los PR. Como existe corrección, no procede `.trivyignore` (CLAUDE.md §0.5).
+
+### 30.3 Diagnóstico y alternativas (2026-10-08, `apk info` dentro de la base fijada)
+- Cadena de dependencias: `tiff` ← `libgd` ← `nginx-module-image-filter` (en el `world` de la base oficial, que instala los módulos dinámicos `geoip`, `image-filter`, `njs` y `xslt`).
+- `nginx.conf` y `snippets/` **no cargan ningún módulo dinámico** (no hay `load_module`, `image_filter` ni `include` de módulos): el filtro de imágenes nunca se usa.
+- Opciones: (a) fijar `tiff=4.7.2-r0` con `apk add`, como en TKT-OPS-024. Corrige, pero conserva 29 paquetes sin uso y añade otra versión fijada (RSK-OPS-046). (b) **`apk del nginx-module-image-filter`**: elimina el módulo y 28 dependencias huérfanas (`libgd`, `tiff`, `libwebp`, `libavif`, `aom-libs`, `libdav1d`, `libjpeg-turbo`, `libpng`, `freetype`, `fontconfig`, `libexpat`, `libx11`/`libxcb`/`libxpm`/…, `libstdc++`, `libgcc`…). Corrige la CVE y reduce la superficie de ataque.
+- Decisión: **(b)**. `libexpat` (CVE-2026-93990, fijada a 2.8.5-r0 desde F6) solo la requería `fontconfig`. Sale con ellas y se retira su línea fijada: queda solo `pcre2=10.49-r0`, que nginx sí usa.
+
+### 30.4 Cambios realizados
+`infra/proxy/Dockerfile`, en el `RUN` existente (como `USER root`):
+```dockerfile
+RUN apk add --no-cache "pcre2=10.49-r0" \
+ && apk del --no-cache --no-network nginx-module-image-filter \
+ && apk info -e "pcre2=10.49-r0" \
+ && for p in nginx-module-image-filter libgd tiff libexpat; do \
+      if apk info -e "$p" >/dev/null; then echo "TKT-OPS-028: $p sigue instalado" >&2; exit 1; fi; \
+    done \
+ ...
+```
+- El build falla si alguno de esos paquetes vuelve a quedar instalado (por ejemplo, con una base nueva que lo arrastre por otra vía).
+- Sin cambios en la imagen base (tag y digest), `nginx.conf`, `snippets/`, usuario (`USER 101`), `EXPOSE`, `HEALTHCHECK`, `.trivyignore` ni el workflow.
+
+### 30.5 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| nginx | 1.30.5-r1 (sin cambios) | APROBADO | `nginx -t` |
+| pcre2 | 10.49-r0 (sin cambios) | APROBADO | `apk info -v`; control `apk info -e` |
+| nginx-module-image-filter, libgd, tiff, libexpat (+ 25 dependencias) | **retirados** | APROBADO | `apk info -v` (41 paquetes en lugar de 70); control del build |
+| Módulos geoip, njs, xslt | sin cambios (instalados y sin cargar) | — | ver §30.8 |
+
+### 30.6 Infraestructura / dependencias / variables de entorno
+Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
+
+### 30.7 Validaciones ejecutadas (2026-10-08, Docker Engine 29.6.1, trivy 0.74.0)
+- **Build** de la rama (`docker build --pull`): OK, con el control del `RUN` en verde. Imagen: uid 101, `pcre2-10.49-r0`, `nginx-1.30.5-r1`, sin `tiff`, `libgd`, `libexpat` ni `image-filter`; en `/usr/lib/nginx/modules` ya no está `ngx_http_image_filter_module`.
+- **trivy con BD fresca** en una `--cache-dir` propia (**UpdatedAt 2026-10-08 15:33:46 UTC**), con la misma política que el CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1`). Control negativo (proxy de `main`): exit 1, Total 1 (HIGH 1), `tiff` CVE-2026-4775 4.7.1-r0 → 4.7.2-r0. Rama: exit 0, 0 CRITICAL/HIGH. Las otras 5 imágenes no cambian; las escanea el CI.
+- **`nginx -t`** (con `--add-host` para `backend` y `frontend`): "syntax is ok / test is successful" en la rama y en `main`.
+- **Cabeceras A/B frente a `main`**, sin stack completo por la RAM disponible (~1,2 GB libres). Se usó un upstream stub (nginx mínimo con los alias `backend:8000` y `frontend:4000`) y los dos proxies en la misma red. Se capturaron estado y cabeceras de 14 peticiones, con valores volátiles normalizados: `/`, `/destinos`, `/panel`, `/panel/login`, `/api/v1/publico/inicio`, `/api/v1/no-existe`, `/health/ready`, `/no-existe-ops028`, `/no-existe-ops028.js`, `/no-existe-ops028.js%0A`, `/media/privado/x.jpg`, `POST /` (403), `HEAD /` y `/main-abc.js?x=1`. **`diff` vacío: idénticas.**
+- **Regex PCRE con `\z`** (equivalente a C6, ejercita pcre2): `/x.js%0A` va a la location `/` (HTML del SSR) y `/x.js` da 404 Problem Details del proxy, igual en ambas imágenes. **Limitador `por_ip`** (equivalente a C3): una ráfaga de 300 peticiones a `/api/v1/publico/inicio` recibe 429 del borde en ambas imágenes.
+- **Smoke anti-evasión completo** (`scripts/ops/smoke-anti-evasion.sh`): no se ejecutó en local porque requiere el stack completo (SSR con `NG_ALLOWED_HOSTS` y logs de compose) y la RAM no alcanza. Lo ejecuta el job de imágenes del CI con el stack completo; el resultado se reporta en el HANDOFF_ENVELOPE.
+
+### 30.8 Riesgos / pendientes
+- **RSK-OPS-046** se reduce: queda una sola versión fijada a mano (`pcre2`) en lugar de dos.
+- **Recomendación (INFO, fuera del alcance)**: los módulos `geoip`, `njs` y `xslt` tampoco se cargan y arrastran `libxml2`, `libxslt`, `geoip` y njs/quickjs, que son fuentes habituales de CVE. Retirarlos con el mismo patrón requiere un ticket propio y otra validación A/B.
+- PR #22 (Dependabot, 1.31.5-alpine): si se evaluara, el `apk del` y el control se aplican igual a la base nueva.
+
+### 30.9 Archivos modificados
+`infra/proxy/Dockerfile`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 30.10 Próximo agente
+**Orquestador**: confirmar el CI real de este PR (image scan de las 6 imágenes y smoke anti-evasión) e integrarlo (sin editar contenido). Después, sincronizar los PR abiertos con `main`. Actualizar RSK-OPS-046 (ahora solo `pcre2`) en `audit_log.md`.
+
+## 32. TKT-OPS-029: GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj y GHSA-p8wg-vrv2-v86f (CRITICAL) en `handlebars` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-965)
+
+> Numeración: §29 la ocupa el PR #63 (TKT-OPS-026) y el PR #65 (TKT-OPS-027) añade otra §30 que choca con la §30 de TKT-OPS-028 que ya está en `main`, así que tendrá que pasar a §31. Por eso esta sección es la §32. Si hay conflicto, será solo textual: se mantienen todas las secciones en orden numérico.
+
+### 32.1 Estado
+COMPLETADO en la rama `tkt-ops-029-handlebars`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 32.2 Objetivo
+El job `frontend` falla en `SCA (npm audit --audit-level=high)` (run 37836571528, PR #65, 2026-10-08) por tres avisos **CRITICAL** de inyección de JavaScript en `handlebars` `>=4.0.0 <=4.7.9`. El lockfile fijaba 4.7.9. `frontend/**` es igual que en `main`, así que el fallo afecta a `main` y a todos los PR. Hay corrección disponible (4.7.10), así que no procede aceptar el riesgo (CLAUDE.md §0.5).
+
+### 32.3 Diagnóstico y cambios realizados
+- `npm ls handlebars`: el único dependiente es `ng-openapi-gen@1.1.0` (dev, generador del cliente Angular desde `contracts/openapi.yaml`), que declara `^4.7.9`. 4.7.10 cumple ese rango, así que no hace falta `overrides` y `package.json` no cambia.
+- `frontend/package-lock.json`: solo cambia la entrada `node_modules/handlebars`. `version`, `resolved` e `integrity` pasan de 4.7.9 a 4.7.10 (`integrity` según `npm view handlebars@4.7.10 dist.integrity`), y el rango declarado de `minimist` pasa de `^1.2.5` a `^1.2.8`, como en el manifiesto publicado de 4.7.10. El lockfile ya resuelve `minimist` 1.2.8, así que el árbol no cambia. El diff es de 4 líneas.
+- No se usó `npm audit fix` general. Igual que en TKT-OPS-025 (§28.3), `npm update handlebars --package-lock-only` (npm 11.19.0 en Windows) añadía 6 entradas `inBundle` de `@tailwindcss/oxide-wasm32-wasi` que no tienen que ver con el aviso. Por eso se descartó ese resultado y se editó solo la entrada afectada.
+
+### 32.4 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| handlebars | 4.7.10 (transitiva, dev, vía `ng-openapi-gen` 1.1.0) | APROBADO | `npm ls handlebars`; `npm audit` 0; `api:generate` sin diff |
+| Node.js / npm | 24.21.0 / 11.19.0 (sin cambios) | APROBADO | — |
+
+### 32.5 Infraestructura / dependencias / variables de entorno
+No cambian imágenes, compose, workflow ni variables. `handlebars` es dependencia de desarrollo: solo se usa para generar el cliente y no forma parte del bundle ni de la imagen de runtime.
+
+### 32.6 Validaciones ejecutadas (2026-10-08, en local, Node 24.21.0 / npm 11.19.0, mismos pasos que el job `frontend`)
+- `npm ci --no-audit --no-fund`: OK (comprueba el `integrity`). `npm ls handlebars`: `ng-openapi-gen@1.1.0 -> handlebars@4.7.10`.
+- `npm audit --audit-level=high`: **0 vulnerabilidades** (exit 0).
+- `eslint . --max-warnings=0`: exit 0. `tsc --noEmit -p tsconfig.app.json`: exit 0. `ng test --watch=false --coverage`: **546/546** (97 archivos).
+- `npm run api:generate` + `git diff --exit-code -- src/app`: **el cliente generado no cambia**, lo que demuestra que handlebars 4.7.10 genera lo mismo que 4.7.9. `ng build --configuration production`: OK.
+- NOT_RUN en local: semgrep (este PR no cambia código fuente) y el job de imágenes (sin Docker por falta de RAM). Ambos se ejecutan en el CI del PR.
+
+### 32.7 Riesgos / pendientes
+- No hay riesgos nuevos. Mientras no se integre, el CI de `main` y de los PR abiertos sigue en rojo en `npm audit`.
+- Hay que renumerar la §30 duplicada del PR #65 (ver la nota de numeración).
+
+### 32.8 Archivos modificados
+`frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 32.9 Próximo agente
+**Orquestador**: confirmar el CI real de este PR e integrarlo sin editar contenido. Después, sincronizar los PR abiertos con `main` y relanzar su CI.

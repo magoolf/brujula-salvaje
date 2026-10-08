@@ -11,10 +11,16 @@
  * Sin ella, se omite con el motivo.
  */
 import AxeBuilder from '@axe-core/playwright';
-import { Locator, Page, expect, test } from '@playwright/test';
+import { Locator, Page, test } from '@playwright/test';
 
 import { catalogarPorApi, pngValido, subirPorApi } from './medios-soporte';
-import { PROYECTO_COMPOSE, crearCuenta, entrarPorApi, irA } from './panel-soporte';
+import {
+  PROYECTO_COMPOSE,
+  entrarComoEditorCompartido,
+  esperarTransiciones,
+  expectPanel as expect,
+  irA,
+} from './panel-soporte';
 
 const URL_SELECTOR = process.env['E2E_SELECTOR_URL'] ?? '';
 const BANCO = '/panel/desarrollo/selector-medios';
@@ -28,7 +34,7 @@ test.beforeEach(() => {
 });
 
 async function abrirBanco(page: Page): Promise<void> {
-  await entrarPorApi(page, crearCuenta());
+  await entrarComoEditorCompartido(page);
   await irA(page, BANCO);
   await expect(page.getByTestId('banco-selector')).toBeVisible();
 }
@@ -38,6 +44,7 @@ function dialogo(page: Page, nombre: string): Locator {
 }
 
 async function axeSinGraves(page: Page): Promise<void> {
+  await esperarTransiciones(page);
   const resultado = await new AxeBuilder({ page }).analyze();
   const graves = resultado.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(graves.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
@@ -205,6 +212,8 @@ test.describe('Panel · selector de medios SCR-041 (TKT-022)', () => {
       const selector = dialogo(page, 'Elegir imágenes');
       await expect(selector.getByTestId('selector-rejilla')).toBeVisible();
       await selector.getByRole('checkbox').first().check();
+      // F-01: al marcar, «Añadir» se habilita y su fondo transiciona; axe mide el estado estable.
+      await expect(selector.getByTestId('selector-anadir')).not.toHaveAttribute('aria-disabled', 'true');
       await axeSinGraves(page);
       await selector.getByRole('tab', { name: 'Subir' }).click();
       await selector.getByTestId('subida-archivos').setInputFiles([pngValido(`axe-selector-${ancho}.png`)]);
