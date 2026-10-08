@@ -25,6 +25,7 @@ from http.cookies import SimpleCookie
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from django.db import connections, transaction
 from django.test import Client
 
@@ -163,6 +164,9 @@ class _EnSegundoPlano:
 
 @pytest.fixture
 def sesion(logs_json: Callable[[], list[dict[str, Any]]]) -> tuple[int, SimpleCookie]:
+    # La caché de límites (tabla cache_limites) no se vacía entre pruebas transaccionales: en la
+    # suite completa, los logins previos desde la misma IP de prueba agotan "panel-login" (10/min).
+    cache.clear()
     staff = crear_staff("editora.tkt037")
     cliente = Client(raise_request_exception=False)
     entrar(cliente, staff)

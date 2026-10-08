@@ -454,18 +454,25 @@ def _sql(contexto: CaptureQueriesContext) -> list[str]:
     return [q["sql"] for q in contexto.captured_queries]
 
 
+def _existencia_y_luego_for_share(consultas: list[str]) -> bool:
+    """La existencia se lee sin bloquear (un borrado concurrente lo arbitra la FK, TKT-035) y el
+    estado `activo` con `FOR SHARE` (una retirada concurrente espera o se espera)."""
+    modos = [q.rstrip().endswith("FOR SHARE") for q in consultas]
+    return modos == [False, True]
+
+
 def test_AC_TKT037_03_el_catalogo_se_lee_for_share_dentro_de_la_transaccion(actor: int) -> None:
     pais = publicos.pais()
     with CaptureQueriesContext(connection) as contexto:
         services.crear_borrador(T.DESTINO, actor, {"titulo": "Con país", "pais_id": pais.pk})
     consultas = [q for q in _sql(contexto) if "FROM pais p JOIN region r" in q]
-    assert consultas and all(q.rstrip().endswith("FOR SHARE") for q in consultas), consultas
+    assert _existencia_y_luego_for_share(consultas), consultas
 
     categoria = _categoria("bloqueo")
     with CaptureQueriesContext(connection) as contexto:
         services.crear_borrador(T.GUIA, actor, {"titulo": "Con cat", "categoria_id": categoria.pk})
     consultas = [q for q in _sql(contexto) if "FROM categoria_guia" in q]
-    assert consultas and all(q.rstrip().endswith("FOR SHARE") for q in consultas), consultas
+    assert _existencia_y_luego_for_share(consultas), consultas
 
 
 @pytest.mark.django_db(transaction=True)

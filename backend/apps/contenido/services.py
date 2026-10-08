@@ -854,10 +854,10 @@ class EstadoCatalogo:
     padre_activo: bool  # región del país; siempre True en la categoría
 
 
-def _estado_catalogo(sql: str, pk: int) -> EstadoCatalogo | None:
-    """Estado actual del catálogo `pk` (None si no existe), bloqueado `FOR SHARE` hasta el fin de la
-    transacción en curso."""
-    if connection.in_atomic_block:
+def _estado_catalogo(sql: str, pk: int, *, bloquear: bool = True) -> EstadoCatalogo | None:
+    """Estado actual del catálogo `pk` (None si no existe). Con `bloquear` y dentro de una
+    transacción, la fila queda bloqueada `FOR SHARE` hasta su fin."""
+    if bloquear and connection.in_atomic_block:
         sql = f"{sql} FOR SHARE"
     with connection.cursor() as cursor:
         cursor.execute(sql, [pk])
@@ -891,12 +891,22 @@ def _validar_catalogos(
     valor = datos.get(campo)
     if valor is None:
         return
-    estado = _estado_catalogo(sql, valor)
+    # La existencia se comprueba SIN bloquear, como antes de TKT-037: un borrado concurrente del
+    # catálogo lo arbitra la FK (23503 en el COMMIT → 409 `conflicto_version` del manejador global,
+    # TKT-035). El bloqueo `FOR SHARE` solo decide si sigue ACTIVO (retirada concurrente).
+    estado = _estado_catalogo(sql, valor, bloquear=False)
     if estado is None:
         errores[campo] = [MENSAJE_INEXISTENTE]
         return
     if subtipo is not None and getattr(subtipo, campo) == valor:
         return
+    if connection.in_atomic_block:
+        bloqueado = _estado_catalogo(sql, valor)
+        if bloqueado is None:
+            # Se borró mientras esperábamos su bloqueo: no se duplica la FK, que rechazará el
+            # INSERT/UPDATE y dará 409 `conflicto_version` (reintentable; el alta no se crea).
+            return
+        estado = bloqueado
     if tipo == T.DESTINO:
         mensaje = reglas.mensaje_pais_no_activo(estado.activo, estado.padre_activo)
     else:
