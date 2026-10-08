@@ -302,7 +302,7 @@ tickets:
   - id: TKT-037
     titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [RULE-007, TKT-035, TKT-033]
     depende_de: [TKT-035]

@@ -326,3 +326,4 @@
 2026-10-08 | ENTREGA | TKT-034 | PR #61 @ 4bc3a9c, CI verde, diff solo tests de cuentas y .gitignore. QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-034
 2026-10-08 | QA_PASS | TKT-035 | QA_VERDICT PASS ciclo 1/3 @ 6ff55aa; PR #60 integrado en main (gh pr merge --merge @ 167f2b0) con CI verde (run 37790112167; el check 'detectar código' quedó en pending obsoleto en la UI pese a run completado en success y mergeStateStatus CLEAN). DONE | PR #60
 2026-10-08 | DEC-AUTO | TKT-038 | DEC-AUTO-959 (ORIGEN: EXPANSIÓN_AUTÓNOMA): OBS-01/OBS-04 de la QA de TKT-035 -> TKT-038 LOW (core); OBS-02 añadido a TKT-037; CHG-API-006 queda como condición de F9. Reversible | kanban.md
+2026-10-08 | DELEGACION | TKT-037 | Despacho al Developer (backend/apps/contenido), disjunto de TKT-022 (frontend) y de la QA de TKT-034 (cuentas/tests) | kanban.md TKT-037
