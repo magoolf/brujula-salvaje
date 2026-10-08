@@ -34,7 +34,7 @@ import { execFileSync } from 'node:child_process';
 import { createHmac, randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 
-import { APIResponse, Cookie, Page, expect, test } from '@playwright/test';
+import { APIResponse, Cookie, Page, errors, expect, test } from '@playwright/test';
 
 export const PROYECTO_COMPOSE = process.env['E2E_COMPOSE_PROJECT'] ?? '';
 const RAIZ_REPO = resolve(__dirname, '..', '..');
@@ -311,8 +311,26 @@ export async function entrarPorUi(
   throw new Error('Límite de tasa persistente en el login por la interfaz');
 }
 
-/** Espera a que la SPA esté hidratada (App marca html[data-app-lista]). */
+/** Tiempo máximo de una navegación de irA antes de reintentarla una vez. */
+const TIMEOUT_NAVEGACION_MS = 30_000;
+
+/**
+ * Navega y espera a que la SPA esté hidratada (App marca html[data-app-lista]); esa marca, no el
+ * evento `load`, es la condición de «página lista».
+ *
+ * QA TKT-022 ciclo 2: en Firefox, con un contexto nuevo, Playwright a veces no recibe los eventos de
+ * la navegación aunque el servidor entregó el documento y todos sus recursos (traza: 200 en todo, la
+ * SPA llegó a consultar /auth/sesion) y `goto` espera hasta agotar el caso. Por eso la navegación
+ * tiene su propio límite y se reintenta UNA vez; un SSR realmente colgado sigue fallando.
+ */
 export async function irA(page: Page, ruta: string): Promise<void> {
-  await page.goto(ruta);
+  for (let intento = 1; ; intento++) {
+    try {
+      await page.goto(ruta, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_NAVEGACION_MS });
+      break;
+    } catch (error) {
+      if (intento >= 2 || !(error instanceof errors.TimeoutError)) throw error;
+    }
+  }
   await page.locator('html[data-app-lista="true"]').waitFor({ state: 'attached' });
 }
