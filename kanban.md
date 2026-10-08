@@ -299,6 +299,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias)."]
     actualizado: 2026-10-08
+  - id: TKT-042
+    titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-019, TKT-009, "RULE-030"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/app/features/glosario/**", "frontend/src/app/features/destinos/ui/**", "frontend/src/app/features/**/ui/*.html", "frontend/src/app/app.config.ts", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-968. QA TKT-019: via-ferrata desde el mapa queda en scrollY 0 (término en top=2019px); carga directa sí desplaza."]
+    actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -1046,14 +1058,14 @@ tickets:
   - id: TKT-019
     titulo: "GAP DE PLANIFICACIÓN: SCR-022 (Mapa del sitio HTML, `/mapa-del-sitio`, MOD-001, FEAT-025) tiene prioridad MUST y es la segunda vía obligatoria exigida por RULE-030/OBJ-001 (junto con Inicio) para que 'toda página publicada sea alcanzable' -- pero NUNCA fue asignado a ningún Micro-Ticket (ni TKT-008 ni TKT-009 lo incluyen en su alcance). Resultado: /mapa-del-sitio devuelve HTTP 404 real en producción HOY, pese a que el pie de página (GI-02, construido en TKT-008) ya lo enlaza -- es un enlace roto en vivo para cualquier visitante que lo pulse. Encontrado por QA durante la verificación de RULE-030 en TKT-009 ciclo 1/3 (no es un defecto de TKT-008 ni TKT-009: es un hueco en la descomposición original de tickets de esta sesión). Implementar: página HTML que agrupa todas las páginas publicadas por sección (destinos, itinerarios, tipos de aventura, guías, colecciones, glosario, institucional), MUST, REQ-021/020"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-001, "SCR-022", "FEAT-025", "RULE-030", "OBJ-001"]
     depende_de: [TKT-008, TKT-009]
     archivos_permitidos: ["frontend/src/app/features/mapa-del-sitio/**", "frontend/src/app/app.routes.ts", "frontend/e2e/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada."]
+    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 805b2e7: tests/a11y/contrato/seguridad/performance PASS (95 rutas 200 reales, SSR con los 72+24 enlaces, axe 0, CLS 0). F-01 MEDIUM: el índice de secciones usa href='#seccion-x' y con <base href=/> lleva a /#seccion-x (Inicio) en 3 motores; AC_TKT019_02 no lo detecta. F-02 MEDIUM: AC_TKT019_04 agota el cupo publico-lectura compartido (385 llamadas, 53 x 429) y hace fallar specs de otros tickets. F-03 LOW: reintentos ante estado-error sin comprobar 429 y crawl que solo mira el status. OBS-01/02 preexistentes -> TKT-042. Ciclo 2/3 al Developer."]
     actualizado: 2026-10-08
 ```
 
