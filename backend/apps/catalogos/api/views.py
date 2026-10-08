@@ -30,6 +30,7 @@ from apps.catalogos.api.serializers import (
     RegionSerializer,
 )
 from apps.catalogos.models import CategoriaGuia, Escala, Licencia, Pais, Region
+from apps.core.api.serializers import respuesta_conflicto_bd
 from apps.core.exceptions import ErrorApi, NoEncontrado, ParametroInvalido
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import validar_parametros
@@ -356,7 +357,7 @@ class ActualizarNivelEscala(_VistaSoloAdministrador):
         operation_id="panelActualizarNivelEscala",
         tags=["panel-configuracion"],
         request=NivelEscalaEntradaSerializer,
-        responses={200: NivelEscalaPanelSerializer},
+        responses={200: NivelEscalaPanelSerializer, **respuesta_conflicto_bd()},
     )
     def put(self, request: Request, id: int) -> Response:
         entrada = NivelEscalaEntradaSerializer(data=request.data)
