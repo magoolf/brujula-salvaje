@@ -2491,3 +2491,44 @@ Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
 
 ### 30.10 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (image scan de las 6 imágenes y smoke anti-evasión) e integrarlo (sin editar contenido). Después, sincronizar los PR abiertos con `main`. Actualizar RSK-OPS-046 (ahora solo `pcre2`) en `audit_log.md`.
+
+## 32. TKT-OPS-029: GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj y GHSA-p8wg-vrv2-v86f (CRITICAL) en `handlebars` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-965)
+
+> Numeración: §29 la ocupa el PR #63 (TKT-OPS-026) y el PR #65 (TKT-OPS-027) añade otra §30 que choca con la §30 de TKT-OPS-028 que ya está en `main`, así que tendrá que pasar a §31. Por eso esta sección es la §32. Si hay conflicto, será solo textual: se mantienen todas las secciones en orden numérico.
+
+### 32.1 Estado
+COMPLETADO en la rama `tkt-ops-029-handlebars`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 32.2 Objetivo
+El job `frontend` falla en `SCA (npm audit --audit-level=high)` (run 37836571528, PR #65, 2026-10-08) por tres avisos **CRITICAL** de inyección de JavaScript en `handlebars` `>=4.0.0 <=4.7.9`. El lockfile fijaba 4.7.9. `frontend/**` es igual que en `main`, así que el fallo afecta a `main` y a todos los PR. Hay corrección disponible (4.7.10), así que no procede aceptar el riesgo (CLAUDE.md §0.5).
+
+### 32.3 Diagnóstico y cambios realizados
+- `npm ls handlebars`: el único dependiente es `ng-openapi-gen@1.1.0` (dev, generador del cliente Angular desde `contracts/openapi.yaml`), que declara `^4.7.9`. 4.7.10 cumple ese rango, así que no hace falta `overrides` y `package.json` no cambia.
+- `frontend/package-lock.json`: solo cambia la entrada `node_modules/handlebars`. `version`, `resolved` e `integrity` pasan de 4.7.9 a 4.7.10 (`integrity` según `npm view handlebars@4.7.10 dist.integrity`), y el rango declarado de `minimist` pasa de `^1.2.5` a `^1.2.8`, como en el manifiesto publicado de 4.7.10. El lockfile ya resuelve `minimist` 1.2.8, así que el árbol no cambia. El diff es de 4 líneas.
+- No se usó `npm audit fix` general. Igual que en TKT-OPS-025 (§28.3), `npm update handlebars --package-lock-only` (npm 11.19.0 en Windows) añadía 6 entradas `inBundle` de `@tailwindcss/oxide-wasm32-wasi` que no tienen que ver con el aviso. Por eso se descartó ese resultado y se editó solo la entrada afectada.
+
+### 32.4 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| handlebars | 4.7.10 (transitiva, dev, vía `ng-openapi-gen` 1.1.0) | APROBADO | `npm ls handlebars`; `npm audit` 0; `api:generate` sin diff |
+| Node.js / npm | 24.21.0 / 11.19.0 (sin cambios) | APROBADO | — |
+
+### 32.5 Infraestructura / dependencias / variables de entorno
+No cambian imágenes, compose, workflow ni variables. `handlebars` es dependencia de desarrollo: solo se usa para generar el cliente y no forma parte del bundle ni de la imagen de runtime.
+
+### 32.6 Validaciones ejecutadas (2026-10-08, en local, Node 24.21.0 / npm 11.19.0, mismos pasos que el job `frontend`)
+- `npm ci --no-audit --no-fund`: OK (comprueba el `integrity`). `npm ls handlebars`: `ng-openapi-gen@1.1.0 -> handlebars@4.7.10`.
+- `npm audit --audit-level=high`: **0 vulnerabilidades** (exit 0).
+- `eslint . --max-warnings=0`: exit 0. `tsc --noEmit -p tsconfig.app.json`: exit 0. `ng test --watch=false --coverage`: **546/546** (97 archivos).
+- `npm run api:generate` + `git diff --exit-code -- src/app`: **el cliente generado no cambia**, lo que demuestra que handlebars 4.7.10 genera lo mismo que 4.7.9. `ng build --configuration production`: OK.
+- NOT_RUN en local: semgrep (este PR no cambia código fuente) y el job de imágenes (sin Docker por falta de RAM). Ambos se ejecutan en el CI del PR.
+
+### 32.7 Riesgos / pendientes
+- No hay riesgos nuevos. Mientras no se integre, el CI de `main` y de los PR abiertos sigue en rojo en `npm audit`.
+- Hay que renumerar la §30 duplicada del PR #65 (ver la nota de numeración).
+
+### 32.8 Archivos modificados
+`frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 32.9 Próximo agente
+**Orquestador**: confirmar el CI real de este PR e integrarlo sin editar contenido. Después, sincronizar los PR abiertos con `main` y relanzar su CI.
