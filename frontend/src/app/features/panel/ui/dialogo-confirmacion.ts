@@ -44,7 +44,7 @@ import { Boton, VarianteBoton } from '../../../shared/ui/boton/boton';
             [attr.data-testid]="idBase() + '-cancelar'"
             (click)="cerrar()"
           >
-            Cancelar
+            {{ textoCancelar() }}
           </button>
         </div>
       </div>
@@ -59,6 +59,7 @@ export class DialogoConfirmacion {
   readonly titulo = input.required<string>();
   readonly textoConfirmar = input.required<string>();
   readonly variante = input<VarianteBoton>('danger');
+  readonly textoCancelar = input('Cancelar');
   readonly procesando = input(false);
   /** Prefijo de los id y del data-testid. */
   readonly idBase = input('dialogo-confirmacion');

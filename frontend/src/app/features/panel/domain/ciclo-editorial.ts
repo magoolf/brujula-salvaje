@@ -4,7 +4,7 @@
  * (cascada de itinerarios y tipos, bloqueos), resultado de las transiciones y revisiones (FEAT-040,
  * FEAT-050). Puro: sin Angular ni RxJS (Regla 08).
  */
-import { RefContenido } from './formulario-contenido';
+import { RefContenido, etiquetaCampo } from './formulario-contenido';
 import { EstadoEditorial, TipoContenido } from './modelos';
 
 /** Requisito incumplido de una entidad (ErrorRegla); `campo` es la clave del formulario. */
@@ -211,4 +211,11 @@ export function textoCompletitud(requisitos: RequisitosPublicacion): string {
 /** Entidades distintas de la principal en un resultado (para el mensaje de éxito). */
 export function entidadesAdicionales(resultado: ResultadoTransicion): readonly EntidadTransitada[] {
   return resultado.entidades.filter((e) => e.origen !== 'PRINCIPAL');
+}
+
+/** Texto del enlace de un requisito: «Galería: Faltan imágenes…». */
+export function textoRequisito(requisito: Requisito): string {
+  return requisito.campo === '_general'
+    ? requisito.mensaje
+    : `${etiquetaCampo(requisito.campo)}: ${requisito.mensaje}`;
 }

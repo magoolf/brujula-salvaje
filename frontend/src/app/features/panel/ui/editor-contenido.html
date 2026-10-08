@@ -1,0 +1,883 @@
+@if (store.noEncontrado()) {
+  <app-pagina-no-encontrada-panel />
+} @else if (store.accesoDenegado()) {
+  <app-acceso-denegado />
+} @else if (store.errorCarga(); as error) {
+  <app-estado-error
+    titulo="No pudimos abrir este contenido"
+    [mensaje]="error.mensaje"
+    [anunciar]="true"
+    [rutaSalida]="rutaListado"
+    [etiquetaSalida]="'Volver a ' + def.plural.toLowerCase()"
+    testId="editor-error-carga"
+  />
+} @else if (store.cargando() || store.formularioInicial() === null) {
+  <app-estado-cargando forma="linea" [cantidad]="8" etiqueta="Cargando el contenido…" testId="editor-cargando" />
+} @else {
+  <div class="editor" data-testid="editor-contenido" [attr.data-tipo]="tipo">
+    <header class="cabecera-pagina">
+      <p class="migas"><a [routerLink]="rutaListado">{{ def.plural }}</a></p>
+      <h1 id="editor-titulo" tabindex="-1">{{ titulo() }}</h1>
+    </header>
+
+    <!-- Avisos de página -->
+    @if (store.conflicto()) {
+      <app-banner variante="error" testId="editor-conflicto">
+        Otra persona guardó cambios en este contenido mientras lo editabas. Para no sobrescribirlos, recarga la versión actual.
+        <button banner-accion type="button" appBoton tamano="sm" variante="secondary" data-testid="editor-recargar" (click)="confirmacion.set('recargar')">
+          Recargar
+        </button>
+      </app-banner>
+    }
+    @if (estado() === 'RETIRADO') {
+      <app-banner variante="info" testId="editor-retirado">
+        Este contenido está retirado. Reactívalo como borrador para editarlo.
+        @if (store.contenido()?.motivoRetiro; as motivo) {
+          <span> Motivo: {{ motivo }}</span>
+        }
+      </app-banner>
+    }
+    @if (publicacion.exito(); as exito) {
+      <app-banner variante="success" testId="editor-exito" [permitirCerrar]="true" (cerrado)="publicacion.limpiarExito()">
+        @if (estado() === 'RETIRADO') {
+          «{{ exito.titulo }}» se retiró. Su página ahora muestra «contenido no disponible».
+        } @else {
+          «{{ exito.titulo }}» está publicado.
+        }
+        @if (exito.adicionales.length > 0) {
+          <span data-testid="editor-exito-adicionales">
+            {{ estado() === 'RETIRADO' ? 'También se retiraron:' : 'También se publicaron:' }}
+            @for (e of exito.adicionales; track e.tipo + e.id; let ultimo = $last) {
+              {{ etiquetaTipo[e.tipo] }} «{{ e.titulo }}»{{ ultimo ? '.' : ', ' }}
+            }
+          </span>
+        }
+        @if (exito.urlPublica; as url) {
+          <a banner-accion [href]="url" target="_blank" rel="noopener" data-testid="editor-ver-sitio-exito">
+            Ver en el sitio <span class="bs-solo-lectores">(se abre en una pestaña nueva)</span>
+          </a>
+        }
+      </app-banner>
+    }
+    @if (store.aviso(); as aviso) {
+      <app-banner variante="info" testId="editor-aviso" [permitirCerrar]="true" (cerrado)="store.fijarAviso(null)">{{ aviso }}</app-banner>
+    }
+    @if (store.errorGuardado(); as error) {
+      <app-banner variante="error" testId="editor-error-guardado">
+        {{ error.mensaje }} Tus datos siguen en el formulario.
+        <button banner-accion type="button" appBoton tamano="sm" variante="secondary" (click)="guardar()">Reintentar</button>
+      </app-banner>
+    }
+    @if (!enLinea()) {
+      <app-banner variante="warning" testId="editor-sin-conexion">Sin conexión: tus cambios se conservan en esta página.</app-banner>
+    }
+
+    <div class="columnas">
+      <!-- Navegación de secciones (≥ xl lista; < xl «Ir a sección») -->
+      <nav class="nav-secciones" aria-label="Secciones del formulario">
+        <ul class="lista-secciones">
+          @for (s of secciones; track s.id) {
+            <li>
+              <a [href]="'#seccion-' + s.id" (click)="irASeccion($event, s.id)" [attr.data-testid]="'editor-nav-' + s.id">
+                <span>{{ s.titulo }}</span>
+                @if (seccionesPendientes().has(s.id)) {
+                  <span class="marca-pendiente">Pendiente</span>
+                }
+              </a>
+            </li>
+          }
+        </ul>
+        <div class="campo ir-seccion">
+          <label for="editor-ir-seccion">Ir a sección</label>
+          <select id="editor-ir-seccion" class="entrada-texto" (change)="alElegirSeccion($event)">
+            @for (s of secciones; track s.id) {
+              <option [value]="s.id">{{ s.titulo }}{{ seccionesPendientes().has(s.id) ? ' (pendiente)' : '' }}</option>
+            }
+          </select>
+        </div>
+      </nav>
+
+      <form class="formulario-editor" aria-labelledby="editor-titulo" novalidate (submit)="$event.preventDefault(); guardar()">
+        @if (resumenVisible() && listaErrores().length > 0) {
+          <div id="editor-resumen-errores" class="resumen-errores" tabindex="-1" role="alert" data-testid="editor-resumen-errores">
+            <p class="titulo-errores">{{ tituloResumen() }}</p>
+            <ul>
+              @for (e of listaErrores(); track e.campo) {
+                <li><a href="#" (click)="$event.preventDefault(); irACampo(e.campo)" data-testid="editor-resumen-enlace">{{ etiqueta(e.campo) }}: {{ e.mensaje }}</a></li>
+              }
+            </ul>
+          </div>
+        }
+
+        @for (s of secciones; track s.id) {
+          <section class="seccion" [id]="'seccion-' + s.id" [attr.aria-labelledby]="'seccion-' + s.id + '-titulo'" [attr.data-testid]="'seccion-' + s.id">
+            <h2 [id]="'seccion-' + s.id + '-titulo'" tabindex="-1">{{ s.titulo }}</h2>
+            <fieldset class="campos" [disabled]="soloLectura()">
+              <legend class="bs-solo-lectores">{{ s.titulo }}</legend>
+              @switch (s.id) {
+                <!-- ============================== Identidad ============================== -->
+                @case ('identidad') {
+                  @if (tipo === 'PAGINA') {
+                    <p><strong>Página:</strong> {{ store.contenido()?.nombrePagina }}</p>
+                  }
+                  <app-campo-texto
+                    [campo]="m.texto.titulo"
+                    [etiqueta]="tipo === 'TERMINO' ? 'Término' : tipo === 'DESTINO' ? 'Nombre' : 'Título'"
+                    [idCampo]="id('titulo')"
+                    nombreCampo="titulo"
+                    [testId]="id('titulo')"
+                    [obligatorio]="true"
+                    [maximo]="limites.titulo"
+                    [error]="error('titulo')"
+                    (editado)="limpiarError('titulo')"
+                  />
+                  @if (tipo !== 'PAGINA') {
+                    <div class="campo">
+                      <label [for]="id('slug')">Slug</label>
+                      <p class="ayuda" [id]="id('slug') + '-ayuda'">
+                        @if (store.contenido()?.slugBloqueado) {
+                          El slug no se puede cambiar después de publicar.
+                        } @else {
+                          Se propone desde el título mientras no lo edites. Solo minúsculas, números y guiones.
+                        }
+                      </p>
+                      <div class="con-prefijo">
+                        <span class="prefijo" aria-hidden="true">{{ def.prefijoPublico }}</span>
+                        <input
+                          class="entrada-texto"
+                          type="text"
+                          name="slug"
+                          autocomplete="off"
+                          [id]="id('slug')"
+                          [appEnlaceValor]="m.texto.slug"
+                          [readOnly]="store.contenido()?.slugBloqueado ?? false"
+                          [attr.aria-describedby]="id('slug') + '-ayuda' + (error('slug') ? ' ' + id('slug') + '-error' : '')"
+                          [attr.aria-invalid]="error('slug') ? 'true' : null"
+                          [attr.data-testid]="id('slug')"
+                          (input)="alEditarSlug()"
+                        />
+                      </div>
+                      @if (error('slug'); as mensaje) {
+                        <p class="error-campo" [id]="id('slug') + '-error'">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                  @if (tipo === 'DESTINO') {
+                    <div class="campo">
+                      <label [for]="id('pais')">País <span class="obligatorio">(obligatorio para publicar)</span></label>
+                      <select class="entrada-texto" name="pais" [id]="id('pais')" [appEnlaceValor]="m.texto.pais" [attr.aria-invalid]="error('pais') ? 'true' : null" [attr.data-testid]="id('pais')" (change)="limpiarError('pais')">
+                        <option value="" [selected]="m.texto.pais() === ''">Elige un país</option>
+                        @for (p of store.paises(); track p.id) {
+                          <option [value]="p.id" [selected]="m.texto.pais() === '' + p.id">{{ p.nombre }}</option>
+                        }
+                      </select>
+                      @if (error('pais'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                  @if (tipo === 'ITINERARIO') {
+                    <div class="campo" [id]="id('destino')" tabindex="-1">
+                      <p class="etiqueta-campo">Destino <span class="obligatorio">(obligatorio para publicar)</span></p>
+                      @if (m.destino(); as destino) {
+                        <p data-testid="editor-destino-elegido">
+                          <a [routerLink]="enlaceEditor(destino)">{{ destino.titulo }}</a>
+                          @if (destino.estado; as e) { <span class="ayuda"> · {{ etiquetaEstado[e] }}</span> }
+                          @if (!soloLectura()) {
+                            <button type="button" class="boton-enlace" (click)="m.destino.set(null)">Quitar destino</button>
+                          }
+                        </p>
+                      }
+                      <app-buscador-contenidos
+                        etiqueta="Buscar destino"
+                        idBase="editor-buscar-destino"
+                        ayuda="Para publicar el itinerario, su destino debe estar publicado."
+                        [buscar]="buscarDestinos"
+                        [deshabilitado]="soloLectura()"
+                        (elegir)="elegirDestinoItinerario($event)"
+                      />
+                      @if (error('destino'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                  @if (tipo === 'GUIA') {
+                    <div class="campo">
+                      <label [for]="id('categoria')">Categoría <span class="obligatorio">(obligatorio para publicar)</span></label>
+                      <select class="entrada-texto" name="categoria" [id]="id('categoria')" [appEnlaceValor]="m.texto.categoria" [attr.data-testid]="id('categoria')" (change)="limpiarError('categoria')">
+                        <option value="" [selected]="m.texto.categoria() === ''">Elige una categoría</option>
+                        @for (c of store.categorias(); track c.id) {
+                          <option [value]="c.id" [selected]="m.texto.categoria() === '' + c.id">{{ c.nombre }}</option>
+                        }
+                      </select>
+                      @if (error('categoria'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                  @if (tipo === 'TIPO') {
+                    <div class="campo">
+                      <label [for]="id('orden')">Orden en los listados</label>
+                      <input class="entrada-texto corto" type="number" inputmode="numeric" min="0" max="1000" name="orden" [id]="id('orden')" [appEnlaceValor]="m.texto.orden" [attr.aria-invalid]="error('orden') ? 'true' : null" (input)="limpiarError('orden')" />
+                      @if (error('orden'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                  @if (tipo === 'TERMINO') {
+                    <app-campo-texto
+                      [campo]="m.texto.definicion"
+                      etiqueta="Definición"
+                      tipo="textarea"
+                      [idCampo]="id('definicion')"
+                      [testId]="id('definicion')"
+                      [maximo]="limites.definicion"
+                      [error]="error('definicion')"
+                      (editado)="limpiarError('definicion')"
+                    />
+                  }
+                  @if (tipo === 'PAGINA') {
+                    <app-campo-texto
+                      [campo]="m.texto.versionDocumento"
+                      etiqueta="Versión del documento"
+                      [idCampo]="id('versionDocumento')"
+                      [testId]="id('versionDocumento')"
+                      [obligatorio]="true"
+                      [maximo]="limites.versionDocumento"
+                      [error]="error('versionDocumento')"
+                      (editado)="limpiarError('versionDocumento')"
+                    />
+                    <div class="campo">
+                      <label [for]="id('vigenteDesde')">Vigente desde <span class="obligatorio">(obligatorio)</span></label>
+                      <input class="entrada-texto corto" type="date" name="vigenteDesde" [id]="id('vigenteDesde')" [appEnlaceValor]="m.texto.vigenteDesde" [attr.aria-invalid]="error('vigenteDesde') ? 'true' : null" [attr.data-testid]="id('vigenteDesde')" (input)="limpiarError('vigenteDesde')" />
+                      @if (error('vigenteDesde'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </div>
+                  }
+                }
+
+                <!-- ============================== Datos ============================== -->
+                @case ('datos') {
+                  @if (tipo === 'DESTINO' || tipo === 'ITINERARIO' || tipo === 'GUIA') {
+                    <fieldset class="grupo" [id]="id('tipos')" tabindex="-1">
+                      <legend>Tipos de aventura @if (tipo !== 'GUIA') { <span class="obligatorio">(al menos uno para publicar)</span> }</legend>
+                      @if (tipo === 'DESTINO') {
+                        <p class="ayuda">Los tipos en borrador se publican junto con el destino; uno retirado impide publicarlo.</p>
+                      }
+                      <div class="casillas">
+                        @for (t of store.tiposAventura(); track t.id) {
+                          <label class="casilla">
+                            <input type="checkbox" name="tipos" [value]="t.id" [checked]="m.tipos().includes(t.id)" (change)="alternarTipo(t.id)" [attr.data-testid]="'editor-tipo-' + t.id" />
+                            {{ t.nombre }}
+                            @if (t.estado && t.estado !== 'PUBLICADO') { <span class="ayuda">({{ etiquetaEstado[t.estado] }})</span> }
+                          </label>
+                        } @empty {
+                          <p class="ayuda">{{ store.errorCatalogos() ? 'No pudimos cargar los tipos de aventura.' : 'No hay tipos de aventura.' }}</p>
+                        }
+                      </div>
+                      @if (error('tipos'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </fieldset>
+                  }
+                  @if (tipo === 'DESTINO') {
+                    <fieldset class="grupo" [id]="id('tipoPrincipal')" tabindex="-1">
+                      <legend>Tipo principal <span class="obligatorio">(obligatorio para publicar)</span></legend>
+                      @for (t of principalesPosibles(); track t.id) {
+                        <label class="casilla">
+                          <input type="radio" name="tipoPrincipal" [value]="t.id" [checked]="m.texto.tipoPrincipal() === '' + t.id" (change)="fijarTexto('tipoPrincipal', '' + t.id)" [attr.data-testid]="'editor-principal-' + t.id" />
+                          {{ t.nombre }}
+                        </label>
+                      } @empty {
+                        <p class="ayuda">Marca primero los tipos del destino.</p>
+                      }
+                      @if (error('tipoPrincipal'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </fieldset>
+                  }
+                  @if (tipo === 'DESTINO' || tipo === 'ITINERARIO') {
+                    <fieldset class="grupo" [id]="id('dificultad')" tabindex="-1">
+                      <legend>Dificultad <span class="obligatorio">(obligatorio para publicar)</span></legend>
+                      @for (n of store.escalas().dificultad; track n.nivel) {
+                        <label class="casilla">
+                          <input type="radio" name="dificultad" [value]="n.nivel" [checked]="m.texto.dificultad() === '' + n.nivel" (change)="fijarTexto('dificultad', '' + n.nivel)" [attr.data-testid]="'editor-dificultad-' + n.nivel" />
+                          {{ n.nivel }} · {{ n.etiqueta }}
+                        </label>
+                      }
+                      @if (error('dificultad'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </fieldset>
+                  }
+                  @if (tipo === 'DESTINO') {
+                    <fieldset class="grupo" [id]="id('meses')" tabindex="-1">
+                      <legend>Mejores meses <span class="obligatorio">(al menos uno para publicar)</span></legend>
+                      <div class="rejilla-meses">
+                        @for (mes of meses; track mes.numero) {
+                          <label class="casilla">
+                            <input type="checkbox" name="meses" [value]="mes.numero" [checked]="m.meses().includes(mes.numero)" (change)="alternarMes(mes.numero)" />
+                            {{ mes.nombre }}
+                          </label>
+                        }
+                      </div>
+                      @if (error('meses'); as mensaje) {
+                        <p class="error-campo">{{ mensaje }}</p>
+                      }
+                    </fieldset>
+                    <fieldset class="grupo">
+                      <legend>Duración (días) <span class="obligatorio">(obligatoria para publicar)</span></legend>
+                      <div class="fila">
+                        <div class="campo">
+                          <label [for]="id('duracionMin')">Mínimo</label>
+                          <input class="entrada-texto corto" type="number" inputmode="numeric" min="1" max="90" name="duracionMin" [id]="id('duracionMin')" [appEnlaceValor]="m.texto.duracionMin" [attr.aria-invalid]="error('duracionMin') ? 'true' : null" [attr.data-testid]="id('duracionMin')" (input)="limpiarError('duracionMin')" />
+                          @if (error('duracionMin'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                        </div>
+                        <div class="campo">
+                          <label [for]="id('duracionMax')">Máximo</label>
+                          <input class="entrada-texto corto" type="number" inputmode="numeric" min="1" max="90" name="duracionMax" [id]="id('duracionMax')" [appEnlaceValor]="m.texto.duracionMax" [attr.aria-invalid]="error('duracionMax') ? 'true' : null" [attr.data-testid]="id('duracionMax')" (input)="limpiarError('duracionMax')" />
+                          @if (error('duracionMax'); as mensaje) { <p class="error-campo" [attr.data-testid]="id('duracionMax') + '-error'">{{ mensaje }}</p> }
+                        </div>
+                      </div>
+                    </fieldset>
+                    <fieldset class="grupo" [id]="id('presupuesto')" tabindex="-1">
+                      <legend>Presupuesto <span class="obligatorio">(obligatorio para publicar)</span></legend>
+                      @for (n of store.escalas().presupuesto; track n.nivel) {
+                        <label class="casilla">
+                          <input type="radio" name="presupuesto" [value]="n.nivel" [checked]="m.texto.presupuesto() === '' + n.nivel" (change)="fijarTexto('presupuesto', '' + n.nivel)" />
+                          {{ n.nivel }} · {{ n.etiqueta }}
+                        </label>
+                      }
+                      @if (error('presupuesto'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                    </fieldset>
+                    <app-campo-texto [campo]="m.texto.clima" etiqueta="Clima" tipo="textarea" [idCampo]="id('clima')" [testId]="id('clima')" [maximo]="limites.clima" [error]="error('clima')" (editado)="limpiarError('clima')" />
+                    <div class="campo">
+                      <label [for]="id('altitud')">Altitud máxima (m)</label>
+                      <input class="entrada-texto corto" type="number" inputmode="numeric" min="-500" max="9000" name="altitud" [id]="id('altitud')" [appEnlaceValor]="m.texto.altitud" [attr.aria-invalid]="error('altitud') ? 'true' : null" (input)="limpiarError('altitud')" />
+                      @if (error('altitud'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                    </div>
+                  }
+                  @if (tipo === 'ITINERARIO') {
+                    <div class="fila">
+                      <div class="campo">
+                        <label [for]="id('duracionDias')">Duración (días) <span class="obligatorio">(obligatoria para publicar)</span></label>
+                        <input class="entrada-texto corto" type="number" inputmode="numeric" min="1" max="60" name="duracionDias" [id]="id('duracionDias')" [appEnlaceValor]="m.texto.duracionDias" [attr.aria-invalid]="error('duracionDias') ? 'true' : null" [attr.data-testid]="id('duracionDias')" (input)="limpiarError('duracionDias')" />
+                        @if (error('duracionDias'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                      </div>
+                      <div class="campo">
+                        <label [for]="id('distanciaTotal')">Distancia total (km)</label>
+                        <input class="entrada-texto corto" type="number" inputmode="decimal" min="0" step="any" name="distanciaTotal" [id]="id('distanciaTotal')" [appEnlaceValor]="m.texto.distanciaTotal" [attr.aria-invalid]="error('distanciaTotal') ? 'true' : null" (input)="limpiarError('distanciaTotal')" />
+                        @if (error('distanciaTotal'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                      </div>
+                      <div class="campo">
+                        <label [for]="id('desnivelAcumulado')">Desnivel acumulado (m)</label>
+                        <input class="entrada-texto corto" type="number" inputmode="numeric" min="0" name="desnivelAcumulado" [id]="id('desnivelAcumulado')" [appEnlaceValor]="m.texto.desnivelAcumulado" [attr.aria-invalid]="error('desnivelAcumulado') ? 'true' : null" (input)="limpiarError('desnivelAcumulado')" />
+                        @if (error('desnivelAcumulado'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                      </div>
+                    </div>
+                  }
+                  @if (tipo === 'GUIA') {
+                    <div class="campo" [id]="id('destinos')" tabindex="-1">
+                      <p class="etiqueta-campo">Destinos relacionados</p>
+                      @if (m.destinos().length > 0) {
+                        <ul class="lista-refs" data-testid="editor-destinos-guia">
+                          @for (d of m.destinos(); track d.id; let i = $index) {
+                            <li>
+                              <span>{{ d.titulo }}</span>
+                              @if (!soloLectura()) {
+                                <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.destinos, i, d.titulo)">Quitar <span class="bs-solo-lectores">{{ d.titulo }}</span></button>
+                              }
+                            </li>
+                          }
+                        </ul>
+                      }
+                      <app-buscador-contenidos etiqueta="Añadir destino" idBase="editor-buscar-destinos-guia" [buscar]="buscarDestinos" [excluidos]="excluidosDestinos()" [deshabilitado]="soloLectura()" (elegir)="anadirDestinoGuia($event)" />
+                    </div>
+                  }
+                  @if (tipo === 'TIPO') {
+                    <fieldset class="grupo" [id]="id('nivelExigencia')" tabindex="-1">
+                      <legend>Nivel de exigencia <span class="obligatorio">(obligatorio para publicar)</span></legend>
+                      @for (n of store.escalas().dificultad; track n.nivel) {
+                        <label class="casilla">
+                          <input type="radio" name="nivelExigencia" [value]="n.nivel" [checked]="m.texto.nivelExigencia() === '' + n.nivel" (change)="fijarTexto('nivelExigencia', '' + n.nivel)" />
+                          {{ n.nivel }} · {{ n.etiqueta }}
+                        </label>
+                      }
+                      @if (error('nivelExigencia'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                    </fieldset>
+                  }
+                }
+
+                <!-- ============================== Contenido ============================== -->
+                @case ('contenido') {
+                  @if (tipo !== 'PAGINA') {
+                    <app-campo-texto
+                      [campo]="m.texto.resumen"
+                      etiqueta="Resumen"
+                      tipo="textarea"
+                      [idCampo]="id('resumen')"
+                      [testId]="id('resumen')"
+                      [maximo]="limites.resumen"
+                      ayuda="Obligatorio para publicar. Una o dos frases que se muestran en tarjetas y listados."
+                      [error]="error('resumen')"
+                      (editado)="limpiarError('resumen')"
+                    />
+                  }
+                  @if (tipo !== 'ITINERARIO') {
+                    <app-editor-texto-enriquecido
+                      [valor]="m.texto.descripcion()"
+                      (cambio)="fijarTexto('descripcion', $event)"
+                      [etiqueta]="tipo === 'DESTINO' ? 'Descripción experta' : tipo === 'GUIA' || tipo === 'PAGINA' ? 'Cuerpo' : 'Descripción'"
+                      [idCampo]="id('descripcion')"
+                      [obligatorioPublicar]="true"
+                      [soloLectura]="soloLectura()"
+                      [minimoPalabras]="palabrasMinimas"
+                      [buscarTerminos]="tipo === 'PAGINA' ? null : buscarTerminos"
+                      [error]="error('descripcion')"
+                    />
+                  }
+                }
+
+                <!-- ============================== Viaje ============================== -->
+                @case ('viaje') {
+                  <app-editor-texto-enriquecido [valor]="m.texto.comoLlegar()" (cambio)="fijarTexto('comoLlegar', $event)" etiqueta="Cómo llegar" [idCampo]="id('comoLlegar')" [obligatorioPublicar]="true" [soloLectura]="soloLectura()" [buscarTerminos]="buscarTerminos" [error]="error('comoLlegar')" />
+                }
+
+                <!-- ============================== Seguridad ============================== -->
+                @case ('seguridad') {
+                  @if (tipo === 'DESTINO') {
+                    <app-editor-texto-enriquecido [valor]="m.texto.seguridad()" (cambio)="fijarTexto('seguridad', $event)" etiqueta="Seguridad y riesgos" [idCampo]="id('seguridad')" [obligatorioPublicar]="true" [soloLectura]="soloLectura()" [buscarTerminos]="buscarTerminos" [error]="error('seguridad')" />
+                    <app-editor-texto-enriquecido [valor]="m.texto.sostenibilidad()" (cambio)="fijarTexto('sostenibilidad', $event)" etiqueta="Sostenibilidad" [idCampo]="id('sostenibilidad')" [obligatorioPublicar]="true" [soloLectura]="soloLectura()" [buscarTerminos]="buscarTerminos" [error]="error('sostenibilidad')" />
+                  } @else {
+                    <app-editor-texto-enriquecido [valor]="m.texto.riesgos()" (cambio)="fijarTexto('riesgos', $event)" etiqueta="Riesgos y seguridad" [idCampo]="id('riesgos')" [obligatorioPublicar]="true" [soloLectura]="soloLectura()" [buscarTerminos]="buscarTerminos" [error]="error('riesgos')" />
+                  }
+                }
+
+                <!-- ============================== Ubicación ============================== -->
+                @case ('ubicacion') {
+                  <div class="fila">
+                    <div class="campo">
+                      <label [for]="id('latitud')">Latitud <span class="obligatorio">(−90 a 90)</span></label>
+                      <input class="entrada-texto corto" type="number" inputmode="decimal" step="0.000001" min="-90" max="90" name="latitud" [id]="id('latitud')" [appEnlaceValor]="m.texto.latitud" [attr.aria-invalid]="error('latitud') ? 'true' : null" [attr.data-testid]="id('latitud')" (input)="limpiarError('latitud')" />
+                      @if (error('latitud'); as mensaje) { <p class="error-campo" [attr.data-testid]="id('latitud') + '-error'">{{ mensaje }}</p> }
+                    </div>
+                    <div class="campo">
+                      <label [for]="id('longitud')">Longitud <span class="obligatorio">(−180 a 180)</span></label>
+                      <input class="entrada-texto corto" type="number" inputmode="decimal" step="0.000001" min="-180" max="180" name="longitud" [id]="id('longitud')" [appEnlaceValor]="m.texto.longitud" [attr.aria-invalid]="error('longitud') ? 'true' : null" [attr.data-testid]="id('longitud')" (input)="limpiarError('longitud')" />
+                      @if (error('longitud'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                    </div>
+                  </div>
+                  <p class="ayuda">Se guardan con 6 decimales.</p>
+                  @if (ubicacion(); as punto) {
+                    <figure class="mapa-marcador" data-testid="editor-marcador">
+                      <svg viewBox="0 0 360 180" role="img" [attr.aria-label]="'Marcador en latitud ' + punto.lat + ', longitud ' + punto.lon">
+                        <rect x="0" y="0" width="360" height="180" class="mapa-fondo" />
+                        <line x1="0" y1="90" x2="360" y2="90" class="mapa-linea" />
+                        <line x1="180" y1="0" x2="180" y2="180" class="mapa-linea" />
+                        <circle [attr.cx]="punto.x" [attr.cy]="punto.y" r="5" class="mapa-punto" />
+                      </svg>
+                      <figcaption class="ayuda">Vista previa del marcador (solo lectura).</figcaption>
+                    </figure>
+                  }
+                }
+
+                <!-- ============================== Días ============================== -->
+                @case ('dias') {
+                  <p class="indicador" [class.no-coincide]="!indicador().coincide" role="status" data-testid="editor-indicador-dias" [id]="id('dias')" tabindex="-1">{{ indicador().texto }}</p>
+                  @if (error('dias'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                  <ol class="lista-ordenable" aria-label="Días del itinerario, en orden">
+                    @for (dia of m.dias(); track dia.clave; let i = $index; let primero = $first; let ultimo = $last) {
+                      <li class="elemento-dia" [attr.data-testid]="'editor-dia-' + i">
+                        <details [open]="diaAbierto() === dia.clave || error('dias.' + i + '.titulo') || error('dias.' + i + '.actividades')" (toggle)="$any($event.target).open ? diaAbierto.set(dia.clave) : null">
+                          <summary>Día {{ i + 1 }}: {{ dia.titulo || 'sin título' }}</summary>
+                          <div class="contenido-dia">
+                            <div class="campo">
+                              <label [for]="id('dias.' + i + '.titulo')">Título del día <span class="obligatorio">(obligatorio)</span></label>
+                              <input class="entrada-texto" type="text" [name]="'dia-titulo-' + i" [id]="id('dias.' + i + '.titulo')" [value]="dia.titulo" [attr.maxlength]="limites.diaTitulo" [attr.aria-invalid]="error('dias.' + i + '.titulo') ? 'true' : null" [attr.data-testid]="id('dias.' + i + '.titulo')" (input)="editarDia(i, 'titulo', valorDe($event))" />
+                              @if (error('dias.' + i + '.titulo'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                            </div>
+                            <app-editor-texto-enriquecido [valor]="dia.actividades" (cambio)="editarDia(i, 'actividades', $event)" etiqueta="Actividades" [idCampo]="id('dias.' + i + '.actividades')" [obligatorioPublicar]="true" [soloLectura]="soloLectura()" [error]="error('dias.' + i + '.actividades')" />
+                            <div class="fila">
+                              <div class="campo">
+                                <label [for]="id('dias.' + i + '.distanciaKm')">Distancia (km)</label>
+                                <input class="entrada-texto corto" type="number" inputmode="decimal" step="any" min="0" [name]="'dia-distancia-' + i" [id]="id('dias.' + i + '.distanciaKm')" [value]="dia.distanciaKm" (input)="editarDia(i, 'distanciaKm', valorDe($event))" />
+                                @if (error('dias.' + i + '.distanciaKm'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                              </div>
+                              <div class="campo">
+                                <label [for]="id('dias.' + i + '.desnivelPositivo')">Desnivel + (m)</label>
+                                <input class="entrada-texto corto" type="number" inputmode="numeric" min="0" [name]="'dia-subida-' + i" [id]="id('dias.' + i + '.desnivelPositivo')" [value]="dia.desnivelPositivo" (input)="editarDia(i, 'desnivelPositivo', valorDe($event))" />
+                                @if (error('dias.' + i + '.desnivelPositivo'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                              </div>
+                              <div class="campo">
+                                <label [for]="id('dias.' + i + '.desnivelNegativo')">Desnivel − (m)</label>
+                                <input class="entrada-texto corto" type="number" inputmode="numeric" min="0" [name]="'dia-bajada-' + i" [id]="id('dias.' + i + '.desnivelNegativo')" [value]="dia.desnivelNegativo" (input)="editarDia(i, 'desnivelNegativo', valorDe($event))" />
+                                @if (error('dias.' + i + '.desnivelNegativo'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                              </div>
+                            </div>
+                            <div class="campo">
+                              <label [for]="id('dias.' + i + '.alojamiento')">Alojamiento orientativo</label>
+                              <input class="entrada-texto" type="text" [name]="'dia-alojamiento-' + i" [id]="id('dias.' + i + '.alojamiento')" [attr.maxlength]="limites.diaAlojamiento" [value]="dia.alojamiento" (input)="editarDia(i, 'alojamiento', valorDe($event))" />
+                            </div>
+                            <app-editor-texto-enriquecido [valor]="dia.consejos" (cambio)="editarDia(i, 'consejos', $event)" etiqueta="Consejos" [idCampo]="id('dias.' + i + '.consejos')" [soloLectura]="soloLectura()" />
+                          </div>
+                        </details>
+                        @if (!soloLectura()) {
+                          <div class="acciones-elemento">
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-dias-subir-' + i" [disabled]="primero" (click)="moverEnLista(m.dias, 'Día ' + (i + 1), i, -1, 'editor-dias')">Subir <span class="bs-solo-lectores">día {{ i + 1 }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-dias-bajar-' + i" [disabled]="ultimo" (click)="moverEnLista(m.dias, 'Día ' + (i + 1), i, 1, 'editor-dias')">Bajar <span class="bs-solo-lectores">día {{ i + 1 }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.dias, i, 'Día ' + (i + 1))">Quitar <span class="bs-solo-lectores">día {{ i + 1 }}</span></button>
+                          </div>
+                        }
+                      </li>
+                    }
+                  </ol>
+                  @if (!soloLectura()) {
+                    <button type="button" appBoton variante="secondary" data-testid="editor-anadir-dia" [disabled]="m.dias().length >= limites.dias" (click)="anadirDia()">Añadir día</button>
+                  }
+                }
+
+                <!-- ============================== Checklist ============================== -->
+                @case ('checklist') {
+                  <p class="ayuda" [id]="id('checklist')" tabindex="-1" data-testid="editor-checklist-recuento">{{ textoMinimo(m.checklist().length, minimos.checklist) }} (si hay checklist, se exigen {{ minimos.checklist }} elementos para publicar)</p>
+                  @if (error('checklist'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                  <ol class="lista-ordenable" aria-label="Elementos del checklist, en orden">
+                    @for (item of m.checklist(); track item.clave; let i = $index; let primero = $first; let ultimo = $last) {
+                      <li class="fila-elemento" [attr.data-testid]="'editor-item-' + i">
+                        <div class="campo">
+                          <label [for]="id('checklist.' + i + '.grupo')">Grupo</label>
+                          <input class="entrada-texto" type="text" [name]="'item-grupo-' + i" [id]="id('checklist.' + i + '.grupo')" [attr.maxlength]="limites.checklistGrupo" [value]="item.grupo" (input)="editarItem(i, 'grupo', $event)" />
+                        </div>
+                        <div class="campo crece">
+                          <label [for]="id('checklist.' + i + '.texto')">Elemento {{ i + 1 }} <span class="obligatorio">(obligatorio)</span></label>
+                          <input class="entrada-texto" type="text" [name]="'item-texto-' + i" [id]="id('checklist.' + i + '.texto')" [attr.maxlength]="limites.checklistTexto" [value]="item.texto" [attr.aria-invalid]="error('checklist.' + i + '.texto') ? 'true' : null" [attr.data-testid]="id('checklist.' + i + '.texto')" (input)="editarItem(i, 'texto', $event)" />
+                          @if (error('checklist.' + i + '.texto'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                        </div>
+                        <label class="casilla">
+                          <input type="checkbox" [name]="'item-esencial-' + i" [checked]="item.esencial" (change)="alternarEsencial(i)" /> Esencial
+                        </label>
+                        @if (!soloLectura()) {
+                          <div class="acciones-elemento">
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-checklist-subir-' + i" [disabled]="primero" (click)="moverEnLista(m.checklist, 'Elemento ' + (i + 1), i, -1, 'editor-checklist')">Subir <span class="bs-solo-lectores">elemento {{ i + 1 }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-checklist-bajar-' + i" [disabled]="ultimo" (click)="moverEnLista(m.checklist, 'Elemento ' + (i + 1), i, 1, 'editor-checklist')">Bajar <span class="bs-solo-lectores">elemento {{ i + 1 }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.checklist, i, 'Elemento ' + (i + 1))">Quitar <span class="bs-solo-lectores">elemento {{ i + 1 }}</span></button>
+                          </div>
+                        }
+                      </li>
+                    }
+                  </ol>
+                  @if (!soloLectura()) {
+                    <button type="button" appBoton variante="secondary" data-testid="editor-anadir-item" [disabled]="m.checklist().length >= limites.checklist" (click)="anadirItem()">Añadir elemento</button>
+                  }
+                }
+
+                <!-- ============================== Elementos (colección) ============================== -->
+                @case ('elementos') {
+                  <p class="ayuda" [id]="id('elementos')" tabindex="-1" data-testid="editor-elementos-recuento">{{ textoMinimo(m.elementos().length, minimos.elementosColeccion) }} (publicados)</p>
+                  @if (error('elementos'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                  <ol class="lista-ordenable" aria-label="Elementos de la colección, en orden">
+                    @for (el of m.elementos(); track el.clave; let i = $index; let primero = $first; let ultimo = $last) {
+                      <li class="fila-elemento" [attr.data-testid]="'editor-elemento-' + i">
+                        <p class="crece"><strong>{{ i + 1 }}. {{ el.contenido.titulo }}</strong> <span class="ayuda">({{ etiquetaTipo[el.contenido.tipo] }})</span></p>
+                        <div class="campo crece">
+                          <label [for]="id('elementos.' + i + '.nota')">Nota editorial</label>
+                          <input class="entrada-texto" type="text" [name]="'elemento-nota-' + i" [id]="id('elementos.' + i + '.nota')" [attr.maxlength]="limites.notaElemento" [value]="el.nota" (input)="editarNota(i, $event)" />
+                          @if (error('elementos.' + i + '.nota'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                        </div>
+                        @if (!soloLectura()) {
+                          <div class="acciones-elemento">
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-elementos-subir-' + i" [disabled]="primero" (click)="moverEnLista(m.elementos, el.contenido.titulo, i, -1, 'editor-elementos')">Subir <span class="bs-solo-lectores">{{ el.contenido.titulo }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-elementos-bajar-' + i" [disabled]="ultimo" (click)="moverEnLista(m.elementos, el.contenido.titulo, i, 1, 'editor-elementos')">Bajar <span class="bs-solo-lectores">{{ el.contenido.titulo }}</span></button>
+                            <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.elementos, i, el.contenido.titulo)">Quitar <span class="bs-solo-lectores">{{ el.contenido.titulo }}</span></button>
+                          </div>
+                        }
+                      </li>
+                    }
+                  </ol>
+                  <app-buscador-contenidos etiqueta="Añadir destino o itinerario publicado" idBase="editor-buscar-elementos" [buscar]="buscarElementos" [excluidos]="excluidosElementos()" [deshabilitado]="soloLectura() || m.elementos().length >= limites.elementos" (elegir)="anadirElemento($event)" />
+                }
+
+                <!-- ============================== Medios ============================== -->
+                @case ('medios') {
+                  <app-medios-contenido
+                    [portada]="m.portada()"
+                    [galeria]="m.galeria()"
+                    [conGaleria]="tipo === 'DESTINO' || tipo === 'ITINERARIO'"
+                    [soloLectura]="soloLectura()"
+                    [errorPortada]="error('portada')"
+                    [errorGaleria]="error('galeria')"
+                    (portadaCambio)="alCambiarPortada($event)"
+                    (galeriaCambio)="alCambiarGaleria($event)"
+                  />
+                }
+
+                <!-- ============================== Relacionados ============================== -->
+                @case ('relacionados') {
+                  @if (tipo === 'TERMINO') {
+                    <p class="ayuda">Los contenidos se vinculan a este término desde su propio editor.</p>
+                    @if (store.contenido()?.vinculadoEn; as vinculos) {
+                      @if (vinculos.length > 0) {
+                        <ul class="lista-refs" data-testid="editor-vinculado-en">
+                          @for (v of vinculos; track v.tipo + v.id) {
+                            <li><a [routerLink]="enlaceEditor(v)">{{ v.titulo }}</a> <span class="ayuda">({{ etiquetaTipo[v.tipo] }})</span></li>
+                          }
+                        </ul>
+                      } @else {
+                        <p>Ningún contenido lo vincula todavía.</p>
+                      }
+                    }
+                  } @else {
+                    <div class="campo" [id]="id('relaciones')" tabindex="-1">
+                      <p class="etiqueta-campo">Relacionados</p>
+                      <p class="ayuda">Si hay menos de {{ minimos.relacionados }}, se completarán automáticamente por afinidad al publicar.</p>
+                      @if (m.relaciones().length > 0) {
+                        <ol class="lista-refs" data-testid="editor-relaciones">
+                          @for (r of m.relaciones(); track r.tipo + r.id; let i = $index; let primero = $first; let ultimo = $last) {
+                            <li>
+                              <span>{{ i + 1 }}. {{ r.titulo }} <span class="ayuda">({{ etiquetaTipo[r.tipo] }})</span></span>
+                              @if (!soloLectura()) {
+                                <span class="acciones-elemento">
+                                  <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-relaciones-subir-' + i" [disabled]="primero" (click)="moverEnLista(m.relaciones, r.titulo, i, -1, 'editor-relaciones')">Subir <span class="bs-solo-lectores">{{ r.titulo }}</span></button>
+                                  <button type="button" appBoton tamano="sm" variante="ghost" [id]="'editor-relaciones-bajar-' + i" [disabled]="ultimo" (click)="moverEnLista(m.relaciones, r.titulo, i, 1, 'editor-relaciones')">Bajar <span class="bs-solo-lectores">{{ r.titulo }}</span></button>
+                                  <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.relaciones, i, r.titulo)">Quitar <span class="bs-solo-lectores">{{ r.titulo }}</span></button>
+                                </span>
+                              }
+                            </li>
+                          }
+                        </ol>
+                      }
+                      @if (error('relaciones'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                      <app-buscador-contenidos etiqueta="Añadir contenido relacionado" idBase="editor-buscar-relacionados" [buscar]="buscarRelacionados" [excluidos]="excluidosRelaciones()" [deshabilitado]="soloLectura() || m.relaciones().length >= limites.relaciones" (elegir)="anadirRelacion($event)" />
+                    </div>
+                    <div class="campo" [id]="id('terminos')" tabindex="-1">
+                      <p class="etiqueta-campo">Términos del glosario vinculados</p>
+                      @if (m.terminos().length > 0) {
+                        <ul class="lista-refs" data-testid="editor-terminos">
+                          @for (t of m.terminos(); track t.id; let i = $index) {
+                            <li>
+                              <span>{{ t.nombre }}</span>
+                              @if (!soloLectura()) {
+                                <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.terminos, i, t.nombre)">Quitar <span class="bs-solo-lectores">{{ t.nombre }}</span></button>
+                              }
+                            </li>
+                          }
+                        </ul>
+                      }
+                      <app-buscador-contenidos etiqueta="Vincular término" idBase="editor-buscar-terminos" [buscar]="buscarTerminos" [excluidos]="excluidosTerminos()" [deshabilitado]="soloLectura() || m.terminos().length >= limites.terminos" (elegir)="anadirTermino($event)" />
+                    </div>
+                  }
+                }
+
+                <!-- ============================== Fuentes ============================== -->
+                @case ('fuentes') {
+                  @if (tipo === 'GUIA') {
+                    <label class="casilla">
+                      <input type="checkbox" name="remiteMetodologia" [id]="id('remiteMetodologia')" [checked]="m.remiteMetodologia()" (change)="m.remiteMetodologia.set(!m.remiteMetodologia())" />
+                      Remite a la Metodología (en lugar de fuentes propias)
+                    </label>
+                  }
+                  <div [id]="id('fuentes')" tabindex="-1">
+                    @if (error('fuentes'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                    @for (f of m.fuentes(); track f.clave; let i = $index) {
+                      <fieldset class="grupo fuente" [attr.data-testid]="'editor-fuente-' + i">
+                        <legend>Fuente {{ i + 1 }}</legend>
+                        <div class="campo">
+                          <label [for]="id('fuentes.' + i + '.titulo')">Título <span class="obligatorio">(obligatorio)</span></label>
+                          <input class="entrada-texto" type="text" [name]="'fuente-titulo-' + i" [id]="id('fuentes.' + i + '.titulo')" [attr.maxlength]="limites.fuenteTitulo" [value]="f.titulo" [attr.aria-invalid]="error('fuentes.' + i + '.titulo') ? 'true' : null" [attr.data-testid]="id('fuentes.' + i + '.titulo')" (input)="editarFuente(i, 'titulo', $event)" />
+                          @if (error('fuentes.' + i + '.titulo'); as mensaje) { <p class="error-campo">{{ mensaje }}</p> }
+                        </div>
+                        <div class="campo">
+                          <label [for]="id('fuentes.' + i + '.url')">URL</label>
+                          <input class="entrada-texto" type="url" inputmode="url" [name]="'fuente-url-' + i" [id]="id('fuentes.' + i + '.url')" [value]="f.url" [attr.aria-invalid]="error('fuentes.' + i + '.url') ? 'true' : null" [attr.data-testid]="id('fuentes.' + i + '.url')" (input)="editarFuente(i, 'url', $event)" />
+                          @if (error('fuentes.' + i + '.url'); as mensaje) { <p class="error-campo" [attr.data-testid]="id('fuentes.' + i + '.url') + '-error'">{{ mensaje }}</p> }
+                        </div>
+                        <div class="fila">
+                          <div class="campo crece">
+                            <label [for]="id('fuentes.' + i + '.entidadEditora')">Entidad editora</label>
+                            <input class="entrada-texto" type="text" [name]="'fuente-entidad-' + i" [id]="id('fuentes.' + i + '.entidadEditora')" [value]="f.entidadEditora" (input)="editarFuente(i, 'entidadEditora', $event)" />
+                          </div>
+                          <div class="campo">
+                            <label [for]="id('fuentes.' + i + '.fechaConsulta')">Fecha de consulta</label>
+                            <input class="entrada-texto corto" type="date" [max]="hoy" [name]="'fuente-fecha-' + i" [id]="id('fuentes.' + i + '.fechaConsulta')" [value]="f.fechaConsulta" (input)="editarFuente(i, 'fechaConsulta', $event)" />
+                          </div>
+                        </div>
+                        @if (!soloLectura()) {
+                          <button type="button" appBoton tamano="sm" variante="ghost" (click)="quitarDeLista(m.fuentes, i, 'Fuente ' + (i + 1))">Quitar <span class="bs-solo-lectores">fuente {{ i + 1 }}</span></button>
+                        }
+                      </fieldset>
+                    }
+                  </div>
+                  @if (!soloLectura()) {
+                    <button type="button" appBoton variante="secondary" data-testid="editor-anadir-fuente" [disabled]="m.fuentes().length >= limites.fuentes" (click)="anadirFuente()">Añadir fuente</button>
+                  }
+                }
+
+                <!-- ============================== SEO ============================== -->
+                @case ('seo') {
+                  <app-campo-texto [campo]="m.texto.seoTitulo" etiqueta="Título SEO" [idCampo]="id('seoTitulo')" [testId]="id('seoTitulo')" [maximo]="limites.seoTitulo" [error]="error('seoTitulo')" (editado)="limpiarError('seoTitulo')" />
+                  <app-campo-texto [campo]="m.texto.seoDescripcion" etiqueta="Descripción SEO" tipo="textarea" [idCampo]="id('seoDescripcion')" [testId]="id('seoDescripcion')" [maximo]="limites.seoDescripcion" ayuda="Obligatoria para publicar; única por página." [error]="error('seoDescripcion')" (editado)="limpiarError('seoDescripcion')" />
+                }
+
+                <!-- ============================== Revisión ============================== -->
+                @case ('revision') {
+                  <div class="campo">
+                    <label [for]="id('fechaRevision')">Fecha de última revisión <span class="obligatorio">(obligatoria para publicar)</span></label>
+                    <p class="ayuda" [id]="id('fechaRevision') + '-ayuda'">Actualízala solo cuando revises el contenido.</p>
+                    <input class="entrada-texto corto" type="date" name="fechaRevision" [max]="hoy" [id]="id('fechaRevision')" [appEnlaceValor]="m.texto.fechaRevision" [attr.aria-describedby]="id('fechaRevision') + '-ayuda'" [attr.aria-invalid]="error('fechaRevision') ? 'true' : null" [attr.data-testid]="id('fechaRevision')" (input)="limpiarError('fechaRevision')" />
+                    @if (error('fechaRevision'); as mensaje) { <p class="error-campo" [attr.data-testid]="id('fechaRevision') + '-error'">{{ mensaje }}</p> }
+                  </div>
+                }
+
+                <!-- ============================== Historial ============================== -->
+                @case ('historial') {
+                  @if (store.esNuevo()) {
+                    <p class="ayuda">El historial aparece al publicar por primera vez.</p>
+                  } @else if (store.errorRevisiones()) {
+                    <p class="ayuda">No pudimos cargar el historial. <button type="button" class="boton-enlace" (click)="store.recargarRevisiones()">Reintentar</button></p>
+                  } @else if (store.revisiones(); as pagina) {
+                    @if (pagina.revisiones.length === 0) {
+                      <p class="ayuda" data-testid="editor-historial-vacio">Aún no hay revisiones: se crea una cada vez que se publica, actualiza o retira.</p>
+                    } @else {
+                      <ul class="historial" data-testid="editor-historial">
+                        @for (r of pagina.revisiones; track r.numero) {
+                          <li>
+                            <span><strong>Revisión {{ r.numero }}</strong> · {{ etiquetaMotivo[r.motivo] }} · {{ r.creadaPor }} · <time [attr.datetime]="r.creadaEn.toISOString()">{{ fechaHora(r.creadaEn) }}</time></span>
+                            @if (!soloLectura()) {
+                              <button type="button" appBoton tamano="sm" variante="secondary" [attr.data-testid]="'editor-restaurar-' + r.numero" [disabled]="store.procesando()" (click)="pedirRestaurar(r.numero, r.creadaEn)">
+                                Restaurar en el formulario <span class="bs-solo-lectores">la revisión {{ r.numero }}</span>
+                              </button>
+                            }
+                          </li>
+                        }
+                      </ul>
+                      @if (pagina.totalPaginas > 1) {
+                        <div class="acciones">
+                          <button type="button" appBoton tamano="sm" variante="ghost" [disabled]="pagina.pagina <= 1" (click)="store.irAPaginaRevisiones(pagina.pagina - 1)">Más recientes</button>
+                          <span>Página {{ pagina.pagina }} de {{ pagina.totalPaginas }}</span>
+                          <button type="button" appBoton tamano="sm" variante="ghost" [disabled]="pagina.pagina >= pagina.totalPaginas" (click)="store.irAPaginaRevisiones(pagina.pagina + 1)">Más antiguas</button>
+                        </div>
+                      }
+                    }
+                  } @else {
+                    <p class="ayuda" role="status">Cargando el historial…</p>
+                  }
+                }
+              }
+            </fieldset>
+          </section>
+        }
+      </form>
+
+      <!-- StatusBar + CompletenessPanel -->
+      <aside class="barra-estado" aria-labelledby="editor-estado-titulo" data-testid="editor-barra-estado">
+        <h2 id="editor-estado-titulo" class="bs-solo-lectores">Estado y acciones</h2>
+        <div class="estado-linea">
+          @if (estado(); as e) {
+            <app-insignia [variante]="variante(e)" data-testid="editor-estado">{{ etiquetaEstado[e] }}</app-insignia>
+          } @else {
+            <app-insignia variante="neutral" data-testid="editor-estado">Nuevo</app-insignia>
+          }
+          <p class="guardado" role="status" data-testid="editor-guardado">
+            @if (sucio() && !store.guardando()) { <span class="punto" aria-hidden="true"></span> }{{ estadoGuardado() }}
+          </p>
+        </div>
+        @if (store.contenido(); as c) {
+          <p class="ayuda">Versión {{ c.version }} · Modificado por {{ c.actualizadoPor }}</p>
+        }
+        @if (acciones(); as a) {
+          <div class="acciones-estado">
+            @if (a.principal; as principal) {
+              <button
+                type="button"
+                appBoton
+                data-testid="editor-accion-principal"
+                [cargando]="principal === 'GUARDAR_PAGINA' ? store.guardando() : store.procesando()"
+                [disabled]="!enLinea() || store.guardando() || store.procesando()"
+                (click)="accionPrincipal()"
+              >
+                {{ etiquetaAccion[principal] }}
+              </button>
+            }
+            @if (a.guardarBorrador) {
+              <button type="button" appBoton [variante]="a.principal ? 'secondary' : 'primary'" data-testid="editor-guardar" title="Guardar borrador (Ctrl+S)" [cargando]="store.guardando()" [disabled]="!enLinea() || store.guardando()" (click)="guardar()">
+                {{ store.guardando() ? 'Guardando…' : 'Guardar borrador' }}
+              </button>
+            }
+            @if (a.vistaPrevia) {
+              <button type="button" appBoton variante="secondary" data-testid="editor-vista-previa" (click)="vistaPrevia()">Vista previa</button>
+            }
+            @if (a.retirar || a.eliminar) {
+              <details class="mas-acciones" [open]="masAcciones()" (toggle)="masAcciones.set($any($event.target).open)">
+                <summary data-testid="editor-mas-acciones">Más acciones</summary>
+                <div class="menu-acciones">
+                  @if (a.retirar) {
+                    <button type="button" appBoton variante="danger" data-testid="editor-retirar" [disabled]="!enLinea()" (click)="abrirRetiro()">Retirar</button>
+                  }
+                  @if (a.eliminar) {
+                    <button type="button" appBoton variante="danger" data-testid="editor-eliminar" [disabled]="!enLinea()" (click)="pedirEliminar()">Eliminar borrador</button>
+                  }
+                </div>
+              </details>
+            }
+          </div>
+          @if (!enLinea()) {
+            <p class="ayuda">Sin conexión: guardar y publicar están deshabilitados.</p>
+          }
+          @if (estado() === 'PUBLICADO' && store.contenido()?.urlPublica; as url) {
+            <a [href]="url" target="_blank" rel="noopener" data-testid="editor-ver-sitio">Ver en el sitio <span class="bs-solo-lectores">(se abre en una pestaña nueva)</span></a>
+          }
+        }
+        @if (tipo !== 'PAGINA' && estado() !== 'RETIRADO') {
+          <details class="completitud" data-testid="editor-completitud">
+            <summary>{{ textoCompletitud() }}</summary>
+            @if (requisitos(); as r) {
+              @if (r.pendientes.length > 0) {
+                <ul>
+                  @for (p of r.pendientes; track $index) {
+                    <li><a href="#" (click)="$event.preventDefault(); irACampo(p.campo)">{{ textoReq(p) }}</a></li>
+                  }
+                </ul>
+              } @else {
+                <p class="ayuda">Cumple los requisitos de publicación.</p>
+              }
+            }
+            <p class="ayuda">Informativo: no impide guardar el borrador.</p>
+          </details>
+        }
+      </aside>
+    </div>
+    <p class="bs-solo-lectores" role="status">{{ anuncio() }}</p>
+  </div>
+
+  @if (store.contenido(); as contenido) {
+    <app-dialogo-publicacion
+      [abierto]="dialogoPublicacion()"
+      (abiertoChange)="cerrarDialogoPublicacion($event)"
+      [contenido]="contenido"
+      [formulario]="valor()"
+      (confirmar)="confirmarPublicacion()"
+      (reintentarOperacion)="reintentarPublicacion()"
+      (irACampo)="irACampo($event)"
+    />
+    <app-dialogo-retiro
+      [abierto]="dialogoRetiro()"
+      (abiertoChange)="cerrarDialogoRetiro($event)"
+      [titulo]="contenido.formulario.titulo"
+      (retirar)="confirmarRetiro($event)"
+    />
+  }
+
+  <app-dialogo-confirmacion
+    [abierto]="confirmacion() !== null"
+    (abiertoChange)="cerrarConfirmacion($event)"
+    [titulo]="textoConfirmacion().titulo"
+    [textoConfirmar]="textoConfirmacion().confirmar"
+    [variante]="textoConfirmacion().variante"
+    [textoCancelar]="textoConfirmacion().cancelar"
+    [procesando]="store.procesando()"
+    idBase="editor-confirmacion"
+    (confirmar)="confirmacion() === 'salir' ? responderSalida(true) : confirmar()"
+  >
+    <p>{{ textoConfirmacion().texto }}</p>
+  </app-dialogo-confirmacion>
+}

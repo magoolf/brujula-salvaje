@@ -12,7 +12,6 @@ import {
   EnlacePublico,
   FuenteVistaPrevia,
   ImagenVistaPrevia,
-  ListaVistaPrevia,
   VistaPreviaContenido,
   rutaPublica,
   textoDuracion,

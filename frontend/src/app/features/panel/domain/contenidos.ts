@@ -23,6 +23,8 @@ export interface ContenidoEditable {
   readonly motivoRetiro: string | null;
   /** Páginas legales: solo Administrador (RULE-014). */
   readonly soloAdministrador: boolean;
+  /** Página institucional: nombre de su clave fija («Acerca de», «Aviso legal»…). */
+  readonly nombrePagina: string | null;
   /** Término del glosario: contenidos que lo vinculan (solo lectura). */
   readonly vinculadoEn: readonly RefContenido[];
   readonly requisitos: RequisitosPublicacion;
@@ -141,12 +143,40 @@ export function tieneCicloEditorial(tipo: TipoContenido): boolean {
  */
 export const SLUG_ACERCA_DE = 'acerca-de';
 
+export const NOMBRE_CLAVE_PAGINA: Readonly<Record<string, string>> = {
+  ACERCA_DE: 'Acerca de',
+  POLITICA_DATOS: 'Política de tratamiento de datos',
+  POLITICA_COOKIES: 'Política de cookies',
+  AVISO_LEGAL: 'Aviso legal',
+};
+
 export function paginaSoloAdministrador(slug: string | null): boolean {
   return slug !== SLUG_ACERCA_DE;
 }
 
 export function puedeEditarPagina(rol: RolPanel | null, soloAdministrador: boolean): boolean {
   return !soloAdministrador || rol === 'ADMINISTRADOR';
+}
+
+/** Nivel de una escala editable (dificultad 1-5, presupuesto 1-4; RadioGroup del editor). */
+export interface NivelEscala {
+  readonly nivel: number;
+  readonly etiqueta: string;
+  readonly descripcion: string;
+}
+
+export interface EscalasContenido {
+  readonly dificultad: readonly NivelEscala[];
+  readonly presupuesto: readonly NivelEscala[];
+}
+
+/** Escalas por defecto si el catálogo no responde (los valores siguen siendo 1..max). */
+export function nivelesPorDefecto(maximo: number): readonly NivelEscala[] {
+  return Array.from({ length: maximo }, (_, i) => ({
+    nivel: i + 1,
+    etiqueta: `Nivel ${i + 1}`,
+    descripcion: '',
+  }));
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -39,7 +39,9 @@ import {
 import {
   ContenidoEditable,
   ContenidoResumen,
+  EscalasContenido,
   FiltrosContenidos,
+  NivelEscala,
   PaginaContenidos,
   rutaDeTipo,
 } from '../domain/contenidos';
@@ -376,6 +378,16 @@ export class PanelContenidosRepositorio {
     return todas;
   }
 
+  /** Escalas de dificultad y presupuesto (DATA-016; solo el Administrador las edita). */
+  async escalas(): Promise<EscalasContenido> {
+    const dto = await this.configuracion.panelObtenerEscalas();
+    const niveles = (lista: typeof dto.dificultad): readonly NivelEscala[] =>
+      [...lista]
+        .sort((a, b) => a.nivel - b.nivel)
+        .map((n) => ({ nivel: n.nivel, etiqueta: n.etiqueta, descripcion: n.descripcion }));
+    return { dificultad: niveles(dto.dificultad), presupuesto: niveles(dto.presupuesto) };
+  }
+
   /** Todos los tipos de aventura (cualquier estado: los BORRADOR se co-publican, RULE-025). */
   async tiposAventura(): Promise<readonly OpcionCatalogo[]> {
     const todos: OpcionCatalogo[] = [];
@@ -397,6 +409,6 @@ export class PanelContenidosRepositorio {
     const paginas = await Promise.all(tipos.map((t) => this.listar(t, filtros)));
     return paginas
       .flatMap((p) => p.contenidos)
-      .map((c: ContenidoResumen) => ({ id: c.id, tipo: c.tipo, titulo: c.titulo, estado: c.estado }));
+      .map((c: ContenidoResumen) => ({ id: c.id, tipo: c.tipo, titulo: c.titulo, estado: c.estado, slug: c.slug }));
   }
 }

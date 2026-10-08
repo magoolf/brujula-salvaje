@@ -43,11 +43,15 @@ import {
   RequisitosPublicacion,
   ResultadoTransicion,
   RolEntidad,
-  SeccionDestacada,
   UsoBloqueante,
   ValidacionEntidad,
 } from '../domain/ciclo-editorial';
-import { ContenidoEditable, ContenidoResumen, PaginaContenidos } from '../domain/contenidos';
+import {
+  ContenidoEditable,
+  ContenidoResumen,
+  NOMBRE_CLAVE_PAGINA,
+  PaginaContenidos,
+} from '../domain/contenidos';
 import {
   ChecklistItemForm,
   DiaForm,
@@ -61,6 +65,7 @@ import {
   aEntero,
   aIdOpcional,
   formularioVacio,
+  nuevaClaveLista,
   redondearCoordenada,
 } from '../domain/formulario-contenido';
 import { EstadoMedio } from '../domain/medios';
@@ -450,13 +455,6 @@ export function leerEntidadesEnConflicto(
 // ---------------------------------------------------------------------------------------------
 // DTO de contenido → formulario
 // ---------------------------------------------------------------------------------------------
-let secuenciaClaves = 0;
-/** Clave local estable de un elemento de lista (track), nunca enviada al servidor. */
-export function nuevaClaveLista(prefijo: string): string {
-  secuenciaClaves += 1;
-  return `${prefijo}-${secuenciaClaves}`;
-}
-
 function textoDe(valor: string | null | undefined): string {
   return valor ?? '';
 }
@@ -599,6 +597,7 @@ export function mapContenido(dto: ContenidoPanelDto, entidadesAfectadas: readonl
     actualizadoPor: dto.actualizado_por.etiqueta,
     motivoRetiro: dto.motivo_retiro ?? null,
     soloAdministrador: pagina?.solo_administrador ?? false,
+    nombrePagina: pagina ? (NOMBRE_CLAVE_PAGINA[pagina.clave] ?? pagina.clave) : null,
     vinculadoEn: (termino?.vinculado_en ?? []).map(mapRef),
     requisitos: mapRequisitos(dto.requisitos_publicacion),
     formulario: formularioDesdeCampos(dto.tipo, campos, dto.referencias),

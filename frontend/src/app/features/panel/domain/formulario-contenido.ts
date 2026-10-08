@@ -23,7 +23,18 @@ export interface RefContenido {
   readonly tipo: TipoContenido;
   readonly titulo: string;
   readonly estado: EstadoEditorial | null;
+  /** Slug, si se conoce (términos del glosario: enlace `/glosario#{slug}`). */
+  readonly slug?: string | null;
 }
+
+/** Resultado de una búsqueda de contenido para un Combobox (error ya traducido a texto). */
+export interface ResultadoBusqueda {
+  readonly resultados: readonly RefContenido[];
+  readonly error: string | null;
+}
+
+/** Mínimo de caracteres para buscar en un Combobox (HANDOFF Combobox). */
+export const MINIMO_BUSQUEDA = 2;
 
 /** Opción de un catálogo (país, categoría de guía, tipo de aventura, término del glosario). */
 export interface OpcionCatalogo {
@@ -126,6 +137,13 @@ export interface FormularioContenido {
   // Página institucional
   readonly versionDocumento: string;
   readonly vigenteDesde: string;
+}
+
+let secuenciaClaves = 0;
+/** Clave local estable de un elemento de lista (track), nunca enviada al servidor. */
+export function nuevaClaveLista(prefijo: string): string {
+  secuenciaClaves += 1;
+  return `${prefijo}-${secuenciaClaves}`;
 }
 
 export function formularioVacio(tipo: TipoContenido): FormularioContenido {
@@ -309,6 +327,28 @@ export function esUrlHttp(valor: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * RULE-021: destino de un enlace del texto enriquecido. Solo http, https o una ruta interna
+ * («/…», nunca «//…», que sería otro dominio). Cualquier otro esquema (javascript:, data:…) se
+ * descarta (THREAT-021).
+ */
+export function esHrefPermitido(href: string): boolean {
+  const valor = href.trim();
+  if (valor === '') return false;
+  if (valor.startsWith('/')) return !valor.startsWith('//') && !valor.includes('\\');
+  return esUrlHttp(valor);
+}
+
+/** Enlace externo (avisado en el diálogo de enlace y en el sitio, DEC-AUTO-078). */
+export function esEnlaceExterno(href: string): boolean {
+  return !href.trim().startsWith('/');
+}
+
+/** Slug válido para el enlace de un término del glosario (`/glosario#{slug}`). */
+export function esSlugValido(slug: string | null | undefined): slug is string {
+  return typeof slug === 'string' && PATRON_SLUG.test(slug);
 }
 
 // ---------------------------------------------------------------------------------------------
