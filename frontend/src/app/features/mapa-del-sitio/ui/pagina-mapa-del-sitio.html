@@ -11,7 +11,12 @@
       <ul>
         @for (seccion of secciones; track seccion.id) {
           <li>
-            <a [href]="'#seccion-' + seccion.id">{{ seccion.titulo }}</a>
+            <a
+              [href]="rutaSeccion(seccion.id)"
+              data-testid="mapa-indice-enlace"
+              (click)="irASeccion($event, seccion.id)"
+              >{{ seccion.titulo }}</a
+            >
           </li>
         }
       </ul>

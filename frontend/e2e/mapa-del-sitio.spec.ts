@@ -91,46 +91,88 @@ async function hrefs(page: Page, testId: string): Promise<string[]> {
 }
 
 /**
- * El SSR reenvía la IP del cliente (X-Forwarded-For), así que el rastreo de AC_TKT019_04 consume
- * el mismo cupo «publico-lectura» del ejecutor de pruebas. Si el backend responde 429 al SSR, la
- * página sale con 200 y su estado de error (comportamiento correcto): se espera y se reintenta.
+ * El SSR reenvía la IP del cliente (X-Forwarded-For): cada página SSR consume varias peticiones del
+ * cupo «publico-lectura» (120/min) del ejecutor, compartido con el resto de la suite. Por eso:
+ * - el recorrido de AC_TKT019_04 comprueba por SSR solo una muestra (una ruta por patrón); que cada
+ *   enlace de contenido exista lo garantiza el oráculo de la API (AC_TKT019_03 y AC_TKT019_05);
+ * - solo se reintenta ante un 429 real: visto en /api/ desde el navegador o, en el SSR (donde el
+ *   429 queda en el servidor), por el estado de error con el mensaje de límite de peticiones.
+ *   Cualquier otro estado de error o un 404 es un fallo.
  */
-const REINTENTOS_LIMITE = 8;
+const REINTENTOS_LIMITE = 6;
 const ESPERA_LIMITE_MS = 10_000;
+const MARCA_ERROR = 'data-testid="estado-error"';
+const MARCA_404 = 'data-testid="pagina-no-encontrada"';
+const TEXTO_LIMITE = /límite de peticiones/i;
 
-/** HTML del SSR del mapa con contenido (reintenta mientras el SSR muestre el estado de error). */
-async function htmlSsrMapa(page: Page): Promise<string> {
-  let html = '';
-  for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
-    const respuesta = await getConReintento(page, RUTA);
-    expect(respuesta.status()).toBe(200);
-    html = await respuesta.text();
-    if (!html.includes('data-testid="estado-error"')) return html;
-    await page.waitForTimeout(ESPERA_LIMITE_MS);
-  }
-  return html;
+function esLimiteEnSsr(html: string): boolean {
+  return html.includes(MARCA_ERROR) && TEXTO_LIMITE.test(html);
 }
 
-async function abrirMapa(page: Page): Promise<void> {
+/** HTML del SSR de `ruta`; reintenta solo si el SSR recibió un 429 del backend. */
+async function htmlSsr(page: Page, ruta: string): Promise<{ estado: number; html: string }> {
+  let resultado = { estado: 0, html: '' };
   for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
-    const respuesta = await page.goto(RUTA);
-    expect(respuesta?.status()).toBe(200);
-    await esperarHidratacion(page);
-    const total = page.getByTestId('mapa-total');
-    const error = page.getByTestId('estado-error');
-    await expect(total.or(error).first()).toBeVisible({ timeout: 15_000 });
-    if (await total.isVisible()) return;
+    const respuesta = await getConReintento(page, ruta);
+    resultado = { estado: respuesta.status(), html: await respuesta.text() };
+    if (!esLimiteEnSsr(resultado.html)) return resultado;
     await page.waitForTimeout(ESPERA_LIMITE_MS);
   }
-  await expect(page.getByTestId('mapa-total')).toBeVisible({ timeout: 15_000 });
+  return resultado;
+}
+
+/** Abre el mapa en el navegador; reintenta solo ante un 429 real (navegador o SSR). */
+async function abrirMapa(page: Page): Promise<void> {
+  let vio429 = false;
+  const alResponder = (r: { url(): string; status(): number }): void => {
+    if (r.url().includes('/api/') && r.status() === 429) vio429 = true;
+  };
+  page.on('response', alResponder);
+  try {
+    for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
+      const respuesta = await page.goto(RUTA);
+      expect(respuesta?.status()).toBe(200);
+      await esperarHidratacion(page);
+      const total = page.getByTestId('mapa-total');
+      const error = page.getByTestId('estado-error');
+      await expect(total.or(error).first()).toBeVisible({ timeout: 15_000 });
+      if (await total.isVisible()) return;
+      const limite = vio429 || TEXTO_LIMITE.test(await error.innerText());
+      expect(limite, 'estado de error sin 429: fallo real').toBe(true);
+      vio429 = false;
+      await page.waitForTimeout(ESPERA_LIMITE_MS);
+    }
+    await expect(page.getByTestId('mapa-total')).toBeVisible({ timeout: 15_000 });
+  } finally {
+    page.off('response', alResponder);
+  }
+}
+
+/** Patrón de ruta: el último segmento de las rutas de detalle pasa a `:x` (sin query ni ancla). */
+function patron(ruta: string): string {
+  const camino = ruta.split(/[?#]/)[0];
+  const segmentos = camino.split('/').filter(Boolean);
+  return segmentos.length < 2 ? camino : `/${[...segmentos.slice(0, -1), ':x'].join('/')}`;
+}
+
+/** Tras usar el índice: misma página, ancla en la URL, h2 en la vista y con el foco. */
+async function esperarEnSeccion(page: Page, id: string, titulo: string): Promise<void> {
+  await expect.poll(() => new URL(page.url()).pathname).toBe(RUTA);
+  await expect.poll(() => new URL(page.url()).hash).toBe(`#seccion-${id}`);
+  const h2 = page.getByRole('heading', { level: 2, name: titulo, exact: true });
+  await expect(h2).toBeInViewport();
+  await expect(h2).toBeFocused();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mapa del sitio');
 }
 
 test.describe('Mapa del sitio (SCR-022)', () => {
-  // Margen para las esperas por límite de tasa (htmlSsrMapa / abrirMapa).
+  // Margen para las esperas por límite de tasa (htmlSsr / abrirMapa).
   test.describe.configure({ timeout: 180_000 });
 
   test('AC_TKT019_01 responde 200 con SSR, título, canónica y h1', async ({ page }) => {
-    const html = await htmlSsrMapa(page);
+    const { estado, html } = await htmlSsr(page, RUTA);
+    expect(estado).toBe(200);
+    expect(html).not.toContain(MARCA_ERROR);
     // CON-007: el contenido llega en el HTML inicial (no solo tras hidratar).
     expect(html).toContain('data-testid="mapa-total"');
     expect(html).toMatch(/href="\/destinos\/[a-z0-9-]+"/);
@@ -148,8 +190,19 @@ test.describe('Mapa del sitio (SCR-022)', () => {
     ).toHaveText(SECCIONES);
     const indice = page.getByRole('navigation', { name: 'Secciones del mapa del sitio' });
     await expect(indice.getByRole('link')).toHaveText(SECCIONES);
+    // Con <base href="/"> un «#seccion-x» relativo iría a /#seccion-x (Inicio): sigue en el mapa.
+    await expect(indice.getByRole('link', { name: 'Glosario' })).toHaveAttribute(
+      'href',
+      '/mapa-del-sitio#seccion-glosario',
+    );
     await indice.getByRole('link', { name: 'Glosario' }).click();
-    await expect(page).toHaveURL(/#seccion-glosario$/);
+    await esperarEnSeccion(page, 'glosario', 'Glosario');
+
+    // Teclado: Enter sobre otro enlace del índice.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await indice.getByRole('link', { name: 'Colecciones' }).focus();
+    await page.keyboard.press('Enter');
+    await esperarEnSeccion(page, 'colecciones', 'Colecciones');
   });
 
   test('AC_TKT019_03 enlaza cada contenido publicado (destinos, itinerarios, tipos, guías, colecciones, meses, glosario, institucional)', async ({
@@ -191,16 +244,23 @@ test.describe('Mapa del sitio (SCR-022)', () => {
   test('AC_TKT019_04 todos los enlaces resuelven (sin 404) y las anclas del glosario existen', async ({
     page,
   }) => {
-    test.setTimeout(300_000);
     await abrirMapa(page);
     const todos = [...(await hrefs(page, 'mapa-enlace')), ...(await hrefs(page, 'mapa-enlace-seccion'))];
     const rutas = [...new Set(todos.map((h) => h.split('#')[0]))];
     expect(rutas.length).toBeGreaterThan(20);
 
+    // Una ruta por patrón (/destinos/:x, /guias/categoria/:x, /cuando-ir/:x, /glosario, páginas
+    // de un segmento…): cubre cada ruta del Router sin agotar el cupo compartido (ver arriba).
+    const muestra = new Map<string, string>();
+    for (const ruta of rutas) if (!muestra.has(patron(ruta))) muestra.set(patron(ruta), ruta);
+    expect(muestra.size).toBeLessThan(rutas.length);
+
     const rotas: string[] = [];
-    for (const ruta of rutas) {
-      const respuesta = await getConReintento(page, ruta);
-      if (respuesta.status() !== 200) rotas.push(`${ruta} → ${respuesta.status()}`);
+    for (const ruta of muestra.values()) {
+      const { estado, html } = await htmlSsr(page, ruta);
+      if (estado !== 200) rotas.push(`${ruta} → ${estado}`);
+      else if (html.includes(MARCA_404)) rotas.push(`${ruta} → página 404`);
+      else if (html.includes(MARCA_ERROR)) rotas.push(`${ruta} → estado de error`);
     }
     expect(rotas).toEqual([]);
 
@@ -211,6 +271,8 @@ test.describe('Mapa del sitio (SCR-022)', () => {
       anclasPorPagina.set(ruta, [...(anclasPorPagina.get(ruta) ?? []), ancla]);
     }
     for (const [ruta, anclas] of anclasPorPagina) {
+      const { html } = await htmlSsr(page, ruta);
+      expect(html, `${ruta} con error`).not.toContain(MARCA_ERROR);
       await page.goto(ruta);
       await esperarHidratacion(page);
       await expect(page.getByTestId('pagina-glosario').locator('dl').first()).toBeVisible({ timeout: 15_000 });

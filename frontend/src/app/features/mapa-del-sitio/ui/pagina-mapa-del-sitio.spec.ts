@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
@@ -52,7 +53,45 @@ describe('PaginaMapaDelSitio', () => {
     const h2 = [...el.querySelectorAll('h2')].map((h) => h.textContent?.trim());
     expect(h2).toEqual(SECCIONES.map((s) => s.titulo));
     expect(el.querySelectorAll('[data-testid="mapa-indice"] a')).toHaveLength(SECCIONES.length);
-    expect(el.querySelector('[data-testid="mapa-indice"] a')?.getAttribute('href')).toBe('#seccion-general');
+    expect(el.querySelector('[data-testid="mapa-indice"] a')?.getAttribute('href')).toBe(
+      '/mapa-del-sitio#seccion-general',
+    );
+  });
+
+  it('AC_TKT019_02 el índice salta a la sección sin salir de la página (foco en su h2)', () => {
+    const { el } = montar({ secciones: SECCIONES });
+    document.body.appendChild(el);
+    const desplazar = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = desplazar;
+    const location = TestBed.inject(Location);
+    const reemplazar = vi.spyOn(location, 'replaceState');
+    const enlace = el.querySelector<HTMLAnchorElement>('[data-testid="mapa-indice-enlace"]')!;
+    const evento = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    enlace.dispatchEvent(evento);
+
+    expect(evento.defaultPrevented).toBe(true);
+    expect(desplazar).toHaveBeenCalledWith({ block: 'start' });
+    expect(document.activeElement?.id).toBe('titulo-general');
+    expect(document.activeElement?.getAttribute('tabindex')).toBe('-1');
+    expect(reemplazar).toHaveBeenCalledWith('/mapa-del-sitio#seccion-general');
+    Element.prototype.scrollIntoView = original;
+    el.remove();
+  });
+
+  it('AC_TKT019_02 respeta los clics con modificador (nueva pestaña)', () => {
+    const { el } = montar({ secciones: SECCIONES });
+    const reemplazar = vi.spyOn(TestBed.inject(Location), 'replaceState');
+    const enlace = el.querySelector<HTMLAnchorElement>('[data-testid="mapa-indice-enlace"]')!;
+    let prevenidoPorPagina: boolean | null = null;
+    // Burbujeo: se ejecuta después del manejador de la página; luego se evita navegar en jsdom.
+    el.addEventListener('click', (e) => {
+      prevenidoPorPagina = e.defaultPrevented;
+      e.preventDefault();
+    });
+    enlace.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));
+    expect(prevenidoPorPagina).toBe(false);
+    expect(reemplazar).not.toHaveBeenCalled();
   });
 
   it('AC_TKT019_03 enlaza destinos bajo su región (h3) y la categoría de guías', () => {
