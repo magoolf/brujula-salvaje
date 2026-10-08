@@ -291,6 +291,38 @@ async function sesionVigente(page: Page): Promise<boolean> {
   );
 }
 
+/** Reintentos máximos de una lectura del panel limitada por el borde (cada uno espera Retry-After). */
+const MAX_REINTENTOS_BORDE = 10;
+
+/**
+ * El limitador `por_ip` del borde (20 r/s, ráfaga 60; infra/proxy/nginx.conf) es por IP, y en las E2E
+ * todos los workers salen de 127.0.0.1: 4 casos pintando a la vez rejillas de hasta 48 miniaturas
+ * (TKT-OPS-023) agotan un cupo que en producción es de cada visitante. La interfaz responde bien
+ * (alerta «Has superado el límite de peticiones» con «Reintentar»), pero el caso no prueba eso.
+ * Para las lecturas del panel hechas por la página (GET bajo /api/v1/panel, salvo /auth/**, cuyo
+ * límite propio sí se prueba), un 429 del borde (Retry-After: 1) se reintenta tras la espera, que
+ * amplía el timeout del caso. Las escrituras y los 429 del backend llegan a la página sin tocar.
+ */
+async function absorberLimiteBorde(page: Page): Promise<void> {
+  await page.route(/\/api\/v1\/panel\/(?!auth\/)/, async (ruta) => {
+    if (ruta.request().method() !== 'GET') return ruta.fallback();
+    for (let intento = 1; ; intento++) {
+      const respuesta = await ruta.fetch().catch(() => null);
+      if (!respuesta) return ruta.fallback();
+      const deBorde = respuesta.status() === 429 && respuesta.headers()['retry-after'] === '1';
+      if (!deBorde || intento > MAX_REINTENTOS_BORDE) return ruta.fulfill({ response: respuesta });
+      const esperaMs = 1_000 * intento;
+      try {
+        ampliarTimeout(esperaMs);
+      } catch {
+        // El caso ya terminó (p. ej. una miniatura rezagada al cerrar la página): nada que ampliar.
+      }
+      await new Promise((r) => setTimeout(r, esperaMs));
+      if (page.isClosed()) return;
+    }
+  });
+}
+
 /**
  * Deja la página con la sesión de un EDITOR activo sin MFA. Para las pruebas en las que la cuenta es
  * irrelevante: el worker crea una cuenta y entra una sola vez, y los casos siguientes reutilizan esas
@@ -299,6 +331,7 @@ async function sesionVigente(page: Page): Promise<boolean> {
  * usando crearCuenta + entrarPorApi.
  */
 export async function entrarComoEditorCompartido(page: Page): Promise<void> {
+  await absorberLimiteBorde(page);
   if (sesionEditor) {
     await page.context().addCookies(sesionEditor);
     if (await sesionVigente(page)) return;
