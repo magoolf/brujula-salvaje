@@ -76,7 +76,18 @@ describe('SesionPanelStore (STATE-004)', () => {
     expect(repo.asegurarCsrf).toHaveBeenCalled();
     expect(store.autenticada()).toBe(true);
     expect(store.rutaSiguiente()).toBe('/panel');
-    expect(store.secciones().map((s) => s.id)).toEqual(['tablero', 'medios', 'cuenta']);
+    expect(store.secciones().map((s) => s.id)).toEqual([
+      'tablero',
+      'contenido-destinos',
+      'contenido-itinerarios',
+      'contenido-guias',
+      'contenido-tipos-aventura',
+      'contenido-colecciones',
+      'contenido-glosario',
+      'contenido-paginas',
+      'medios',
+      'cuenta',
+    ]);
     expect(await store.cerrarSesion()).toBeNull();
     expect(store.sesion()).toBeNull();
     expect(store.secciones()).toEqual([]);
@@ -297,7 +308,7 @@ describe('TableroStore (SCR-034)', () => {
     expect(store.vacio()).toBe(false);
     expect(store.mostrarSalud()).toBe(false);
     expect(store.alertas().map((a) => a.enlace)).toEqual([null, '/panel/cuenta']);
-    expect(store.accesosRapidos().map((a) => a.id)).toEqual(['subir-medios']);
+    expect(store.accesosRapidos().map((a) => a.id)).toEqual(['nuevo-destino', 'subir-medios']);
     expect(store.nombreVisible()).toBe('Editora Uno');
     store.recargar();
   });

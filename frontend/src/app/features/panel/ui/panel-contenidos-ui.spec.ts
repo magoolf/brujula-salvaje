@@ -277,7 +277,7 @@ describe('Panel · contenidos (TKT-023)', () => {
   });
 
   it('AC_TKT023_01 estados del listado: vacío con «Nuevo», sin coincidencias, error, 403 y tipo inexistente', async () => {
-    let m = await montar('/panel/contenido/guias', (r) => r.listar.mockResolvedValue({ contenidos: [], pagina: 1, totalPaginas: 1, total: 0 }));
+    const m = await montar('/panel/contenido/guias', (r) => r.listar.mockResolvedValue({ contenidos: [], pagina: 1, totalPaginas: 1, total: 0 }));
     await vi.waitFor(() => expect(existe('contenidos-vacio')).toBe(true));
     expect(el('contenidos-vacio').textContent).toContain('Aún no hay guías');
     expect(el('contenidos-vacio-nuevo').textContent).toContain('Nueva guía');
@@ -285,18 +285,17 @@ describe('Panel · contenidos (TKT-023)', () => {
     await estable(m.harness);
     expect(existe('contenidos-sin-coincidencias')).toBe(true);
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/guias', (r) => r.listar.mockRejectedValue(http(500)));
+    await montar('/panel/contenido/guias', (r) => r.listar.mockRejectedValue(http(500)));
     await vi.waitFor(() => expect(existe('contenidos-error')).toBe(true));
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/guias', (r) => r.listar.mockRejectedValue(http(403, { code: 'permiso_denegado' })));
+    await montar('/panel/contenido/guias', (r) => r.listar.mockRejectedValue(http(403, { code: 'permiso_denegado' })));
     await vi.waitFor(() => expect(existe('acceso-denegado')).toBe(true));
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/guias?pagina=9', (r) => r.listar.mockRejectedValue(http(404, { code: 'pagina_fuera_de_rango' })));
+    await montar('/panel/contenido/guias?pagina=9', (r) => r.listar.mockRejectedValue(http(404, { code: 'pagina_fuera_de_rango' })));
     await vi.waitFor(() => expect(existe('contenidos-pagina-fuera')).toBe(true));
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/otra-cosa');
+    await montar('/panel/contenido/otra-cosa');
     await vi.waitFor(() => expect(existe('panel-no-encontrada')).toBe(true));
-    void m;
   });
 
   it('AC_TKT023_01 páginas institucionales: sin «Nuevo» ni filtros; las legales, solo Administrador', async () => {
@@ -651,16 +650,15 @@ describe('Panel · contenidos (TKT-023)', () => {
   });
 
   it('AC_TKT023_06 vista previa: abierta directamente usa la versión guardada; error y alta sin datos', async () => {
-    let m = await montar('/panel/contenido/guias/11/vista-previa', (r) => r.obtener.mockResolvedValue(contenido({ tipo: 'GUIA', formulario: formulario('GUIA') })));
+    const m = await montar('/panel/contenido/guias/11/vista-previa', (r) => r.obtener.mockResolvedValue(contenido({ tipo: 'GUIA', formulario: formulario('GUIA') })));
     await vi.waitFor(() => expect(existe('vista-previa-titulo')).toBe(true));
     expect(m.repo.vistaPrevia).toHaveBeenCalledWith(formulario('GUIA'), 11);
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/guias/11/vista-previa', (r) => r.vistaPrevia.mockRejectedValue(http(500)));
+    await montar('/panel/contenido/guias/11/vista-previa', (r) => r.vistaPrevia.mockRejectedValue(http(500)));
     await vi.waitFor(() => expect(existe('vista-previa-error')).toBe(true));
     TestBed.resetTestingModule();
-    m = await montar('/panel/contenido/guias/nuevo/vista-previa');
+    await montar('/panel/contenido/guias/nuevo/vista-previa');
     await vi.waitFor(() => expect(document.body.textContent).toContain('No hay nada que previsualizar'));
-    void m;
   });
 
   it('AC_TKT023_14 relacionados y glosario por Combobox; texto enriquecido con barra y enlaces seguros', async () => {
@@ -700,6 +698,73 @@ describe('Panel · contenidos (TKT-023)', () => {
       expect.objectContaining({ relaciones: [expect.objectContaining({ id: 21, tipo: 'ITINERARIO' })], descripcion: expect.stringContaining('<a href="/destinos/torres">') }),
       3,
     );
+  });
+
+  it('AC_TKT023_18 medios: portada y galería con el selector SCR-041 (ordenable, sin duplicados)', async () => {
+    const medio = (id: number, titulo: string) => ({
+      id,
+      estado: 'DISPONIBLE' as const,
+      tituloInterno: titulo,
+      textoAlternativo: titulo,
+      pieDeFoto: null,
+      autorCredito: 'Ana',
+      fuenteUrl: null,
+      licencia: { id: 1, codigo: 'CC', nombre: 'CC', compatiblePublicacion: true },
+      formatoOrigen: 'JPEG' as const,
+      anchoPx: 2000,
+      altoPx: 1500,
+      pesoBytes: 1000,
+      derivados: [{ formato: 'WEBP' as const, ancho: 320, alto: 240, url: `/m/${id}.webp` }],
+      numeroUsos: 0,
+      enUsoPublicado: false,
+      subidoPor: 'Ana',
+      subidoEn: new Date(),
+      actualizadoEn: new Date(),
+      pendientes: [],
+    });
+    const m = await montar('/panel/contenido/destinos/11');
+    const medios = TestBed.inject(PanelMediosRepositorio) as unknown as { listar: ReturnType<typeof vi.fn> };
+    medios.listar.mockResolvedValue({ medios: [medio(1, 'Uno'), medio(2, 'Dos')], pagina: 1, totalPaginas: 1, total: 2 });
+    await vi.waitFor(() => expect(existe('editor-elegir-portada')).toBe(true));
+    expect(el('editor-galeria-recuento').textContent).toContain('0 de 3 mínimo');
+    await pulsar(m, 'editor-elegir-portada');
+    const portada = document.querySelector<HTMLDialogElement>('dialog[aria-labelledby="editor-selector-portada-titulo"]')!;
+    await vi.waitFor(() => expect(portada.querySelector('[data-testid="selector-control-1"]')).not.toBeNull());
+    portada.querySelector<HTMLInputElement>('[data-testid="selector-control-1"]')!.click();
+    await estable(m.harness);
+    portada.querySelector<HTMLButtonElement>('[data-testid="selector-anadir"]')!.click();
+    await estable(m.harness);
+    expect(el('editor-portada').textContent).toContain('Uno');
+
+    await pulsar(m, 'editor-anadir-imagenes');
+    const galeria = document.querySelector<HTMLDialogElement>('dialog[aria-labelledby="editor-selector-galeria-titulo"]')!;
+    await vi.waitFor(() => expect(galeria.querySelector('[data-testid="selector-control-2"]')).not.toBeNull());
+    galeria.querySelector<HTMLInputElement>('[data-testid="selector-control-1"]')!.click();
+    galeria.querySelector<HTMLInputElement>('[data-testid="selector-control-2"]')!.click();
+    await estable(m.harness);
+    galeria.querySelector<HTMLButtonElement>('[data-testid="selector-anadir"]')!.click();
+    await estable(m.harness);
+    expect(el('editor-galeria-recuento').textContent).toContain('2 de 3 mínimo');
+    expect(el('editor-galeria').textContent).toMatch(/1\. Uno[\s\S]*2\. Dos/);
+    (document.getElementById('campo-galeria-bajar-0') as HTMLButtonElement).click();
+    await estable(m.harness);
+    expect(el('editor-galeria').textContent).toMatch(/1\. Dos[\s\S]*2\. Uno/);
+    // Volver a elegir una imagen ya presente no la duplica.
+    await pulsar(m, 'editor-anadir-imagenes');
+    galeria.querySelector<HTMLInputElement>('[data-testid="selector-control-1"]')!.click();
+    await estable(m.harness);
+    galeria.querySelector<HTMLButtonElement>('[data-testid="selector-anadir"]')!.click();
+    await estable(m.harness);
+    expect(el('editor-galeria-recuento').textContent).toContain('2 de 3 mínimo');
+    const quitar = Array.from(el('editor-galeria').querySelectorAll('button')).find((b) => b.textContent?.includes('Quitar'))!;
+    quitar.click();
+    await estable(m.harness);
+    expect(el('editor-galeria-recuento').textContent).toContain('1 de 3 mínimo');
+    el('editor-portada-quitar').click();
+    await estable(m.harness);
+    expect(existe('editor-portada')).toBe(false);
+    await pulsar(m, 'editor-guardar');
+    expect(m.repo.actualizar).toHaveBeenCalledWith(11, expect.objectContaining({ portada: null, galeria: [expect.objectContaining({ id: 1 })] }), 3);
   });
 
   it('AC_TKT023_13 sin conexión: guardar y publicar deshabilitados, datos conservados', async () => {
