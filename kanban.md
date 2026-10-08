@@ -323,6 +323,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/."]
     actualizado: 2026-10-08
+  - id: TKT-044
+    titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-040, "THREAT-002", "CWE-204"]
+    depende_de: [TKT-040]
+    archivos_permitidos: ["backend/apps/cuentas/**", "backend/apps/core/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9)."]
+    actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -333,7 +345,7 @@ tickets:
     archivos_permitidos: ["docs/adr/**", "contracts/openapi.yaml"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040."]
+    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040.", "F-05 QA TKT-040: un GET con contención responde 401 sesion_expirada sin borrar la cookie y la sesión sigue válida (el frontend enviará al login sin necesidad): documentarlo; riesgo residual de la rotación fallida es de hasta 12 h (máximo absoluto), no 30 min, hasta TKT-044."]
     actualizado: 2026-10-08
   - id: TKT-040
     titulo: "MEDIUM (QA CHG-API-006 F-01, NV-01, INFO): (a) SessionMiddleware.process_response guarda la sesión fuera del EXCEPTION_HANDLER de DRF: ante 55P03/40P01/40001 o fila de sesion_panel borrada por una invalidación concurrente, SessionStore.save lanza UpdateError -> SessionInterrupted -> 400 validacion. Traducirlo a 409 conflicto_version (Problem Details, reintentable) o a 401 sesion_expirada si la fila ya no existe, en todas las escrituras del panel que renuevan la inactividad (incluida panelRenovarSesion), con pruebas de carrera; (b) NV-01 (CWE-204): en panelIniciarSesion un 409 por contención del FOR UPDATE de la cuenta delata que el usuario existe: respuesta uniforme con la de credenciales inválidas (o NOWAIT/SKIP con respuesta uniforme), con prueba; (c) declarar 409 en @extend_schema de las 8 vistas de CHG-API-006 para que el esquema generado coincida con el contrato"
@@ -343,9 +355,9 @@ tickets:
     trazabilidad: [CHG-API-006, TKT-035, "THREAT enumeración de cuentas"]
     depende_de: []
     archivos_permitidos: ["backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/inicio/**", "backend/apps/catalogos/**", "backend/config/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-966. Reproducción de la QA: scratchpad/qachg006/renovar_middleware.py (SessionInterrupted -> 400 application/problem+json validacion).", "Riesgo de backend-contrato: en escrituras del panel el efecto ya está confirmado (ATOMIC_REQUESTS=False) cuando falla el guardado de la sesión: un 409 reintentable podría duplicar efectos en operaciones sin Idempotency-Key; elegir la respuesta en consecuencia. En GET que renuevan inactividad, solo códigos ya declarados (401 sesion_expirada) o abrir CHG-API.", "OBS-01/02 QA CHG-API-006 c2: en escrituras con efecto confirmado no responder 409 (éxito sin renovar o 401 si la fila no existe); tras integrar, backend-contrato ajusta la viñeta de deuda y la fila de panelRenovarSesion del ADR-API-002 §22.", "Entregado @ PR #68 (2dfb309): sesión guardada en authenticate dentro de DRF (contención en método no seguro -> 409 sin efecto; GET/vista previa -> 401; fila inexistente -> 401), tras el efecto nunca 409 (éxito sin renovar o 401), SesionPanelMiddleware como red de seguridad, logout borra la fila antes de auditar, login serializado con pg_advisory_xact_lock por HMAC del usuario (exista o no) y contención -> 401 credenciales_invalidas, 409 en extend_schema de las 8 vistas. 1330 passed, 97,36 %; carreras 4/6 FAIL en main, 6/6 PASS en rama. DEV-040-01..06 aceptadas. Depende de PR #62 para el gate de contrato del CI."]
+    evidencia: ["DEC-AUTO-966. Reproducción de la QA: scratchpad/qachg006/renovar_middleware.py (SessionInterrupted -> 400 application/problem+json validacion).", "Riesgo de backend-contrato: en escrituras del panel el efecto ya está confirmado (ATOMIC_REQUESTS=False) cuando falla el guardado de la sesión: un 409 reintentable podría duplicar efectos en operaciones sin Idempotency-Key; elegir la respuesta en consecuencia. En GET que renuevan inactividad, solo códigos ya declarados (401 sesion_expirada) o abrir CHG-API.", "OBS-01/02 QA CHG-API-006 c2: en escrituras con efecto confirmado no responder 409 (éxito sin renovar o 401 si la fila no existe); tras integrar, backend-contrato ajusta la viñeta de deuda y la fila de panelRenovarSesion del ADR-API-002 §22.", "Entregado @ PR #68 (2dfb309): sesión guardada en authenticate dentro de DRF (contención en método no seguro -> 409 sin efecto; GET/vista previa -> 401; fila inexistente -> 401), tras el efecto nunca 409 (éxito sin renovar o 401), SesionPanelMiddleware como red de seguridad, logout borra la fila antes de auditar, login serializado con pg_advisory_xact_lock por HMAC del usuario (exista o no) y contención -> 401 credenciales_invalidas, 409 en extend_schema de las 8 vistas. 1330 passed, 97,36 %; carreras 4/6 FAIL en main, 6/6 PASS en rama. DEV-040-01..06 aceptadas. Depende de PR #62 para el gate de contrato del CI.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 10129fd: 1330 passed 97,40 %, gate 39/39, contrato 0 errores, schemathesis auth 1347 casos 0 5xx, SAST 0; carreras reales vs main confirman la corrección (400 con efecto -> 409 sin efecto; 400 -> 401; logout; oráculo 409 de NV-01 eliminado). F-01 MEDIUM preexistente, F-02/F-03/F-04 LOW -> TKT-044; F-05 INFO -> CHG-API-007. update-branch del PR #68 y merge tras CI."]
     actualizado: 2026-10-08
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"

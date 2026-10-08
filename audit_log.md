@@ -364,3 +364,4 @@
 2026-10-08 | DEC-AUTO | TKT-042 | DEC-AUTO-968 (ORIGEN: EXPANSIÓN_AUTÓNOMA): OBS-01/02 preexistentes (anclas con base href en glosario/mapa de destinos y desplazamiento a /glosario#termino en navegación de cliente) -> TKT-042 MEDIUM. Reversible | kanban.md
 2026-10-08 | DELEGACION | TKT-019 | Ciclo de corrección 2/3 al Developer (F-01, F-02, F-03) en el worktree existente | kanban.md
 2026-10-08 | QA_PASS | TKT-022 | QA_VERDICT PASS ciclo 2/3 @ e218489. OBS-C2-01 -> TKT-OPS-023; OBS-C2-04 (posible conteo no atómico del limitador) -> TKT-043 MEDIUM (DEC-AUTO-969); OBS-C2-05 corregido en kanban. update-branch del PR #50; merge tras CI verde | HANDOFF_ENVELOPE QA TKT-022 c2
+2026-10-08 | QA_PASS | TKT-040 | QA_VERDICT PASS ciclo 1/3 @ 10129fd. F-01 MEDIUM (sesión anterior viva tras rotación fallida, preexistente en main) no bloquea: DEC-AUTO-970 -> TKT-044 junto a F-02/F-03/F-04; F-05 -> CHG-API-007. update-branch del PR #68 | HANDOFF_ENVELOPE QA TKT-040
