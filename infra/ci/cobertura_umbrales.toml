@@ -1,6 +1,6 @@
 # =============================================================================
 # Umbrales de cobertura POR MÓDULO del backend — Brújula Salvaje
-# TKT-OPS-021 (DEC-AUTO-940). Fuente: Skill_Backend §8 "Cobertura mínima obligatoria":
+# TKT-OPS-021 (DEC-AUTO-940), TKT-OPS-022 (DEC-AUTO-948). Fuente: Skill_Backend §8 "Cobertura mínima obligatoria":
 #   Total > 80 %   ·   Services > 90 %   ·   Endpoints críticos > 95 %
 # Comparación ESTRICTA (">"), como dice §8. Lo evalúa infra/ci/gate_cobertura.py sobre el
 # coverage.json de pytest-cov (percent_covered, con ramas porque [tool.coverage.run] branch = true).
@@ -17,53 +17,91 @@ patrones = ["TOTAL"]
 nombre = "services"
 umbral = 90.0
 patrones = ["apps/*/services.py"]
+# TKT-OPS-022 (F-QA021-01): si un services.py se convierte en paquete (apps/x/services/publicar.py),
+# sus módulos quedan sujetos al mismo umbral sin tocar esta lista. Pueden no existir todavía.
+patrones_si_existen = ["apps/*/services/*.py"]
 
 # Endpoints críticos: TODAS las vistas del panel editorial (/api/v1/panel/**: escritura de
 # contenido, medios, taxonomías, portada, auditoría) y las de cuentas/autenticación (login, MFA,
 # sesión, contraseña, autorización, gestión de cuentas). Son las superficies autenticadas y con
 # efectos (THREAT de la superficie de amenazas del Blueprint): un fallo en ellas es de seguridad.
+# TKT-OPS-022 (F-QA021-04): también los módulos de SOPORTE de la autenticación del panel, que
+# deciden quién entra y con qué permisos aunque no sean vistas: cuentas/sesiones.py (sesión,
+# rotación, cierre), cuentas/autenticacion.py (clase de autenticación DRF), cuentas/permisos.py
+# (permisos por rol), cuentas/mfa.py (TOTP y cifrado Fernet del secreto MFA) y core/permisos.py
+# (permisos base de DRF compartidos por todas las vistas).
 # Criterio para vistas nuevas: si sirve /api/v1/panel/** o autenticación -> aquí; si no ->
 # [vistas_no_criticas] con motivo. El gate falla si una vista no está clasificada.
 [[reglas]]
 nombre = "endpoints criticos"
 umbral = 95.0
+clasifica_vistas = true
 patrones = [
   "apps/contenido/api/panel_views.py",
+  # Genera con fábricas (_lista/_detalle/_vista_previa) las vistas de 18 rutas del panel
+  # (/api/v1/panel/contenidos/{tipo}/**): lo detectó el inventario del URLconf (TKT-OPS-022).
+  "apps/contenido/api/panel_urls.py",
   "apps/medios/api/views.py",
   "apps/catalogos/api/views.py",
   "apps/inicio/api/views.py",
   "apps/auditoria/api/views.py",
   "apps/cuentas/api/views.py",
+  "apps/cuentas/sesiones.py",
+  "apps/cuentas/autenticacion.py",
+  "apps/cuentas/permisos.py",
+  "apps/cuentas/mfa.py",
+  "apps/core/permisos.py",
 ]
 
+# Clasificación de vistas SIN depender del nombre del archivo (TKT-OPS-022, F-QA021-01):
+# 1) estructural: todo apps/*/api/*.py (y apps/*/views.py, apps/*/views/*.py) que no casa con
+#    "excluir" ni está en [api_soporte] debe ser crítico (regla con clasifica_vistas = true) o estar
+#    en [vistas_no_criticas]. Un endpoints.py o vistas_mfa.py nuevo en api/ falla hasta clasificarse.
+# 2) URLconf: infra/ci/vistas_urlconf.py resuelve con django.urls TODAS las rutas (y handlerXXX) a su
+#    archivo real; cada archivo debe estar clasificado igual, esté donde esté. Un archivo excluido o
+#    de [api_soporte] que sirve rutas FALLA (los nombres de "excluir" no son una vía de escape).
+#    urlconf_obligatorio = true: sin --vistas-urlconf el gate falla cerrado.
 [clasificar_vistas]
-patrones = ["apps/*/api/*views*.py", "apps/*/views.py", "apps/*/views/*.py"]
+patrones = ["apps/*/api/*.py", "apps/*/views.py", "apps/*/views/*.py"]
+excluir = ["*/__init__.py", "*serializers.py", "*urls.py", "*/filtros.py"]
+urlconf_obligatorio = true
 
 [vistas_no_criticas]
 "apps/contenido/api/views.py" = "API pública de solo lectura (/api/v1/publico/**), sin autenticación ni escritura; sigue sujeta al total > 80 %"
-"apps/core/api/views.py" = "health/live y health/ready, sin datos ni escritura; sigue sujeta al total > 80 %"
+"apps/core/api/views.py" = "health/live y health/ready y manejadores de error 400/403/404/500, sin datos ni escritura; sigue sujeta al total > 80 %"
+
+# Archivos de apps/*/api/ que NO son vistas (no sirven rutas: lo verifica el URLconf).
+[api_soporte]
+"apps/contenido/api/base.py" = "clases base y mixins compartidos por las vistas de contenido; no sirve rutas"
+"apps/contenido/api/panel_selectors.py" = "consultas de lectura del panel de contenido usadas por panel_views.py; no sirve rutas"
+
+# Módulos FUERA de backend/ que sirven rutas (Django, DRF, terceros), con motivo. Vacío hoy.
+[vistas_externas]
 
 # -----------------------------------------------------------------------------
 # Excepciones NOMBRADAS con caducidad (como .trivyignore). Rebajan el umbral de UN archivo a
 # umbral_minimo (suelo: tampoco puede bajar de él) hasta "caduca"; al caducar el gate FALLA.
-# Ventana registrada -> caduca de 45 días como máximo. Una excepción que ya no hace falta solo
-# avisa (::warning::): retírala en el siguiente ticket de DevOps.
+# Reglas (TKT-OPS-022, F-QA021-02/03): registrada <= hoy; ventanas registrada -> caduca y
+# hoy -> caduca de 45 días como máximo; umbral_minimo < umbral normal, >= umbral normal - 25
+# puntos y >= 60 %. Una excepción que ya no hace falta solo avisa (::warning::): retírala en el
+# siguiente ticket de DevOps. EXC-01/EXC-02 de TKT-OPS-021 retiradas en TKT-OPS-022 (TKT-032
+# integrado: catalogos/api/views.py e inicio/api/views.py al 100 %).
 # -----------------------------------------------------------------------------
 
 [[excepciones]]
-archivo = "apps/catalogos/api/views.py"
-umbral_minimo = 71.0
+archivo = "apps/cuentas/sesiones.py"
+umbral_minimo = 75.0
 registrada = 2026-10-01
-caduca = 2026-10-31
-ticket = "TKT-032"
-decision = "DEC-AUTO-940 (TKT-OPS-021-EXC-01)"
-motivo = "71,8 % en main @ 99ab8ac (CI run 36883312241); TKT-032 (en QA) añade los tests de las vistas de taxonomías del panel. Retirar al integrar TKT-032."
+caduca = 2026-11-15
+ticket = "TKT-OPS-022-DEV (propuesto: tests de sesiones.py)"
+decision = "DEC-AUTO-948 (TKT-OPS-022-EXC-01)"
+motivo = "76,00 % en main @ d453dae (pytest Linux, toolchain del CI). Pasa a crítico por F-QA021-04; DevOps no escribe código de aplicación: el Developer añade los tests. Retirar al integrarlos."
 
 [[excepciones]]
-archivo = "apps/inicio/api/views.py"
-umbral_minimo = 93.0
+archivo = "apps/cuentas/permisos.py"
+umbral_minimo = 94.0
 registrada = 2026-10-01
-caduca = 2026-10-31
-ticket = "TKT-032"
-decision = "DEC-AUTO-940 (TKT-OPS-021-EXC-02)"
-motivo = "93,8 % en main @ 99ab8ac (CI run 36883312241; líneas 35-37 sin cubrir); TKT-032 (en QA) las cubre. Retirar al integrar TKT-032."
+caduca = 2026-11-15
+ticket = "TKT-OPS-022-DEV (propuesto: tests de permisos.py)"
+decision = "DEC-AUTO-948 (TKT-OPS-022-EXC-02)"
+motivo = "94,12 % en main @ d453dae (pytest Linux, toolchain del CI). Pasa a crítico por F-QA021-04; el mismo ticket de Developer lo sube por encima de 95 %. Retirar al integrarlo."
