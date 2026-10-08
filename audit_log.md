@@ -367,3 +367,4 @@
 2026-10-08 | QA_PASS | TKT-040 | QA_VERDICT PASS ciclo 1/3 @ 10129fd. F-01 MEDIUM (sesión anterior viva tras rotación fallida, preexistente en main) no bloquea: DEC-AUTO-970 -> TKT-044 junto a F-02/F-03/F-04; F-05 -> CHG-API-007. update-branch del PR #68 | HANDOFF_ENVELOPE QA TKT-040
 2026-10-08 | INTEGRACION | TKT-022, TKT-040 | PR #50 (@ b8d4694) y PR #68 integrados en main con QA PASS y CI verde (ambos sincronizados con el mismo main). DONE. Vigilar el CI de main tras la doble integración | PR #50, PR #68
 2026-10-08 | ENTREGA | TKT-019 | Ciclo 2/3 @ d3f7627: F-01..F-03 corregidos; suite pública 56/56 en 3 motores, 0 x 429. Fallo intermitente de CLS de Inicio sin 429 -> TKT-016. QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-019
+2026-10-08 | INTEGRACION | TKT-022, TKT-040 | CI de main verde tras la doble integración (run 37858653886). Despacho de TKT-044 al Developer (cuentas/core, solo BD), disjunto de TKT-023 (frontend panel) y TKT-041 (semilla) | kanban.md
