@@ -287,17 +287,29 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Propuesto por el DevOps de TKT-OPS-022 (DEC-AUTO-950).", "2026-10-08: TKT-OPS-022 DONE; despachado al Developer. Al integrarse, TKT-OPS-027 retira EXC-01/02 y corrige su campo ticket (F-QA022-03).", "Entregado @ PR #61 (4bc3a9c, base 409d9c0): 50 pruebas test_TKT034_*, sesiones.py y permisos.py al 100 %, gate PASS sin excepciones, .gitignore actualizado; CI run 37789841168 verde (1239 passed). INFO: docstring de sesiones.py dice cifrado (solo firmado); bucle teórico CreateError con FK inexistente (inalcanzable). QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 1/3 @ 4bc3a9c (ticket idéntico en e4bb112): 1235 passed, sesiones/permisos 100 %, gate sin excepciones PASS, 38/42 mutantes (supervivientes equivalentes salvo S11, cubierto por la suite existente), sin flakiness, 0 confirmed. Merge pendiente de CI verde: image scan rojo solo por CVE-2026-4775 del proxy (TKT-OPS-028). Deuda -> TKT-039."]
     actualizado: 2026-10-08
+  - id: TKT-040
+    titulo: "MEDIUM (QA CHG-API-006 F-01, NV-01, INFO): (a) SessionMiddleware.process_response guarda la sesión fuera del EXCEPTION_HANDLER de DRF: ante 55P03/40P01/40001 o fila de sesion_panel borrada por una invalidación concurrente, SessionStore.save lanza UpdateError -> SessionInterrupted -> 400 validacion. Traducirlo a 409 conflicto_version (Problem Details, reintentable) o a 401 sesion_expirada si la fila ya no existe, en todas las escrituras del panel que renuevan la inactividad (incluida panelRenovarSesion), con pruebas de carrera; (b) NV-01 (CWE-204): en panelIniciarSesion un 409 por contención del FOR UPDATE de la cuenta delata que el usuario existe: respuesta uniforme con la de credenciales inválidas (o NOWAIT/SKIP con respuesta uniforme), con prueba; (c) declarar 409 en @extend_schema de las 8 vistas de CHG-API-006 para que el esquema generado coincida con el contrato"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [CHG-API-006, TKT-035, "THREAT enumeración de cuentas"]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/core/**", "backend/apps/cuentas/**", "backend/apps/inicio/**", "backend/apps/catalogos/**", "backend/config/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-966. Reproducción de la QA: scratchpad/qachg006/renovar_middleware.py (SessionInterrupted -> 400 application/problem+json validacion)."]
+    actualizado: 2026-10-08
   - id: CHG-API-006
     titulo: "LOW (TKT-035): documentar 409 conflicto_version (Problem Details, reintentable) en las operaciones de escritura que toman bloqueos de fila y hoy no lo declaran: panelIniciarSesion, panelVerificarMfa, panelCambiarContrasena, panelActualizarConfigInicio, panelActualizarConfiguracionSitio, panelActualizarNivelEscala, panelCerrarSesion, panelRenovarSesion; versionar según política del contrato; lint Redocly 0 errores; regenerar cliente del frontend si cambia"
     fase: F4
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: backend-contrato
     trazabilidad: [TKT-035, "Skill_Backend §12.1"]
     depende_de: [TKT-035]
     archivos_permitidos: ["contracts/openapi.yaml", "docs/adr/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-958.", "Entregado @ PR #62: 409 Conflicto en 8 operaciones del panel, sin esquemas nuevos, info.version 1.0.0, x-cambios y ADR-API-002 §22. El agente backend-contrato no tenía shell: su parche manual no aplicaba; editó en el worktree y el Orquestador hizo commit/push/PR sin cambiar contenido (DEC-AUTO-961). YAML válido. oasdiff/gate/cliente generado: los verifica el CI."]
+    evidencia: ["DEC-AUTO-958.", "Entregado @ PR #62: 409 Conflicto en 8 operaciones del panel, sin esquemas nuevos, info.version 1.0.0, x-cambios y ADR-API-002 §22. El agente backend-contrato no tenía shell: su parche manual no aplicaba; editó en el worktree y el Orquestador hizo commit/push/PR sin cambiar contenido (DEC-AUTO-961). YAML válido. oasdiff/gate/cliente generado: los verifica el CI.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 081875e: lint 0 errores, oasdiff sin breaking, cliente sin cambios, gate de contrato PASS, cuerpo 409 valida contra ProblemaConUsos, seguridad 0 confirmed. F-01 MEDIUM: en panelRenovarSesion el UPDATE de sesion_panel ocurre en SessionMiddleware.process_response (fuera de DRF): 55P03/40P01 o fila borrada -> UpdateError -> SessionInterrupted -> 400 validacion, no 409; ADR §22 incorrecto. schemathesis NOT_RUN (CI cortado por la CVE de tiff, ya corregida). DEC-AUTO-966: remedio (b) -> TKT-040 (backend) y ciclo 2 corrige la fila del §22 enlazando TKT-040; NV-01 -> TKT-040."]
     actualizado: 2026-10-08
   - id: TKT-037
     titulo: "MEDIUM (hallazgo del Developer de TKT-035): RULE-007 eludible sin concurrencia: contenido no exige que el país/categoría referenciados estén activos ni al guardar la referencia ni al publicar (retirar el país con el destino en borrador y luego publicar el destino). Exigir activo al asignar la referencia y regla de publicación, bloqueando la fila del catálogo FOR KEY SHARE; además (deuda) simplificar contenido/services._transaccion eliminando la traducción 55P03/40P01 ya global en core, y (OBS-1 QA TKT-033) orden global de bloqueo por id ascendente en ediciones de contenidos relacionados para evitar 40P01"
