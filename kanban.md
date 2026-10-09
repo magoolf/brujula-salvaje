@@ -210,10 +210,10 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, "Skill_UI_UX#47.2"]
     depende_de: [TKT-008]
-    archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/e2e/**"]
+    archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/e2e/**", "frontend/src/app/features/*/state/*.store.ts", "frontend/src/app/features/*/state/*.store.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente."]
+    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente.", "2026-10-09 PR #75 @ 2d35b12: causa raíz = resource() sin id no transfiere el valor del SSR y la hidratación pasa por el esqueleto; corregido en inicio y destinos (CLS ≤0,0002 en 3 motores x3, 135 E2E PASS). BLOCKED por 8 rutas cuyos stores estaban fuera de alcance -> DEC-AUTO-980 amplía a features/*/state/*.store(.spec).ts. CI rojo solo por CVE-2026-78667 (TKT-OPS-031)."]
     actualizado: 2026-10-08
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
@@ -295,9 +295,9 @@ tickets:
     trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
     depende_de: []
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS).", "2026-10-08 ciclo 2 entregado @ e014094 (CI 37880059334 verde): portada Fitz Roy El Chalten sunrise-17 (CC BY-SA 3.0, recorte 16:9) con contraste mín. ≥8,06 rótulo y ≥12,35 H1/subtítulo en 1280/1366/390; OBS-01..05 resueltos (2 fotos sustituidas, campo modificaciones, nota en Acerca de). QA ciclo 2/3 despachada."]
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS).", "2026-10-08 ciclo 2 entregado @ e014094 (CI 37880059334 verde): portada Fitz Roy El Chalten sunrise-17 (CC BY-SA 3.0, recorte 16:9) con contraste mín. ≥8,06 rótulo y ≥12,35 H1/subtítulo en 1280/1366/390; OBS-01..05 resueltos (2 fotos sustituidas, campo modificaciones, nota en Acerca de). QA ciclo 2/3 despachada.", "2026-10-09 QA_VERDICT PASS ciclo 2/3 @ e014094: F-01 contraste mín. 8,06 (Chromium) / 7,76 (Firefox), WebKit no medible por AVIF sin respaldo (TKT-029); OBS-01..05 resueltas; 3 licencias nuevas verificadas en Commons; pytest 1341 PASS, E2E públicas 3 motores, axe 0, schemathesis 0 5xx, gitleaks/semgrep 0; LCP inicio mediana < 2,5 s. Integración en espera de TKT-OPS-031 (CI rojo por CVE ajena)."]
     actualizado: 2026-10-08
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
@@ -338,14 +338,14 @@ tickets:
   - id: TKT-045
     titulo: "HIGH (QA TKT-023 F-01 + Developer TKT-023 RULE-009): (1) F-01 HIGH: restaurar revisión pierde datos: services._instantanea (l.236-259) recorre solo subtipo._meta.fields (sin M2M ni hijos) y usa campo.name sin _id; restaurar_revision (l.2198) devuelve esa instantánea, incumpliendo el contrato ('Cuerpo compatible con {Tipo}Actualizacion'): faltan relaciones, terminos_ids, fuentes (todos), tipos_ids/galeria_ids (destino), dias (itinerario), checklist (tipo), elementos (colección), destinos_ids/tipos_ids (guía) y las FK salen sin _id. Instantánea completa y respuesta conforme a {Tipo}Actualizacion para los 7 tipos; compatibilidad con revisiones antiguas incompletas (no inventar: devolver lo que haya y marcar/advertir según contrato, sin borrar datos actuales por omisión); tests por tipo ida y vuelta. (2) RULE-009 en servidor con el criterio de DEC-AUTO-977: fecha_revision válida si <= fecha actual en UTC+14; Problem Details coherente con el contrato. (3) OBS-02: analisis-publicacion debe devolver confirmable:false si un tipo del destino está RETIRADO (hoy publicar da 422 tipo_retirado tras confirmar). (4) OBS-03 hardening: saneado.py debe descartar href relativos al protocolo ('//host') y eliminar el contenido de <script>/<style>, no dejarlo como texto"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-023, "RULE-009", "SCR-038", "FEAT-039", MOD-010, "THREAT XSS"]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/saneado.py", "backend/apps/contenido/selectors.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt045*", "backend/apps/contenido/tests/test_ac_tkt006_01_reglas.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*)."]
+    evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*).", "2026-10-09 PR #76 @ cf24228: 51 tests TKT-045 (42 fallan en main), pytest completo 1380 PASS TZ=UTC (1 intermitente de concurrencia TKT-033, 3/3 al repetir) y 1381 PASS TZ=UTC-5, cobertura 97,57 %, gate de contrato 128/128. CI: backend/frontend/infra PASS; build+trivy FAIL solo por supercronic (TKT-OPS-031). QA ciclo 1/3 despachada en paralelo."]
     actualizado: 2026-10-08
   - id: TKT-046
     titulo: "LOW (Developer TKT-023): E2E intermitente AC_TKT022_02 en firefox ('route.fulfill: Fetch response has been disposed' en panel-soporte.ts:313): el soporte de TKT-022 no desmonta la ruta del borde 429 al cerrar la página; aplicar afterEach con page.unrouteAll({behavior:'ignoreErrors'}) en panel-medios*/panel-selector* como ya hace panel-contenidos.spec.ts"
@@ -383,6 +383,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b."]
     actualizado: 2026-10-08
+  - id: TKT-049
+    titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, MOD-001, "Skill_UI_UX"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/app/core/layout/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-981. Captura: scratchpad 56bc59a0…/qa041/c_d1280_hero.png."]
+    actualizado: 2026-10-09
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -518,14 +530,14 @@ tickets:
   - id: TKT-OPS-031
     titulo: "HIGH (CI rojo en todos los PR desde 2026-10-09): CVE-2026-78667 (Go stdlib net/http, DoS; corregida en Go 1.26.9/1.27.2) en /usr/local/bin/supercronic v0.2.49 (compilado con Go 1.26.6) de las imágenes scheduler y backup; no hay release corregida de supercronic. Compilar supercronic v0.2.49 desde el código fuente (tag verificado por commit SHA) en una etapa builder con Go >= 1.26.9 fijado por digest, binario estático, reproducible, sin cambiar el comportamiento; o actualizar a una release corregida si aparece. Sin entradas nuevas en .trivyignore"
     fase: F6
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_devops
     trazabilidad: [RSK-OPS-001, "THREAT supply chain"]
     depende_de: []
-    archivos_permitidos: ["infra/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    archivos_permitidos: ["infra/**", ".github/workflows/**", ".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup."]
+    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup.", "2026-10-09 PR #77 @ 57cad6b (CI 37958056463 verde): supercronic v0.2.49 (commit 8e0a4a4) compilado con golang:1.26.9-trixie por digest, receta idéntica en ambos Dockerfile con control en CI, grupo golang en Dependabot, DEVOPS_HANDOFF §33; trivy 0 HIGH/CRITICAL en las 6 imágenes sin tocar .trivyignore. NOT_RUN: arm64. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-09
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
