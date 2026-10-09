@@ -306,10 +306,10 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [TKT-019, TKT-009, "RULE-030"]
     depende_de: []
-    archivos_permitidos: ["frontend/src/app/features/glosario/**", "frontend/src/app/features/destinos/ui/**", "frontend/src/app/features/**/ui/*.html", "frontend/src/app/app.config.ts", "frontend/e2e/**"]
+    archivos_permitidos: ["frontend/src/app/features/glosario/**", "frontend/src/app/features/destinos/ui/**", "frontend/src/app/features/**/ui/*.html", "frontend/src/app/app.config.ts", "frontend/src/app/core/layout/foco-ruta.ts", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-968. QA TKT-019: via-ferrata desde el mapa queda en scrollY 0 (término en top=2019px); carga directa sí desplaza."]
+    evidencia: ["DEC-AUTO-968. QA TKT-019: via-ferrata desde el mapa queda en scrollY 0 (término en top=2019px); carga directa sí desplaza.", "Causa probable aportada por el Developer de TKT-019: core/layout/foco-ruta.ts (FocoRuta) pone el foco en el h1 y sube el scroll en cada NavigationEnd, anulando el desplazamiento a fragmentos; solución de referencia: irASeccion() de features/mapa-del-sitio. Añadir core/layout/foco-ruta.ts a archivos permitidos."]
     actualizado: 2026-10-08
   - id: TKT-043
     titulo: "MEDIUM (needs_validation, QA TKT-022 OBS-C2-04): LimitePorAmbito sobre DatabaseCache parece contar de forma no atómica bajo concurrencia: 912 GET/min a /api/v1/panel/medios/{id} con la misma cuenta en lotes de 12 concurrentes no producen ningún 429 de panel-lectura (600/min), en secuencia sí. Verificar con prueba de concurrencia y, si se confirma, hacer el conteo atómico (UPDATE ... RETURNING / incr atómico) para todos los ámbitos; comprobar que panel-login sigue exacto"
@@ -326,7 +326,7 @@ tickets:
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-040, "THREAT-002", "CWE-204"]
     depende_de: [TKT-040]
@@ -1082,14 +1082,14 @@ tickets:
   - id: TKT-019
     titulo: "GAP DE PLANIFICACIÓN: SCR-022 (Mapa del sitio HTML, `/mapa-del-sitio`, MOD-001, FEAT-025) tiene prioridad MUST y es la segunda vía obligatoria exigida por RULE-030/OBJ-001 (junto con Inicio) para que 'toda página publicada sea alcanzable' -- pero NUNCA fue asignado a ningún Micro-Ticket (ni TKT-008 ni TKT-009 lo incluyen en su alcance). Resultado: /mapa-del-sitio devuelve HTTP 404 real en producción HOY, pese a que el pie de página (GI-02, construido en TKT-008) ya lo enlaza -- es un enlace roto en vivo para cualquier visitante que lo pulse. Encontrado por QA durante la verificación de RULE-030 en TKT-009 ciclo 1/3 (no es un defecto de TKT-008 ni TKT-009: es un hueco en la descomposición original de tickets de esta sesión). Implementar: página HTML que agrupa todas las páginas publicadas por sección (destinos, itinerarios, tipos de aventura, guías, colecciones, glosario, institucional), MUST, REQ-021/020"
     fase: F7
-    estado: QA_FAIL
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-001, "SCR-022", "FEAT-025", "RULE-030", "OBJ-001"]
     depende_de: [TKT-008, TKT-009]
     archivos_permitidos: ["frontend/src/app/features/mapa-del-sitio/**", "frontend/src/app/app.routes.ts", "frontend/e2e/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 805b2e7: tests/a11y/contrato/seguridad/performance PASS (95 rutas 200 reales, SSR con los 72+24 enlaces, axe 0, CLS 0). F-01 MEDIUM: el índice de secciones usa href='#seccion-x' y con <base href=/> lleva a /#seccion-x (Inicio) en 3 motores; AC_TKT019_02 no lo detecta. F-02 MEDIUM: AC_TKT019_04 agota el cupo publico-lectura compartido (385 llamadas, 53 x 429) y hace fallar specs de otros tickets. F-03 LOW: reintentos ante estado-error sin comprobar 429 y crawl que solo mira el status. OBS-01/02 preexistentes -> TKT-042. Ciclo 2/3 al Developer."]
+    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 805b2e7: tests/a11y/contrato/seguridad/performance PASS (95 rutas 200 reales, SSR con los 72+24 enlaces, axe 0, CLS 0). F-01 MEDIUM: el índice de secciones usa href='#seccion-x' y con <base href=/> lleva a /#seccion-x (Inicio) en 3 motores; AC_TKT019_02 no lo detecta. F-02 MEDIUM: AC_TKT019_04 agota el cupo publico-lectura compartido (385 llamadas, 53 x 429) y hace fallar specs de otros tickets. F-03 LOW: reintentos ante estado-error sin comprobar 429 y crawl que solo mira el status. OBS-01/02 preexistentes -> TKT-042. Ciclo 2/3 al Developer.", "Ciclo 2/3 entregado @ d3f7627 (CI run 37858291250 verde): índice con href /mapa-del-sitio#seccion-x + irASeccion (foco en h2, replaceState; sin routerLink porque FocoRuta devuelve el foco al h1); E2E con una ruta por patrón, reintento solo ante 429 real y rechazo de estado-error/404; suite pública 56/56 en 3 motores con 0 x 429. QA ciclo 2/3 despachada."]
     actualizado: 2026-10-08
 ```
 
