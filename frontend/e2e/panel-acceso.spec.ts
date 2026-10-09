@@ -253,7 +253,7 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     await entrarPorApi(page, editor);
     await irA(page, '/panel');
     await expect(page.getByTestId('panel-usuario-rol')).toHaveText('Editor');
-    await expect(page.getByTestId('panel-navegacion').locator('a')).toHaveText(['Tablero', 'Mi cuenta']);
+    await expect(page.getByTestId('panel-navegacion').locator('a')).toHaveText(['Tablero', 'Medios', 'Mi cuenta']);
     expect((await page.request.get('/api/v1/panel/cuentas')).status()).toBe(403);
     await irA(page, '/panel/acceso-denegado');
     await expect(page.getByTestId('acceso-denegado')).toBeVisible();
@@ -302,8 +302,8 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     for (const alerta of tablero.alertas) {
       await expect(page.getByTestId(`tablero-alerta-${alerta.code}`)).toBeVisible();
     }
-    // Ningún acceso rápido a secciones aún no implementadas (RULE-030).
-    await expect(page.getByTestId('tablero-accesos')).toHaveCount(0);
+    // Solo accesos rápidos a secciones implementadas (RULE-030): «Subir medios» desde TKT-022.
+    await expect(page.getByTestId('tablero-accesos').locator('a')).toHaveText(['Subir medios']);
 
     const contexto = await browser.newContext();
     const editorPagina = await contexto.newPage();

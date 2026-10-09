@@ -1,0 +1,181 @@
+<dialog
+  #dialogo
+  class="selector"
+  aria-modal="true"
+  [attr.aria-labelledby]="idBase() + '-titulo'"
+  data-testid="selector-medios"
+  (cancel)="alCancelar($event)"
+>
+  <div class="contenido">
+    <header class="encabezado">
+      <h2 [id]="idBase() + '-titulo'">{{ titulo() }}</h2>
+      <button type="button" class="cerrar" data-testid="selector-cerrar" (click)="cancelar()">
+        Cerrar <span class="bs-solo-lectores">el selector de imágenes</span>
+      </button>
+    </header>
+
+    <div class="pestanas" role="tablist" aria-label="Origen de las imágenes">
+      @for (p of pestanas; track p) {
+        <button
+          type="button"
+          role="tab"
+          class="pestana"
+          [id]="idBase() + '-tab-' + p"
+          [attr.aria-selected]="pestana() === p"
+          [attr.aria-controls]="idBase() + '-panel-' + p"
+          [attr.tabindex]="pestana() === p ? 0 : -1"
+          [attr.data-testid]="'selector-tab-' + p"
+          (click)="elegirPestana(p)"
+          (keydown)="alTeclearPestana($event)"
+        >
+          {{ etiquetaPestana(p) }}
+        </button>
+      }
+    </div>
+
+    <div
+      class="panel"
+      role="tabpanel"
+      [id]="idBase() + '-panel-biblioteca'"
+      [attr.aria-labelledby]="idBase() + '-tab-biblioteca'"
+      [hidden]="pestana() !== 'biblioteca'"
+      data-testid="selector-panel-biblioteca"
+    >
+      <form class="buscador" role="search" aria-label="Buscar imágenes" novalidate (submit)="buscar($event)">
+        <div class="campo">
+          <label [for]="idBase() + '-q'">Buscar</label>
+          <input
+            #busqueda
+            type="search"
+            class="entrada-texto"
+            maxlength="100"
+            [id]="idBase() + '-q'"
+            name="q"
+            [appEnlaceValor]="q"
+            data-testid="selector-q"
+          />
+        </div>
+        <div class="campo">
+          <label [for]="idBase() + '-licencia'">Licencia</label>
+          <select class="entrada-texto" [id]="idBase() + '-licencia'" name="licencia" [appEnlaceValor]="licencia" data-testid="selector-licencia">
+            <option value="" [selected]="licencia() === ''">Todas</option>
+            @for (l of store.licencias(); track l.id) {
+              <option [value]="l.codigo" [selected]="licencia() === l.codigo">{{ l.nombre }}</option>
+            }
+          </select>
+        </div>
+        @if (!permitirNoDisponibles()) {
+          <div class="campo">
+            <label [for]="idBase() + '-estado'">Mostrar</label>
+            <select class="entrada-texto" [id]="idBase() + '-estado'" name="disponibles" [appEnlaceValor]="soloDisponibles" data-testid="selector-estado">
+              <option value="si" [selected]="soloDisponibles() === 'si'">Solo disponibles</option>
+              <option value="no" [selected]="soloDisponibles() === 'no'">Todas</option>
+            </select>
+          </div>
+        }
+        <button type="submit" appBoton variante="secondary" data-testid="selector-buscar">Buscar</button>
+      </form>
+
+      @if (store.error(); as error) {
+        <app-estado-error
+          [mensaje]="error.mensaje"
+          [anunciar]="true"
+          rutaSalida="/panel/medios"
+          etiquetaSalida="Ir a Medios"
+          testId="selector-error"
+          (reintentar)="store.recargar()"
+        />
+      } @else if (store.pagina(); as pagina) {
+        @if (store.vacio()) {
+          <div class="vacio" data-testid="selector-vacio">
+            <p class="vacio-titulo">No hay imágenes disponibles</p>
+            <p class="ayuda">Sube imágenes nuevas o cambia la búsqueda.</p>
+            <button type="button" appBoton variante="secondary" (click)="elegirPestana('subir', true)">Ir a «Subir»</button>
+          </div>
+        } @else {
+          <div [attr.role]="modo() === 'uno' ? 'radiogroup' : 'group'" [attr.aria-labelledby]="idBase() + '-titulo'">
+          <ul class="rejilla" [attr.aria-busy]="store.cargando()" data-testid="selector-rejilla">
+            @for (medio of pagina.medios; track medio.id) {
+              <li>
+                <app-mosaico-medio
+                  [medio]="medio"
+                  [variante]="tipoControl()"
+                  [seleccionado]="seleccionado(medio)"
+                  [seleccionable]="store.seleccionable(medio)"
+                  [nombreGrupo]="idBase() + '-medio'"
+                  (alternar)="alternar(medio)"
+                />
+              </li>
+            }
+          </ul>
+          </div>
+          @if (pagina.totalPaginas > 1) {
+            <div class="paginado" data-testid="selector-paginado">
+              <button type="button" appBoton variante="secondary" tamano="sm" [deshabilitadoEnfocable]="pagina.pagina <= 1" data-testid="selector-anterior" (click)="store.irAPagina(pagina.pagina - 1)">
+                Anteriores
+              </button>
+              <span>Página {{ pagina.pagina }} de {{ pagina.totalPaginas }}</span>
+              <button type="button" appBoton variante="secondary" tamano="sm" [deshabilitadoEnfocable]="pagina.pagina >= pagina.totalPaginas" data-testid="selector-siguiente" (click)="store.irAPagina(pagina.pagina + 1)">
+                Siguientes
+              </button>
+            </div>
+          }
+        }
+      } @else {
+        <app-estado-cargando forma="tarjeta" [cantidad]="6" etiqueta="Cargando imágenes…" testId="selector-cargando" />
+      }
+    </div>
+
+    <div
+      class="panel"
+      role="tabpanel"
+      [id]="idBase() + '-panel-subir'"
+      [attr.aria-labelledby]="idBase() + '-tab-subir'"
+      [hidden]="pestana() !== 'subir'"
+      data-testid="selector-panel-subir"
+    >
+      @if (errorExistente(); as mensaje) {
+        <p class="error-campo" role="alert" data-testid="selector-error-existente">{{ mensaje }}</p>
+      }
+      <app-subida-medios variante="selector" [idBase]="idBase() + '-subida'" (subidos)="alSubir()" (usarExistente)="usarExistente($event)" />
+    </div>
+
+    <footer class="bandeja" data-testid="selector-bandeja">
+      <p class="recuento" role="status" data-testid="selector-recuento">{{ recuento() }}</p>
+      @if (modo() === 'varios' && bandeja().length > 0) {
+        <ol class="seleccion" aria-label="Imágenes seleccionadas, en orden" data-testid="selector-seleccion">
+          @for (item of bandeja(); track item.medio.id; let i = $index, ultimo = $last) {
+            <li class="elegida" [attr.data-testid]="'selector-elegida-' + item.medio.id">
+              <span class="posicion" aria-hidden="true">{{ i + 1 }}</span>
+              @if (item.miniatura; as src) {
+                <img [src]="src" alt="" class="mini" />
+              }
+              <span class="nombre">{{ item.nombre }}</span>
+              <span class="botones">
+                <button type="button" class="boton-mini" [id]="idBase() + '-mover-antes-' + i" [attr.aria-label]="'Subir ' + item.nombre" [attr.aria-disabled]="i === 0 ? 'true' : null" (click)="mover(i, -1)">↑</button>
+                <button type="button" class="boton-mini" [id]="idBase() + '-mover-despues-' + i" [attr.aria-label]="'Bajar ' + item.nombre" [attr.aria-disabled]="ultimo ? 'true' : null" (click)="mover(i, 1)">↓</button>
+                <button type="button" class="boton-mini" [attr.aria-label]="'Quitar ' + item.nombre" [attr.data-testid]="'selector-quitar-' + item.medio.id" (click)="quitar(item.medio)">✕</button>
+              </span>
+            </li>
+          }
+        </ol>
+      }
+      <p class="bs-solo-lectores" aria-live="polite" data-testid="selector-anuncio">{{ anuncio() }}</p>
+      <div class="acciones">
+        <button
+          type="button"
+          appBoton
+          [deshabilitadoEnfocable]="store.seleccion().length === 0 || !enLinea()"
+          data-testid="selector-anadir"
+          (click)="anadir()"
+        >
+          {{ textoAnadir() }}
+        </button>
+        <button type="button" appBoton variante="secondary" data-testid="selector-cancelar" (click)="cancelar()">Cancelar</button>
+        @if (!enLinea()) {
+          <p class="ayuda">Sin conexión: podrás añadir cuando vuelva.</p>
+        }
+      </div>
+    </footer>
+  </div>
+</dialog>

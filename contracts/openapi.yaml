@@ -36,6 +36,11 @@ info:
     Todas las respuestas de error usan `application/problem+json` con `type`, `title`, `status`, `detail`,
     `code`, `errors` (por campo) y `trace_id` (obligatorio). Catálogo de `code` en el esquema `Problem`.
 
+    Concurrencia (CHG-API-006): toda operación del panel que escribe o bloquea filas declara 409 y puede
+    responder `conflicto_version` si PostgreSQL agota `lock_timeout`, detecta un interbloqueo o un fallo de
+    serialización, o si una referencia desaparece antes del COMMIT. La operación no tuvo efectos: el cliente
+    relee el recurso y reintenta. Sin `Retry-After` (solo lo llevan `idempotencia_en_curso` y los 429).
+
     ## Paginación (DEC-AUTO-104)
     Paginación por número (`pagina`, base 1) con tamaño FIJO por recurso (sin parámetro de tamaño,
     THREAT-009). Página fuera de rango: 404 `pagina_fuera_de_rango`. Parámetros desconocidos o inválidos:
@@ -61,7 +66,7 @@ info:
     `errors`. Los esquemas de texto de entrada lo declaran con `pattern: '^[^\u0000]*$'` (o con un
     patrón propio que ya lo excluye) para que los clientes generados y schemathesis no generen NUL.
   x-ticket: TKT-F4-003
-  x-cambios: [CHG-API-001, CHG-API-002, CHG-API-003, CHG-API-004, CHG-API-005]
+  x-cambios: [CHG-API-001, CHG-API-002, CHG-API-003, CHG-API-004, CHG-API-005, CHG-API-006]
   x-estado: PROPOSED
   x-adr: [ADR-API-001, ADR-API-002]
 servers:
@@ -825,6 +830,7 @@ paths:
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/auth/mfa/verificar:
@@ -856,6 +862,7 @@ paths:
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/auth/logout:
@@ -876,6 +883,7 @@ paths:
             Set-Cookie: {$ref: '#/components/headers/Set-Cookie-Sesion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/auth/sesion:
@@ -916,6 +924,7 @@ paths:
               schema: {$ref: '#/components/schemas/SesionEstado'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/auth/contrasena:
@@ -949,6 +958,7 @@ paths:
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
   /api/v1/panel/auth/autorizacion:
@@ -2912,6 +2922,7 @@ paths:
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '422': {$ref: '#/components/responses/ReglaNegocio'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
@@ -2961,6 +2972,7 @@ paths:
         '400': {$ref: '#/components/responses/Validacion'}
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
 
@@ -3439,6 +3451,7 @@ paths:
         '401': {$ref: '#/components/responses/NoAutenticado'}
         '403': {$ref: '#/components/responses/PermisoDenegado'}
         '404': {$ref: '#/components/responses/NoEncontrado'}
+        '409': {$ref: '#/components/responses/Conflicto'}
         '429': {$ref: '#/components/responses/LimiteTasa'}
         '500': {$ref: '#/components/responses/ErrorInterno'}
 
@@ -3896,7 +3909,9 @@ components:
           schema: {$ref: '#/components/schemas/Problem'}
     Conflicto:
       description: >-
-        409 conflicto_version (en operaciones multi-entidad, con `entidades_en_conflicto`) /
+        409 conflicto_version (también por bloqueo, interbloqueo o fallo de serialización en BD: sin efectos,
+        reintentable releyendo el recurso, sin Retry-After, CHG-API-006; en operaciones multi-entidad, con
+        `entidades_en_conflicto`) /
         transicion_invalida / slug_inmutable / slug_en_uso / duplicado / dependencia_bloqueante /
         cascada_bloqueada (con `usos` y `bloqueos_cascada`) / cascada_sin_confirmar y impacto_modificado
         (con `impacto_cascada`) (CHG-API-005) / medio_en_uso / ultimo_administrador / operacion_sobre_si_mismo /

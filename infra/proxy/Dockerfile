@@ -12,14 +12,21 @@ LABEL org.opencontainers.image.title="brujula-proxy" \
 
 # Se sustituye la configuración por defecto (sin default.conf ni plantillas de entorno).
 USER root
-# libexpat 2.8.5-r0: corrige CVE-2026-93990 (HIGH) presente en la imagen base (trivy, F6).
-# Retirar esta línea cuando la imagen base fijada ya la incluya.
 # pcre2 10.49-r0: corrige CVE-2026-103111 (HIGH) de pcre2 10.48-r0 de la imagen base (TKT-OPS-024).
 # Ni el digest más reciente de 1.30.5-alpine ni 1.31.5-alpine la incluyen (verificado 2026-10-01).
-# Versiones fijadas a mano (RSK-OPS-044/RSK-OPS-046): revisarlas en cada bump de la imagen base y
-# retirarlas cuando la base ya traiga una versión igual o superior. El build falla si no quedan.
-RUN apk add --no-cache "libexpat=2.8.5-r0" "pcre2=10.49-r0" \
- && apk info -e "pcre2=10.49-r0" "libexpat=2.8.5-r0" \
+# Versión fijada a mano (RSK-OPS-044/RSK-OPS-046): revisarla en cada bump de la imagen base y
+# retirarla cuando la base ya traiga una versión igual o superior. El build falla si no queda.
+# nginx-module-image-filter (TKT-OPS-028): nginx.conf no carga ningún módulo dinámico (sin
+# load_module). El módulo arrastra libgd y 28 paquetes más (tiff, libwebp, libavif, libjpeg, libpng,
+# freetype, fontconfig, libx11...), entre ellos tiff 4.7.1-r0 con CVE-2026-4775 (HIGH). Se elimina
+# con sus dependencias huérfanas en lugar de fijar tiff. libexpat (CVE-2026-93990, antes fijada a
+# 2.8.5-r0) solo la usaba fontconfig: sale con ellas y deja de fijarse. El build falla si alguno vuelve.
+RUN apk add --no-cache "pcre2=10.49-r0" \
+ && apk del --no-cache --no-network nginx-module-image-filter \
+ && apk info -e "pcre2=10.49-r0" \
+ && for p in nginx-module-image-filter libgd tiff libexpat; do \
+      if apk info -e "$p" >/dev/null; then echo "TKT-OPS-028: $p sigue instalado" >&2; exit 1; fi; \
+    done \
  && rm -f /etc/nginx/conf.d/default.conf \
  && rm -rf /docker-entrypoint.d/* \
  && mkdir -p /etc/nginx/snippets /srv/media

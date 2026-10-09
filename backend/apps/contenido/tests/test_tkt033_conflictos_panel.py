@@ -313,11 +313,19 @@ def test_AC_TKT033_02_espera_de_bloqueo_agotada_o_interbloqueo_es_409(
     assert Destino.objects.filter(pk=destino.pk).exists()
 
 
-def test_AC_TKT033_02_otros_errores_operacionales_no_se_disfrazan() -> None:
-    from django.db import OperationalError
+def test_AC_TKT033_02_otros_errores_operacionales_no_se_disfrazan(
+    cliente_editora: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TKT-037: la traducción vive solo en el manejador global (core.exceptions, TKT-035); un error
+    operacional que no es de concurrencia sigue siendo 500 `error_interno`."""
+    destino = publicos.destino("Destino", tipos=[], estado=E.BORRADOR)
 
-    with pytest.raises(OperationalError), services._transaccion():
+    def caido(*_args: Any, **_kwargs: Any) -> Contenido:
         raise _error_bd("08006")
+
+    monkeypatch.setattr(services, "obtener_para_editar", caido)
+    _problema(_borrar(cliente_editora, "destinos", destino.contenido), 500, "error_interno")
+    assert Destino.objects.filter(pk=destino.pk).exists()
 
 
 # ---------------------------------------------------------------------------

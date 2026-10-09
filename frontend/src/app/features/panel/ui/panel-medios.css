@@ -1,0 +1,66 @@
+/*
+ * Estilos compartidos de las pantallas de medios (SCR-039/040/041): cabecera de página, filtros y
+ * rejilla de mosaicos (HANDOFF RESPONSIVE: 2 col móvil, 3-4 tableta, 5-6 escritorio).
+ */
+.cabecera-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+}
+
+.cabecera-pagina h1 {
+  outline: none;
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bs-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 40rem) {
+  .rejilla {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48rem) {
+  .rejilla {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .rejilla {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 90rem) {
+  .rejilla {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.filtros-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--bs-space-3);
+  align-items: end;
+}
+
+.recuento {
+  color: var(--bs-color-text-muted);
+}
+
+.paginado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
