@@ -44,7 +44,7 @@ Dejar preparados, antes de F7, la matriz de interoperabilidad, el entorno Compos
   - Cabeceras de seguridad en el HTML. Límite de cuerpo de 2 MB en general y 105 MB en `POST /api/v1/panel/medios`, con timeout de 120 s.
   - Access log JSON con IP truncada (/24; IPv6 omitida) y sin query string. `error_log` en `crit` (DEC-AUTO-148).
 - **Dockerfiles**:
-  - `infra/docker/backend.Dockerfile`: targets `runtime` (gunicorn, uid 10001) y `scheduler` (runtime + supercronic 0.2.49 verificado por sha256).
+  - `infra/docker/backend.Dockerfile`: targets `runtime` (gunicorn, uid 10001) y `scheduler` (runtime + supercronic 0.2.49; desde TKT-OPS-031 compilado desde el fuente con Go corregido, §33).
   - `infra/docker/frontend.Dockerfile`: deps → build → runtime (Node, uid 1000, solo `dist/`).
   - `infra/proxy/Dockerfile` e `infra/backup/Dockerfile` (postgres 18.6 + age 1.2.1 + supercronic, uid 999).
   - Cada Dockerfile tiene su `.dockerignore` específico (`<Dockerfile>.dockerignore`), así que no hace falta escribir dentro de backend/ ni de frontend/.
@@ -80,7 +80,7 @@ Digests consultados en Docker Hub y GHCR el 2026-09-25 (índice multi-arquitectu
 | Angular / CLI / SSR | 22.2.0 | Skill_Frontend | TypeScript 6.0.x, Node 24.21, Express 5 | APROBADO | Build SSR `dist/brujula-salvaje/{browser,server/server.mjs}` (fixture) |
 | TypeScript | 6.0.x (lo fija `ng new` 22.2.0; `>=6.0.0 <6.1.0`) | Frontend | Angular 22 | APROBADO | Build (fixture) |
 | nginx (proxy) | 1.30.5 stable — `nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5` (+ libexpat 2.8.5-r0, + pcre2 10.49-r0 desde TKT-OPS-024) | Mismo origen (ADR-API-001) | SSR 4000, gunicorn 8000 | APROBADO | `nginx -t`; pruebas con stubs y stack completo; trivy 0 CRITICAL/HIGH |
-| supercronic | v0.2.49 (sha256 amd64 `a53ae236…30c1`, arm64 `02aa0cb2…dd5`) | Planificador (DEC-AUTO-122) | — | APROBADO | `supercronic -test` OK en los 2 crontabs |
+| supercronic | v0.2.49 **compilado desde el fuente** (commit `8e0a4a40090de8a22942c9fa573e27885ce18311`) con Go 1.26.9 — `golang:1.26.9-trixie@sha256:f89535b7…db5d` (TKT-OPS-031, §33; antes: binario publicado, Go 1.26.6, CVE-2026-78667) | Planificador (DEC-AUTO-122) | — | APROBADO | `supercronic -test` OK en los 2 crontabs; trivy gobinary 0 CRITICAL/HIGH (stdlib v1.26.9) |
 | age | 1.2.1-1+b5 (Debian trixie) | Copias cifradas | — | APROBADO | Ida y vuelta cifrar → descifrar → sha256 OK |
 | gitleaks / trivy / syft / cosign | 8.30.1 / 0.74.0 / 1.51.0 / 3.1.3 (sha256 en ci.yaml) | CI §23.2 (VERSIONS.md) | — | APROBADO | trivy y gitleaks ejecutados en local |
 | semgrep / bandit / pip-audit / schemathesis | 1.178.0 / 1.9.4 / 2.10.1 / 4.28.0 | CI §23.2 | — | APROBADO (versiones) — NOT_RUN | Sin código |
@@ -2642,3 +2642,50 @@ No cambian imágenes, compose, workflow ni variables. `handlebars` es dependenci
 
 ### 32.9 Próximo agente
 **Orquestador**: confirmar el CI real de este PR e integrarlo sin editar contenido. Después, sincronizar los PR abiertos con `main` y relanzar su CI.
+
+## 33. TKT-OPS-031: CVE-2026-78667 (HIGH, Go stdlib `net/http`) en `supercronic` de las imágenes `scheduler` y `backup`: compilación desde el fuente con Go corregido (F6, soporte; desbloquea el CI; DEC-AUTO-979)
+
+### 33.1 Estado
+COMPLETADO en la rama `tkt-ops-031-supercronic-go`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). Sin entradas nuevas en `.trivyignore` (no se modifica). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 33.2 Objetivo
+Desde el 2026-10-09 el job `build + trivy + SBOM` falla en todos los PR (p. ej. run 37954467230, PR #72): trivy detecta 2 × HIGH CVE-2026-78667 (DoS en `net/http` de la biblioteca estándar de Go, corregida en Go 1.26.9 / 1.27.2) en `/usr/local/bin/supercronic` (gobinary) de `brujula/scheduler` y `brujula/backup`. El binario publicado de supercronic v0.2.49 está compilado con Go 1.26.6 y v0.2.49 (2026-08-14) es la última release (`gh release list -R aptible/supercronic`, 2026-10-09): no hay binario corregido. Hay corrección (Go 1.26.9), así que no procede aceptar el riesgo.
+
+### 33.3 Cambios realizados
+- **Etapa `supercronic` (receta única)** en `infra/backup/Dockerfile` y en `infra/docker/backend.Dockerfile`, delimitada por `# >>> receta supercronic` / `# <<< receta supercronic` e **idéntica byte a byte** en ambos (los contextos de build son distintos y no pueden compartir etapa):
+  - `FROM golang:1.26.9-trixie@sha256:f89535b7caea67fa9ff0ba009894bff8f3be915e49cb635477c8ce04e045db5d` (índice multi-arquitectura; imagen oficial, mismo menor 1.26 que el `go 1.26.6` de `go.mod` de upstream). Literal en `FROM` para Dependabot.
+  - Fuente: `git fetch --depth 1` de `refs/tags/v0.2.49` de `https://github.com/aptible/supercronic.git`; el build **falla** si el tag no resuelve al commit fijado `8e0a4a40090de8a22942c9fa573e27885ce18311` (verificado el 2026-10-09 con `git ls-remote` y `gh api repos/aptible/supercronic/git/ref/tags/v0.2.49`: tag ligero -> ese commit, "Go + pkg updates"). El SHA-1 del commit cubre todo el árbol.
+  - Módulos: `go mod download` + `go mod verify` (go.sum de upstream + sum.golang.org), `GOFLAGS=-mod=readonly`, `GOTOOLCHAIN=local` (nunca descarga otro toolchain).
+  - Compilación como `build.sh` de upstream (`CGO_ENABLED=0`, `-ldflags "-X main.Version=v0.2.49"`) + `-trimpath -buildvcs=false` (reproducible), `GOOS=linux GOARCH=$TARGETARCH` (amd64/arm64; otra arquitectura falla). Se guarda `go version -m` en `/out/supercronic.buildinfo` y el build **falla** si la versión de Go del binario es < `go1.26.9`, si no es `CGO_ENABLED=0` o si `GOARCH` no coincide.
+  - Sin `--platform=$BUILDPLATFORM`: `infra/ci/dependabot_cobertura.sh` rechaza variables en `FROM` (el arm64 se compilaría con emulación; hoy solo se construye amd64).
+- **Etapas finales**: el `ADD` del binario publicado + verificación sha256 por arquitectura se sustituye por `COPY --from=supercronic` a la **misma ruta** `/usr/local/bin/supercronic` (root:root, 0755) y `/usr/local/share/brujula/supercronic.buildinfo` (evidencia). `RUN supercronic -version` debe dar `v0.2.49`. Mismos `CMD`, crontabs, usuario (10001 en scheduler, 999 en backup) y `HEALTHCHECK NONE`. Se retiran los `ARG SUPERCRONIC_SHA256_*` y `TARGETARCH` de las etapas finales.
+- **CI (job `infra`)**: `infra/ci/supercronic_receta.sh` (bloque presente una vez y **idéntico** en los dos Dockerfile, `golang:X.Y.Z[-variante]@sha256:<64 hex>`, `SUPERCRONIC_COMMIT` de 40 hex, ningún `releases/download`/`curl`/`wget` de supercronic, y `COPY --from=supercronic` presente) precedido de sus controles `infra/ci/supercronic_receta_controles.sh` (P0 repositorio real pasa; N1 golang distinto en un solo archivo, N2 sin digest, N3 commit no SHA, N4 sin marcador de fin, N5 vuelve el binario descargado, N6 sin `COPY` del binario: todos fallan).
+- **Dependabot**: grupo `golang` en el ecosistema `docker` (como `postgres`), para que `/infra/docker` y `/infra/backup` se actualicen en un único PR; si llegaran por separado, el control de receta del CI lo detecta.
+
+### 33.4 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| supercronic | v0.2.49 (fuente, commit `8e0a4a40…8311`) | APROBADO | `supercronic -version` = `v0.2.49`; trivy: `github.com/aptible/supercronic v0.2.49` |
+| Go (solo builder) | 1.26.9 — `golang:1.26.9-trixie@sha256:f89535b7…db5d` | APROBADO | `go version -m`: `go1.26.9`, `CGO_ENABLED=0`, `GOARCH=amd64`, `-trimpath=true`; trivy: `stdlib v1.26.9` |
+
+### 33.5 Infraestructura / dependencias / variables de entorno
+Sin cambios en compose, redes, volúmenes ni variables. El build de `scheduler` y `backup` necesita salida a `github.com`, `proxy.golang.org` y `sum.golang.org` (antes solo `github.com`). BuildKit construye la etapa una sola vez cuando ambos servicios se construyen juntos. La imagen golang no llega a las imágenes finales (solo el binario estático de ~14 MB, igual que antes).
+
+### 33.6 Validaciones ejecutadas (2026-10-09, local, Docker 29.6.1, trivy 0.74.0)
+- `docker compose --profile ops build --pull scheduler backup` (`APP_VERSION=tkt-ops-031`): OK (51 s). Log de la etapa: `/out/supercronic: go1.26.9`, `build CGO_ENABLED=0`, `build GOARCH=amd64`, `build -trimpath=true`.
+- trivy con la política del CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1`): **scheduler exit 0, backup exit 0**; `usr/local/bin/supercronic (gobinary)`: **0** en ambas; Total: 0 (HIGH 0, CRITICAL 0). Las suprimidas son solo las CVE Debian de `.trivyignore` ya aprobadas (RSK-OPS-001), sin entradas nuevas; CVE-2026-78667 no aparece ni como suprimida. `--list-all-pkgs`: `stdlib v1.26.9`.
+- `supercronic -test` del crontab real: `crontab is valid` en `/etc/brujula/crontab` (scheduler) y `/etc/brujula/backup.crontab` (backup). `id`: uid 10001 (scheduler) y 999 (backup).
+- Smoke de ejecución (`--read-only --cap-drop ALL --no-new-privileges`, `supercronic -json -passthrough-logs` con un crontab de prueba `*/2 * * * * * *`, 7 s): el trabajo se ejecuta (`job succeeded`, salida con uid 10001 / 999); `docker stop` (SIGTERM) -> salida **0** (parada ordenada, sin SIGKILL).
+- `bash infra/ci/supercronic_receta.sh .`: idéntica; controles P0 + N1..N6: OK. `bash infra/ci/dependabot_cobertura.sh .`: OK.
+- NOT_RUN en local: build arm64 (no se construye en el CI); ejecución real de los comandos de gestión con BD (no cambia: misma ruta, mismo crontab, mismo CMD).
+
+### 33.7 Riesgos / pendientes
+- **RSK-OPS-031-A (LOW)**: mantenemos nosotros el toolchain de supercronic. Mitigación: grupo `golang` en Dependabot + control de receta + trivy (gobinary) en cada PR. Cuando upstream publique una release compilada con Go corregido, puede volverse al binario publicado (ADD + sha256) o seguir compilando la nueva versión con la receta (cambiar `SUPERCRONIC_VERSION`, `SUPERCRONIC_COMMIT` y el `grep -qx` de `-version` en los dos Dockerfile).
+- **RSK-OPS-031-B (LOW)**: el build depende de `proxy.golang.org`/`sum.golang.org` (disponibilidad). La integridad la garantizan go.sum + sumdb; un corte solo hace fallar el build.
+- Dependabot propondrá Go 1.27.x (menor) en el grupo `golang`: pasa por CI y QA como cualquier otro PR.
+
+### 33.8 Archivos modificados
+`infra/backup/Dockerfile`, `infra/docker/backend.Dockerfile`, `infra/ci/supercronic_receta.sh` (nuevo), `infra/ci/supercronic_receta_controles.sh` (nuevo), `.github/workflows/ci.yaml`, `.github/dependabot.yml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 33.9 Próximo agente
+**Orquestador**: QA del PR (regresión de scheduler/backup) e integración sin editar contenido; después, sincronizar los PR abiertos con `main` y relanzar su CI.

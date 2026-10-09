@@ -5,13 +5,60 @@
 #   Contexto de build: ./backend        (código del Developer, F7)
 #   Contexto adicional: infra=./infra    (crontab del planificador)
 #   Targets:  runtime   -> web (gunicorn) y job de migración
-#             scheduler -> runtime + supercronic (comandos de gestión programados, DEC-AUTO-122)
+#             scheduler -> runtime + supercronic (comandos de gestión programados, DEC-AUTO-122;
+#                          compilado desde el fuente con Go corregido, etapa "supercronic", TKT-OPS-031)
 # Archivos que DEBE crear el Developer en backend/ (ver docs/05_operacion/DEVOPS_HANDOFF.md §6):
 #   pyproject.toml + uv.lock (dependencias con ==), manage.py, config/{settings.py,wsgi.py},
 #   ruta /health/live y /health/ready.
 # =============================================================================
 # Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
 # no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
+
+# >>> receta supercronic (TKT-OPS-031, DEC-AUTO-979) — BLOQUE IDÉNTICO en infra/backup/Dockerfile e
+# infra/docker/backend.Dockerfile (lo exige infra/ci/supercronic_receta.sh en el job "infra").
+# supercronic v0.2.49 es la última release (2026-08-14) y su binario publicado está compilado con
+# Go 1.26.6 -> CVE-2026-78667 (net/http, DoS, HIGH; corregida en Go 1.26.9 / 1.27.2). Se compila
+# el MISMO código fuente de la release (tag v0.2.49 verificado contra su commit SHA: el SHA-1 del
+# commit cubre todo el árbol) con un Go corregido. Misma receta que build.sh de upstream
+# (CGO_ENABLED=0, -X main.Version=<tag>) + -trimpath y -buildvcs=false (reproducible).
+# Módulos verificados con go.sum + sum.golang.org (go mod verify). Se compila en la plataforma
+# destino (TARGETARCH amd64/arm64; sin --platform=$BUILDPLATFORM: el control de Dependabot rechaza
+# variables en FROM). Imagen golang LITERAL con digest (Dependabot la
+# sigue; grupo "golang" en .github/dependabot.yml actualiza ambos Dockerfile en un único PR).
+# Cuando upstream publique una release compilada con Go corregido, puede volverse al binario
+# publicado (ADD + sha256) — ver DEVOPS_HANDOFF.md §33.
+FROM golang:1.26.9-trixie@sha256:f89535b7caea67fa9ff0ba009894bff8f3be915e49cb635477c8ce04e045db5d AS supercronic
+ARG TARGETARCH
+ARG SUPERCRONIC_VERSION=v0.2.49
+ARG SUPERCRONIC_COMMIT=8e0a4a40090de8a22942c9fa573e27885ce18311
+ARG GO_MIN_VERSION=go1.26.9
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOTOOLCHAIN=local \
+    GOFLAGS=-mod=readonly
+WORKDIR /src
+RUN set -eu; \
+    git init -q .; \
+    git remote add origin https://github.com/aptible/supercronic.git; \
+    git fetch -q --depth 1 origin "refs/tags/${SUPERCRONIC_VERSION}"; \
+    got="$(git rev-parse 'FETCH_HEAD^{commit}')"; \
+    [ "$got" = "${SUPERCRONIC_COMMIT}" ] || { echo "tag ${SUPERCRONIC_VERSION} -> $got, esperado ${SUPERCRONIC_COMMIT}" >&2; exit 1; }; \
+    git -c advice.detachedHead=false checkout -q "${SUPERCRONIC_COMMIT}"; \
+    rm -rf .git; \
+    go mod download; \
+    go mod verify
+RUN set -eu; \
+    case "${TARGETARCH}" in amd64|arm64) ;; *) echo "arquitectura no soportada: ${TARGETARCH}" >&2; exit 1 ;; esac; \
+    GOARCH="${TARGETARCH}" go build -trimpath -buildvcs=false \
+      -ldflags="-X main.Version=${SUPERCRONIC_VERSION}" -o /out/supercronic .; \
+    go version -m /out/supercronic > /out/supercronic.buildinfo; \
+    cat /out/supercronic.buildinfo; \
+    v="$(head -n1 /out/supercronic.buildinfo | awk '{print $2}')"; \
+    [ "$v" = "$(go env GOVERSION)" ] || { echo "Go del binario inesperado: $v" >&2; exit 1; }; \
+    [ "$(printf '%s\n%s\n' "${GO_MIN_VERSION}" "$v" | sort -V | head -n1)" = "${GO_MIN_VERSION}" ] || { echo "Go $v < ${GO_MIN_VERSION}" >&2; exit 1; }; \
+    grep -qE '^[[:space:]]+build[[:space:]]+CGO_ENABLED=0$' /out/supercronic.buildinfo; \
+    grep -qE "^[[:space:]]+build[[:space:]]+GOARCH=${TARGETARCH}\$" /out/supercronic.buildinfo
+# <<< receta supercronic
 
 FROM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 
@@ -138,22 +185,16 @@ HEALTHCHECK --interval=15s --timeout=4s --start-period=30s --retries=3 \
 CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout ${GUNICORN_TIMEOUT:-120} --graceful-timeout 30 --max-requests 2000 --max-requests-jitter 200 --worker-tmp-dir /tmp --forwarded-allow-ips=\"${GUNICORN_FORWARDED_ALLOW_IPS:-127.0.0.1}\" --no-control-socket --log-config-json /etc/brujula/gunicorn-logging.json --log-level ${GUNICORN_LOG_LEVEL:-info}"]
 
 # ---------------------------------------------------------------------------
-# scheduler: runtime + supercronic 0.2.49 (verificado por sha256) + crontab versionado
+# scheduler: runtime + supercronic 0.2.49 (compilado desde el fuente, etapa "supercronic",
+# TKT-OPS-031) + crontab versionado
 # ---------------------------------------------------------------------------
 FROM runtime AS scheduler
-ARG TARGETARCH
-ARG SUPERCRONIC_VERSION=v0.2.49
-ARG SUPERCRONIC_SHA256_AMD64=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1
-ARG SUPERCRONIC_SHA256_ARM64=02aa0cb229ba09050cba6638059dadb9eedc2276632ea43d6a57a2f8c1629dd5
 USER root
-ADD --chmod=0755 https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${TARGETARCH} /usr/local/bin/supercronic
+# supercronic compilado en la etapa "supercronic" (TKT-OPS-031); buildinfo (go version -m) como evidencia.
+COPY --from=supercronic --chown=root:root --chmod=0755 /out/supercronic /usr/local/bin/supercronic
+COPY --from=supercronic --chown=root:root /out/supercronic.buildinfo /usr/local/share/brujula/supercronic.buildinfo
 RUN set -eu; \
-    case "${TARGETARCH}" in \
-      amd64) expected="${SUPERCRONIC_SHA256_AMD64}" ;; \
-      arm64) expected="${SUPERCRONIC_SHA256_ARM64}" ;; \
-      *) echo "arquitectura no soportada: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    echo "${expected}  /usr/local/bin/supercronic" | sha256sum -c -; \
+    supercronic -version | grep -qx 'v0.2.49'; \
     install -d -m 0755 /etc/brujula
 COPY --from=infra --chown=root:root --chmod=0444 scheduler/crontab /etc/brujula/crontab
 USER 10001:10001
