@@ -374,3 +374,5 @@
 2026-10-08 | INTEGRACION | TKT-019 | PR #69 integrado en main con QA PASS y CI verde (gh pr merge --merge @ 1fce826). DONE | PR #69
 2026-10-08 | ENTREGA | TKT-OPS-026, TKT-OPS-027 | DevOps sincronizó #63 (f829cf5) y #65 (9cc0f1f) con main, CI verdes; §30 duplicada de #65 renumerada a §31. #65 devuelto para completar F-QA022-03 (TKT-034 ya DONE) | HANDOFF_ENVELOPE devops
 2026-10-08 | QA_PASS | TKT-OPS-026 | QA_VERDICT PASS ciclo 1/3 @ f829cf5 (esquema Dependabot v2 válido, grupos sin solape, gitleaks limpio). update-branch de #63 tras integrar #69 | HANDOFF_ENVELOPE QA TKT-OPS-026
+2026-10-08 | ENTREGA | TKT-OPS-027 | F-QA022-03 completado: EXC-01/02 retiradas (sesiones.py y permisos.py al 100 %), PR #65 @ e2e5975, CI 37868923649 verde | HANDOFF_ENVELOPE devops
+2026-10-08 | QA_PASS | TKT-OPS-027 | QA_VERDICT PASS ciclo 1/3 @ e2e5975: F-QA022-01..04 verificados (Windows sin PYTHONUTF8, mutaciones M0-M9, enmascarado 8/8, workflow sin debilitar). OBS-01 LOW (rutas regex eluden prefijos críticos, teórico: 0 re_path) y OBS-02/03 INFO -> TKT-OPS-030 (DEC-AUTO-971, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Integración tras #63 | HANDOFF_ENVELOPE QA TKT-OPS-027

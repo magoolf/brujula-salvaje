@@ -455,6 +455,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-962. Detectado en el run 37830313288 (PR #62 CHG-API-006, ajeno al diff): brujula/proxy Total 1 (HIGH 1) tiff CVE-2026-4775 fixed 4.7.2-r0; el resto de imágenes 0.", "PR #64 @ ae0cfd9: apk del nginx-module-image-filter (módulo nunca cargado; 41 paquetes en lugar de 70, sin tiff/libgd/libexpat), control en el build; CI verde completo (run 37836015217: build+trivy+SBOM+smoke+schemathesis). DEC-AUTO-964: validación por CI como en TKT-OPS-024. Integrado (gh pr merge 64 --merge @ ea33268). DONE."]
     actualizado: 2026-10-08
+  - id: TKT-OPS-030
+    titulo: "LOW (QA TKT-OPS-027): (OBS-01) ruta_normalizada() de infra/ci/gate_cobertura.py solo quita '^' y '//': rutas escritas como regex ('/^api/v1/panel$', '(?P<s>panel)', barras escapadas) eluden prefijos_criticos en vistas no críticas; quitar también '$' y '\' y fallar si un archivo no crítico sirve una ruta regex que contenga 'panel', con controles negativos M4/M7. (OBS-02 INFO) comparar también [vistas_externas] con prefijos_criticos. (OBS-03 INFO) eliminar el comentario obsoleto '33 sintéticos + 6 reales' de ci.yaml"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-OPS-027, "Skill_Backend §8"]
+    depende_de: [TKT-OPS-027]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-971. Mutaciones de la QA: scratchpad 56bc59a0…/q027/mut.py."]
+    actualizado: 2026-10-08
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
@@ -463,9 +475,9 @@ tickets:
     trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
     depende_de: []
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-957."]
+    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Pendiente: resincronizar tras #63, CI y merge."]
     actualizado: 2026-10-08
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
