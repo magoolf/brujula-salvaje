@@ -11,26 +11,50 @@ import { esperarHidratacion } from './utilidades';
  * los datos, recreaba la página entera (TKT-030). Con `resource({ id })` el valor del SSR viaja en
  * TransferState y el recurso nace resuelto: la hidratación reutiliza el DOM.
  *
- * Tres señales por ruta, en los tres motores:
+ * Señales por ruta, en los tres motores:
  * - CLS real (PerformanceObserver `layout-shift`, solo Chromium lo implementa);
  * - aproximación del desplazamiento de app-pie-sitio muestreado en cada frame (misma fórmula de
  *   fracción de impacto × fracción de distancia), que sí se puede medir en Firefox y WebKit;
- * - ningún hijo directo de la página enrutada (el DOM del SSR) se retira durante la hidratación.
+ * - ningún elemento bajo <main> se retira (el DOM del SSR se reutiliza) y no aparece ningún
+ *   esqueleto `app-estado-cargando` (QA F-03: antes solo se miraban los hijos directos del host);
+ * - el navegador no repite ninguna petición a la API: todo lo que pintó el SSR viaja en
+ *   TransferState (QA F-04, sin caché de transferencia HTTP).
+ * Se mide en tres pasadas: 1280×800, 2560×1440 y, en Chromium, con red y CPU limitadas.
  */
 
 interface Medicion {
   cls: number | null;
   pie: number;
   retirados: string[];
+  esqueletos: number;
+  reasignados: number;
+  imagenesFallidas: number;
+  api: string[];
 }
 
 interface Ventana {
-  __tkt016: { cls: number | null; pie: number; retirados: string[]; ultimo: DOMRect | null };
+  __tkt016: {
+    cls: number | null;
+    pie: number;
+    retirados: string[];
+    esqueletos: number;
+    reasignados: number;
+    imagenesFallidas: number;
+    ultimo: DOMRect | null;
+  };
 }
 
 async function instrumentar(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const estado: Ventana['__tkt016'] = { cls: null, pie: 0, retirados: [], ultimo: null };
+    const estado: Ventana['__tkt016'] = {
+      cls: null,
+      pie: 0,
+      retirados: [],
+      esqueletos: 0,
+      reasignados: 0,
+      imagenesFallidas: 0,
+      ultimo: null,
+    };
     (window as unknown as Ventana).__tkt016 = estado;
     try {
       if (PerformanceObserver.supportedEntryTypes.includes('layout-shift')) {
@@ -80,25 +104,48 @@ async function instrumentar(page: Page): Promise<void> {
     };
     requestAnimationFrame(muestrear);
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const main = document.querySelector('main');
-      if (!main) return;
-      new MutationObserver((registros) => {
-        for (const registro of registros) {
-          const padre = registro.target as Element;
-          // Hijos directos del host de la página enrutada (hermano siguiente del router-outlet).
-          if (padre.parentElement !== main || padre.tagName === 'ROUTER-OUTLET') continue;
-          for (const nodo of Array.from(registro.removedNodes)) {
-            if (nodo.nodeType === Node.ELEMENT_NODE) {
-              const el = nodo as Element;
-              estado.retirados.push(
-                `${padre.tagName.toLowerCase()} > ${el.tagName.toLowerCase()}${el.getAttribute('data-testid') ? `[${el.getAttribute('data-testid')}]` : ''}`,
-              );
-            }
+    const describir = (el: Element): string =>
+      `${el.tagName.toLowerCase()}${el.getAttribute('data-testid') ? `[${el.getAttribute('data-testid')}]` : ''}`;
+    new MutationObserver((registros) => {
+      for (const registro of registros) {
+        for (const nodo of Array.from(registro.addedNodes)) {
+          if (nodo.nodeType !== Node.ELEMENT_NODE) continue;
+          const el = nodo as Element;
+          if (el.matches('app-estado-cargando')) estado.esqueletos++;
+          estado.esqueletos += el.querySelectorAll('app-estado-cargando').length;
+        }
+        const padre = registro.target as Element;
+        if (!padre.closest?.('main')) continue;
+        // Un `[innerHTML]` (texto enriquecido de la API) se vuelve a asignar al hidratar: el
+        // navegador retira y añade en un mismo registro nodos idénticos. El DOM resultante es el
+        // mismo que pintó el SSR (sin esqueleto ni desplazamiento), así que no cuenta como recreado.
+        const html = (nodos: NodeList): string =>
+          Array.from(nodos)
+            .map((n) =>
+              n.nodeType === Node.ELEMENT_NODE ? (n as Element).outerHTML : n.textContent,
+            )
+            .join('');
+        if (
+          registro.addedNodes.length > 0 &&
+          html(registro.removedNodes) === html(registro.addedNodes)
+        ) {
+          estado.reasignados += registro.removedNodes.length;
+          continue;
+        }
+        // Una imagen que no se puede decodificar (p. ej. WebKit sin el formato servido en
+        // /creditos) cambia su <picture> por el marcador de la caja de tamaño fijo (TKT-020): es
+        // el respaldo de imagen-responsiva, no DOM del SSR recreado por la hidratación.
+        if (padre.matches('app-imagen-responsiva > .marco')) {
+          estado.imagenesFallidas += registro.removedNodes.length;
+          continue;
+        }
+        for (const nodo of Array.from(registro.removedNodes)) {
+          if (nodo.nodeType === Node.ELEMENT_NODE) {
+            estado.retirados.push(`${describir(padre)} > ${describir(nodo as Element)}`);
           }
         }
-      }).observe(main, { childList: true, subtree: true });
-    });
+      }
+    }).observe(document, { childList: true, subtree: true });
   });
 }
 
@@ -123,12 +170,16 @@ async function getConReintento(page: Page, url: string): Promise<APIResponse> {
  */
 async function medir(page: Page, ruta: string): Promise<Medicion> {
   await instrumentar(page);
-  const red = { vio429: false };
+  const red = { vio429: false, api: [] as string[] };
+  page.on('request', (r) => {
+    if (new URL(r.url()).pathname.startsWith('/api/')) red.api.push(new URL(r.url()).pathname);
+  });
   page.on('response', (r) => {
     if (r.url().includes('/api/') && r.status() === 429) red.vio429 = true;
   });
   for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
     red.vio429 = false;
+    red.api = [];
     const respuesta = await page.goto(ruta);
     expect(respuesta?.status()).toBe(200);
     await esperarHidratacion(page);
@@ -136,10 +187,20 @@ async function medir(page: Page, ruta: string): Promise<Medicion> {
     // rápida, hasta ~850 ms en la ficha). Se deja 1,5 s y la red en reposo.
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1_500);
-    const medicion: Medicion = await page.evaluate(() => {
-      const e = (window as unknown as Ventana).__tkt016;
-      return { cls: e.cls, pie: e.pie, retirados: e.retirados };
-    });
+    const medicion: Medicion = {
+      ...(await page.evaluate(() => {
+        const e = (window as unknown as Ventana).__tkt016;
+        return {
+          cls: e.cls,
+          pie: e.pie,
+          retirados: e.retirados,
+          esqueletos: e.esqueletos,
+          reasignados: e.reasignados,
+          imagenesFallidas: e.imagenesFallidas,
+        };
+      })),
+      api: [...red.api],
+    };
     const limiteEnPagina = TEXTO_LIMITE.test(await page.locator('main').innerText());
     if (!red.vio429 && !limiteEnPagina) return medicion;
     await page.waitForTimeout(3_000);
@@ -154,6 +215,11 @@ interface Caso {
   id: string;
   nombre: string;
   ruta: (slug: (listado: Listado) => Promise<string>) => Promise<string> | string;
+  /**
+   * Contenido que solo existe en el navegador (localStorage): el SSR no puede pintarlo y la página
+   * muestra un esqueleto hasta hidratar. Se exige el CLS, no la reutilización del DOM.
+   */
+  soloCliente?: boolean;
 }
 
 const CASOS: readonly Caso[] = [
@@ -188,7 +254,7 @@ const CASOS: readonly Caso[] = [
     ruta: async (slug) => `/colecciones/${await slug('colecciones')}`,
   },
   { id: 'AC_TKT016_17', nombre: 'Mapa del sitio', ruta: () => '/mapa-del-sitio' },
-  { id: 'AC_TKT016_24', nombre: 'Guardados', ruta: () => '/guardados' },
+  { id: 'AC_TKT016_24', nombre: 'Guardados', ruta: () => '/guardados', soloCliente: true },
   {
     id: 'AC_TKT016_05',
     nombre: 'Créditos',
@@ -232,29 +298,71 @@ const CASOS: readonly Caso[] = [
   },
 ];
 
-test.describe('TKT-016 CLS tras la hidratación ≤ 0,1 (Skill_UI_UX §47.2)', () => {
-  for (const caso of CASOS) {
-    test(`${caso.id} ${caso.nombre}: sin layout shift ni DOM del SSR recreado al hidratar`, async ({
-      page,
-    }) => {
-      const slug = async (listado: Listado): Promise<string> => {
-        const respuesta = await getConReintento(page, `/api/v1/publico/${listado}`);
-        expect(respuesta.ok()).toBe(true);
-        const cuerpo = (await respuesta.json()) as { resultados: { slug: string }[] };
-        expect(cuerpo.resultados.length).toBeGreaterThan(0);
-        return cuerpo.resultados[0].slug;
-      };
-      const { cls, pie, retirados } = await medir(page, await caso.ruta(slug));
-      test.info().annotations.push({
-        type: 'medicion',
-        description: `cls=${cls === null ? 'no soportado' : cls.toFixed(4)} pie=${pie.toFixed(4)} retirados=${retirados.length}`,
+interface Pasada {
+  nombre: string;
+  viewport: { width: number; height: number };
+  /** Red y CPU limitadas por CDP (solo Chromium): la fuente y los datos llegan tarde. */
+  limitada?: boolean;
+}
+
+const PASADAS: readonly Pasada[] = [
+  { nombre: '1280×800', viewport: { width: 1280, height: 800 } },
+  { nombre: '2560×1440', viewport: { width: 2560, height: 1440 } },
+  { nombre: 'red y CPU limitadas', viewport: { width: 412, height: 823 }, limitada: true },
+];
+
+for (const pasada of PASADAS) {
+  test.describe(`TKT-016 CLS tras la hidratación ≤ 0,1 (Skill_UI_UX §47.2) — ${pasada.nombre}`, () => {
+    test.use({ viewport: pasada.viewport });
+
+    for (const caso of CASOS) {
+      test(`${caso.id} ${caso.nombre}: sin layout shift, sin esqueleto ni DOM del SSR recreado y sin repetir la API`, async ({
+        page,
+        browserName,
+      }) => {
+        test.skip(
+          pasada.limitada === true && browserName !== 'chromium',
+          'La limitación de red y CPU usa CDP (solo Chromium)',
+        );
+        if (pasada.limitada) {
+          test.setTimeout(90_000);
+          const cdp = await page.context().newCDPSession(page);
+          await cdp.send('Network.enable');
+          // Perfil «Slow 4G» de DevTools y CPU ×4 (como el perfil móvil de Lighthouse).
+          await cdp.send('Network.emulateNetworkConditions', {
+            offline: false,
+            latency: 150,
+            downloadThroughput: (1.6 * 1024 * 1024) / 8,
+            uploadThroughput: (750 * 1024) / 8,
+          });
+          await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+        }
+        const slug = async (listado: Listado): Promise<string> => {
+          const respuesta = await getConReintento(page, `/api/v1/publico/${listado}`);
+          expect(respuesta.ok()).toBe(true);
+          const cuerpo = (await respuesta.json()) as { resultados: { slug: string }[] };
+          expect(cuerpo.resultados.length).toBeGreaterThan(0);
+          return cuerpo.resultados[0].slug;
+        };
+        const { cls, pie, retirados, esqueletos, reasignados, imagenesFallidas, api } = await medir(
+          page,
+          await caso.ruta(slug),
+        );
+        test.info().annotations.push({
+          type: 'medicion',
+          description: `cls=${cls === null ? 'no soportado' : cls.toFixed(4)} pie=${pie.toFixed(4)} retirados=${retirados.length} esqueletos=${esqueletos} reasignados=${reasignados} imagenesFallidas=${imagenesFallidas} api=${api.length}`,
+        });
+        if (cls !== null) expect(cls).toBeLessThanOrEqual(0.1);
+        expect(pie).toBeLessThanOrEqual(0.1);
+        expect(api).toEqual([]);
+        if (!caso.soloCliente) {
+          expect(retirados).toEqual([]);
+          expect(esqueletos).toBe(0);
+        }
       });
-      if (cls !== null) expect(cls).toBeLessThanOrEqual(0.1);
-      expect(pie).toBeLessThanOrEqual(0.1);
-      expect(retirados).toEqual([]);
-    });
-  }
-});
+    }
+  });
+}
 
 /**
  * Las claves de TransferState incluyen los parámetros de la URL y Angular solo las consulta durante

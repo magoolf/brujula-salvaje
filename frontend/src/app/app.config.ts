@@ -6,7 +6,11 @@ import {
   LOCALE_ID,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideClientHydration, withNoIncrementalHydration } from '@angular/platform-browser';
+import {
+  provideClientHydration,
+  withNoHttpTransferCache,
+  withNoIncrementalHydration,
+} from '@angular/platform-browser';
 import {
   TitleStrategy,
   provideRouter,
@@ -40,7 +44,13 @@ export const appConfig: ApplicationConfig = {
     // Sin hidratación incremental ni event replay (activos por defecto en Angular 22): su contrato
     // de eventos se inyecta en el build como <script> en línea
     // SIN nonce y la CSP estricta lo bloquearía (AC-TKT002-03). Enlaces y búsqueda funcionan sin JS.
-    provideClientHydration(withNoIncrementalHydration()),
+    //
+    // Sin caché de transferencia HTTP (TKT-016, QA F-04): cada store público transfiere ya su valor
+    // con `resource({ id })` (y el mapa del sitio con su propia clave), así que la caché HTTP solo
+    // duplicaba cada respuesta en ng-state (p. ej. /destinos 130 → 70 KB) y exponía la URL interna
+    // del backend usada por el SSR. La E2E cls-hidratacion verifica que ninguna ruta pública repite
+    // peticiones a la API al hidratar.
+    provideClientHydration(withNoIncrementalHydration(), withNoHttpTransferCache()),
     ...proveerHttp(),
   ],
 };
