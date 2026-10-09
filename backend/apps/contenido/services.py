@@ -29,6 +29,7 @@ from __future__ import annotations
 import decimal
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
@@ -228,36 +229,321 @@ def _json_seguro(valor: Any) -> Any:
         return float(valor)
     if isinstance(valor, date | datetime):
         return valor.isoformat()
-    if isinstance(valor, list):
+    if isinstance(valor, list | tuple):
         return [_json_seguro(v) for v in valor]
+    if isinstance(valor, dict):
+        return {k: _json_seguro(v) for k, v in valor.items()}
     return valor
 
 
-def _instantanea(contenido: Contenido) -> dict[str, Any]:
-    """Documento JSON de la revisión (DATA-026): todos los campos y relaciones, solo ids."""
-    subtipo = subtipo_de(contenido)
-    datos: dict[str, Any] = {
+# ---------------------------------------------------------------------------
+# Campos editables con la forma de `{Tipo}Actualizacion` (sin `version`) — TKT-045
+# ---------------------------------------------------------------------------
+# Única fuente de la forma "editable" de un contenido: la usan la instantánea de cada revisión
+# (DATA-026), la restauración (`panelRestaurarRevision`: "cuerpo compatible con el
+# `{Tipo}Actualizacion` del tipo, sin `version`") y la respuesta `{Tipo}Panel` del panel. Los campos
+# de control de la operación de un destino publicado (`CamposOperacionPublicada`: copublicar_tipos,
+# confirmar_cascada, cascada_confirmada) no son datos del contenido y no forman parte de ella.
+CAMPOS_COMUNES_EDITABLES: tuple[str, ...] = (
+    "titulo",
+    "slug",
+    "fecha_ultima_revision",
+    "seo_titulo",
+    "seo_descripcion",
+    "relaciones",
+    "terminos_ids",
+    "fuentes",
+)
+CAMPOS_EDITABLES: dict[str, tuple[str, ...]] = {
+    T.DESTINO: (
+        *CAMPOS_COMUNES_EDITABLES,
+        "pais_id",
+        "resumen",
+        "descripcion_experta",
+        "tipos_ids",
+        "tipo_principal_id",
+        "dificultad",
+        "meses_mejor_epoca",
+        "duracion_min_dias",
+        "duracion_max_dias",
+        "nivel_presupuesto",
+        "clima",
+        "altitud_max_m",
+        "como_llegar",
+        "seguridad_riesgos",
+        "sostenibilidad",
+        "latitud",
+        "longitud",
+        "portada_id",
+        "galeria_ids",
+    ),
+    T.ITINERARIO: (
+        *CAMPOS_COMUNES_EDITABLES,
+        "destino_id",
+        "resumen",
+        "duracion_dias",
+        "dificultad",
+        "tipos_ids",
+        "distancia_total_km",
+        "desnivel_acumulado_m",
+        "riesgos_seguridad",
+        "portada_id",
+        "galeria_ids",
+        "dias",
+    ),
+    T.GUIA: (
+        *CAMPOS_COMUNES_EDITABLES,
+        "categoria_id",
+        "resumen",
+        "cuerpo",
+        "destinos_ids",
+        "tipos_ids",
+        "remite_a_metodologia",
+        "portada_id",
+    ),
+    T.TIPO: (
+        *CAMPOS_COMUNES_EDITABLES,
+        "resumen",
+        "descripcion",
+        "nivel_exigencia",
+        "portada_id",
+        "orden",
+        "checklist",
+    ),
+    T.COLECCION: (*CAMPOS_COMUNES_EDITABLES, "resumen", "descripcion", "portada_id", "elementos"),
+    T.TERMINO: ("titulo", "slug", "definicion", "fecha_ultima_revision"),
+    T.PAGINA: (
+        "titulo",
+        "cuerpo",
+        "version_documento",
+        "vigente_desde",
+        "fecha_ultima_revision",
+        "seo_titulo",
+        "seo_descripcion",
+    ),
+}
+# Instantáneas anteriores a TKT-045: guardaban las FK del subtipo con el nombre del campo del modelo
+# (`pais`, `destino`...) en lugar del de la API (`pais_id`...). El valor ya era el id.
+CLAVES_HEREDADAS: dict[str, str] = {
+    "pais": "pais_id",
+    "tipo_principal": "tipo_principal_id",
+    "destino": "destino_id",
+    "categoria": "categoria_id",
+}
+
+
+def _decimal_a_float(valor: decimal.Decimal | None) -> float | None:
+    return float(valor) if valor is not None else None
+
+
+def _ids_ordenados(qs: Any, campo: str = "contenido_id") -> list[int]:
+    """Ids de un M2M ordenados por id: los M2M no guardan orden (`.set()` inserta como conjunto),
+    así que el orden ascendente es el único estable entre lecturas."""
+    return list(qs.order_by(campo).values_list(campo, flat=True))
+
+
+def _comunes_editables(contenido: Contenido) -> dict[str, Any]:
+    return {
         "titulo": contenido.titulo,
         "slug": contenido.slug,
-        "estado_editorial": contenido.estado_editorial,
-        "fecha_ultima_revision": contenido.fecha_ultima_revision.isoformat()
-        if contenido.fecha_ultima_revision
-        else None,
+        "fecha_ultima_revision": contenido.fecha_ultima_revision,
         "seo_titulo": contenido.seo_titulo,
         "seo_descripcion": contenido.seo_descripcion,
+        "relaciones": [
+            {"tipo": r.relacionado_tipo, "id": r.relacionado_id}
+            for r in contenido.relacionados.order_by("orden", "id")
+        ],
+        "terminos_ids": list(
+            contenido.terminos.order_by("id").values_list("termino_id", flat=True)
+        ),
+        "fuentes": [
+            {
+                "titulo": f.titulo,
+                "entidad_editora": f.entidad_editora,
+                "url": f.url,
+                "fecha_consulta": f.fecha_consulta,
+            }
+            for f in contenido.fuentes.order_by("orden", "id")
+        ],
+    }
+
+
+def _galeria_ids(contenido: Contenido) -> list[int]:
+    return list(contenido.galeria.order_by("orden", "id").values_list("medio_id", flat=True))
+
+
+def _editables_destino(contenido: Contenido) -> dict[str, Any]:
+    destino: Destino = contenido.destino
+    return {
+        "pais_id": destino.pais_id,
+        "resumen": destino.resumen,
+        "descripcion_experta": destino.descripcion_experta,
+        "tipos_ids": _ids_ordenados(destino.tipos_aventura.all()),
+        "tipo_principal_id": destino.tipo_principal_id,
+        "dificultad": destino.dificultad,
+        "meses_mejor_epoca": list(destino.meses_mejor_epoca or []),
+        "duracion_min_dias": destino.duracion_min_dias,
+        "duracion_max_dias": destino.duracion_max_dias,
+        "nivel_presupuesto": destino.nivel_presupuesto,
+        "clima": destino.clima,
+        "altitud_max_m": destino.altitud_max_m,
+        "como_llegar": destino.como_llegar,
+        "seguridad_riesgos": destino.seguridad_riesgos,
+        "sostenibilidad": destino.sostenibilidad,
+        "latitud": _decimal_a_float(destino.latitud),
+        "longitud": _decimal_a_float(destino.longitud),
+        "portada_id": contenido.portada_id,
+        "galeria_ids": _galeria_ids(contenido),
+    }
+
+
+def _editables_itinerario(contenido: Contenido) -> dict[str, Any]:
+    itinerario: Itinerario = contenido.itinerario
+    return {
+        "destino_id": itinerario.destino_id,
+        "resumen": itinerario.resumen,
+        "duracion_dias": itinerario.duracion_dias,
+        "dificultad": itinerario.dificultad,
+        "tipos_ids": _ids_ordenados(itinerario.tipos_aventura.all()),
+        "distancia_total_km": _decimal_a_float(itinerario.distancia_total_km),
+        "desnivel_acumulado_m": itinerario.desnivel_acumulado_m,
+        "riesgos_seguridad": itinerario.riesgos_seguridad,
+        "portada_id": contenido.portada_id,
+        "galeria_ids": _galeria_ids(contenido),
+        "dias": [
+            {
+                "numero_dia": d.numero_dia,
+                "titulo": d.titulo,
+                "actividades": d.actividades,
+                "distancia_km": _decimal_a_float(d.distancia_km),
+                "desnivel_positivo_m": d.desnivel_positivo_m,
+                "desnivel_negativo_m": d.desnivel_negativo_m,
+                "alojamiento_orientativo": d.alojamiento_orientativo,
+                "consejos": d.consejos,
+            }
+            for d in itinerario.dias.order_by("numero_dia")
+        ],
+    }
+
+
+def _editables_guia(contenido: Contenido) -> dict[str, Any]:
+    guia: Guia = contenido.guia
+    return {
+        "categoria_id": guia.categoria_id,
+        "resumen": guia.resumen,
+        "cuerpo": guia.cuerpo,
+        "destinos_ids": _ids_ordenados(guia.destinos.all()),
+        "tipos_ids": _ids_ordenados(guia.tipos_aventura.all()),
+        "remite_a_metodologia": guia.remite_a_metodologia,
         "portada_id": contenido.portada_id,
     }
-    for campo in subtipo._meta.fields:
-        nombre = campo.name
-        if nombre in ("contenido", "tipo_contenido"):
-            continue
-        valor = (
-            getattr(subtipo, f"{nombre}_id", None)
-            if campo.is_relation
-            else getattr(subtipo, nombre)
-        )
-        datos[nombre] = _json_seguro(valor)
-    return datos
+
+
+def _editables_tipo(contenido: Contenido) -> dict[str, Any]:
+    tipo: TipoAventura = contenido.tipo_aventura
+    return {
+        "resumen": tipo.resumen,
+        "descripcion": tipo.descripcion,
+        "nivel_exigencia": tipo.nivel_exigencia,
+        "portada_id": contenido.portada_id,
+        "orden": tipo.orden,
+        "checklist": [
+            {"texto": c.texto, "grupo": c.grupo, "esencial": c.esencial, "orden": c.orden}
+            for c in tipo.checklist.order_by("orden", "id")
+        ],
+    }
+
+
+def _editables_coleccion(contenido: Contenido) -> dict[str, Any]:
+    coleccion: Coleccion = contenido.coleccion
+    return {
+        "resumen": coleccion.resumen,
+        "descripcion": coleccion.descripcion,
+        "portada_id": contenido.portada_id,
+        "elementos": [
+            {
+                "tipo_contenido": e.tipo_contenido,
+                "contenido_id": e.contenido_id,
+                "orden": e.orden,
+                "nota_editorial": e.nota_editorial,
+            }
+            for e in coleccion.elementos.order_by("orden", "id")
+        ],
+    }
+
+
+def campos_editables(contenido: Contenido) -> dict[str, Any]:
+    """Valores actuales de `contenido` con la forma de `{Tipo}Actualizacion` (sin `version` ni los
+    campos de control de la operación). Fechas y decimales como objetos de Python: el llamador
+    decide si los serializa (respuesta HTTP) o los convierte a JSON (`_json_seguro`)."""
+    if contenido.tipo == T.TERMINO:
+        return {
+            "titulo": contenido.titulo,
+            "slug": contenido.slug,
+            "definicion": contenido.termino_glosario.definicion,
+            "fecha_ultima_revision": contenido.fecha_ultima_revision,
+        }
+    if contenido.tipo == T.PAGINA:
+        pagina: PaginaInstitucional = contenido.pagina
+        return {
+            "titulo": contenido.titulo,
+            "cuerpo": pagina.cuerpo,
+            "version_documento": pagina.version_documento,
+            "vigente_desde": pagina.vigente_desde,
+            "fecha_ultima_revision": contenido.fecha_ultima_revision,
+            "seo_titulo": contenido.seo_titulo,
+            "seo_descripcion": contenido.seo_descripcion,
+        }
+    especificos = _EDITABLES_POR_TIPO[contenido.tipo]
+    return {**_comunes_editables(contenido), **especificos(contenido)}
+
+
+_EDITABLES_POR_TIPO: dict[str, Callable[[Contenido], dict[str, Any]]] = {
+    T.DESTINO: _editables_destino,
+    T.ITINERARIO: _editables_itinerario,
+    T.GUIA: _editables_guia,
+    T.TIPO: _editables_tipo,
+    T.COLECCION: _editables_coleccion,
+}
+
+
+def _instantanea(contenido: Contenido) -> dict[str, Any]:
+    """Documento JSON de la revisión (DATA-026): el estado editorial y TODOS los campos y relaciones
+    editables (colecciones e hijos incluidos), solo ids, con la forma de `{Tipo}Actualizacion`.
+
+    TKT-045 (F-01 de la QA de TKT-023): antes recorría solo `subtipo._meta.fields`, así que perdía
+    M2M (tipos, destinos), hijos (días, checklist, elementos), comunes relacionales (relaciones,
+    términos, fuentes) y la galería, y guardaba las FK sin el sufijo `_id`."""
+    return {
+        "estado_editorial": contenido.estado_editorial,
+        **_json_seguro(campos_editables(contenido)),
+    }
+
+
+def datos_restaurables(contenido: Contenido, instantanea: dict[str, Any]) -> dict[str, Any]:
+    """`datos` de `panelRestaurarRevision`: la instantánea con la forma de `{Tipo}Actualizacion` sin
+    `version` (DEC-DEV-045-01).
+
+    - Claves heredadas (instantáneas anteriores a TKT-045) traducidas a su nombre de la API
+      (`pais` → `pais_id`...); claves que el cuerpo de actualización no admite (`estado_editorial`,
+      `palabras`, `clave`, `portada_id` en páginas...) descartadas: el PUT las rechazaría
+      (`unevaluatedProperties: false`).
+    - Campos que la revisión NO registró (instantáneas antiguas incompletas: colecciones, M2M,
+      galería...): se devuelve el valor ACTUAL del contenido. No se inventa nada (es el dato
+      vigente) y no se borra nada por omisión: el PUT de actualización es una sustitución completa
+      y omitir una colección la vaciaría al guardar. Restaurar así una revisión incompleta
+      equivale a restaurar los campos que sí registró y conservar los demás.
+    - Los valores registrados se devuelven tal cual, aunque hoy no sean válidos (p. ej. un medio
+      ya eliminado): al guardar, el PUT responde 400 `validacion` señalando el campo."""
+    permitidos = CAMPOS_EDITABLES[contenido.tipo]
+    registrados: dict[str, Any] = {}
+    for clave, valor in instantanea.items():
+        nombre = CLAVES_HEREDADAS.get(clave, clave)
+        if nombre in permitidos and (nombre == clave or nombre not in instantanea):
+            registrados[nombre] = valor
+    faltantes = [c for c in permitidos if c not in registrados]
+    actuales = _json_seguro(campos_editables(contenido)) if faltantes else {}
+    return {c: registrados[c] if c in registrados else actuales[c] for c in permitidos}
 
 
 def _crear_revision(contenido: Contenido, motivo: str, actor_id: int | None) -> RevisionContenido:
@@ -1031,6 +1317,11 @@ def _validar_entrada(tipo: str, datos: dict[str, Any], contenido: Contenido | No
     if tipo == T.DESTINO:
         _validar_coherencia_destino(errores, datos, subtipo)
     _validar_html_saneado(errores, tipo, datos)
+    if reglas.es_fecha_futura(datos.get("fecha_ultima_revision")):
+        # RULE-009 también al guardar (TKT-045), con el criterio de DEC-AUTO-977 (UTC+14), el mismo
+        # que aplica el formulario del panel: antes solo se comprobaba al publicar (422) y con la
+        # fecha de la zona horaria del servidor.
+        errores["fecha_ultima_revision"] = [reglas.MENSAJE_FECHA_FUTURA]
     if errores:
         raise ErrorApi(codigo="validacion", errors=errores)
     titulo = datos.get("titulo")
@@ -2035,6 +2326,24 @@ def reactivar(
 # ---------------------------------------------------------------------------
 # Análisis de publicación (sin efectos)
 # ---------------------------------------------------------------------------
+def _errores_tipos_retirados(tipos: QuerySet[TipoAventura]) -> list[dict[str, Any]]:
+    """Un destino no se publica (ni se actualiza su publicación) con un tipo RETIRADO: lo rechaza
+    `_resolver_copublicacion` con 422 `tipo_retirado`. El análisis lo anticipa con el MISMO error
+    para que `confirmable` sea false (TKT-045, OBS-02 de la QA de TKT-023: antes el análisis
+    devolvía `confirmable: true` y la publicación fallaba después de confirmar)."""
+    return [
+        reglas._err(
+            "tipos_ids",
+            "tipo_retirado",
+            f"Reactiva primero el tipo {t.contenido.titulo}.",
+            [_referencia(t.contenido)],
+        )
+        for t in tipos.filter(contenido__estado_editorial=E.RETIRADO)
+        .select_related("contenido")
+        .order_by("contenido_id")
+    ]
+
+
 def analizar_publicacion(
     tipo: str,
     contenido_id: int,
@@ -2057,6 +2366,8 @@ def analizar_publicacion(
     if contenido.estado_editorial == E.BORRADOR:
         operacion = "PUBLICAR"
         errores = _validar_entidad_para_publicar(tipo, contenido, subtipo)
+        if tipo == T.DESTINO:
+            errores = [*errores, *_errores_tipos_retirados(subtipo.tipos_aventura.all())]
         entidad = {
             "tipo": tipo,
             "id": contenido.pk,
@@ -2109,13 +2420,24 @@ def analizar_publicacion(
     bloqueos_cascada: list[dict[str, Any]] = []
     copublicacion = []
     copublicar_tipos = []
+    errores_tipos: list[dict[str, Any]] = []
+    if tipo == T.DESTINO:
+        tipos_resultantes = (
+            TipoAventura.objects.filter(pk__in=tipos_ids_propuestos)
+            if tipos_ids_propuestos is not None
+            else subtipo.tipos_aventura.all()
+        )
+        errores_tipos = _errores_tipos_retirados(tipos_resultantes)
     if tipo == T.DESTINO and tipos_ids_propuestos is not None:
         actuales = set(subtipo.tipos_aventura.values_list("contenido_id", flat=True))
         nuevos = set(tipos_ids_propuestos) - actuales
         quitados = actuales - set(tipos_ids_propuestos)
-        for tid in nuevos:
+        for tid in sorted(nuevos):
             tipo_nuevo = TipoAventura.objects.select_related("contenido").filter(pk=tid).first()
-            if tipo_nuevo is None:
+            if tipo_nuevo is None or tipo_nuevo.contenido.estado_editorial != E.BORRADOR:
+                # Solo los BORRADOR "se publicarán también" (`copublicacion` del contrato); uno
+                # RETIRADO ya figura en `entidad.pendientes` (tipo_retirado) y uno PUBLICADO no
+                # cambia de estado.
                 continue
             errores_t = _validar_entidad_para_publicar(
                 T.TIPO, tipo_nuevo.contenido, tipo_nuevo, exigir_destino_publicado=False
@@ -2144,7 +2466,9 @@ def analizar_publicacion(
                 itinerarios_ya_en_cascada=set(),
             )
     entidad_errores = (
-        _validar_entidad_para_publicar(tipo, contenido, subtipo) if tipo != T.DESTINO else []
+        _validar_entidad_para_publicar(tipo, contenido, subtipo)
+        if tipo != T.DESTINO
+        else errores_tipos
     )
     entidad = {
         "tipo": tipo,
@@ -2208,8 +2532,7 @@ def restaurar_revision(
         _auditar(
             accion=AccionAuditoria.RESTAURAR_REVISION, actor_id=actor_id, contenido=contenido, ip=ip
         )
-        datos = dict(revision.instantanea)
-        datos.pop("estado_editorial", None)
+        datos = datos_restaurables(contenido, dict(revision.instantanea))
         return {"numero_revision": numero, "version_actual": contenido.version, "datos": datos}
 
 
