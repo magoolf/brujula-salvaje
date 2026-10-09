@@ -386,3 +386,4 @@
 2026-10-08 | ENTREGA | TKT-041 | PR #70 @ ae545ad, CI verde: 129 fotos reales de Wikimedia Commons con licencia/autor/alt, ≤25 MB, idempotente. Corrige de paso la fecha de la semilla (date.today(), solapa con TKT-045). Riesgo de contraste del rótulo del hero (frontend). READY_FOR_VALIDATION; QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-041
 2026-10-08 | ENTREGA | TKT-023 | PR #71 @ 864895b, CI verde; asserts de panel-acceso actualizados (DEC-AUTO-972); E2E panel 3 motores PASS salvo intermitente preexistente de TKT-022 en firefox. READY_FOR_VALIDATION; QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-023
 2026-10-08 | DEC-AUTO | TKT-046 | DEC-AUTO-975 (ORIGEN: EXPANSIÓN_AUTÓNOMA): E2E intermitente de TKT-022 en firefox (ruta del borde 429 sin desmontar) -> TKT-046 LOW. Reversible | kanban.md
+2026-10-08 | INTEGRACION | TKT-OPS-027 | PR #65 integrado en main con QA PASS y CI verde (@ 612d29e). DONE | PR #65

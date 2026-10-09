@@ -494,14 +494,14 @@ tickets:
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
     depende_de: []
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Pendiente: resincronizar tras #63, CI y merge."]
+    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Resincronizado tras #63, CI verde, integrado (gh pr merge 65 --merge @ 612d29e). DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
