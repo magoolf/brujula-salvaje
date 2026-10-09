@@ -1,5 +1,5 @@
 {
-  "descripcion": "Fotografías de la carga semilla (TKT-007/TKT-041). Fuente: Wikimedia Commons; licencia, autor y página verificados por archivo (imageinfo/extmetadata) el 2026-10-08. Solo CC0, dominio público, CC BY y CC BY-SA. Archivos redimensionados (lado mayor 1280 px; galerías de destino 1200 px; portada de inicio 1920 px), recodificados en JPEG sin metadatos.",
+  "descripcion": "Fotografías de la carga semilla (TKT-007/TKT-041). Fuente: Wikimedia Commons; licencia, autor y página verificados por archivo (imageinfo/extmetadata) el 2026-10-08. Solo CC0, dominio público, CC BY y CC BY-SA. Archivos redimensionados (lado mayor 1280 px; galerías de destino 1200 px; portada de inicio 1920 px, recortada a 16:9), recodificados en JPEG sin metadatos; cada entrada indica sus modificaciones respecto al original.",
   "fuente": "https://commons.wikimedia.org/",
   "fotos": [
     {
@@ -17,7 +17,8 @@
       "alt": "Cono perfecto del volcán Arenal sobre un bosque tropical verde, bajo un cielo azul con nubes blancas",
       "asignado_a": [
         "destino:arenal-y-monteverde:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-arenal-y-monteverde-1.jpg",
@@ -34,7 +35,8 @@
       "alt": "El volcán Arenal enmarcado por los árboles y las ramas del bosque tropical que lo rodea",
       "asignado_a": [
         "destino:arenal-y-monteverde:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-arenal-y-monteverde-2.jpg",
@@ -51,7 +53,8 @@
       "alt": "Interior del bosque nuboso de Monteverde, con árboles cubiertos de musgo y epífitas entre la niebla",
       "asignado_a": [
         "destino:arenal-y-monteverde:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-arenal-y-monteverde-3.jpg",
@@ -68,7 +71,8 @@
       "alt": "Puente colgante metálico de color rojo que se adentra en el dosel del bosque nuboso de Monteverde",
       "asignado_a": [
         "destino:arenal-y-monteverde:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-bahia-de-ha-long-0.jpg",
@@ -85,7 +89,8 @@
       "alt": "Islotes de roca caliza cubiertos de vegetación que se alzan sobre las aguas tranquilas de la bahía de Ha Long, con una barca diminuta",
       "asignado_a": [
         "destino:bahia-de-ha-long:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-bahia-de-ha-long-1.jpg",
@@ -102,7 +107,8 @@
       "alt": "Barcos tradicionales en un canal de la bahía de Ha Long entre farallones de caliza envueltos en bruma",
       "asignado_a": [
         "destino:bahia-de-ha-long:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-bahia-de-ha-long-2.jpg",
@@ -119,7 +125,8 @@
       "alt": "Un barco de crucero navega entre islas kársticas verdes en las aguas azules de la bahía de Ha Long",
       "asignado_a": [
         "destino:bahia-de-ha-long:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-bahia-de-ha-long-3.jpg",
@@ -133,10 +140,11 @@
       "licencia": "CC-BY-4.0",
       "licencia_commons": "CC BY 4.0",
       "url_licencia": "https://creativecommons.org/licenses/by/4.0/",
-      "alt": "Casas flotantes de colores con barcas amarradas al pie de un farallón de caliza en la bahía de Ha Long, reflejadas en el agua verde",
+      "alt": "Casas flotantes de colores con barcas amarradas al pie de un farallón de caliza en la bahía de Lan Ha, junto a la isla de Cat Ba, vecina de la bahía de Ha Long",
       "asignado_a": [
         "destino:bahia-de-ha-long:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-banff-0.jpg",
@@ -153,7 +161,8 @@
       "alt": "Lago Moraine, de aguas turquesas, al pie del Valle de los Diez Picos y rodeado de bosque de coníferas en el Parque Nacional Banff",
       "asignado_a": [
         "destino:banff:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-banff-1.jpg",
@@ -170,7 +179,8 @@
       "alt": "Lago Peyto, de color turquesa intenso, en un valle glaciar flanqueado por montañas y bosque en Banff",
       "asignado_a": [
         "destino:banff:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-banff-2.jpg",
@@ -187,7 +197,8 @@
       "alt": "Lago Louise visto desde lo alto de una montaña, con aguas lechosas turquesas, bosque denso y picos rocosos",
       "asignado_a": [
         "destino:banff:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-banff-3.jpg",
@@ -204,7 +215,8 @@
       "alt": "Montañas nevadas y nubes reflejadas en un lago tranquilo rodeado de praderas doradas y abetos en Banff",
       "asignado_a": [
         "destino:banff:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-camino-inca-machu-picchu-0.jpg",
@@ -221,7 +233,8 @@
       "alt": "Vista clásica de la ciudadela inca de Machu Picchu sobre una cresta, con el Huayna Picchu detrás y el cañón del Urubamba",
       "asignado_a": [
         "destino:camino-inca-machu-picchu:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-camino-inca-machu-picchu-1.jpg",
@@ -238,7 +251,8 @@
       "alt": "Terrazas de césped y construcciones de piedra de Machu Picchu con el Huayna Picchu y montañas al fondo",
       "asignado_a": [
         "destino:camino-inca-machu-picchu:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-camino-inca-machu-picchu-2.jpg",
@@ -255,7 +269,8 @@
       "alt": "Sendero del Camino Inca que avanza por un valle verde entre montañas, con un pico nevado al fondo",
       "asignado_a": [
         "destino:camino-inca-machu-picchu:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-camino-inca-machu-picchu-3.jpg",
@@ -272,7 +287,8 @@
       "alt": "Escalones de piedra del Camino Inca que suben entre árboles retorcidos del bosque nublado, con excursionistas de espaldas al fondo",
       "asignado_a": [
         "destino:camino-inca-machu-picchu:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cano-cristales-0.jpg",
@@ -289,7 +305,8 @@
       "alt": "Río Caño Cristales con su lecho de plantas acuáticas rojas, pequeñas cascadas y una poza amarilla entre rocas y vegetación",
       "asignado_a": [
         "destino:cano-cristales:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cano-cristales-1.jpg",
@@ -306,7 +323,8 @@
       "alt": "Cascada que cae en una grieta de la roca del Caño Cristales, rodeada de plantas acuáticas rojas",
       "asignado_a": [
         "destino:cano-cristales:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cano-cristales-2.jpg",
@@ -323,7 +341,8 @@
       "alt": "Cascada de varios saltos sobre rocas oscuras en Caño Cristales, con agua sedosa y vegetación en lo alto",
       "asignado_a": [
         "destino:cano-cristales:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cano-cristales-3.jpg",
@@ -340,7 +359,8 @@
       "alt": "Tramo del río Caño Cristales teñido de rojo por las plantas acuáticas, entre arbustos y árboles bajo cielo azul",
       "asignado_a": [
         "destino:cano-cristales:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cenotes-de-yucatan-0.jpg",
@@ -358,7 +378,8 @@
       "asignado_a": [
         "destino:cenotes-de-yucatan:0",
         "coleccion:mundos-de-agua-buceo-cenotes-y-fiordos"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cenotes-de-yucatan-1.jpg",
@@ -375,7 +396,8 @@
       "alt": "Cenote a cielo abierto de aguas turquesas rodeado de árboles y paredes de roca, con bañistas pequeños, en Valladolid, Yucatán",
       "asignado_a": [
         "destino:cenotes-de-yucatan:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cenotes-de-yucatan-2.jpg",
@@ -392,7 +414,8 @@
       "alt": "Cenote abierto entre altas paredes de roca caliza con vegetación, cuyas aguas verdes reflejan el cielo, en Homún, Yucatán",
       "asignado_a": [
         "destino:cenotes-de-yucatan:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-cenotes-de-yucatan-3.jpg",
@@ -409,7 +432,8 @@
       "alt": "Cenote Zací, poza de agua azul oscura bajo una gran bóveda de roca con raíces colgantes, en Valladolid, Yucatán",
       "asignado_a": [
         "destino:cenotes-de-yucatan:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-chamonix-mont-blanc-0.jpg",
@@ -426,7 +450,8 @@
       "alt": "Macizo del Mont Blanc con sus glaciares sobre el valle de Chamonix, visto desde una ladera verde con abetos",
       "asignado_a": [
         "destino:chamonix-mont-blanc:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-chamonix-mont-blanc-1.jpg",
@@ -443,7 +468,8 @@
       "alt": "Glaciar agrietado del Géant bajo agujas de granito y la cumbre nevada del Mont Blanc",
       "asignado_a": [
         "destino:chamonix-mont-blanc:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-chamonix-mont-blanc-2.jpg",
@@ -460,7 +486,8 @@
       "alt": "La estación de la Aiguille du Midi encaramada sobre un pico rocoso nevado, con el valle de Chamonix entre nubes al fondo",
       "asignado_a": [
         "destino:chamonix-mont-blanc:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-chamonix-mont-blanc-3.jpg",
@@ -477,7 +504,8 @@
       "alt": "Valle verde y boscoso que asciende hacia el glaciar de Argentière y una aguja nevada en el macizo del Mont Blanc",
       "asignado_a": [
         "destino:chamonix-mont-blanc:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ciudad-perdida-teyuna-0.jpg",
@@ -494,7 +522,8 @@
       "alt": "Terrazas circulares de piedra de Ciudad Perdida cubiertas de césped, entre palmas y selva húmeda de la Sierra Nevada de Santa Marta",
       "asignado_a": [
         "destino:ciudad-perdida-teyuna:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ciudad-perdida-teyuna-1.jpg",
@@ -511,7 +540,8 @@
       "alt": "Escalinatas y terrazas de piedra de Ciudad Perdida rodeadas de palmas y montañas cubiertas de selva",
       "asignado_a": [
         "destino:ciudad-perdida-teyuna:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ciudad-perdida-teyuna-2.jpg",
@@ -528,7 +558,8 @@
       "alt": "Antiguo camino de escalones de piedra que asciende entre la vegetación frondosa de la selva hacia Ciudad Perdida",
       "asignado_a": [
         "destino:ciudad-perdida-teyuna:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ciudad-perdida-teyuna-3.jpg",
@@ -545,7 +576,8 @@
       "alt": "Bohíos circulares de techo de paja junto al sendero de Ciudad Perdida, entre plantas de selva",
       "asignado_a": [
         "destino:ciudad-perdida-teyuna:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-delta-del-okavango-0.jpg",
@@ -562,7 +594,8 @@
       "alt": "Vista aérea del delta del Okavango, con canales de agua azul, islas de hierba dorada y árboles, y canoas mokoro diminutas",
       "asignado_a": [
         "destino:delta-del-okavango:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-delta-del-okavango-1.jpg",
@@ -579,7 +612,8 @@
       "alt": "Dos elefantes africanos junto al agua del delta del Okavango, reflejados en la superficie al atardecer",
       "asignado_a": [
         "destino:delta-del-okavango:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-delta-del-okavango-2.jpg",
@@ -596,7 +630,8 @@
       "alt": "Un barquero de espaldas impulsa con una pértiga una canoa mokoro entre juncos del delta del Okavango, a contraluz",
       "asignado_a": [
         "destino:delta-del-okavango:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-delta-del-okavango-3.jpg",
@@ -613,7 +648,8 @@
       "alt": "Manada de cebras de Burchell vadeando aguas poco profundas del delta del Okavango, vista desde el aire",
       "asignado_a": [
         "destino:delta-del-okavango:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-dolomitas-0.jpg",
@@ -630,7 +666,8 @@
       "alt": "Las Tres Cimas de Lavaredo, tres torres de roca dolomítica con nieve en su base, bajo un cielo azul con nubes",
       "asignado_a": [
         "destino:dolomitas:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-dolomitas-1.jpg",
@@ -644,10 +681,11 @@
       "licencia": "CC-BY-SA-3.0",
       "licencia_commons": "CC BY-SA 3.0",
       "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
-      "alt": "Cresta del Seceda, con sus agujas de roca y laderas de hierba inclinadas, entre nubes sobre los valles de las Dolomitas",
+      "alt": "El grupo de las Odle (Geisler), con sus agujas de roca, visto desde el Seceda sobre laderas de hierba inclinadas entre nubes, en las Dolomitas",
       "asignado_a": [
         "destino:dolomitas:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-dolomitas-2.jpg",
@@ -664,7 +702,8 @@
       "alt": "Lago de Misurina rodeado de bosque de abetos, con las Tres Cimas de Lavaredo al fondo bajo un cielo despejado",
       "asignado_a": [
         "destino:dolomitas:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-dolomitas-3.jpg",
@@ -681,7 +720,8 @@
       "alt": "Excursionistas con casco recorren una vía ferrata equipada con cables y pasarelas entre rocas calizas en las Dolomitas de Cortina",
       "asignado_a": [
         "destino:dolomitas:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-el-chalten-fitz-roy-0.jpg",
@@ -695,10 +735,11 @@
       "licencia": "CC-BY-2.0",
       "licencia_commons": "CC BY 2.0",
       "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
-      "alt": "El monte Fitz Roy y sus agujas de granito con glaciares, sobre la Laguna de los Tres y una morrena rocosa bajo cielo azul",
+      "alt": "El monte Fitz Roy y sus agujas de granito con glaciares, sobre la Laguna Sucia y una morrena rocosa bajo cielo azul",
       "asignado_a": [
         "destino:el-chalten-fitz-roy:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-el-chalten-fitz-roy-1.jpg",
@@ -715,7 +756,8 @@
       "alt": "Cerro Fitz Roy y agujas vecinas teñidos de rojo intenso por la luz del amanecer, bajo un cielo rosado",
       "asignado_a": [
         "destino:el-chalten-fitz-roy:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-el-chalten-fitz-roy-2.jpg",
@@ -732,7 +774,8 @@
       "alt": "Valle del río de las Vueltas cerca de El Chaltén, con el río trenzado entre praderas y mesetas bajo un cielo con nubes",
       "asignado_a": [
         "destino:el-chalten-fitz-roy:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-el-chalten-fitz-roy-3.jpg",
@@ -749,7 +792,8 @@
       "alt": "Laguna de los Tres y Laguna Sucia a los pies del Fitz Roy y sus glaciares, con excursionistas diminutos sobre la morrena",
       "asignado_a": [
         "destino:el-chalten-fitz-roy:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-everest-campo-base-0.jpg",
@@ -766,7 +810,8 @@
       "alt": "La cara oeste del Everest y el Nuptse sobre el glaciar del Khumbu, cerca del campo base, bajo un cielo azul intenso",
       "asignado_a": [
         "destino:everest-campo-base:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-everest-campo-base-1.jpg",
@@ -783,7 +828,8 @@
       "alt": "El Ama Dablam, pico nevado y puntiagudo, sobre un valle glaciar del Khumbu con nubes blancas",
       "asignado_a": [
         "destino:everest-campo-base:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-everest-campo-base-2.jpg",
@@ -800,7 +846,8 @@
       "alt": "Banderas de oración tibetanas de colores ondeando sobre un montículo de piedras, con cumbres del Himalaya entre nubes",
       "asignado_a": [
         "destino:everest-campo-base:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-everest-campo-base-3.jpg",
@@ -817,7 +864,8 @@
       "alt": "Las cumbres del Everest y el Lhotse encendidas por el atardecer bajo nubes lenticulares naranjas",
       "asignado_a": [
         "destino:everest-campo-base:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-fiordos-de-noruega-0.jpg",
@@ -834,7 +882,8 @@
       "alt": "El fiordo de Geiranger serpenteando entre montañas verdes y escarpadas, con el pueblo y barcos diminutos al fondo",
       "asignado_a": [
         "destino:fiordos-de-noruega:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-fiordos-de-noruega-1.jpg",
@@ -851,7 +900,8 @@
       "alt": "Aguas quietas del Nærøyfjord reflejando montañas verdes con cumbres nevadas y un cielo con nubes",
       "asignado_a": [
         "destino:fiordos-de-noruega:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-fiordos-de-noruega-2.jpg",
@@ -868,7 +918,8 @@
       "alt": "La estela de un barco surca el Nærøyfjord entre paredes de montaña verdes bajo un cielo con nubes",
       "asignado_a": [
         "destino:fiordos-de-noruega:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-fiordos-de-noruega-3.jpg",
@@ -885,7 +936,8 @@
       "alt": "El Preikestolen, una plataforma de roca que cae en vertical sobre el Lysefjord, con numerosos excursionistas pequeños en lo alto",
       "asignado_a": [
         "destino:fiordos-de-noruega:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-gran-barrera-de-coral-0.jpg",
@@ -902,7 +954,8 @@
       "alt": "Formación de corales de varias formas y colores en el arrecife Flynn, parte de la Gran Barrera de Coral, frente a Cairns",
       "asignado_a": [
         "destino:gran-barrera-de-coral:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-gran-barrera-de-coral-1.jpg",
@@ -919,7 +972,8 @@
       "alt": "Vista aérea de la Gran Barrera de Coral, con un banco de arena blanca rodeado de arrecifes y aguas turquesas",
       "asignado_a": [
         "destino:gran-barrera-de-coral:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-gran-barrera-de-coral-2.jpg",
@@ -936,7 +990,8 @@
       "alt": "Jardín de corales duros y blandos de colores en aguas claras cerca del arrecife Michaelmas, en la Gran Barrera de Coral",
       "asignado_a": [
         "destino:gran-barrera-de-coral:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-gran-barrera-de-coral-3.jpg",
@@ -953,7 +1008,8 @@
       "alt": "Remolinos de arena blanca y aguas turquesas en Whitehaven Beach, islas Whitsunday, junto a la Gran Barrera de Coral",
       "asignado_a": [
         "destino:gran-barrera-de-coral:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-islas-galapagos-0.jpg",
@@ -970,7 +1026,8 @@
       "alt": "Bahía de la isla Bartolomé, en Galápagos, con el pináculo de roca volcánica, una playa de arena y conos de toba bajo cielo nublado, y un velero anclado",
       "asignado_a": [
         "destino:islas-galapagos:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-islas-galapagos-1.jpg",
@@ -987,7 +1044,8 @@
       "alt": "Pareja de piqueros de patas azules sobre la arena de una playa en las islas Galápagos",
       "asignado_a": [
         "destino:islas-galapagos:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-islas-galapagos-2.jpg",
@@ -1004,7 +1062,8 @@
       "alt": "Iguana marina tomando el sol sobre rocas de lava negra en la isla Santa Cruz, Galápagos",
       "asignado_a": [
         "destino:islas-galapagos:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-islas-galapagos-3.jpg",
@@ -1021,7 +1080,8 @@
       "alt": "Lobo marino de Galápagos saliendo del mar a una playa de arena dorada, con acantilados y aguas azules al fondo",
       "asignado_a": [
         "destino:islas-galapagos:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-kilimanjaro-0.jpg",
@@ -1039,7 +1099,8 @@
       "asignado_a": [
         "destino:kilimanjaro:0",
         "coleccion:techos-y-volcanes-de-alta-montana"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-kilimanjaro-1.jpg",
@@ -1056,7 +1117,8 @@
       "alt": "La cima nevada del Kibo, en el Kilimanjaro, emerge por encima de las nubes sobre la vegetación de la ladera",
       "asignado_a": [
         "destino:kilimanjaro:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-kilimanjaro-2.jpg",
@@ -1073,7 +1135,8 @@
       "alt": "Paredes de hielo de un glaciar en la cumbre del Kilimanjaro al amanecer, sobre el mar de nubes",
       "asignado_a": [
         "destino:kilimanjaro:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-kilimanjaro-3.jpg",
@@ -1090,7 +1153,8 @@
       "alt": "Montañeros diminutos en la arista de la cumbre del Kilimanjaro, sobre un campo de penitentes de hielo y nubes bajas",
       "asignado_a": [
         "destino:kilimanjaro:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-pnn-los-nevados-0.jpg",
@@ -1107,7 +1171,8 @@
       "alt": "Cumbre volcánica cubierta de nieve y glaciar sobre laderas rocosas y páramo en el Parque Nacional Natural Los Nevados",
       "asignado_a": [
         "destino:pnn-los-nevados:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-pnn-los-nevados-1.jpg",
@@ -1124,7 +1189,8 @@
       "alt": "Frailejones en flor en el páramo de Los Nevados, con montañas nevadas al fondo bajo un cielo azul",
       "asignado_a": [
         "destino:pnn-los-nevados:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-pnn-los-nevados-2.jpg",
@@ -1141,24 +1207,26 @@
       "alt": "Ladera de páramo cubierta de frailejones de tallos oscuros y rosetas plateadas en Los Nevados",
       "asignado_a": [
         "destino:pnn-los-nevados:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-pnn-los-nevados-3.jpg",
-      "sha256": "d64f950b40bb61bf53ad98c48af7cf30aa099890d81ea54f1957b2a3f78abad0",
+      "sha256": "819def300cafd932e8751ba18cca1f016490e2542e1b78774a2d23d5756bf651",
       "ancho": 1200,
-      "alto": 661,
-      "bytes": 165329,
-      "titulo_commons": "File:Parque Nacional Natural Los Nevados y Nevado del Ruiz (18248).jpg",
-      "pagina": "https://commons.wikimedia.org/wiki/File:Parque_Nacional_Natural_Los_Nevados_y_Nevado_del_Ruiz_(18248).jpg",
-      "autor": "AmiGueko",
-      "licencia": "CC-BY-SA-3.0",
-      "licencia_commons": "CC BY-SA 3.0",
-      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
-      "alt": "Volcán nevado asomando entre nubes sobre mesetas rocosas y valles de páramo en el Parque Nacional Natural Los Nevados",
+      "alto": 675,
+      "bytes": 161538,
+      "titulo_commons": "File:Postales laguna del otun.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Postales_laguna_del_otun.jpg",
+      "autor": "StevenGM",
+      "licencia": "CC-BY-SA-4.0",
+      "licencia_commons": "CC BY-SA 4.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "alt": "Laguna del Otún rodeada de frailejones y montañas de páramo bajo un cielo nublado, en el Parque Nacional Natural Los Nevados",
       "asignado_a": [
         "destino:pnn-los-nevados:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-queenstown-0.jpg",
@@ -1175,7 +1243,8 @@
       "alt": "La cordillera de The Remarkables, con cumbres nevadas, sobre Queenstown y las aguas del lago Wakatipu",
       "asignado_a": [
         "destino:queenstown:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-queenstown-1.jpg",
@@ -1192,7 +1261,8 @@
       "alt": "Picos de The Remarkables con nieve y nubes, sobre un bosque de coníferas cerca de Queenstown",
       "asignado_a": [
         "destino:queenstown:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-queenstown-2.jpg",
@@ -1209,7 +1279,8 @@
       "alt": "Queenstown a orillas del lago Wakatipu visto desde lo alto, con montañas y la cordillera al fondo",
       "asignado_a": [
         "destino:queenstown:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-queenstown-3.jpg",
@@ -1227,7 +1298,8 @@
       "asignado_a": [
         "destino:queenstown:3",
         "coleccion:deportes-de-adrenalina-y-expediciones"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ruta-laugavegur-0.jpg",
@@ -1244,7 +1316,8 @@
       "alt": "Montañas de riolita de Landmannalaugar en tonos ocres, verdes y rosados con manchas de nieve, surcadas por barrancos",
       "asignado_a": [
         "destino:ruta-laugavegur:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ruta-laugavegur-1.jpg",
@@ -1261,7 +1334,8 @@
       "alt": "Llanura con un arroyo y pastos verdes ante las montañas multicolores de Landmannalaugar, inicio de la ruta Laugavegur",
       "asignado_a": [
         "destino:ruta-laugavegur:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ruta-laugavegur-2.jpg",
@@ -1279,7 +1353,8 @@
       "asignado_a": [
         "destino:ruta-laugavegur:2",
         "coleccion:grandes-travesias-de-trekking"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-ruta-laugavegur-3.jpg",
@@ -1296,7 +1371,8 @@
       "alt": "El monte Hattfell, cubierto de musgo verde, se alza sobre una llanura de grava volcánica negra junto a la ruta Laugavegur",
       "asignado_a": [
         "destino:ruta-laugavegur:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-salar-de-uyuni-0.jpg",
@@ -1313,7 +1389,8 @@
       "alt": "Montículos cónicos de sal apilados sobre la superficie blanca y húmeda del Salar de Uyuni, con montañas lejanas en el horizonte",
       "asignado_a": [
         "destino:salar-de-uyuni:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-salar-de-uyuni-1.jpg",
@@ -1330,7 +1407,8 @@
       "alt": "Cactus gigantes sobre las rocas de una isla en medio del Salar de Uyuni, con la llanura blanca de sal y un volcán al fondo",
       "asignado_a": [
         "destino:salar-de-uyuni:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-salar-de-uyuni-2.jpg",
@@ -1347,7 +1425,8 @@
       "alt": "Un cerro rojizo se refleja como en un espejo sobre la fina capa de agua del Salar de Uyuni bajo un cielo despejado",
       "asignado_a": [
         "destino:salar-de-uyuni:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-salar-de-uyuni-3.jpg",
@@ -1364,7 +1443,8 @@
       "alt": "Llanura del Salar de Uyuni cubierta por una fina capa de agua, con un vehículo y dos personas diminutas y un volcán en el horizonte bajo cielo azul intenso",
       "asignado_a": [
         "destino:salar-de-uyuni:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-san-gil-canon-del-chicamocha-0.jpg",
@@ -1381,7 +1461,8 @@
       "alt": "Cañón del Chicamocha, con laderas áridas y montañas plegadas que encierran el lecho del río al fondo del valle",
       "asignado_a": [
         "destino:san-gil-canon-del-chicamocha:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-san-gil-canon-del-chicamocha-1.jpg",
@@ -1398,7 +1479,8 @@
       "alt": "Vista amplia del cañón del Chicamocha con cordilleras azuladas, el río serpenteando al fondo y nubes blancas",
       "asignado_a": [
         "destino:san-gil-canon-del-chicamocha:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-san-gil-canon-del-chicamocha-2.jpg",
@@ -1415,7 +1497,8 @@
       "alt": "El río Chicamocha avanza por el fondo de un valle profundo entre laderas verdes y escarpadas",
       "asignado_a": [
         "destino:san-gil-canon-del-chicamocha:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-san-gil-canon-del-chicamocha-3.jpg",
@@ -1432,7 +1515,8 @@
       "alt": "Balsa de rafting con remeros con casco y chaleco salvavidas atravesando aguas bravas del río Fonce, en San Gil",
       "asignado_a": [
         "destino:san-gil-canon-del-chicamocha:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-torres-del-paine-0.jpg",
@@ -1449,7 +1533,8 @@
       "alt": "Las tres Torres del Paine, agujas de granito sobre una laguna turquesa rodeada de morrena y paredes rocosas, bajo un cielo con nubes",
       "asignado_a": [
         "destino:torres-del-paine:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-torres-del-paine-1.jpg",
@@ -1466,7 +1551,8 @@
       "alt": "Los Cuernos del Paine, picos de granito y nieve, sobre las aguas turquesas de un lago patagónico y laderas verdes",
       "asignado_a": [
         "destino:torres-del-paine:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-torres-del-paine-2.jpg",
@@ -1483,7 +1569,8 @@
       "alt": "Macizo del Paine al amanecer, con nubes rosadas sobre los Cuernos y picos nevados, un bosque bajo y un lago en primer plano",
       "asignado_a": [
         "destino:torres-del-paine:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-torres-del-paine-3.jpg",
@@ -1500,7 +1587,8 @@
       "alt": "Kayak rojo con varios remeros frente al frente de hielo azul del glaciar Grey, sobre un lago de aguas turquesas",
       "asignado_a": [
         "destino:torres-del-paine:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-wadi-rum-0.jpg",
@@ -1517,7 +1605,8 @@
       "alt": "Formaciones de arenisca rojiza sobre la arena anaranjada del desierto de Wadi Rum bajo un cielo azul intenso",
       "asignado_a": [
         "destino:wadi-rum:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-wadi-rum-1.jpg",
@@ -1534,7 +1623,8 @@
       "alt": "Los Siete Pilares de la Sabiduría, macizo de arenisca estriada que se eleva sobre la llanura desértica de Wadi Rum",
       "asignado_a": [
         "destino:wadi-rum:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-wadi-rum-2.jpg",
@@ -1551,7 +1641,8 @@
       "alt": "Todoterreno recorriendo la llanura de arena rosada de Wadi Rum frente a una larga meseta rocosa",
       "asignado_a": [
         "destino:wadi-rum:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-wadi-rum-3.jpg",
@@ -1568,7 +1659,8 @@
       "alt": "Imponentes paredes de arenisca rojiza junto a la llanura de arena de Wadi Rum, con un vehículo diminuto en la base",
       "asignado_a": [
         "destino:wadi-rum:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-yosemite-0.jpg",
@@ -1585,7 +1677,8 @@
       "alt": "Valle de Yosemite desde Tunnel View, con la pared de El Capitan, la cascada Bridalveil y el Half Dome al fondo sobre un bosque de coníferas",
       "asignado_a": [
         "destino:yosemite:0"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-yosemite-1.jpg",
@@ -1602,7 +1695,8 @@
       "alt": "El Capitan y las Catedrales reflejadas en el río Merced, con rocas, pastos verdes y pinos en la orilla",
       "asignado_a": [
         "destino:yosemite:1"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-yosemite-2.jpg",
@@ -1619,7 +1713,8 @@
       "alt": "El Half Dome y el valle de Yosemite vistos desde Glacier Point, con cúpulas de granito y bosque bajo un cielo con nubes",
       "asignado_a": [
         "destino:yosemite:2"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "destino-yosemite-3.jpg",
@@ -1636,7 +1731,8 @@
       "alt": "La pared de El Capitan al anochecer, con las luces de los escaladores que vivaquean en la roca bajo un cielo violeta",
       "asignado_a": [
         "destino:yosemite:3"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-como-elegir-y-organizar-la-mochila-de-trekking.jpg",
@@ -1653,7 +1749,8 @@
       "alt": "Varias mochilas de trekking con fundas impermeables de colores apoyadas contra una cabaña de madera pintada sobre la hierba",
       "asignado_a": [
         "guia:como-elegir-y-organizar-la-mochila-de-trekking"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-como-entrenar-antes-de-tu-primera-aventura.jpg",
@@ -1670,7 +1767,8 @@
       "alt": "Grupo de excursionistas con mochila ascendiendo por un sendero tallado en la pared del Gran Cañón, con capas de roca rojiza al fondo",
       "asignado_a": [
         "guia:como-entrenar-antes-de-tu-primera-aventura"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-como-evaluar-riesgos-antes-de-salir-al-terreno.jpg",
@@ -1687,24 +1785,26 @@
       "alt": "Tormenta eléctrica con un rayo sobre montañas y bosque de coníferas bajo un cielo oscuro y amenazante",
       "asignado_a": [
         "guia:como-evaluar-riesgos-antes-de-salir-al-terreno"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-como-planificar-el-presupuesto-de-un-viaje-de-aventura.jpg",
-      "sha256": "4c038f7e4bf6f4519b183adc5bf17bdd72398fbca50c64bf3733273d61c992f5",
+      "sha256": "f854e1e268ca6714476b4b36118cca42e6b99b1038064c0720b85439330a5edf",
       "ancho": 1280,
-      "alto": 852,
-      "bytes": 185449,
-      "titulo_commons": "File:A member of the A-10 recovery team checks his heading with a compass and map as he searches for the four 500 pound Mark 82 bombs that were carried by the A-10 that crashed on Gold D - DPLA - 23f1c408cba2de431ae1517c991323d9.jpeg",
-      "pagina": "https://commons.wikimedia.org/wiki/File:A_member_of_the_A-10_recovery_team_checks_his_heading_with_a_compass_and_map_as_he_searches_for_the_four_500_pound_Mark_82_bombs_that_were_carried_by_the_A-10_that_crashed_on_Gold_D_-_DPLA_-_23f1c408cba2de431ae1517c991323d9.jpeg",
-      "autor": "U.S. Department of Defense, Defense Visual Information Center",
-      "licencia": "PDM-1.0",
-      "licencia_commons": "Public domain",
-      "url_licencia": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "alt": "Mano sujetando una brújula de placa sobre un mapa topográfico con curvas de nivel y una ruta marcada a mano",
+      "alto": 854,
+      "bytes": 92980,
+      "titulo_commons": "File:Travel budget concpet with small airplane and wallet full of money (52136224474).jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Travel_budget_concpet_with_small_airplane_and_wallet_full_of_money_(52136224474).jpg",
+      "autor": "Jernej Furman from Slovenia",
+      "licencia": "CC-BY-2.0",
+      "licencia_commons": "CC BY 2.0",
+      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
+      "alt": "Avión de juguete junto a una cartera de tela con billetes sobre un fondo rosa, como símbolo del presupuesto de un viaje",
       "asignado_a": [
         "guia:como-planificar-el-presupuesto-de-un-viaje-de-aventura"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-fotografia-de-paisaje-en-condiciones-de-montana.jpg",
@@ -1721,7 +1821,8 @@
       "alt": "Teléfono montado en un trípode a orillas de un lago de montaña en calma, fotografiando los picos nevados reflejados en el agua",
       "asignado_a": [
         "guia:fotografia-de-paisaje-en-condiciones-de-montana"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-mal-de-altura-como-prevenirlo-y-reconocerlo.jpg",
@@ -1738,7 +1839,8 @@
       "alt": "Dos excursionistas ascienden por un sendero de piedras y nieve hacia el paso de Thorong La, con cordilleras del Himalaya al fondo",
       "asignado_a": [
         "guia:mal-de-altura-como-prevenirlo-y-reconocerlo"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-primeros-pasos-para-elegir-tu-primera-aventura.jpg",
@@ -1755,7 +1857,8 @@
       "alt": "Excursionistas pequeños ascendiendo por un sendero de cresta cubierto de hierba verde en el Distrito de los Lagos, con valles y montañas al fondo",
       "asignado_a": [
         "guia:primeros-pasos-para-elegir-tu-primera-aventura"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-principios-de-no-dejar-rastro-en-la-naturaleza.jpg",
@@ -1772,7 +1875,8 @@
       "alt": "Tienda de campaña montada sobre roca plana en un claro de alta montaña, al pie de un acantilado iluminado por el atardecer",
       "asignado_a": [
         "guia:principios-de-no-dejar-rastro-en-la-naturaleza"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-que-llevar-en-un-botiquin-de-aventura.jpg",
@@ -1789,7 +1893,8 @@
       "alt": "Botiquín de primeros auxilios abierto, con vendas, apósitos, manta térmica y guantes ordenados en sus compartimentos transparentes",
       "asignado_a": [
         "guia:que-llevar-en-un-botiquin-de-aventura"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "guia-que-preguntar-antes-de-reservar-con-un-operador-local.jpg",
@@ -1806,24 +1911,26 @@
       "alt": "Porteador con una gran carga a la espalda caminando por un sendero del Khumbu, frente a montañas nevadas bajo cielo azul",
       "asignado_a": [
         "guia:que-preguntar-antes-de-reservar-con-un-operador-local"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "inicio-hero.jpg",
-      "sha256": "422201089fe3a1da35149d23e27227d5c82135fac7504d2b690672a662358590",
+      "sha256": "c2fcbfecb2506a08fbfc6a751aa8c48eab5915a1b7dc680ffa44226f6f8ead44",
       "ancho": 1920,
-      "alto": 1374,
-      "bytes": 504822,
-      "titulo_commons": "File:Laguna Torre reflection.jpg",
-      "pagina": "https://commons.wikimedia.org/wiki/File:Laguna_Torre_reflection.jpg",
-      "autor": "360around",
-      "licencia": "CC-BY-2.0",
-      "licencia_commons": "CC BY 2.0",
-      "url_licencia": "https://creativecommons.org/licenses/by/2.0/",
-      "alt": "El Cerro Torre y las cumbres nevadas del campo de hielo se reflejan en la Laguna Torre, cerca de El Chaltén, bajo un cielo azul intenso",
+      "alto": 1080,
+      "bytes": 341480,
+      "titulo_commons": "File:Fitz Roy El Chalten sunrise-17.jpg",
+      "pagina": "https://commons.wikimedia.org/wiki/File:Fitz_Roy_El_Chalten_sunrise-17.jpg",
+      "autor": "Almonroth",
+      "licencia": "CC-BY-SA-3.0",
+      "licencia_commons": "CC BY-SA 3.0",
+      "url_licencia": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "alt": "El pueblo de El Chaltén al pie de laderas en sombra, con el Fitz Roy y sus agujas vecinas encendidos de naranja por el amanecer sobre un cielo azul",
       "asignado_a": [
         "inicio:hero"
-      ]
+      ],
+      "modificaciones": "Recortada (16:9 (franja inferior)), redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-camino-inca-en-4-dias.jpg",
@@ -1840,7 +1947,8 @@
       "alt": "Campamento de tiendas de campaña en una pradera del Camino Inca, junto a terrazas incas y montañas áridas",
       "asignado_a": [
         "itinerario:camino-inca-en-4-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-ciudad-perdida-en-4-dias.jpg",
@@ -1857,7 +1965,8 @@
       "alt": "Bohío de techo de paja junto a un camino empedrado en plena selva, en la ruta de trekking a Ciudad Perdida",
       "asignado_a": [
         "itinerario:ciudad-perdida-en-4-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-dolomitas-via-ferrata-en-5-dias.jpg",
@@ -1874,7 +1983,8 @@
       "alt": "Montañero con mochila roja avanza agarrado al cable de acero de una vía ferrata sobre roca nevada en las Dolomitas",
       "asignado_a": [
         "itinerario:dolomitas-via-ferrata-en-5-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-el-chalten-en-4-dias.jpg",
@@ -1891,7 +2001,8 @@
       "alt": "El Fitz Roy con una nube lenticular sobre su cumbre, visto por encima de un bosque de lengas desde el sendero",
       "asignado_a": [
         "itinerario:el-chalten-en-4-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-everest-campo-base-en-12-dias.jpg",
@@ -1908,7 +2019,8 @@
       "alt": "Caravana de yaks cargados avanzando por un sendero del valle del Khumbu, con picos nevados del Himalaya al fondo",
       "asignado_a": [
         "itinerario:everest-campo-base-en-12-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-queenstown-en-4-dias.jpg",
@@ -1925,7 +2037,8 @@
       "alt": "Orilla del lago Wakatipu al atardecer, con la luz dorada sobre las montañas de The Remarkables",
       "asignado_a": [
         "itinerario:queenstown-en-4-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-salar-de-uyuni-en-3-dias.jpg",
@@ -1942,7 +2055,8 @@
       "alt": "El Árbol de Piedra, roca erosionada por el viento con forma de árbol, en el desierto de altura del altiplano boliviano",
       "asignado_a": [
         "itinerario:salar-de-uyuni-en-3-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-san-gil-en-3-dias.jpg",
@@ -1959,7 +2073,8 @@
       "alt": "Parapente sobrevolando el profundo cañón del Chicamocha, con el río serpenteando al fondo entre laderas montañosas brumosas",
       "asignado_a": [
         "itinerario:san-gil-en-3-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-torres-del-paine-circuito-w-en-5-dias.jpg",
@@ -1976,7 +2091,8 @@
       "alt": "Río de aguas bravas entre rocas y bosque en el Valle del Francés, con el glaciar y las cumbres nevadas del Paine Grande al fondo",
       "asignado_a": [
         "itinerario:torres-del-paine-circuito-w-en-5-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "itinerario-wadi-rum-en-3-dias.jpg",
@@ -1993,7 +2109,8 @@
       "alt": "Grandes bloques de arenisca erosionados por el viento sobre la arena clara de Wadi Rum, bajo un cielo con pequeñas nubes",
       "asignado_a": [
         "itinerario:wadi-rum-en-3-dias"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-alta-montana-y-alpinismo.jpg",
@@ -2010,7 +2127,8 @@
       "alt": "Alpinista con casco y crampones cruza una escalera tendida sobre una grieta del glaciar, entre seracs y cumbres nevadas del Himalaya",
       "asignado_a": [
         "tipo:alta-montana-y-alpinismo"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-buceo-y-snorkel.jpg",
@@ -2027,7 +2145,8 @@
       "alt": "Buceador con máscara y regulador detrás de esponjas anaranjadas y gorgonias de un arrecife, en aguas azules",
       "asignado_a": [
         "tipo:buceo-y-snorkel"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-ciclismo-de-montana.jpg",
@@ -2044,7 +2163,8 @@
       "alt": "Ciclista de montaña descendiendo por un sendero estrecho de tierra en un bosque de pinos con luz filtrada",
       "asignado_a": [
         "tipo:ciclismo-de-montana"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-escalada-y-via-ferrata.jpg",
@@ -2061,7 +2181,8 @@
       "alt": "Escalador con casco y arnés, visto desde arriba, progresando por una pared de granito con la cuerda verde de seguridad",
       "asignado_a": [
         "tipo:escalada-y-via-ferrata"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-espeleologia-y-cenotes.jpg",
@@ -2078,7 +2199,8 @@
       "alt": "Espeleólogo con casco y luz en una gran sala de cueva repleta de estalactitas y estalagmitas",
       "asignado_a": [
         "tipo:espeleologia-y-cenotes"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-kayak-y-navegacion.jpg",
@@ -2095,7 +2217,8 @@
       "alt": "Grupo de kayaks de mar en fila sobre aguas tranquilas al pie de montañas de granito en la costa de Tasmania",
       "asignado_a": [
         "tipo:kayak-y-navegacion"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-parapente-y-deportes-aereos.jpg",
@@ -2112,7 +2235,8 @@
       "alt": "Parapente blanco sobrevolando colinas verdes y conos volcánicos bajo un cielo con nubes",
       "asignado_a": [
         "tipo:parapente-y-deportes-aereos"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-rafting-y-deportes-de-rio.jpg",
@@ -2129,7 +2253,8 @@
       "alt": "Balsa de rafting con un grupo de remeros con casco atravesando un gran rápido de aguas blancas en el Nilo, en Uganda",
       "asignado_a": [
         "tipo:rafting-y-deportes-de-rio"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-safari-y-observacion-de-fauna.jpg",
@@ -2146,7 +2271,8 @@
       "alt": "León macho de melena oscura tumbado sobre una roca en la sabana del Parque Nacional del Serengeti",
       "asignado_a": [
         "tipo:safari-y-observacion-de-fauna"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-senderismo-y-trekking.jpg",
@@ -2163,7 +2289,8 @@
       "alt": "Excursionista con mochila, de espaldas, caminando por un sendero de grava entre prados y abetos en una ladera de montaña",
       "asignado_a": [
         "tipo:senderismo-y-trekking"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-surf.jpg",
@@ -2180,7 +2307,8 @@
       "alt": "Surfista diminuto con traje amarillo bajando la pared de una ola gigante que rompe en Mavericks, California",
       "asignado_a": [
         "tipo:surf"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     },
     {
       "archivo": "tipo-travesias-por-desierto-y-expediciones.jpg",
@@ -2197,7 +2325,8 @@
       "alt": "Caravana de dromedarios con jinetes cruzando las dunas anaranjadas del Erg Chebbi, en el Sahara marroquí",
       "asignado_a": [
         "tipo:travesias-por-desierto-y-expediciones"
-      ]
+      ],
+      "modificaciones": "Redimensionada y recodificada en JPEG sin metadatos respecto al original"
     }
   ]
 }
