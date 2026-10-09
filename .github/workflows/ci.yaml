@@ -212,7 +212,8 @@ jobs:
       # y handlerXXX a su archivo; sin dependencias nuevas). Antes se ejecutan sus controles: 33
       # sintéticos (incluidos X1-X5 de la QA) + 6 sobre el coverage.json y el URLconf reales.
       # TKT-OPS-027 (F-QA022-02): prefijos_criticos (/api/v1/panel/) -> todo archivo que sirve esas
-      # rutas debe ser crítico; controles: 39 sintéticos + 8 reales. Detalle: DEVOPS_HANDOFF §31.
+      # rutas debe ser crítico; controles: 39 sintéticos + 7 reales (R4, caducidad, solo si hay excepciones;
+      # EXC-01/02 retiradas tras TKT-034). Detalle: DEVOPS_HANDOFF §31.
       # Detalle: DEVOPS_HANDOFF §26.
       - name: "cobertura por módulo: inventario de vistas del URLconf (django.urls)"
         timeout-minutes: 5

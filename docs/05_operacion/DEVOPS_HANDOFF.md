@@ -2497,7 +2497,7 @@ Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
 > Numeración: esta sección se entregó como §30 y se renumeró a §31 al sincronizar con `main`, porque TKT-OPS-028 ya ocupaba la §30 (TKT-OPS-026 ocupa la §29 y TKT-OPS-029 la §32). Estos tickets se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
 
 ### 31.1 Estado
-COMPLETADO en la rama `tkt-ops-027-gate-cobertura-mejoras`, salvo F-QA022-03, que depende de la integración de TKT-034 (§31.6). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+COMPLETADO en la rama `tkt-ops-027-gate-cobertura-mejoras`, incluido F-QA022-03 (§31.6): TKT-034 ya está en `main` (PR #61 @ ece6cb5) y las excepciones TKT-OPS-022-EXC-01/02 se han retirado. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
 
 ### 31.2 Objetivo
 Corregir los cuatro hallazgos LOW/INFO de la QA de TKT-OPS-022 (PASS, ciclo 1/3):
@@ -2518,7 +2518,7 @@ Corregir los cuatro hallazgos LOW/INFO de la QA de TKT-OPS-022 (PASS, ciclo 1/3)
   - Falla si la plantilla no existe o no declara ningún `CHANGE_ME`. Se mantienen el criterio por sufijo y las obligatorias explícitas.
   - Las tres invocaciones del workflow (jobs `infra`, `backend` e `images`) pasan `--plantilla .env.example`.
   - Nuevo `infra/ci/enmascarar_env_controles.sh` con 10 controles, y un paso nuevo en el job `infra`, antes de generar el `.env`.
-- **F-QA022-03**: el campo `ticket` de EXC-01/02 pasa a citar TKT-034, el ticket real (antes "TKT-OPS-022-DEV (propuesto...)"). La retirada va en un commit aparte (§31.6).
+- **F-QA022-03**: el campo `ticket` de EXC-01/02 pasa a citar TKT-034, el ticket real (antes "TKT-OPS-022-DEV (propuesto...)"). La retirada se hizo después, en un commit aparte (§31.6).
 
 ### 31.4 Versiones / infraestructura / dependencias / variables de entorno
 - Sin dependencias nuevas: solo biblioteca estándar y bash.
@@ -2532,7 +2532,7 @@ Entorno: Windows 11, Python 3.11.9, Git Bash, con `PYTHONUTF8` y `PYTHONIOENCODI
 - **Tras la corrección**:
   - `gate_cobertura_controles.py`, sintéticos: **39/39** (los 33 previos más P6 y N28-N32), exit 0.
   - `gate_contrato_controles.py`: **27/27**, exit 0.
-- **Controles reales R1-R8**: **47/47**.
+- **Controles reales R1-R8**: **47/47** (antes de F-QA022-03; tras retirar las excepciones R4 se omite y quedan 46, §31.6).
   - Datos de entrada: inventario REAL del URLconf (`vistas_urlconf.py`: 98 rutas en 9 archivos, 0 externos), `cobertura_umbrales.toml` real y un coverage.json SINTÉTICO al 100 % para los 167 archivos del backend.
   - Con ese coverage, R1 solo prueba la clasificación: los 7 archivos que sirven `/api/v1/panel/**` ya son críticos.
   - La cobertura REAL (pytest con PostgreSQL) solo la valida el CI del PR. No se levantó PostgreSQL en local por la RAM disponible.
@@ -2545,12 +2545,15 @@ Entorno: Windows 11, Python 3.11.9, Git Bash, con `PYTHONUTF8` y `PYTHONIOENCODI
   - `ci.yaml` cargado con PyYAML: OK.
 - **NOT_RUN**: `mypy` sobre `infra/ci/`. El plugin de django-stubs exige settings, y el CI tampoco lo ejecuta fuera de `backend/`.
 
-### 31.6 F-QA022-03 (retirada de TKT-OPS-022-EXC-01/02)
-- Depende de TKT-034 (PR #61), que tiene QA PASS pero espera el image scan de TKT-OPS-028 para integrarse en `main`.
-- Si se retiran las excepciones sin TKT-034, el gate falla: `sesiones.py` está en 76 % y `permisos.py` en 94,12 %, ambos por debajo de 95 %.
-- La retirada va en un commit aparte de esta rama, que solo se sube si #61 ya está en `main`. El estado real al entregar figura en el HANDOFF_ENVELOPE.
-- Si no se sube aquí, queda pendiente: un commit que borra los dos bloques `[[excepciones]]` en cuanto se integre #61.
-- Mientras tanto, el gate avisa (`::warning::`) de que las excepciones sobran en cuanto la cobertura supera el umbral normal.
+### 31.6 F-QA022-03 (retirada de TKT-OPS-022-EXC-01/02): HECHA
+- TKT-034 (PR #61) está integrado en `main` @ ece6cb5, y esta rama ya lo contiene tras sincronizarse con `main`.
+- Verificación previa, con el CI de esta rama con TKT-034 dentro (run 37866845144, job `backend`, pytest sobre PostgreSQL con el toolchain del CI):
+  - `apps/cuentas/sesiones.py` al 100,00 % (62 sentencias, 16 ramas, 0 sin cubrir).
+  - `apps/cuentas/permisos.py` al 100,00 % (41 sentencias, 10 ramas, 0 sin cubrir).
+  - El gate avisaba en las dos: `::warning:: ... ya cumple endpoints criticos (> 95 %) con 100.00 %: retira la excepción DEC-AUTO-948 (TKT-OPS-022-EXC-0x)`.
+- Cambio: se borran los dos bloques `[[excepciones]]` de `infra/ci/cobertura_umbrales.toml`, y su cabecera registra la retirada. No queda ninguna excepción vigente, así que ninguna se mantiene.
+- Efecto en los controles: R4 (fecha simulada tras la caducidad) solo se ejecuta si hay excepciones, de modo que ahora se omite. Los controles del job `backend` pasan de 47 a 46: 39 sintéticos más R1-R3 y R5-R8.
+- Evidencia de cierre: el CI del commit de retirada, que figura en el HANDOFF_ENVELOPE de #65.
 
 ### 31.7 Riesgos / pendientes
 - `prefijos_criticos` cubre `/api/v1/panel/**`, que incluye la autenticación (`/api/v1/panel/auth/**`). Si en el futuro hay rutas autenticadas con efectos fuera de ese prefijo, se añaden a la lista con DEC-AUTO.
@@ -2561,9 +2564,9 @@ Entorno: Windows 11, Python 3.11.9, Git Bash, con `PYTHONUTF8` y `PYTHONIOENCODI
 
 ### 31.9 Próximo agente
 **Orquestador**:
-1. Confirmar el CI real del PR: el job `backend` ejecuta los 47 controles sobre el coverage.json real, y el job `infra`, los 10 del enmascarado.
+1. Confirmar el CI real del PR: el job `backend` ejecuta los 46 controles sobre el coverage.json real (47 si vuelve a haber excepciones), y el job `infra`, los 10 del enmascarado.
 2. Lanzar la QA del ticket.
-3. Cuando #61 esté en `main`, verificar que el commit de F-QA022-03 está en la rama, o asignarlo.
+3. F-QA022-03 está cerrado en esta rama (§31.6): no hay nada pendiente con #61.
 
 ## 32. TKT-OPS-029: GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj y GHSA-p8wg-vrv2-v86f (CRITICAL) en `handlebars` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-965)
 
@@ -2599,6 +2602,7 @@ No cambian imágenes, compose, workflow ni variables. `handlebars` es dependenci
 ### 32.7 Riesgos / pendientes
 - No hay riesgos nuevos. Mientras no se integre, el CI de `main` y de los PR abiertos sigue en rojo en `npm audit`.
 - Hay que renumerar la §30 duplicada del PR #65 (ver la nota de numeración).
+- Renumeración HECHA: al sincronizar el PR #65 con `main`, la sección de TKT-OPS-027 pasó a ser la §31.
 
 ### 32.8 Archivos modificados
 `frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
