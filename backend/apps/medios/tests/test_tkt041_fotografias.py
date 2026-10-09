@@ -76,7 +76,9 @@ def test_TKT041_archivos_integros_sin_metadatos_y_tamano_acotado() -> None:
                 entradas[foto.archivo]["alto"],
             )
             assert max(imagen.size) <= LADO_MAYOR_MAX
-            assert min(imagen.size) >= 480  # panorámicas incluidas
+            # Apaisadas (portadas y tarjetas recortan con object-fit), panorámicas hasta ~3:1.
+            assert 1.0 <= imagen.width / imagen.height <= 3.2
+            assert min(imagen.size) >= 380
             assert not imagen.getexif(), f"{foto.archivo} conserva EXIF"
             assert "icc_profile" not in imagen.info or imagen.info["icc_profile"] is None
     total += fotografias.MANIFIESTO.stat().st_size
