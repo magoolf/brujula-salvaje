@@ -590,14 +590,14 @@ tickets:
   - id: TKT-OPS-033
     titulo: "MEDIUM (CI frágil ante Docker Hub, 2026-10-09: 429 de límite anónimo y 504 en auth.docker.io tumban el job de infraestructura y bloquean todos los PR): reducir la dependencia de Docker Hub en CI sin credenciales nuevas: imágenes base y el frontend de sintaxis docker/dockerfile vía mirror.gcr.io u otro registro público con digest fijado, caché de capas/imágenes entre jobs, reintentos con backoff en build/pull; documentar. Si hiciera falta autenticarse en Docker Hub, es Puerta Humana (§0.5, secretos)"
     fase: F6
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_devops
     trazabilidad: [TKT-OPS-003, "RSK disponibilidad CI"]
     depende_de: []
     archivos_permitidos: ["infra/**", ".github/workflows/**", ".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-989. Runs 37993167451 (PR #79) y 37991929668 (PR #75), 4+ intentos fallidos."]
+    evidencia: ["DEC-AUTO-989. Runs 37993167451 (PR #79) y 37991929668 (PR #75), 4+ intentos fallidos.", "2026-10-09 PR #80 @ 21c0e3f (CI 37998177477 verde, 0 peticiones [auth] a Docker Hub): registry-mirrors mirror.gcr.io en dockerd y BuildKit del runner, FROM/digests sin cambios, reintentos con backoff (reintentar.sh + controles), DEVOPS_HANDOFF §34. Riesgos LOW RSK-OPS-033-A/B/C. QA ciclo 1/3 despachada.""]
     actualizado: 2026-10-09
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
