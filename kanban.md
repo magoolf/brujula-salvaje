@@ -338,14 +338,14 @@ tickets:
   - id: TKT-045
     titulo: "HIGH (QA TKT-023 F-01 + Developer TKT-023 RULE-009): (1) F-01 HIGH: restaurar revisión pierde datos: services._instantanea (l.236-259) recorre solo subtipo._meta.fields (sin M2M ni hijos) y usa campo.name sin _id; restaurar_revision (l.2198) devuelve esa instantánea, incumpliendo el contrato ('Cuerpo compatible con {Tipo}Actualizacion'): faltan relaciones, terminos_ids, fuentes (todos), tipos_ids/galeria_ids (destino), dias (itinerario), checklist (tipo), elementos (colección), destinos_ids/tipos_ids (guía) y las FK salen sin _id. Instantánea completa y respuesta conforme a {Tipo}Actualizacion para los 7 tipos; compatibilidad con revisiones antiguas incompletas (no inventar: devolver lo que haya y marcar/advertir según contrato, sin borrar datos actuales por omisión); tests por tipo ida y vuelta. (2) RULE-009 en servidor con el criterio de DEC-AUTO-977: fecha_revision válida si <= fecha actual en UTC+14; Problem Details coherente con el contrato. (3) OBS-02: analisis-publicacion debe devolver confirmable:false si un tipo del destino está RETIRADO (hoy publicar da 422 tipo_retirado tras confirmar). (4) OBS-03 hardening: saneado.py debe descartar href relativos al protocolo ('//host') y eliminar el contenido de <script>/<style>, no dejarlo como texto"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-023, "RULE-009", "SCR-038", "FEAT-039", MOD-010, "THREAT XSS"]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/saneado.py", "backend/apps/contenido/selectors.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt045*", "backend/apps/contenido/tests/test_ac_tkt006_01_reglas.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*)."]
+    evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*).", "2026-10-09 PR #76 @ cf24228: 51 tests TKT-045 (42 fallan en main), pytest completo 1380 PASS TZ=UTC (1 intermitente de concurrencia TKT-033, 3/3 al repetir) y 1381 PASS TZ=UTC-5, cobertura 97,57 %, gate de contrato 128/128. CI: backend/frontend/infra PASS; build+trivy FAIL solo por supercronic (TKT-OPS-031). QA ciclo 1/3 despachada en paralelo."]
     actualizado: 2026-10-08
   - id: TKT-046
     titulo: "LOW (Developer TKT-023): E2E intermitente AC_TKT022_02 en firefox ('route.fulfill: Fetch response has been disposed' en panel-soporte.ts:313): el soporte de TKT-022 no desmonta la ruta del borde 429 al cerrar la página; aplicar afterEach con page.unrouteAll({behavior:'ignoreErrors'}) en panel-medios*/panel-selector* como ya hace panel-contenidos.spec.ts"
