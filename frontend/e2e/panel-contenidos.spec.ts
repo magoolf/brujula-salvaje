@@ -176,9 +176,7 @@ test.describe('Panel · contenidos (TKT-023)', () => {
   });
 
   test('AC_TKT023_12 restaurar una revisión conserva categoría, fuentes y relacionados (QA TKT-023 F-01)', async ({ page }) => {
-    // F-01 es del backend (la revisión restaurada pierde colecciones y claves ajenas) y lo corrige TKT-045.
-    // Se activa con E2E_TKT045=1 hasta que TKT-045 esté integrado; después se quita esta condición.
-    test.fixme(process.env['E2E_TKT045'] !== '1', 'F-01 pendiente de TKT-045 (backend): activar con E2E_TKT045=1');
+    // F-01 (la revisión restaurada perdía colecciones y claves ajenas) lo corrigió TKT-045 en el backend.
     await entrarComoEditor(page);
     const guia = await crearGuiaPublicable(page);
     await publicarPorApi(page, 'guias', guia);
