@@ -1,0 +1,84 @@
+.pagina {
+  display: grid;
+  gap: var(--bs-space-8);
+  padding-block: var(--bs-space-6) var(--bs-space-12);
+}
+
+.cabecera {
+  display: grid;
+  gap: var(--bs-space-2);
+}
+
+.entradilla,
+.total {
+  color: var(--bs-color-text-muted);
+  max-width: var(--bs-size-measure-prose);
+}
+
+.indice ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2) var(--bs-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indice a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--bs-size-target);
+}
+
+.seccion {
+  display: grid;
+  gap: var(--bs-space-4);
+  scroll-margin-top: var(--bs-size-header-xl);
+}
+
+.grupo {
+  display: grid;
+  gap: var(--bs-space-2);
+}
+
+.enlaces {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.enlaces-seccion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2) var(--bs-space-6);
+  font-weight: var(--bs-font-weight-bold);
+}
+
+/* HANDOFF_UI_UX SCR-022: listas en columnas CSS (1 < md, 2 md, 3 ≥ xl). */
+.columnas {
+  column-count: 1;
+  column-gap: var(--bs-space-8);
+}
+
+.enlaces li {
+  break-inside: avoid;
+  padding-block: var(--bs-space-1);
+}
+
+/* Objetivo táctil ≥ 24 × 24 px (Skill_UI_UX §47.2). */
+.enlaces a {
+  display: inline-block;
+  min-height: 1.5rem;
+}
+
+@media (min-width: 48rem) {
+  .columnas {
+    column-count: 2;
+  }
+}
+
+@media (min-width: 80rem) {
+  .columnas {
+    column-count: 3;
+  }
+}

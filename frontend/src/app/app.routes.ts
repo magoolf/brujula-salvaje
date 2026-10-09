@@ -6,7 +6,8 @@ import { DATOS_ZONA_PANEL } from './core/layout/shell-publico/zona';
 /**
  * Rutas del sitio público (BLUEPRINT §10). TKT-008 añade Inicio, Destinos (listado, mapa, ficha),
  * Cuándo ir y Guardados; TKT-009 añade Itinerarios, Tipos de aventura, Guías, Colecciones,
- * Glosario, Búsqueda e Institucional (créditos incluidos). El comodín (404) queda siempre al
+ * Glosario, Búsqueda e Institucional (créditos incluidos); TKT-019 añade el Mapa del sitio
+ * (SCR-022). El comodín (404) queda siempre al
  * final. `/destinos/mapa` va antes de `/destinos/:slug` para no ser capturada como slug; mismo
  * criterio para `/guias/categoria/:slug` antes de `/guias/:slug`.
  */
@@ -165,6 +166,14 @@ const RUTAS_PUBLICAS: Routes = [
     title: 'Créditos de imágenes',
     loadComponent: () =>
       import('./features/institucional/ui/pagina-creditos').then((m) => m.PaginaCreditos),
+  },
+  {
+    path: 'mapa-del-sitio',
+    title: 'Mapa del sitio',
+    loadComponent: () =>
+      import('./features/mapa-del-sitio/ui/pagina-mapa-del-sitio').then(
+        (m) => m.PaginaMapaDelSitio,
+      ),
   },
   {
     path: '**',
