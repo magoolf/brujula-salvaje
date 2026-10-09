@@ -398,7 +398,7 @@ tickets:
   - id: TKT-050
     titulo: "LOW (QA TKT-045 F-QA045-01, preexistente, control de acceso): un Editor obtiene 200 en GET de la lista y del detalle de revisiones y en POST .../revisiones/{n}/restaurar de las páginas legales (AVISO_LEGAL, POLITICA_COOKIES, POLITICA_DATOS), solo editables por Administrador (el PUT ya da 403). Aplicar _autorizar_pagina en RestaurarRevision, DetalleRevision y la lista de revisiones cuando el tipo sea PAGINA; 403 permiso_denegado según contrato; tests por rol y página"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-045, MOD-010, "THREAT control de acceso por objeto"]
     depende_de: []

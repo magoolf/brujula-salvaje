@@ -418,3 +418,4 @@
 2026-10-09 | QA_PASS | TKT-045 | QA_VERDICT PASS ciclo 1/3 @ cf24228: restaurar ida y vuelta 110/110 en 7 tipos, revisiones antiguas 64/64, E2E de TKT-023 30/30, RULE-009 en 3 zonas, saneado 60 payloads, schemathesis 0 5xx. F-QA045-01 LOW preexistente (Editor accede a revisiones de páginas legales) -> TKT-050 (DEC-AUTO-983); OBS-QA045-03 contrato -> CHG-API-007 (DEC-AUTO-984). Ambas ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles | HANDOFF_ENVELOPE QA TKT-045
 2026-10-09 | INTEGRACION | TKT-045 | PR #76 integrado en main con QA PASS y CI verde (@ 1030e4b). DONE. TKT-023 desbloqueado | PR #76
 2026-10-09 | DELEGACION | TKT-023 | Developer: merge de main en tkt-023-panel-contenidos y AC_TKT023_12 sin condición; después re-QA ciclo 2/3 | kanban.md
+2026-10-09 | DELEGACION | TKT-050 | Developer TKT-050 (worktree aislado), disjunto de TKT-023 (frontend panel) y TKT-016 (QA) | kanban.md
