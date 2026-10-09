@@ -98,6 +98,16 @@ jobs:
       - name: "Dependabot cubre todos los Dockerfile/Containerfile (directorio listado, FROM sin ARG)"
         timeout-minutes: 5
         run: bash infra/ci/dependabot_cobertura.sh .
+      # TKT-OPS-031 (DEC-AUTO-979, CVE-2026-78667): supercronic se compila desde el fuente con Go
+      # corregido; la etapa "supercronic" va copiada en infra/backup/Dockerfile y
+      # infra/docker/backend.Dockerfile y ambas copias deben ser idénticas (golang con digest,
+      # commit SHA del tag, sin binario descargado). Primero sus controles (positivo + negativos).
+      - name: "receta supercronic: controles (P0 + N1..N6)"
+        timeout-minutes: 2
+        run: bash infra/ci/supercronic_receta_controles.sh infra/ci/supercronic_receta.sh
+      - name: "receta supercronic idéntica en scheduler y backup"
+        timeout-minutes: 2
+        run: bash infra/ci/supercronic_receta.sh .
       # RSK-OPS-001 / QA-OPS005-04 / QA-OPS006-01/02/03 (TKT-OPS-006, DEC-AUTO-252/256/258, DEC-AUTO-915):
       # política de trivy por LISTA BLANCA (infra/ci/politica_trivy.py; lista en DEVOPS_HANDOFF §19.14).
       # Carga los workflows con PyYAML (valores run: resueltos), analiza cada run: y cada *.sh como shell
