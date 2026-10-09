@@ -73,10 +73,16 @@ jobs:
         with: {persist-credentials: false, fetch-depth: 0}
       # TKT-OPS-022 (F-PRE-01): toda contraseña/clave efímera del .env se enmascara (comando add-mask
       # de Actions) nada más generarse, antes de cualquier salida que pudiera contenerla.
+      # TKT-OPS-027 (F-QA022-04): con --plantilla .env.example se enmascaran y exigen TODAS las
+      # variables que init-env.sh genera desde CHANGE_ME/CHANGE_ME_FERNET (hoy 8), tengan o no
+      # sufijo de secreto. Antes, sus controles (init-env.sh real + sintéticos negativos).
+      - name: "enmascarado del .env: controles (init-env.sh real + sintéticos)"
+        timeout-minutes: 2
+        run: bash infra/ci/enmascarar_env_controles.sh
       - name: .env efímero (valores aleatorios por ejecución, no secretos reales)
         run: |
           bash scripts/ops/init-env.sh .env
-          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
+          bash infra/ci/enmascarar_env.sh .env --plantilla .env.example DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
       - name: docker compose config (todas las variantes)
         run: |
           docker compose config --quiet
@@ -174,7 +180,8 @@ jobs:
           # TKT-OPS-022 (F-PRE-01): enmascarado (add-mask) de DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY,
           # MFA_FERNET_KEY, APP_MIGRATOR_PASSWORD (= DB_PASSWORD) y del resto de *_PASSWORD/*_KEY ANTES
           # de exportarlos a GITHUB_ENV: el runner imprime el env de cada paso; desde aquí, como ***.
-          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
+          # TKT-OPS-027 (F-QA022-04): --plantilla exige y enmascara todas las CHANGE_ME de .env.example.
+          bash infra/ci/enmascarar_env.sh .env --plantilla .env.example DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
           {
             grep -E '^(DJANGO_SECRET_KEY|THROTTLE_HMAC_KEY|MFA_FERNET_KEY)=' .env
             echo "DB_PASSWORD=$(grep '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
@@ -204,6 +211,9 @@ jobs:
       # archivo, también a partir del URLconf REAL (vistas_urlconf.py resuelve con django.urls cada ruta
       # y handlerXXX a su archivo; sin dependencias nuevas). Antes se ejecutan sus controles: 33
       # sintéticos (incluidos X1-X5 de la QA) + 6 sobre el coverage.json y el URLconf reales.
+      # TKT-OPS-027 (F-QA022-02): prefijos_criticos (/api/v1/panel/) -> todo archivo que sirve esas
+      # rutas debe ser crítico; controles: 39 sintéticos + 7 reales (R4, caducidad, solo si hay excepciones;
+      # EXC-01/02 retiradas tras TKT-034). Detalle: DEVOPS_HANDOFF §31.
       # Detalle: DEVOPS_HANDOFF §26.
       - name: "cobertura por módulo: inventario de vistas del URLconf (django.urls)"
         timeout-minutes: 5
@@ -311,7 +321,7 @@ jobs:
       - name: .env efímero (enmascarado, TKT-OPS-022)
         run: |
           bash scripts/ops/init-env.sh .env
-          bash infra/ci/enmascarar_env.sh .env DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
+          bash infra/ci/enmascarar_env.sh .env --plantilla .env.example DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
       - name: build imágenes (sin push)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: docker compose --profile ops build --pull

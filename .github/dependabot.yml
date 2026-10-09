@@ -31,6 +31,11 @@ updates:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*", "@schematics/angular"]
         update-types: ["minor", "patch"]
+      # TKT-OPS-026 (DEC-AUTO-956): vitest y sus plugins (@vitest/coverage-v8 exige la MISMA versión
+      # exacta de vitest como peer): por separado el PR falla en npm ci con ERESOLVE (PR #58).
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+        update-types: ["minor", "patch"]
 
   # Backend Django (uv + uv.lock)
   - package-ecosystem: "uv"

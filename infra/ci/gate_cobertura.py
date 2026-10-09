@@ -23,6 +23,10 @@ Qué comprueba (umbrales y listas en UMBRALES_TOML, versionado en infra/ci/):
        clasificado igual, esté donde esté y se llame como se llame; un archivo excluido o de
        [api_soporte] que sirve rutas falla; un módulo externo (fuera de backend/) debe estar en
        [vistas_externas] con motivo. Con urlconf_obligatorio = true, omitir --vistas-urlconf falla.
+    3) rutas críticas (TKT-OPS-027, F-QA022-02): todo archivo que sirve una ruta bajo un prefijo de
+       [clasificar_vistas].prefijos_criticos (p. ej. "/api/v1/panel/") debe estar en una regla de
+       vistas críticas; si está en [vistas_no_criticas], [api_soporte], excluido o sin clasificar,
+       falla. Con urlconf_obligatorio = true la lista no puede estar vacía (falla cerrado).
   - [[excepciones]] nombradas, con caducidad (como .trivyignore): rebajan el umbral de UN archivo a
     "umbral_minimo" (suelo: tampoco puede bajar de ahí) hasta "caduca". Al caducar el gate falla.
     Obligatorios: archivo, umbral_minimo, registrada, caduca, ticket, decision, motivo. Reglas:
@@ -41,6 +45,7 @@ import fnmatch
 import json
 import os
 import pathlib
+import re
 import sys
 import tomllib
 from typing import Any
@@ -97,6 +102,16 @@ def casa(ruta: str, patrones: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(ruta, pat) for pat in patrones)
 
 
+def ruta_normalizada(ruta: str) -> str:
+    """Ruta del URLconf comparable con un prefijo: sin anclas ^ de re_path y sin // repetidas."""
+    return re.sub(r"/+", "/", ruta.replace("^", ""))
+
+
+def es_ruta_critica(ruta: str, prefijos: list[str]) -> bool:
+    r = ruta_normalizada(ruta)
+    return any(r == p.rstrip("/") or r.startswith(p.rstrip("/") + "/") for p in prefijos)
+
+
 def es_numero(valor: Any) -> bool:
     return isinstance(valor, (int, float)) and not isinstance(valor, bool)
 
@@ -133,6 +148,7 @@ def evaluar(
         clasificar: list[str] = clasif["patrones"]
         excluir: list[str] = clasif.get("excluir", [])
         urlconf_obligatorio = clasif.get("urlconf_obligatorio", False) is True
+        prefijos_criticos: list[str] = clasif.get("prefijos_criticos", [])
         soporte: dict[str, str] = conf.get("api_soporte", {})
         externas: dict[str, str] = conf.get("vistas_externas", {})
         excepciones: list[dict[str, Any]] = conf.get("excepciones", [])
@@ -141,6 +157,20 @@ def evaluar(
         return 1
     if not raiz.is_dir():
         error(f"RAIZ_BACKEND {raiz} no es un directorio: falla cerrado")
+        return 1
+    if not isinstance(prefijos_criticos, list) or not all(
+        isinstance(p, str) and p.startswith("/") and p.strip("/") for p in prefijos_criticos
+    ):
+        error(
+            "[clasificar_vistas].prefijos_criticos debe ser una lista de rutas que empiezan por / "
+            f'(p. ej. "/api/v1/panel/"), no {prefijos_criticos!r}: falla cerrado'
+        )
+        return 1
+    if urlconf_obligatorio and not prefijos_criticos:
+        error(
+            "urlconf_obligatorio = true y [clasificar_vistas].prefijos_criticos está vacío: "
+            "sin prefijos no se comprueba qué archivos sirven rutas críticas: falla cerrado"
+        )
         return 1
 
     urlconf: dict[str, list[str]] | None = None
@@ -237,6 +267,24 @@ def evaluar(
     if urlconf is not None:
         for f, rutas in sorted(urlconf.items()):
             ejemplo = ", ".join(rutas[:3]) + (" ..." if len(rutas) > 3 else "")
+            criticas = [r for r in rutas if es_ruta_critica(r, prefijos_criticos)]
+            if criticas and f not in criticos:
+                donde = (
+                    "[vistas_no_criticas]"
+                    if f in no_criticas
+                    else "[api_soporte]"
+                    if f in soporte
+                    else "excluido por nombre"
+                    if casa(f, excluir)
+                    else "sin clasificar"
+                )
+                error(
+                    f"{f} sirve rutas críticas ({', '.join(criticas[:3])}"
+                    f"{' ...' if len(criticas) > 3 else ''}; prefijos {prefijos_criticos}) pero "
+                    f"está {donde}: debe estar en una regla de vistas críticas (> 95 %)"
+                )
+                fallos += 1
+                continue
             if f in soporte or (casa(f, excluir) and not clasificada(f)):
                 error(
                     f"{f} sirve rutas del URLconf ({ejemplo}) pero está declarado como "
