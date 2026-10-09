@@ -482,14 +482,14 @@ tickets:
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: ["Skill_devops §5", "Skill_devops §4.2"]
     depende_de: []
     archivos_permitidos: [".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-956. 2026-10-08: update-branch de #54-#57 ejecutado por el Orquestador; #58 run 37780415306 FAIL ERESOLVE.", "2026-10-08 PR #63 sincronizado (f829cf5, CI 37866726692 verde); QA_VERDICT PASS ciclo 1/3. Pendiente: update-branch tras #69, CI y merge; cerrar #58."]
+    evidencia: ["DEC-AUTO-956. 2026-10-08: update-branch de #54-#57 ejecutado por el Orquestador; #58 run 37780415306 FAIL ERESOLVE.", "2026-10-08 PR #63 sincronizado (f829cf5, CI 37866726692 verde); QA_VERDICT PASS ciclo 1/3. update-branch tras #69, CI verde, integrado (gh pr merge 63 --merge @ f080842); #58 cerrado para que Dependabot lo regenere agrupado. DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-025
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): GHSA-68fv-2mgg-jv7q (HIGH, DoS del bucle de eventos) en source-map-js 1.2.1, dependencia transitiva del frontend (postcss, @tailwindcss/node, css-tree, magicast, sass). Subir source-map-js a la versión corregida solo en frontend/package-lock.json (package.json sin cambios); verificar npm ci, npm audit --audit-level=high, build y tests del frontend; rama propia desde origin/main y PR"
