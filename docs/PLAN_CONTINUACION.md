@@ -2,9 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-09 (mañana, reanudación).
+> y `audit_log.md`. Última actualización: 2026-10-09 (tarde).
 
 ## 1. Estado en una línea
+
+2026-10-09 (tarde): DONE hoy TKT-OPS-031 (#77, supercronic con Go 1.26.9), TKT-044 (#72), TKT-041 (#70), TKT-045 (#76); CI de main verde. En curso: QA TKT-016 c1/3 (PR #75 @ 1731b61); Developer TKT-023 (merge main + AC_TKT023_12 sin condición, worktree agent-a1e5ec9abe3b6b896, luego re-QA c2/3); Developer TKT-050 (worktree aislado, acceso a revisiones de páginas legales). Siguientes: TKT-048 HIGH (tras TKT-016, solapa destinos/inicio), TKT-049 (tras TKT-016, core/layout), TKT-042/043/046/047, CHG-API-007, TKT-OPS-023/030/032, TKT-024/025/026/028/029/030/021/036/038/039, TKT-OPS-008/009, Dependabot #54-#57/#73/#74. Luego F9/F10.
 
 2026-10-09 (reanudación tras corte de 2026-10-08 23:05): DONE recientes TKT-019, TKT-OPS-026, TKT-OPS-027. En curso (relanzados desde checkpoint, scratchpad 56bc59a0…): QA TKT-044 c2/3 (PR #72 @ f524fbb, worktree %TEMP%/qa044, BD brujulaqa044); QA TKT-041 c2/3 (PR #70 @ e014094, worktree %TEMP%/qa041c2, stack brujulaqa041c2); Developer TKT-045 (worktree agent-ad738625364edf361, 2 commits sin push, checkpoint PROGRESO_TKT045.md, BD brujuladev045; falta pytest completo, merge main, PR). En espera: TKT-023 (PR #71 @ c75ad27, re-QA c2 tras integrar TKT-045 con E2E_TKT045=1), TKT-016 (worktree agent-a9207b2a8b8597c65, commit wip a5b9092; diagnóstico: CLS en /acerca-de y /creditos porque el contenido SSR se sustituye por esqueleto al hidratar y desplaza app-pie-sitio; spec de diagnóstico zz-diag016 sin commit; stack brujuladev016 parado). Siguientes TODO: TKT-042, TKT-043, TKT-046, TKT-047, TKT-048 (HIGH, antes de F9), CHG-API-007, TKT-OPS-023, TKT-OPS-030, TKT-024/025/026/028/029/030/021/036/038/039, TKT-OPS-008/009; Dependabot #54-#57, #73, #74 (QA de regresión). Luego F9/F10.
 
