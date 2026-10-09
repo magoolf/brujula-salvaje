@@ -395,3 +395,4 @@
 2026-10-08 | DELEGACION | TKT-045, TKT-023 | Developer TKT-045 (worktree aislado, BD brujuladev045; disjunto de TKT-041 y TKT-044) y ciclo de corrección 2/3 de TKT-023 (F-02 foco, OBS-01 con DEC-AUTO-977, assert fixme de restauración hasta TKT-045) | kanban.md
 2026-10-08 | ENTREGA | TKT-044 | Ciclo 2/3 @ f524fbb, CI verde: F-A corregido (sin ciclo en __cause__, recorrido seguro, clave anterior invalidada antes del log, pruebas HTTP con plazo). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-044
 2026-10-08 | ENTREGA | TKT-023 | Ciclo 2/3 @ c75ad27, CI verde: F-02 y OBS-01 corregidos; E2E de restauración preparada y condicionada a TKT-045. Estado BLOCKED (depende de TKT-045) hasta el re-QA | HANDOFF_ENVELOPE TKT-023
+2026-10-08 | DELEGACION | TKT-016 | Reanudación del Developer (worktree agent-a9207b2a8b8597c65 con trabajo sin commit; stack brujuladev016): commit intermedio, merge de main, causa raíz del CLS del shell | kanban.md
