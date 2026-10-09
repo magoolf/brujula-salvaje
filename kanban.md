@@ -398,14 +398,14 @@ tickets:
   - id: TKT-050
     titulo: "LOW (QA TKT-045 F-QA045-01, preexistente, control de acceso): un Editor obtiene 200 en GET de la lista y del detalle de revisiones y en POST .../revisiones/{n}/restaurar de las páginas legales (AVISO_LEGAL, POLITICA_COOKIES, POLITICA_DATOS), solo editables por Administrador (el PUT ya da 403). Aplicar _autorizar_pagina en RestaurarRevision, DetalleRevision y la lista de revisiones cuando el tipo sea PAGINA; 403 permiso_denegado según contrato; tests por rol y página"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-045, MOD-010, "THREAT control de acceso por objeto"]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt050*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-983. Reproducción: scratchpad 7e63c98e…/qa/acceso.log.", "2026-10-09 PR #79 @ f8e04e5 (CI verde): _autorizar_revisiones en lista/detalle/restaurar (404 antes que 403, 403 antes de buscar la revisión y de auditar); 46 tests (16 FAIL en main); pytest 1458 PASS; contrato sin cambios (403 ya declarado). QA ciclo 1/3 despachada.""]
+    evidencia: ["DEC-AUTO-983. Reproducción: scratchpad 7e63c98e…/qa/acceso.log.", "2026-10-09 PR #79 @ f8e04e5 (CI verde): _autorizar_revisiones en lista/detalle/restaurar (404 antes que 403, 403 antes de buscar la revisión y de auditar); 46 tests (16 FAIL en main); pytest 1458 PASS; contrato sin cambios (403 ya declarado). QA ciclo 1/3 despachada."", "2026-10-09 QA_VERDICT PASS ciclo 1/3 @ f8e04e5: HTTP real 163/0 (403 Problem conforme, sin auditoría ni cambio de versión, sin oráculo de enumeración), pytest 1462, schemathesis Editor/Admin 0 5xx, semgrep/bandit/gitleaks 0. OBS-QA050-01 -> TKT-023 ciclo 3; OBS-QA050-02 -> TKT-052. CI retrasado por caída de Docker Hub; integrado PR #79 @ cad9123. DONE."]
     actualizado: 2026-10-09
   - id: TKT-051
     titulo: "MEDIUM (QA TKT-023 OBS-BE-01): el PUT de un Tipo PUBLICADO valida el mínimo de 8 elementos del checklist contra el checklist guardado y no contra el enviado: acepta reducirlo a 7 (queda publicado incumpliendo RULE) y después rechaza con 422 checklist_insuficiente cualquier corrección (6, 8 o 10), bloqueando el contenido. Validar requisitos de publicación sobre el estado resultante del PUT para todos los tipos y colecciones de hijos (checklist, días, elementos, relaciones); tests de regresión, incluida la recuperación de contenido ya inconsistente"
@@ -585,19 +585,19 @@ tickets:
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-982. Mutaciones M3-M7 de la QA (rc=0)."]
+    evidencia: ["DEC-AUTO-982. Mutaciones M3-M7 de la QA (rc=0).", "2026-10-09 (DEC-AUTO-990) se añaden F-QA033-01 (fijar # syntax=docker/dockerfile:1@sha256 en los 5 Dockerfile y moby/buildkit por digest en setup-buildx-action) y F-QA033-02 (up --no-build tras el build con reintentos, también en el smoke; corregir DEVOPS_HANDOFF §34.4)."]
     actualizado: 2026-10-09
   - id: TKT-OPS-033
     titulo: "MEDIUM (CI frágil ante Docker Hub, 2026-10-09: 429 de límite anónimo y 504 en auth.docker.io tumban el job de infraestructura y bloquean todos los PR): reducir la dependencia de Docker Hub en CI sin credenciales nuevas: imágenes base y el frontend de sintaxis docker/dockerfile vía mirror.gcr.io u otro registro público con digest fijado, caché de capas/imágenes entre jobs, reintentos con backoff en build/pull; documentar. Si hiciera falta autenticarse en Docker Hub, es Puerta Humana (§0.5, secretos)"
     fase: F6
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_devops
     trazabilidad: [TKT-OPS-003, "RSK disponibilidad CI"]
     depende_de: []
     archivos_permitidos: ["infra/**", ".github/workflows/**", ".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-989. Runs 37993167451 (PR #79) y 37991929668 (PR #75), 4+ intentos fallidos.", "2026-10-09 PR #80 @ 21c0e3f (CI 37998177477 verde, 0 peticiones [auth] a Docker Hub): registry-mirrors mirror.gcr.io en dockerd y BuildKit del runner, FROM/digests sin cambios, reintentos con backoff (reintentar.sh + controles), DEVOPS_HANDOFF §34. Riesgos LOW RSK-OPS-033-A/B/C. QA ciclo 1/3 despachada.""]
+    evidencia: ["DEC-AUTO-989. Runs 37993167451 (PR #79) y 37991929668 (PR #75), 4+ intentos fallidos.", "2026-10-09 PR #80 @ 21c0e3f (CI 37998177477 verde, 0 peticiones [auth] a Docker Hub): registry-mirrors mirror.gcr.io en dockerd y BuildKit del runner, FROM/digests sin cambios, reintentos con backoff (reintentar.sh + controles), DEVOPS_HANDOFF §34. Riesgos LOW RSK-OPS-033-A/B/C. QA ciclo 1/3 despachada."", "2026-10-09 QA_VERDICT PASS ciclo 1/3 @ 21c0e3f: 0 gates eliminados, acciones por SHA, permisos sin cambios, espejo con mismo digest que Docker Hub, reintentar.sh 6/6 + 6 mutaciones, espejo_registro.sh 13/13, controles infra/ci OK, gitleaks/semgrep/shellcheck limpios. F-QA033-01/02 LOW -> TKT-OPS-032. Integrado PR #80. DONE."]
     actualizado: 2026-10-09
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"

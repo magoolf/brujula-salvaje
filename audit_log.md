@@ -433,3 +433,7 @@
 2026-10-09 | CI_FAIL | TKT-050, TKT-016 | Job de infraestructura falla por Docker Hub (429 límite anónimo, 504 auth.docker.io) en PR #79 y #75, varios reintentos. DEC-AUTO-989 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): TKT-OPS-033 MEDIUM para reducir la dependencia de Docker Hub en CI | run 37993167451, 37991929668
 2026-10-09 | DELEGACION | TKT-OPS-033 | 3.er reintento del CI de #79 también falla (504 auth.docker.io desde runners de GitHub): DevOps TKT-OPS-033 despachado; #79 y #75 esperan a su integración | kanban.md
 2026-10-09 | ENTREGA | TKT-OPS-033 | PR #80 @ 21c0e3f, CI verde sin depender de Docker Hub (espejo mirror.gcr.io en dockerd/BuildKit, digests intactos, reintentos). QA ciclo 1/3 despachada | HANDOFF_ENVELOPE devops
+2026-10-09 | QA_PASS | TKT-050 | QA_VERDICT PASS ciclo 1/3 @ f8e04e5 (163/0 por HTTP real, sin side effects ni enumeración). OBS-QA050-01 -> TKT-023, OBS-QA050-02 -> TKT-052 | HANDOFF_ENVELOPE QA TKT-050
+2026-10-09 | INTEGRACION | TKT-050 | Docker Hub recuperado; update-branch y CI verde: PR #79 integrado (@ cad9123). DONE | PR #79
+2026-10-09 | QA_PASS | TKT-OPS-033 | QA_VERDICT PASS ciclo 1/3 @ 21c0e3f: sin gates debilitados, integridad por digest, reintentos sin enmascarar errores. F-QA033-01/02 LOW -> TKT-OPS-032 (DEC-AUTO-990, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-OPS-033
+2026-10-09 | INTEGRACION | TKT-OPS-033 | PR #80 integrado en main con QA PASS y CI verde. DONE. El CI ya no depende de Docker Hub | PR #80
