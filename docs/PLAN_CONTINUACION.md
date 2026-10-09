@@ -2,9 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-08 (noche).
+> y `audit_log.md`. Última actualización: 2026-10-08 (noche, 2.ª reanudación).
 
 ## 1. Estado en una línea
+
+2026-10-08 (noche, 2.ª reanudación tras reinicio del equipo): DONE recientes TKT-034, TKT-037, CHG-API-006, TKT-022, TKT-040, TKT-OPS-029; CI de main verde. En curso (relanzados desde checkpoints en %TEMP%/claude/C--Users-HOME-Music-STACK-TECNOLOIGICO/e1176066-db5d-4635-a4e2-87432c5f81af/scratchpad/): QA TKT-019 ciclo 2/3 (PR #69, worktree %TEMP%/qa019c2, stack brujulaqa019, checkpoint qa019c2/); Developer TKT-044 (worktree agent-a115fbb767994a773, BD brujuladev044, checkpoint dev044/); Developer TKT-041 fotos reales (worktree agent-a50d7563b230a72f4, checkpoint dev041/); DevOps sincroniza PR #63 (TKT-OPS-026) y #65 (TKT-OPS-027) con main. En espera: TKT-023 (worktree agent-a1e5ec9abe3b6b896, rama ya al día con main+TKT-022, stack brujuladev023 parado; pendiente regresión panel 3 motores, build y PR; checkpoint en scratchpad 6f18847b…/dev023/) y TKT-016 (trabajo sin commit en agent-a9207b2a8b8597c65). Siguientes TODO: TKT-042, TKT-043, CHG-API-007, TKT-OPS-023, TKT-024/025/026/028/029/030/021/036/038/039, TKT-OPS-008/009; Dependabot #54-#57 (QA de regresión). Luego F9/F10.
 
 2026-10-08 (noche, reanudación tras corte): TKT-OPS-028 DONE (PR #64 @ ea33268). Nueva CVE CRITICAL de handlebars rompe npm audit del frontend en todos los PR -> TKT-OPS-029 (DevOps, worktree .claude/worktrees/ops029). En curso: Developer TKT-037 (worktree agent-a379d59dc3af1300f, checkpoint scratchpad anterior dev037/PROGRESO.md) y Developer TKT-022 ciclo 2/3 (worktree agent-aee3d2c5be57fe466, checkpoint dev022/PROGRESO.md). En espera, con trabajo SIN commit preservado en su worktree: TKT-016 (agent-a9207b2a8b8597c65), TKT-019 (agent-a4d5ae9ee0a1d82d8); TKT-023 (agent-a1e5ec9abe3b6b896, 2 commits sin push, checkpoint dev023/PROGRESO.md). Stacks brujuladev016/019/023 parados (docker compose -p <p> start para reanudar). Tras TKT-OPS-029: update-branch y CI de #61 (TKT-034, QA PASS -> merge), #62 (CHG-API-006, QA pendiente), #63 (TKT-OPS-026), #65 (TKT-OPS-027). Checkpoints de la sesión anterior: %TEMP%/claude/C--Users-HOME-Music-STACK-TECNOLOIGICO/6f18847b-79b8-4146-946a-a6ee99b64c5b/scratchpad/.
 
