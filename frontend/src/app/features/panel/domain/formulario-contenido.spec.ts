@@ -14,7 +14,7 @@ import {
   esSlugValido,
   esUrlHttp,
   etiquetaCampo,
-  fechaLocal,
+  fechaMaximaRevision,
   formularioVacio,
   hayCambios,
   idCampo,
@@ -88,7 +88,24 @@ describe('formulario de contenido (dominio, TKT-023)', () => {
       fechaRevision: MENSAJES.fechaFutura,
     });
     expect(validarFormato(con('GUIA', { fechaRevision: HOY }), HOY)).toEqual({});
-    expect(fechaLocal(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+
+  it('AC_TKT023_02 RULE-009 (DEC-AUTO-977): la fecha máxima es la fecha actual en UTC+14, sin depender de la zona local', () => {
+    // 2026-10-08 20:30 en Bogotá (UTC-5) = 2026-10-09 01:30 UTC: con la fecha local se bloqueaba «hoy» en UTC.
+    const nocheEnBogota = new Date('2026-10-09T01:30:00Z');
+    expect(fechaMaximaRevision(nocheEnBogota)).toBe('2026-10-09');
+    expect(validarFormato(con('GUIA', { fechaRevision: '2026-10-09' }), fechaMaximaRevision(nocheEnBogota))).toEqual({});
+    expect(validarFormato(con('GUIA', { fechaRevision: '2026-10-08' }), fechaMaximaRevision(nocheEnBogota))).toEqual({});
+    // Mediodía UTC: en UTC+14 ya es el día siguiente; dos días después sí es futura en todas las zonas.
+    expect(fechaMaximaRevision(new Date('2026-10-08T12:00:00Z'))).toBe('2026-10-09');
+    expect(validarFormato(con('GUIA', { fechaRevision: '2026-10-10' }), fechaMaximaRevision(new Date('2026-10-08T12:00:00Z')))).toEqual({
+      fechaRevision: MENSAJES.fechaFutura,
+    });
+    // Justo antes del cambio de día en UTC+14 y justo después.
+    expect(fechaMaximaRevision(new Date('2026-10-08T09:59:59.999Z'))).toBe('2026-10-08');
+    expect(fechaMaximaRevision(new Date('2026-10-08T10:00:00Z'))).toBe('2026-10-09');
+    // Fin de año.
+    expect(fechaMaximaRevision(new Date('2026-12-31T10:00:00Z'))).toBe('2027-01-01');
   });
 
   it('AC_TKT023_03 destino: rangos, duración mínima ≤ máxima, coordenadas y tipo principal', () => {

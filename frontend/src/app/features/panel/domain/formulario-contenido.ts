@@ -536,7 +536,7 @@ function validarPagina(f: FormularioContenido, errores: Errores): void {
 /**
  * Validación de formato al «Guardar borrador» (FLOW-011 paso 3). Nunca exige los requisitos de
  * publicación: esos los indica el CompletenessPanel y se validan en SCR-038.
- * @param hoy Fecha local de hoy (AAAA-MM-DD) para RULE-009.
+ * @param hoy Fecha máxima admitida para la revisión (AAAA-MM-DD), de `fechaMaximaRevision` (RULE-009).
  */
 export function validarFormato(f: FormularioContenido, hoy: string): ErroresFormulario {
   const errores: Errores = {};
@@ -567,11 +567,17 @@ export function validarFormato(f: FormularioContenido, hoy: string): ErroresForm
   return errores;
 }
 
-/** Fecha local AAAA-MM-DD (para el máximo del campo de revisión y RULE-009). */
-export function fechaLocal(fecha: Date): string {
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  return `${fecha.getFullYear()}-${mes}-${dia}`;
+/** Desfase de la zona horaria más adelantada (UTC+14, Kiritimati). */
+const DESFASE_MAXIMO_MS = 14 * 60 * 60 * 1000;
+
+/**
+ * Fecha máxima admitida (AAAA-MM-DD) para la revisión y las fechas de consulta (RULE-009,
+ * DEC-AUTO-977): la fecha actual en UTC+14. Una fecha es «futura» solo si lo es en todas las zonas
+ * horarias, así que el criterio no depende de la zona del navegador ni de la hora del día; con la
+ * fecha local, un contenido revisado «hoy» en otra zona se bloqueaba al guardar o publicar.
+ */
+export function fechaMaximaRevision(ahora: Date): string {
+  return new Date(ahora.getTime() + DESFASE_MAXIMO_MS).toISOString().slice(0, 10);
 }
 
 /** Id del DOM del control de un campo (destino de los enlaces del ErrorSummary). */

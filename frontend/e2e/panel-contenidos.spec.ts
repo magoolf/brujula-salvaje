@@ -175,6 +175,29 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     expect(publica.status()).toBe(200);
   });
 
+  test('AC_TKT023_12 restaurar una revisión conserva categoría, fuentes y relacionados (QA TKT-023 F-01)', async ({ page }) => {
+    // F-01 es del backend (la revisión restaurada pierde colecciones y claves ajenas) y lo corrige TKT-045.
+    // Se activa con E2E_TKT045=1 hasta que TKT-045 esté integrado; después se quita esta condición.
+    test.fixme(process.env['E2E_TKT045'] !== '1', 'F-01 pendiente de TKT-045 (backend): activar con E2E_TKT045=1');
+    await entrarComoEditor(page);
+    const guia = await crearGuiaPublicable(page);
+    await publicarPorApi(page, 'guias', guia);
+    await irA(page, `/panel/contenido/guias/${guia.id}`);
+    await expect(page.getByTestId('editor-historial')).toContainText('Revisión 1');
+    const categoria = await page.getByTestId('campo-categoria').inputValue();
+    expect(categoria).not.toBe('');
+    await expect(page.getByTestId('campo-fuentes-0-titulo')).toHaveValue('Fuente de prueba');
+    await expect(page.getByTestId('editor-relaciones').locator('li')).toHaveCount(3);
+
+    await page.getByTestId('editor-restaurar-1').click();
+    await page.getByTestId('editor-confirmacion-confirmar').click();
+    await expect(page.getByTestId('editor-aviso')).toContainText('revisión 1');
+    await expect(page.getByTestId('campo-categoria')).toHaveValue(categoria);
+    await expect(page.getByTestId('campo-fuentes-0-titulo')).toHaveValue('Fuente de prueba');
+    await expect(page.getByTestId('campo-fuentes-0-url')).toHaveValue('https://example.org/fuente');
+    await expect(page.getByTestId('editor-relaciones').locator('li')).toHaveCount(3);
+  });
+
   test('AC_TKT023_07 publicar un borrador incompleto: lista de errores enlazada y sigue en BORRADOR', async ({ page }) => {
     await entrarComoEditor(page);
     const guia = await crearBorrador(page, 'guias', `Guía incompleta ${sufijo()}`);
@@ -219,6 +242,46 @@ test.describe('Panel · contenidos (TKT-023)', () => {
     await expect(page.getByTestId('editor-estado')).toHaveText('Borrador');
     await expect(page.getByTestId('editor-aviso')).toContainText('Reactivaste');
     await expect(page.getByTestId('campo-slug')).toHaveValue(guia.slug ?? '');
+  });
+
+  test('AC_TKT023_10 / AC_TKT023_11 foco: cerrar «Retirar» y «Eliminar borrador» lo devuelve a «Más acciones» (QA TKT-023 F-02)', async ({ page }) => {
+    await entrarComoEditor(page);
+    const masAcciones = page.getByTestId('editor-mas-acciones');
+
+    // Retirar (contenido publicado): con «Cancelar» y con Escape.
+    const guia = await crearGuiaPublicable(page);
+    await publicarPorApi(page, 'guias', guia);
+    await irA(page, `/panel/contenido/guias/${guia.id}`);
+    for (const cerrar of ['cancelar', 'escape'] as const) {
+      await masAcciones.focus();
+      await page.keyboard.press('Enter');
+      await page.getByTestId('editor-retirar').focus();
+      await page.keyboard.press('Enter');
+      const retiro = page.getByTestId('dialogo-retiro');
+      await expect(page.getByTestId('retiro-motivo')).toBeFocused();
+      if (cerrar === 'cancelar') await page.getByTestId('retiro-cancelar').click();
+      else await page.keyboard.press('Escape');
+      await expect(retiro).toBeHidden();
+      await expect(masAcciones).toBeFocused();
+    }
+    expect((await obtenerContenido(page, 'guias', guia.id)).estado_editorial).toBe('PUBLICADO');
+
+    // Eliminar borrador (nunca publicado): con Escape y con «Cancelar».
+    const borrador = await crearBorrador(page, 'guias', `Guía foco ${sufijo()}`);
+    await irA(page, `/panel/contenido/guias/${borrador.id}`);
+    for (const cerrar of ['escape', 'cancelar'] as const) {
+      await masAcciones.focus();
+      await page.keyboard.press('Enter');
+      await page.getByTestId('editor-eliminar').focus();
+      await page.keyboard.press('Enter');
+      const confirmacion = page.getByTestId('editor-confirmacion');
+      await expect(page.getByTestId('editor-confirmacion-cancelar')).toBeFocused();
+      if (cerrar === 'cancelar') await page.getByTestId('editor-confirmacion-cancelar').click();
+      else await page.keyboard.press('Escape');
+      await expect(confirmacion).toBeHidden();
+      await expect(masAcciones).toBeFocused();
+    }
+    expect((await obtenerContenido(page, 'guias', borrador.id)).estado_editorial).toBe('BORRADOR');
   });
 
   test('AC_TKT023_05 conflicto de versión: aviso sin sobrescribir y «Recargar»', async ({ page }) => {

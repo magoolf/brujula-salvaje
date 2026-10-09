@@ -10,6 +10,7 @@ import {
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -22,6 +23,7 @@ import { rutaEditor } from '../domain/contenidos';
 import { RefContenido } from '../domain/formulario-contenido';
 import { ETIQUETA_TIPO_SINGULAR } from '../domain/tablero';
 import { PublicacionStore } from '../state/publicacion.store';
+import { destinoFoco } from './dialogo-confirmacion';
 
 /**
  * SCR-038 variante «Retirar» (FEAT-037, FLOW-012, RULE-007/025, AC-112/127/128): alertdialog con
@@ -180,6 +182,8 @@ export class DialogoRetiro {
   readonly titulo = input.required<string>();
   /** Confirmar con el motivo escrito (el editor ejecuta el retiro con el store). */
   readonly retirar = output<string>();
+  /** Destino del foco al cerrar (el disparador «Más acciones»: el botón «Retirar» se oculta con el menú). */
+  readonly retornoFoco = input<HTMLElement | null>(null);
 
   protected readonly store = inject(PublicacionStore);
   protected readonly enLinea = inject(Conectividad).enLinea;
@@ -189,6 +193,8 @@ export class DialogoRetiro {
   private readonly campoMotivo = viewChild<ElementRef<HTMLTextAreaElement>>('motivoCampo');
   private readonly encabezado = viewChild.required<ElementRef<HTMLHeadingElement>>('encabezado');
   private origen: HTMLElement | null = null;
+  /** `retornoFoco` al abrir: el disparador puede cambiar al cerrar (p. ej. la confirmación vuelve a null). */
+  private retorno: HTMLElement | null = null;
   protected readonly maximo = LONGITUD_MAXIMA_MOTIVO;
   protected readonly etiquetaDestacado = ETIQUETA_DESTACADO;
   protected readonly etiquetaTipo = ETIQUETA_TIPO_SINGULAR;
@@ -221,13 +227,15 @@ export class DialogoRetiro {
       const dialogo = this.dialogo().nativeElement;
       if (abierto && !dialogo.open) {
         this.origen = this.documento.activeElement as HTMLElement | null;
+        this.retorno = untracked(this.retornoFoco);
         this.motivo.set('');
         dialogo.showModal();
         this.encabezado().nativeElement.focus();
       } else if (!abierto && dialogo.open) {
         dialogo.close();
-        this.origen?.focus();
+        destinoFoco(this.retorno, this.origen)?.focus();
         this.origen = null;
+        this.retorno = null;
       }
     });
     // Con el impacto calculado, el foco va al motivo (o al título si está bloqueado).

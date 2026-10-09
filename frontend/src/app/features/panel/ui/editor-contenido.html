@@ -808,7 +808,7 @@
             }
             @if (a.retirar || a.eliminar) {
               <details class="mas-acciones" [open]="masAcciones()" (toggle)="masAcciones.set($any($event.target).open)">
-                <summary data-testid="editor-mas-acciones">Más acciones</summary>
+                <summary #resumenMasAcciones data-testid="editor-mas-acciones">Más acciones</summary>
                 <div class="menu-acciones">
                   @if (a.retirar) {
                     <button type="button" appBoton variante="danger" data-testid="editor-retirar" [disabled]="!enLinea()" (click)="abrirRetiro()">Retirar</button>
@@ -863,6 +863,7 @@
       [abierto]="dialogoRetiro()"
       (abiertoChange)="cerrarDialogoRetiro($event)"
       [titulo]="contenido.formulario.titulo"
+      [retornoFoco]="resumenMasAcciones()?.nativeElement ?? null"
       (retirar)="confirmarRetiro($event)"
     />
   }
@@ -876,6 +877,7 @@
     [textoCancelar]="textoConfirmacion().cancelar"
     [procesando]="store.procesando()"
     idBase="editor-confirmacion"
+    [retornoFoco]="confirmacion() === 'eliminar' ? (resumenMasAcciones()?.nativeElement ?? null) : null"
     (confirmar)="confirmacion() === 'salir' ? responderSalida(true) : confirmar()"
   >
     <p>{{ textoConfirmacion().texto }}</p>

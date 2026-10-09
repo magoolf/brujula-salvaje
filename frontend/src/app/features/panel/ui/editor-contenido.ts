@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import {
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
   afterNextRender,
   computed,
@@ -9,6 +10,7 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
@@ -51,7 +53,7 @@ import {
   anadirSinDuplicados,
   anuncioMovido,
   etiquetaCampo,
-  fechaLocal,
+  fechaMaximaRevision,
   hayCambios,
   idCampo,
   idDestinoCampo,
@@ -145,7 +147,7 @@ export class EditorContenido {
   protected readonly etiquetaTipo = ETIQUETA_TIPO_SINGULAR;
   protected readonly etiquetaMotivo = ETIQUETA_MOTIVO_REVISION;
   protected readonly etiquetaAccion = ETIQUETA_ACCION;
-  protected readonly hoy = fechaLocal(new Date());
+  protected readonly hoy = fechaMaximaRevision(new Date());
   protected readonly id = idCampo;
   /** Fragmento de los enlaces a un campo (ErrorSummary, CompletenessPanel): href real, no «#». */
   protected readonly destinoCampo = idDestinoCampo;
@@ -167,6 +169,11 @@ export class EditorContenido {
   protected readonly revisionARestaurar = signal<{ numero: number; fecha: Date } | null>(null);
   protected readonly diaAbierto = signal<string | null>(null);
   protected readonly masAcciones = signal(false);
+  /**
+   * Disparador del menú «Más acciones»: al abrir «Retirar» o «Eliminar borrador» el menú se cierra y su
+   * botón deja de poder recibir el foco, así que el diálogo lo devuelve aquí al cerrarse (WCAG 2.4.3).
+   */
+  protected readonly resumenMasAcciones = viewChild<ElementRef<HTMLElement>>('resumenMasAcciones');
   /** Slug editado a mano: deja de proponerse desde el título (RULE-008). */
   private slugManual = false;
   private resolverSalida: ((salir: boolean) => void) | null = null;
@@ -548,7 +555,7 @@ export class EditorContenido {
   // ------------------------------------------------------------------ comandos
   /** Valida el formato y muestra el ErrorSummary si hay errores. */
   private validar(): boolean {
-    const errores = validarFormato(this.valor(), fechaLocal(new Date()));
+    const errores = validarFormato(this.valor(), fechaMaximaRevision(new Date()));
     this.erroresLocales.set(errores);
     const hay = Object.keys(errores).length > 0;
     this.mostrarResumen(hay);

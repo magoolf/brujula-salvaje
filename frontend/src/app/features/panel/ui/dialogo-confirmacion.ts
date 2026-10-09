@@ -1,12 +1,13 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 
 import { Boton, VarianteBoton } from '../../../shared/ui/boton/boton';
 
 /**
  * Diálogo de confirmación del panel (HANDOFF Dialog/alertdialog): <dialog> modal nativo (resto de la
  * página inerte), foco inicial en «Cancelar» (acciones destructivas), Escape cancela y el foco vuelve
- * al control que lo abrió. Controlado con `[abierto]` + `(abiertoChange)`.
+ * al control que lo abrió (o a `retornoFoco` si se indica: p. ej. el disparador de un menú que se cierra
+ * al abrir el diálogo, WCAG 2.4.3). Controlado con `[abierto]` + `(abiertoChange)`.
  */
 @Component({
   selector: 'app-dialogo-confirmacion',
@@ -64,11 +65,15 @@ export class DialogoConfirmacion {
   /** Prefijo de los id y del data-testid. */
   readonly idBase = input('dialogo-confirmacion');
   readonly confirmar = output<void>();
+  /** Destino del foco al cerrar cuando el control que abrió el diálogo ya no está visible. */
+  readonly retornoFoco = input<HTMLElement | null>(null);
 
   private readonly documento = inject(DOCUMENT);
   private readonly dialogo = viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
   private readonly botonCancelar = viewChild.required<ElementRef<HTMLButtonElement>>('cancelar');
   private origen: HTMLElement | null = null;
+  /** `retornoFoco` al abrir: el disparador puede cambiar al cerrar (p. ej. la confirmación vuelve a null). */
+  private retorno: HTMLElement | null = null;
 
   constructor() {
     effect(() => {
@@ -76,12 +81,14 @@ export class DialogoConfirmacion {
       const dialogo = this.dialogo().nativeElement;
       if (abierto && !dialogo.open) {
         this.origen = this.documento.activeElement as HTMLElement | null;
+        this.retorno = untracked(this.retornoFoco);
         dialogo.showModal();
         this.botonCancelar().nativeElement.focus();
       } else if (!abierto && dialogo.open) {
         dialogo.close();
-        this.origen?.focus();
+        destinoFoco(this.retorno, this.origen)?.focus();
         this.origen = null;
+        this.retorno = null;
       }
     });
   }
@@ -94,4 +101,13 @@ export class DialogoConfirmacion {
     evento.preventDefault();
     if (!this.procesando()) this.cerrar();
   }
+}
+
+/**
+ * Elemento al que vuelve el foco al cerrar un diálogo: `retorno` si sigue en el documento; si no, el
+ * control que lo abrió. Un elemento dentro de un <details> cerrado (menú «Más acciones») sigue conectado
+ * pero no puede recibir el foco: por eso el editor indica el <summary> como `retorno`.
+ */
+export function destinoFoco(retorno: HTMLElement | null, origen: HTMLElement | null): HTMLElement | null {
+  return retorno?.isConnected ? retorno : origen;
 }

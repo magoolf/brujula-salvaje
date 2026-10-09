@@ -559,6 +559,61 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(existe('retiro-motivo')).toBe(false);
     await pulsar(m, 'retiro-entendido');
     expect(el('dialogo-retiro').hasAttribute('open')).toBe(false);
+    // F-02 (QA ciclo 1): «Retirar» se oculta con el menú; el foco vuelve a «Más acciones».
+    expect(document.activeElement).toBe(el('editor-mas-acciones'));
+  });
+
+  it('AC_TKT023_10 / AC_TKT023_11 F-02: al cerrar «Retirar» o «Eliminar borrador» el foco vuelve a «Más acciones»', async () => {
+    let m = await montar('/panel/contenido/destinos/11', (r) =>
+      r.obtener.mockResolvedValue(contenido({ estado: 'PUBLICADO', nuncaPublicado: false, urlPublica: '/destinos/torres-del-paine' })),
+    );
+    await vi.waitFor(() => expect(existe('editor-mas-acciones')).toBe(true));
+    el('editor-mas-acciones').click();
+    await estable(m.harness);
+    await pulsar(m, 'editor-retirar');
+    await vi.waitFor(() => expect(existe('retiro-cancelar')).toBe(true));
+    await pulsar(m, 'retiro-cancelar');
+    expect(el('dialogo-retiro').hasAttribute('open')).toBe(false);
+    expect(document.activeElement).toBe(el('editor-mas-acciones'));
+    expect(m.repo.retirar).not.toHaveBeenCalled();
+    TestBed.resetTestingModule();
+
+    m = await montar('/panel/contenido/destinos/11');
+    await vi.waitFor(() => expect(existe('editor-mas-acciones')).toBe(true));
+    el('editor-mas-acciones').click();
+    await estable(m.harness);
+    await pulsar(m, 'editor-eliminar');
+    expect(document.activeElement).toBe(el('editor-confirmacion-cancelar'));
+    el('editor-confirmacion').dispatchEvent(new Event('cancel', { cancelable: true }));
+    await estable(m.harness);
+    expect(el('editor-confirmacion').hasAttribute('open')).toBe(false);
+    expect(document.activeElement).toBe(el('editor-mas-acciones'));
+    expect(m.repo.eliminar).not.toHaveBeenCalled();
+  });
+
+  it('AC_TKT023_02 RULE-009 (DEC-AUTO-977): a las 20:30 en Bogotá se guarda con la fecha de revisión de hoy en UTC', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-09T01:30:00Z'));
+    try {
+      const m = await montar('/panel/contenido/guias/11', (r) =>
+        r.obtener.mockResolvedValue(contenido({ tipo: 'GUIA', formulario: formulario('GUIA', { fechaRevision: '2026-10-09' }) })),
+      );
+      await vi.waitFor(() => expect(existe('campo-fechaRevision')).toBe(true));
+      expect(el<HTMLInputElement>('campo-fechaRevision').max).toBe('2026-10-09');
+      escribir('campo-titulo', 'Capas para la montaña');
+      await estable(m.harness);
+      await pulsar(m, 'editor-guardar');
+      expect(existe('campo-fechaRevision-error')).toBe(false);
+      expect(m.repo.actualizar).toHaveBeenCalledWith(11, expect.objectContaining({ fechaRevision: '2026-10-09' }), 3);
+
+      escribir('campo-fechaRevision', '2026-10-11');
+      await estable(m.harness);
+      await pulsar(m, 'editor-guardar');
+      expect(el('campo-fechaRevision-error').textContent).toContain('no puede ser futura');
+      expect(m.repo.actualizar).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AC_TKT023_11 reactivar como borrador y eliminar un borrador nunca publicado', async () => {
