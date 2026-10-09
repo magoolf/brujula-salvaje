@@ -85,6 +85,8 @@ TIPO_A_RUTA = {v: k for k, v in RUTA_A_TIPO.items()}
 TIPOS_CICLO_COMPLETO = frozenset({T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION, T.TERMINO})
 # Tipos que usan ContenidoComunCampos (titulo/slug/fecha/seo/relaciones/terminos/fuentes).
 TIPOS_CON_COMUNES = frozenset({T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO, T.COLECCION})
+# Tipos que pueden enlazar términos del glosario (`ck_contenido_termino_tipo_contenido`).
+TIPOS_CON_TERMINOS = frozenset({T.DESTINO, T.ITINERARIO, T.GUIA, T.TIPO})
 RELACION_NOMBRE: dict[str, str] = {
     T.DESTINO: "destino",
     T.ITINERARIO: "itinerario",
@@ -1317,6 +1319,10 @@ def _validar_entrada(tipo: str, datos: dict[str, Any], contenido: Contenido | No
     if tipo == T.DESTINO:
         _validar_coherencia_destino(errores, datos, subtipo)
     _validar_html_saneado(errores, tipo, datos)
+    if tipo not in TIPOS_CON_TERMINOS and datos.get("terminos_ids"):
+        # `ck_contenido_termino_tipo_contenido`: solo destinos, itinerarios, guías y tipos enlazan
+        # términos del glosario. Antes, una colección con `terminos_ids` acababa en 500 (TKT-045).
+        errores["terminos_ids"] = ["Este tipo de contenido no admite términos del glosario."]
     if reglas.es_fecha_futura(datos.get("fecha_ultima_revision")):
         # RULE-009 también al guardar (TKT-045), con el criterio de DEC-AUTO-977 (UTC+14), el mismo
         # que aplica el formulario del panel: antes solo se comprobaba al publicar (422) y con la
