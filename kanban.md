@@ -338,7 +338,7 @@ tickets:
   - id: TKT-045
     titulo: "HIGH (QA TKT-023 F-01 + Developer TKT-023 RULE-009): (1) F-01 HIGH: restaurar revisión pierde datos: services._instantanea (l.236-259) recorre solo subtipo._meta.fields (sin M2M ni hijos) y usa campo.name sin _id; restaurar_revision (l.2198) devuelve esa instantánea, incumpliendo el contrato ('Cuerpo compatible con {Tipo}Actualizacion'): faltan relaciones, terminos_ids, fuentes (todos), tipos_ids/galeria_ids (destino), dias (itinerario), checklist (tipo), elementos (colección), destinos_ids/tipos_ids (guía) y las FK salen sin _id. Instantánea completa y respuesta conforme a {Tipo}Actualizacion para los 7 tipos; compatibilidad con revisiones antiguas incompletas (no inventar: devolver lo que haya y marcar/advertir según contrato, sin borrar datos actuales por omisión); tests por tipo ida y vuelta. (2) RULE-009 en servidor con el criterio de DEC-AUTO-977: fecha_revision válida si <= fecha actual en UTC+14; Problem Details coherente con el contrato. (3) OBS-02: analisis-publicacion debe devolver confirmable:false si un tipo del destino está RETIRADO (hoy publicar da 422 tipo_retirado tras confirmar). (4) OBS-03 hardening: saneado.py debe descartar href relativos al protocolo ('//host') y eliminar el contenido de <script>/<style>, no dejarlo como texto"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-023, "RULE-009", "SCR-038", "FEAT-039", MOD-010, "THREAT XSS"]
     depende_de: []
