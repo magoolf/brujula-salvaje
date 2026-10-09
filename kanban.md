@@ -342,7 +342,7 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [TKT-023, "RULE-009", "SCR-038", "FEAT-039", MOD-010, "THREAT XSS"]
     depende_de: []
-    archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/saneado.py", "backend/apps/contenido/selectors.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt045*"]
+    archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/saneado.py", "backend/apps/contenido/selectors.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt045*", "backend/apps/contenido/tests/test_ac_tkt006_01_reglas.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*)."]
