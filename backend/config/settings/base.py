@@ -52,7 +52,9 @@ MIDDLEWARE = [
     "apps.core.middleware.RegistroPeticionMiddleware",
     # Sesiones del panel sobre sesion_panel (SESSION_ENGINE). Perezoso: solo toca la BD y fija la
     # cookie si una vista del panel usa la sesión (las rutas públicas nunca la usan, RULE-029).
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    # TKT-040: SessionMiddleware con respuesta 401 sesion_expirada (Problem Details) si el guardado
+    # final fallara; las vistas ya guardan la sesión dentro de DRF (apps.cuentas.autenticacion).
+    "apps.cuentas.middleware.SesionPanelMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
