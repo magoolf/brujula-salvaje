@@ -295,9 +295,9 @@ tickets:
     trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
     depende_de: []
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS).", "2026-10-08 ciclo 2 entregado @ e014094 (CI 37880059334 verde): portada Fitz Roy El Chalten sunrise-17 (CC BY-SA 3.0, recorte 16:9) con contraste mín. ≥8,06 rótulo y ≥12,35 H1/subtítulo en 1280/1366/390; OBS-01..05 resueltos (2 fotos sustituidas, campo modificaciones, nota en Acerca de). QA ciclo 2/3 despachada."]
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS).", "2026-10-08 ciclo 2 entregado @ e014094 (CI 37880059334 verde): portada Fitz Roy El Chalten sunrise-17 (CC BY-SA 3.0, recorte 16:9) con contraste mín. ≥8,06 rótulo y ≥12,35 H1/subtítulo en 1280/1366/390; OBS-01..05 resueltos (2 fotos sustituidas, campo modificaciones, nota en Acerca de). QA ciclo 2/3 despachada.", "2026-10-09 QA_VERDICT PASS ciclo 2/3 @ e014094: F-01 contraste mín. 8,06 (Chromium) / 7,76 (Firefox), WebKit no medible por AVIF sin respaldo (TKT-029); OBS-01..05 resueltas; 3 licencias nuevas verificadas en Commons; pytest 1341 PASS, E2E públicas 3 motores, axe 0, schemathesis 0 5xx, gitleaks/semgrep 0; LCP inicio mediana < 2,5 s. Integración en espera de TKT-OPS-031 (CI rojo por CVE ajena)."]
     actualizado: 2026-10-08
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
@@ -383,6 +383,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b."]
     actualizado: 2026-10-08
+  - id: TKT-049
+    titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, MOD-001, "Skill_UI_UX"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/app/core/layout/**", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-981. Captura: scratchpad 56bc59a0…/qa041/c_d1280_hero.png."]
+    actualizado: 2026-10-09
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
