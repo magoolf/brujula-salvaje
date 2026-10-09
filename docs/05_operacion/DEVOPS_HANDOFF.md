@@ -2434,7 +2434,7 @@ Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend
 
 ## 29. TKT-OPS-026: grupo `vitest` en Dependabot (F7, soporte; DEC-AUTO-956)
 
-> Numeración: TKT-OPS-027 (§30) y TKT-OPS-028 se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
+> Numeración: TKT-OPS-027 (§31, renumerada al sincronizar con `main`), TKT-OPS-028 (§30) y TKT-OPS-029 (§32) se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
 
 ### 29.1 Estado
 COMPLETADO en la rama `tkt-ops-026-grupo-vitest`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
@@ -2464,3 +2464,104 @@ Sin cambios de dependencias, lockfiles, imágenes, compose, workflows ni variabl
 
 ### 29.8 Próximo agente
 **Orquestador**: confirmar el CI de este PR e integrarlo sin editar contenido. Después, cerrar #58 con un comentario para que Dependabot lo regenere agrupado (vitest + @vitest/coverage-v8), y someter el PR nuevo al CI y a la QA de regresión como el resto de PR de Dependabot.
+
+## 30. TKT-OPS-028: CVE-2026-4775 (HIGH) en `tiff` de la imagen del proxy: se retira el módulo `image-filter` (F7, soporte; desbloquea el CI; DEC-AUTO-962)
+
+> Numeración: el PR #63 (TKT-OPS-026) añade §29 al final de este documento. Si este PR se integra antes, el conflicto con #63 será solo textual: hay que mantener ambas partes, §29 antes de §30.
+
+### 30.1 Estado
+COMPLETADO en la rama `tkt-ops-028-tiff-proxy`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 30.2 Objetivo
+El image scan del run 37830313288 (PR #62) detecta en `brujula/proxy` (alpine 3.24.2) **CVE-2026-4775 (HIGH)** en `tiff` 4.7.1-r0, corregida en 4.7.2-r0. El resto de imágenes daban 0. Bloquea el CI de `main` y de todos los PR. Como existe corrección, no procede `.trivyignore` (CLAUDE.md §0.5).
+
+### 30.3 Diagnóstico y alternativas (2026-10-08, `apk info` dentro de la base fijada)
+- Cadena de dependencias: `tiff` ← `libgd` ← `nginx-module-image-filter` (en el `world` de la base oficial, que instala los módulos dinámicos `geoip`, `image-filter`, `njs` y `xslt`).
+- `nginx.conf` y `snippets/` **no cargan ningún módulo dinámico** (no hay `load_module`, `image_filter` ni `include` de módulos): el filtro de imágenes nunca se usa.
+- Opciones: (a) fijar `tiff=4.7.2-r0` con `apk add`, como en TKT-OPS-024. Corrige, pero conserva 29 paquetes sin uso y añade otra versión fijada (RSK-OPS-046). (b) **`apk del nginx-module-image-filter`**: elimina el módulo y 28 dependencias huérfanas (`libgd`, `tiff`, `libwebp`, `libavif`, `aom-libs`, `libdav1d`, `libjpeg-turbo`, `libpng`, `freetype`, `fontconfig`, `libexpat`, `libx11`/`libxcb`/`libxpm`/…, `libstdc++`, `libgcc`…). Corrige la CVE y reduce la superficie de ataque.
+- Decisión: **(b)**. `libexpat` (CVE-2026-93990, fijada a 2.8.5-r0 desde F6) solo la requería `fontconfig`. Sale con ellas y se retira su línea fijada: queda solo `pcre2=10.49-r0`, que nginx sí usa.
+
+### 30.4 Cambios realizados
+`infra/proxy/Dockerfile`, en el `RUN` existente (como `USER root`):
+```dockerfile
+RUN apk add --no-cache "pcre2=10.49-r0" \
+ && apk del --no-cache --no-network nginx-module-image-filter \
+ && apk info -e "pcre2=10.49-r0" \
+ && for p in nginx-module-image-filter libgd tiff libexpat; do \
+      if apk info -e "$p" >/dev/null; then echo "TKT-OPS-028: $p sigue instalado" >&2; exit 1; fi; \
+    done \
+ ...
+```
+- El build falla si alguno de esos paquetes vuelve a quedar instalado (por ejemplo, con una base nueva que lo arrastre por otra vía).
+- Sin cambios en la imagen base (tag y digest), `nginx.conf`, `snippets/`, usuario (`USER 101`), `EXPOSE`, `HEALTHCHECK`, `.trivyignore` ni el workflow.
+
+### 30.5 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| nginx | 1.30.5-r1 (sin cambios) | APROBADO | `nginx -t` |
+| pcre2 | 10.49-r0 (sin cambios) | APROBADO | `apk info -v`; control `apk info -e` |
+| nginx-module-image-filter, libgd, tiff, libexpat (+ 25 dependencias) | **retirados** | APROBADO | `apk info -v` (41 paquetes en lugar de 70); control del build |
+| Módulos geoip, njs, xslt | sin cambios (instalados y sin cargar) | — | ver §30.8 |
+
+### 30.6 Infraestructura / dependencias / variables de entorno
+Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
+
+### 30.7 Validaciones ejecutadas (2026-10-08, Docker Engine 29.6.1, trivy 0.74.0)
+- **Build** de la rama (`docker build --pull`): OK, con el control del `RUN` en verde. Imagen: uid 101, `pcre2-10.49-r0`, `nginx-1.30.5-r1`, sin `tiff`, `libgd`, `libexpat` ni `image-filter`; en `/usr/lib/nginx/modules` ya no está `ngx_http_image_filter_module`.
+- **trivy con BD fresca** en una `--cache-dir` propia (**UpdatedAt 2026-10-08 15:33:46 UTC**), con la misma política que el CI (`--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --exit-code 1`). Control negativo (proxy de `main`): exit 1, Total 1 (HIGH 1), `tiff` CVE-2026-4775 4.7.1-r0 → 4.7.2-r0. Rama: exit 0, 0 CRITICAL/HIGH. Las otras 5 imágenes no cambian; las escanea el CI.
+- **`nginx -t`** (con `--add-host` para `backend` y `frontend`): "syntax is ok / test is successful" en la rama y en `main`.
+- **Cabeceras A/B frente a `main`**, sin stack completo por la RAM disponible (~1,2 GB libres). Se usó un upstream stub (nginx mínimo con los alias `backend:8000` y `frontend:4000`) y los dos proxies en la misma red. Se capturaron estado y cabeceras de 14 peticiones, con valores volátiles normalizados: `/`, `/destinos`, `/panel`, `/panel/login`, `/api/v1/publico/inicio`, `/api/v1/no-existe`, `/health/ready`, `/no-existe-ops028`, `/no-existe-ops028.js`, `/no-existe-ops028.js%0A`, `/media/privado/x.jpg`, `POST /` (403), `HEAD /` y `/main-abc.js?x=1`. **`diff` vacío: idénticas.**
+- **Regex PCRE con `\z`** (equivalente a C6, ejercita pcre2): `/x.js%0A` va a la location `/` (HTML del SSR) y `/x.js` da 404 Problem Details del proxy, igual en ambas imágenes. **Limitador `por_ip`** (equivalente a C3): una ráfaga de 300 peticiones a `/api/v1/publico/inicio` recibe 429 del borde en ambas imágenes.
+- **Smoke anti-evasión completo** (`scripts/ops/smoke-anti-evasion.sh`): no se ejecutó en local porque requiere el stack completo (SSR con `NG_ALLOWED_HOSTS` y logs de compose) y la RAM no alcanza. Lo ejecuta el job de imágenes del CI con el stack completo; el resultado se reporta en el HANDOFF_ENVELOPE.
+
+### 30.8 Riesgos / pendientes
+- **RSK-OPS-046** se reduce: queda una sola versión fijada a mano (`pcre2`) en lugar de dos.
+- **Recomendación (INFO, fuera del alcance)**: los módulos `geoip`, `njs` y `xslt` tampoco se cargan y arrastran `libxml2`, `libxslt`, `geoip` y njs/quickjs, que son fuentes habituales de CVE. Retirarlos con el mismo patrón requiere un ticket propio y otra validación A/B.
+- PR #22 (Dependabot, 1.31.5-alpine): si se evaluara, el `apk del` y el control se aplican igual a la base nueva.
+
+### 30.9 Archivos modificados
+`infra/proxy/Dockerfile`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 30.10 Próximo agente
+**Orquestador**: confirmar el CI real de este PR (image scan de las 6 imágenes y smoke anti-evasión) e integrarlo (sin editar contenido). Después, sincronizar los PR abiertos con `main`. Actualizar RSK-OPS-046 (ahora solo `pcre2`) en `audit_log.md`.
+
+## 32. TKT-OPS-029: GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj y GHSA-p8wg-vrv2-v86f (CRITICAL) en `handlebars` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-965)
+
+> Numeración: §29 la ocupa el PR #63 (TKT-OPS-026) y el PR #65 (TKT-OPS-027) añade otra §30 que choca con la §30 de TKT-OPS-028 que ya está en `main`, así que tendrá que pasar a §31. Por eso esta sección es la §32. Si hay conflicto, será solo textual: se mantienen todas las secciones en orden numérico.
+
+### 32.1 Estado
+COMPLETADO en la rama `tkt-ops-029-handlebars`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 32.2 Objetivo
+El job `frontend` falla en `SCA (npm audit --audit-level=high)` (run 37836571528, PR #65, 2026-10-08) por tres avisos **CRITICAL** de inyección de JavaScript en `handlebars` `>=4.0.0 <=4.7.9`. El lockfile fijaba 4.7.9. `frontend/**` es igual que en `main`, así que el fallo afecta a `main` y a todos los PR. Hay corrección disponible (4.7.10), así que no procede aceptar el riesgo (CLAUDE.md §0.5).
+
+### 32.3 Diagnóstico y cambios realizados
+- `npm ls handlebars`: el único dependiente es `ng-openapi-gen@1.1.0` (dev, generador del cliente Angular desde `contracts/openapi.yaml`), que declara `^4.7.9`. 4.7.10 cumple ese rango, así que no hace falta `overrides` y `package.json` no cambia.
+- `frontend/package-lock.json`: solo cambia la entrada `node_modules/handlebars`. `version`, `resolved` e `integrity` pasan de 4.7.9 a 4.7.10 (`integrity` según `npm view handlebars@4.7.10 dist.integrity`), y el rango declarado de `minimist` pasa de `^1.2.5` a `^1.2.8`, como en el manifiesto publicado de 4.7.10. El lockfile ya resuelve `minimist` 1.2.8, así que el árbol no cambia. El diff es de 4 líneas.
+- No se usó `npm audit fix` general. Igual que en TKT-OPS-025 (§28.3), `npm update handlebars --package-lock-only` (npm 11.19.0 en Windows) añadía 6 entradas `inBundle` de `@tailwindcss/oxide-wasm32-wasi` que no tienen que ver con el aviso. Por eso se descartó ese resultado y se editó solo la entrada afectada.
+
+### 32.4 Versiones aprobadas
+| Componente | Versión | Estado | Evidencia |
+|---|---|---|---|
+| handlebars | 4.7.10 (transitiva, dev, vía `ng-openapi-gen` 1.1.0) | APROBADO | `npm ls handlebars`; `npm audit` 0; `api:generate` sin diff |
+| Node.js / npm | 24.21.0 / 11.19.0 (sin cambios) | APROBADO | — |
+
+### 32.5 Infraestructura / dependencias / variables de entorno
+No cambian imágenes, compose, workflow ni variables. `handlebars` es dependencia de desarrollo: solo se usa para generar el cliente y no forma parte del bundle ni de la imagen de runtime.
+
+### 32.6 Validaciones ejecutadas (2026-10-08, en local, Node 24.21.0 / npm 11.19.0, mismos pasos que el job `frontend`)
+- `npm ci --no-audit --no-fund`: OK (comprueba el `integrity`). `npm ls handlebars`: `ng-openapi-gen@1.1.0 -> handlebars@4.7.10`.
+- `npm audit --audit-level=high`: **0 vulnerabilidades** (exit 0).
+- `eslint . --max-warnings=0`: exit 0. `tsc --noEmit -p tsconfig.app.json`: exit 0. `ng test --watch=false --coverage`: **546/546** (97 archivos).
+- `npm run api:generate` + `git diff --exit-code -- src/app`: **el cliente generado no cambia**, lo que demuestra que handlebars 4.7.10 genera lo mismo que 4.7.9. `ng build --configuration production`: OK.
+- NOT_RUN en local: semgrep (este PR no cambia código fuente) y el job de imágenes (sin Docker por falta de RAM). Ambos se ejecutan en el CI del PR.
+
+### 32.7 Riesgos / pendientes
+- No hay riesgos nuevos. Mientras no se integre, el CI de `main` y de los PR abiertos sigue en rojo en `npm audit`.
+- Hay que renumerar la §30 duplicada del PR #65 (ver la nota de numeración).
+
+### 32.8 Archivos modificados
+`frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 32.9 Próximo agente
+**Orquestador**: confirmar el CI real de este PR e integrarlo sin editar contenido. Después, sincronizar los PR abiertos con `main` y relanzar su CI.

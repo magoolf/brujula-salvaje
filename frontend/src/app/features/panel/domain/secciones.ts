@@ -28,9 +28,18 @@ export interface SeccionPanel {
 }
 
 export const RUTA_TABLERO = '/panel';
+/** SCR-039 Biblioteca de medios (MOD-011, TKT-022). */
+export const RUTA_MEDIOS = '/panel/medios';
 
 export const SECCIONES_PANEL: readonly SeccionPanel[] = [
   { id: 'tablero', etiqueta: 'Tablero', ruta: RUTA_TABLERO, rolMinimo: 'EDITOR', accesosRapidos: [] },
+  {
+    id: 'medios',
+    etiqueta: 'Medios',
+    ruta: RUTA_MEDIOS,
+    rolMinimo: 'EDITOR',
+    accesosRapidos: [{ id: 'subir-medios', etiqueta: 'Subir medios', ruta: RUTA_MEDIOS }],
+  },
   { id: 'cuenta', etiqueta: 'Mi cuenta', ruta: '/panel/cuenta', rolMinimo: 'EDITOR', accesosRapidos: [] },
 ];
 

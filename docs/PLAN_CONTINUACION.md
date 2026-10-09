@@ -2,9 +2,13 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-08 (tarde).
+> y `audit_log.md`. Última actualización: 2026-10-08 (noche, 2.ª reanudación).
 
 ## 1. Estado en una línea
+
+2026-10-08 (noche, 2.ª reanudación tras reinicio del equipo): DONE recientes TKT-034, TKT-037, CHG-API-006, TKT-022, TKT-040, TKT-OPS-029; CI de main verde. En curso (relanzados desde checkpoints en %TEMP%/claude/C--Users-HOME-Music-STACK-TECNOLOIGICO/e1176066-db5d-4635-a4e2-87432c5f81af/scratchpad/): QA TKT-019 ciclo 2/3 (PR #69, worktree %TEMP%/qa019c2, stack brujulaqa019, checkpoint qa019c2/); Developer TKT-044 (worktree agent-a115fbb767994a773, BD brujuladev044, checkpoint dev044/); Developer TKT-041 fotos reales (worktree agent-a50d7563b230a72f4, checkpoint dev041/); DevOps sincroniza PR #63 (TKT-OPS-026) y #65 (TKT-OPS-027) con main. En espera: TKT-023 (worktree agent-a1e5ec9abe3b6b896, rama ya al día con main+TKT-022, stack brujuladev023 parado; pendiente regresión panel 3 motores, build y PR; checkpoint en scratchpad 6f18847b…/dev023/) y TKT-016 (trabajo sin commit en agent-a9207b2a8b8597c65). Siguientes TODO: TKT-042, TKT-043, CHG-API-007, TKT-OPS-023, TKT-024/025/026/028/029/030/021/036/038/039, TKT-OPS-008/009; Dependabot #54-#57 (QA de regresión). Luego F9/F10.
+
+2026-10-08 (noche, reanudación tras corte): TKT-OPS-028 DONE (PR #64 @ ea33268). Nueva CVE CRITICAL de handlebars rompe npm audit del frontend en todos los PR -> TKT-OPS-029 (DevOps, worktree .claude/worktrees/ops029). En curso: Developer TKT-037 (worktree agent-a379d59dc3af1300f, checkpoint scratchpad anterior dev037/PROGRESO.md) y Developer TKT-022 ciclo 2/3 (worktree agent-aee3d2c5be57fe466, checkpoint dev022/PROGRESO.md). En espera, con trabajo SIN commit preservado en su worktree: TKT-016 (agent-a9207b2a8b8597c65), TKT-019 (agent-a4d5ae9ee0a1d82d8); TKT-023 (agent-a1e5ec9abe3b6b896, 2 commits sin push, checkpoint dev023/PROGRESO.md). Stacks brujuladev016/019/023 parados (docker compose -p <p> start para reanudar). Tras TKT-OPS-029: update-branch y CI de #61 (TKT-034, QA PASS -> merge), #62 (CHG-API-006, QA pendiente), #63 (TKT-OPS-026), #65 (TKT-OPS-027). Checkpoints de la sesión anterior: %TEMP%/claude/C--Users-HOME-Music-STACK-TECNOLOIGICO/6f18847b-79b8-4146-946a-a6ee99b64c5b/scratchpad/.
 
 2026-10-08 (tarde): DONE hoy TKT-OPS-025 (PR #59, source-map-js 1.2.2) y TKT-033 (PR #51 @ ee8dfda). En curso: (a) Developer TKT-022 ciclo 2/3 (F-01 axe en transición WebKit, F-02 429 de login con 4 workers, OBS-03) en el worktree agent-aee3d2c5be57fe466, checkpoint scratchpad/dev022/PROGRESO.md; luego QA ciclo 2; (b) QA TKT-OPS-022 sobre PR #52 @ 3ecc4f4 (checkpoint scratchpad/qaops022/); tras PASS: merge y desbloquea TKT-034; (c) Developer TKT-035 (core: 55P03/40P01 -> 409 global; carrera DELETE de catálogos), worktree aislado, checkpoint scratchpad/dev035/. Nuevo TODO: TKT-036 (contraste transitorio de .bs-boton). Permisos: el usuario permitió gh pr update-branch/merge, git worktree prune y docker compose -p brujulaqa*; un merge sin QA (#59) fue denegado igualmente y lo ejecutó el usuario. Dependabot #54-#58 sin tratar.
 
@@ -57,6 +61,7 @@
 - **TKT-OPS-007**: `scripts/ops/restore-local.sh` con lista TOC filtrada (excluir `SCHEMA app/ext`, `pg_stat_statements`, ACL de `public`) para que el simulacro AC-054 pase sobre BD limpia. **Bloquea F9.**
 
 ### 4.5 F9 — Release (tras todos los tickets DONE, incluido TKT-OPS-016)
+- Antes del release: consulta de diagnóstico de contenidos PUBLICADO con país/región/categoría retirados (OBS-01 QA TKT-037); CHG-API-006 y TKT-040 integrados.
 1. DevOps: build final de las 6 imágenes, SBOM (syft), trivy con `.trivyignore` vigente, firma (cosign keyless opcional), simulacro de restauración (AC-054), pruebas de carga (p95).
 2. Orquestador: auditoría de seguridad completa con `security-audit-skill` en *Full audit mode*, perfil `standard`, salida en `~/security-audit-skill/<repo>/run-<N>`; cualquier `confirmed` CRITICAL/HIGH bloquea.
 3. Producción: **Puerta Humana**. Requiere decisión del usuario sobre plataforma, dominio, costes, secretos reales, responsable del tratamiento (Ley 1581, GAP-004) y revisión humana del contenido (GAP-008).

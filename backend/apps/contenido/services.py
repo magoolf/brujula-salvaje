@@ -13,7 +13,15 @@ concurrente del referenciado queda serializado con ellas y nunca acaba en un 500
 en el COMMIT o `ProtectedError`). Cada operación
 multi-entidad bloquea TODAS las filas implicadas (destino + sus tipos, o destino + sus itinerarios
 y tipos publicados) en orden ascendente de id ANTES de validar nada (DEC-AUTO-269), de modo que dos
-operaciones concurrentes nunca dejen el invariante de RULE-025 roto.
+operaciones concurrentes nunca dejen el invariante de RULE-025 roto. Una edición toma también en
+orden ascendente de id su propia fila y las de los contenidos que referencia (TKT-037, OBS-1).
+
+Los catálogos referenciados (país y su región, categoría de guía) se leen con `FOR SHARE`, que choca
+con el `FOR NO KEY UPDATE` con el que su PUT de retirada bloquea la fila: asignar un catálogo exige
+que esté activo y publicar exige que lo siga estando (RULE-007, TKT-037).
+
+Las esperas de bloqueo agotadas (55P03), los interbloqueos (40P01) y las FK violadas en el COMMIT
+(23503) los traduce a 409 `conflicto_version` el manejador global (`core.exceptions`, TKT-035).
 """
 
 from __future__ import annotations
@@ -21,13 +29,11 @@ from __future__ import annotations
 import decimal
 import re
 import unicodedata
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from django.db import IntegrityError, OperationalError, connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError, Q, QuerySet, RestrictedError, Value
 from django.utils import timezone
 
@@ -136,32 +142,6 @@ class DependenciaBloqueante(ErrorApi):
 # ---------------------------------------------------------------------------
 # Utilidades comunes
 # ---------------------------------------------------------------------------
-# lock_not_available (lock_timeout del rol: 3 s app_rw, 5 s app_migrator) y deadlock_detected.
-_SQLSTATE_CONCURRENCIA = frozenset({"55P03", "40P01"})
-
-
-@contextmanager
-def _transaccion() -> Iterator[None]:
-    """`transaction.atomic()` de una mutación del ciclo editorial que traduce la espera de bloqueo
-    agotada o el interbloqueo detectado por PostgreSQL a 409 `conflicto_version` (reintentable).
-
-    F-032-01 (TKT-033): las mutaciones esperan a las que tienen bloqueadas las mismas filas (FOR
-    NO KEY UPDATE / FOR UPDATE / FOR KEY SHARE). Si esa espera supera `lock_timeout`, o PostgreSQL
-    aborta una de dos transacciones que se esperan mutuamente (p. ej. dos ediciones que se
-    relacionan entre sí y cambian a la vez su título), la operación no ha hecho nada: es un
-    conflicto con otra operación en curso, no un error interno."""
-    try:
-        with transaction.atomic():
-            yield
-    except OperationalError as exc:
-        if getattr(exc.__cause__, "sqlstate", None) not in _SQLSTATE_CONCURRENCIA:
-            raise
-        raise ConflictoVersion(
-            detalle="Otra operación está modificando este contenido o lo que referencia. "
-            "Recarga y vuelve a intentarlo."
-        ) from exc
-
-
 def _slugify(texto: str) -> str:
     normalizado = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
     minusculas = re.sub(r"[^a-z0-9]+", "-", normalizado.lower()).strip("-")
@@ -453,6 +433,7 @@ def _datos_regla_destino(destino: Destino, contenido: Contenido) -> reglas.Datos
     ).count()
     relacionados = len(_relacionados_publicados(contenido))
     seo_en_uso = _seo_en_uso(contenido)
+    pais = _estado_pais(destino.pais_id)
     return reglas.DatosDestino(
         resumen=destino.resumen,
         descripcion_experta=destino.descripcion_experta,
@@ -478,6 +459,9 @@ def _datos_regla_destino(destino: Destino, contenido: Contenido) -> reglas.Datos
         medios_disponibles_en_galeria=galeria_disponibles,
         relacionados_publicados=relacionados,
         seo_descripcion_en_uso=seo_en_uso,
+        pais_id=destino.pais_id,
+        pais_activo=pais.activo,
+        region_activa=pais.padre_activo,
     )
 
 
@@ -574,6 +558,7 @@ def _datos_regla_guia(guia: Guia, contenido: Contenido) -> reglas.DatosGuia:
         numero_fuentes=Fuente.objects.filter(contenido=contenido).count(),
         relacionados_publicados=len(_relacionados_publicados(contenido)),
         seo_descripcion_en_uso=_seo_en_uso(contenido),
+        categoria_activa=_categoria_activa(guia.categoria_id),
     )
 
 
@@ -807,6 +792,129 @@ def _bloquear_referencias(datos: dict[str, Any]) -> set[tuple[str, int]]:
         return {(tipo, pk) for pk, tipo in cursor.fetchall()}
 
 
+def _cambia_clave(tipo: str, contenido_id: int, datos: dict[str, Any]) -> bool:
+    """¿La edición cambia `titulo` (→ `titulo_norm`) o `slug`? Ambos están en UNIQUE no parciales
+    de `contenido` (`uq_contenido_tipo_titulo_norm`, `uq_contenido_tipo_slug`), así que PostgreSQL
+    hace ese UPDATE con `FOR UPDATE` (no `FOR NO KEY UPDATE`), que choca con el `FOR KEY SHARE` de
+    quien referencia la fila. Lectura sin bloqueo: si otra edición cambia el título entretanto, lo
+    peor es volver al interbloqueo que el manejador global ya traduce a 409."""
+    if "titulo" not in datos and not datos.get("slug"):
+        return False
+    actual = Contenido.objects.filter(pk=contenido_id, tipo=tipo).values_list("titulo", "slug")
+    fila = actual.first()
+    if fila is None:
+        return False
+    titulo, slug = fila
+    return ("titulo" in datos and datos["titulo"] != titulo) or (
+        bool(datos.get("slug")) and datos["slug"] != slug
+    )
+
+
+def _bloquear_para_editar(tipo: str, contenido_id: int, datos: dict[str, Any]) -> Contenido:
+    """Bloquea la fila editada y las de los contenidos que referencia `datos` en orden ascendente
+    de id (OBS-1 de la QA de TKT-033, TKT-037).
+
+    Antes la edición bloqueaba primero su fila y después las referenciadas: dos ediciones que se
+    relacionan entre sí (A↔B) y cambian a la vez su título tomaban `FOR NO KEY UPDATE` en su fila y
+    `FOR KEY SHARE` en la otra, y al escribir el título (UPDATE de clave → `FOR UPDATE`) cada una
+    esperaba a la otra: interbloqueo (40P01 → 409). Ahora: 1) `FOR KEY SHARE` de las referenciadas
+    con id MENOR; 2) la fila propia, ya en el modo que exigirá su UPDATE (`FOR UPDATE` si cambia la
+    clave, `FOR NO KEY UPDATE` si no), sin ascensos posteriores; 3) `_validar_entrada` bloquea las
+    de id MAYOR (`_bloquear_referencias`; volver a pedir las menores no espera: ya son suyas).
+    Con el mismo orden global, la que llega segunda espera a la primera en vez de cruzarse."""
+    menores = [i for i in _ids_referenciados(datos) if i < contenido_id]
+    if menores:
+        with connection.cursor() as cursor:
+            cursor.execute(_SQL_BLOQUEAR_REFERENCIAS, [menores])
+    if _cambia_clave(tipo, contenido_id, datos):
+        return obtener_para_editar(tipo, contenido_id, para_eliminar=True)
+    return obtener_para_editar(tipo, contenido_id, bloquear=True)
+
+
+# ---------------------------------------------------------------------------
+# Catálogos referenciados (RULE-007, TKT-037)
+# ---------------------------------------------------------------------------
+# `FOR SHARE` (no `FOR KEY SHARE`, el de las FK): choca con el `FOR NO KEY UPDATE` con el que el PUT
+# de retirada del catálogo bloquea su fila (apps.catalogos.services._obtener_o_404) y con el que
+# comprueba si lo usa contenido publicado. Quien llega segundo espera al primero y relee la fila ya
+# confirmada: un alta o una publicación que llega tras la retirada ve `activo=false` y se rechaza;
+# una retirada que llega tras una publicación ve el uso nuevo y responde 409 dependencia_bloqueante.
+# Antes (FOR KEY SHARE de la FK) ambas tenían éxito y quedaba contenido con un país retirado. Sin
+# transacción (análisis, vista previa) no hay nada que proteger y se lee sin bloquear. El país se
+# lee junto con su región: retirar una región también exige que no la use contenido publicado.
+_SQL_PAIS = (
+    "SELECT p.activo, r.activo FROM pais p JOIN region r ON r.id = p.region_id WHERE p.id = %s"
+)
+_SQL_CATEGORIA = "SELECT activo, TRUE FROM categoria_guia WHERE id = %s"
+
+
+@dataclass(frozen=True)
+class EstadoCatalogo:
+    activo: bool
+    padre_activo: bool  # región del país; siempre True en la categoría
+
+
+def _estado_catalogo(sql: str, pk: int, *, bloquear: bool = True) -> EstadoCatalogo | None:
+    """Estado actual del catálogo `pk` (None si no existe). Con `bloquear` y dentro de una
+    transacción, la fila queda bloqueada `FOR SHARE` hasta su fin."""
+    if bloquear and connection.in_atomic_block:
+        sql = f"{sql} FOR SHARE"
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [pk])
+        fila = cursor.fetchone()
+    return None if fila is None else EstadoCatalogo(bool(fila[0]), bool(fila[1]))
+
+
+def _estado_pais(pais_id: int | None) -> EstadoCatalogo:
+    """Para las reglas de publicación. Sin país (o uno ya inexistente: lo impide la FK), activo."""
+    estado = _estado_catalogo(_SQL_PAIS, pais_id) if pais_id is not None else None
+    return estado or EstadoCatalogo(True, True)
+
+
+def _categoria_activa(categoria_id: int | None) -> bool:
+    estado = _estado_catalogo(_SQL_CATEGORIA, categoria_id) if categoria_id is not None else None
+    return estado is None or estado.activo
+
+
+def _validar_catalogos(
+    errores: dict[str, list[str]], tipo: str, datos: dict[str, Any], subtipo: Any
+) -> None:
+    """El catálogo referenciado existe y, si la entrada lo ASIGNA (alta, o valor distinto del
+    guardado), está activo (RULE-007). Conservar uno que se retiró con el contenido en borrador no
+    impide guardar el borrador; la publicación sí lo rechaza (`reglas.validar_destino/guia`)."""
+    if tipo == T.DESTINO:
+        campo, sql = "pais_id", _SQL_PAIS
+    elif tipo == T.GUIA:
+        campo, sql = "categoria_id", _SQL_CATEGORIA
+    else:
+        return
+    valor = datos.get(campo)
+    if valor is None:
+        return
+    # La existencia se comprueba SIN bloquear, como antes de TKT-037: un borrado concurrente del
+    # catálogo lo arbitra la FK (23503 en el COMMIT → 409 `conflicto_version` del manejador global,
+    # TKT-035). El bloqueo `FOR SHARE` solo decide si sigue ACTIVO (retirada concurrente).
+    estado = _estado_catalogo(sql, valor, bloquear=False)
+    if estado is None:
+        errores[campo] = [MENSAJE_INEXISTENTE]
+        return
+    if subtipo is not None and getattr(subtipo, campo) == valor:
+        return
+    if connection.in_atomic_block:
+        bloqueado = _estado_catalogo(sql, valor)
+        if bloqueado is None:
+            # Se borró mientras esperábamos su bloqueo: no se duplica la FK, que rechazará el
+            # INSERT/UPDATE y dará 409 `conflicto_version` (reintentable; el alta no se crea).
+            return
+        estado = bloqueado
+    if tipo == T.DESTINO:
+        mensaje = reglas.mensaje_pais_no_activo(estado.activo, estado.padre_activo)
+    else:
+        mensaje = None if estado.activo else reglas.MENSAJE_CATEGORIA_RETIRADA
+    if mensaje is not None:
+        errores[campo] = [mensaje]
+
+
 def _validar_referencias_contenido(
     errores: dict[str, list[str]],
     datos: dict[str, Any],
@@ -911,8 +1019,6 @@ def _validar_entrada(tipo: str, datos: dict[str, Any], contenido: Contenido | No
     """Comprueba contra la BD, sin escribir nada, lo que de otro modo violaría una FK, un CHECK o
     una UNIQUE al guardar `datos` (alta si `contenido` es None; si no, edición). 400
     `validacion` con todos los campos afectados; 409 `duplicado` si el título ya existe."""
-    from apps.catalogos.models import CategoriaGuia, Pais
-
     subtipo = subtipo_de(contenido) if contenido is not None else None
     errores: dict[str, list[str]] = {}
     existentes = _bloquear_referencias(datos)
@@ -921,11 +1027,9 @@ def _validar_entrada(tipo: str, datos: dict[str, Any], contenido: Contenido | No
     )
     _referencia_unica(errores, datos, "portada_id", Medio)
     _referencias_lista(errores, datos, "galeria_ids", Medio)
+    _validar_catalogos(errores, tipo, datos, subtipo)
     if tipo == T.DESTINO:
-        _referencia_unica(errores, datos, "pais_id", Pais)
         _validar_coherencia_destino(errores, datos, subtipo)
-    elif tipo == T.GUIA:
-        _referencia_unica(errores, datos, "categoria_id", CategoriaGuia)
     _validar_html_saneado(errores, tipo, datos)
     if errores:
         raise ErrorApi(codigo="validacion", errors=errores)
@@ -982,7 +1086,7 @@ def _confirmar_pendientes_m2m(subtipo: Any) -> None:
 def crear_borrador(
     tipo: str, actor_id: int, datos: dict[str, Any], ip: str | None = None
 ) -> Contenido:
-    with _transaccion():
+    with transaction.atomic():
         _validar_entrada(tipo, datos)
         contenido = Contenido(tipo=tipo, creado_por_id=actor_id, actualizado_por_id=actor_id)
         _aplicar_comunes(contenido, datos)
@@ -1036,8 +1140,8 @@ def actualizar(
     version: int,
     ip: str | None = None,
 ) -> ResultadoGuardado:
-    with _transaccion():
-        contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
+    with transaction.atomic():
+        contenido = _bloquear_para_editar(tipo, contenido_id, datos)
         _verificar_version(contenido, version)
         if contenido.estado_editorial == E.RETIRADO:
             raise TransicionInvalida(detalle="Reactiva el contenido antes de editarlo.")
@@ -1312,7 +1416,7 @@ def eliminar_borrador(
     como antes. `FOR UPDATE` (`para_eliminar`) serializa el borrado con las altas y ediciones que
     referencian este contenido (`_bloquear_referencias`), así que los usos calculados aquí son los
     definitivos hasta el COMMIT."""
-    with _transaccion():
+    with transaction.atomic():
         contenido = obtener_para_editar(tipo, contenido_id, para_eliminar=True)
         _verificar_version(contenido, version)
         if contenido.estado_editorial != E.BORRADOR or contenido.primera_publicacion_en is not None:
@@ -1552,7 +1656,7 @@ def publicar(
             codigo="campo_no_permitido",
             errors={"copublicar_tipos": ["Solo se admite en destinos."]},
         )
-    with _transaccion():
+    with transaction.atomic():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.BORRADOR:
             raise TransicionInvalida()
@@ -1829,7 +1933,7 @@ def retirar(
 ) -> tuple[Contenido, list[dict[str, Any]]]:
     if tipo == T.PAGINA:
         raise TransicionInvalida(detalle="Las páginas institucionales no se retiran.")
-    with _transaccion():
+    with transaction.atomic():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.PUBLICADO:
             raise TransicionInvalida()
@@ -1912,7 +2016,7 @@ def reactivar(
 ) -> Contenido:
     if tipo == T.PAGINA:
         raise TransicionInvalida(detalle="Las páginas institucionales no se retiran ni reactivan.")
-    with _transaccion():
+    with transaction.atomic():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         if contenido.estado_editorial != E.RETIRADO:
             raise TransicionInvalida()
@@ -2094,7 +2198,7 @@ def obtener_revision(tipo: str, contenido_id: int, numero: int) -> RevisionConte
 def restaurar_revision(
     tipo: str, contenido_id: int, numero: int, actor_id: int, ip: str | None = None
 ) -> dict[str, Any]:
-    with _transaccion():
+    with transaction.atomic():
         contenido = obtener_para_editar(tipo, contenido_id, bloquear=True)
         revision = RevisionContenido.objects.filter(
             contenido_id=contenido_id, numero_revision=numero
@@ -2161,6 +2265,7 @@ def vista_previa(tipo: str, datos: dict[str, Any]) -> dict[str, Any]:
 
     if tipo == T.DESTINO:
         galeria_ids = datos.get("galeria_ids") or []
+        pais = _estado_pais(datos.get("pais_id"))
         errores = reglas.validar_destino(
             reglas.DatosDestino(
                 resumen=datos.get("resumen"),
@@ -2187,6 +2292,9 @@ def vista_previa(tipo: str, datos: dict[str, Any]) -> dict[str, Any]:
                 ).count(),
                 relacionados_publicados=relacionados,
                 seo_descripcion_en_uso=seo_en_uso,
+                pais_id=datos.get("pais_id"),
+                pais_activo=pais.activo,
+                region_activa=pais.padre_activo,
             )
         )
     elif tipo == T.ITINERARIO:
@@ -2236,6 +2344,7 @@ def vista_previa(tipo: str, datos: dict[str, Any]) -> dict[str, Any]:
                 numero_fuentes=len(datos.get("fuentes") or []),
                 relacionados_publicados=relacionados,
                 seo_descripcion_en_uso=seo_en_uso,
+                categoria_activa=_categoria_activa(datos.get("categoria_id")),
             )
         )
     elif tipo == T.TIPO:

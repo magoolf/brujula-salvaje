@@ -11,6 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.api.serializers import respuesta_conflicto_bd
 from apps.cuentas.permisos import SesionPanel, SoloAdministrador, cuenta_de
 from apps.inicio import services
 from apps.inicio.api.serializers import (
@@ -61,7 +62,7 @@ class ConfigInicioView(_VistaInicioMixta):
         operation_id="panelActualizarConfigInicio",
         tags=["panel-configuracion"],
         request=ConfigInicioEntradaSerializer,
-        responses={200: ConfigInicioPanelSerializer},
+        responses={200: ConfigInicioPanelSerializer, **respuesta_conflicto_bd()},
     )
     def put(self, request: Request) -> Response:
         entrada = ConfigInicioEntradaSerializer(data=request.data)
@@ -87,7 +88,7 @@ class ConfiguracionSitioView(_VistaInicioMixta):
         operation_id="panelActualizarConfiguracionSitio",
         tags=["panel-configuracion"],
         request=ConfiguracionSitioEntradaSerializer,
-        responses={200: ConfiguracionSitioSerializer},
+        responses={200: ConfiguracionSitioSerializer, **respuesta_conflicto_bd()},
     )
     def put(self, request: Request) -> Response:
         entrada = ConfiguracionSitioEntradaSerializer(data=request.data)
