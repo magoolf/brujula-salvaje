@@ -23,7 +23,7 @@ import { rutaEditor } from '../domain/contenidos';
 import { RefContenido } from '../domain/formulario-contenido';
 import { ETIQUETA_TIPO_SINGULAR } from '../domain/tablero';
 import { PublicacionStore } from '../state/publicacion.store';
-import { destinoFoco } from './dialogo-confirmacion';
+import { devolverFoco } from './dialogo-confirmacion';
 
 /**
  * SCR-038 variante «Retirar» (FEAT-037, FLOW-012, RULE-007/025, AC-112/127/128): alertdialog con
@@ -184,6 +184,8 @@ export class DialogoRetiro {
   readonly retirar = output<string>();
   /** Destino del foco al cerrar (el disparador «Más acciones»: el botón «Retirar» se oculta con el menú). */
   readonly retornoFoco = input<HTMLElement | null>(null);
+  /** Último recurso al cerrar (p. ej. el encabezado del editor: «Más acciones» desaparece al retirar). */
+  readonly respaldoFoco = input<HTMLElement | null>(null);
 
   protected readonly store = inject(PublicacionStore);
   protected readonly enLinea = inject(Conectividad).enLinea;
@@ -233,7 +235,7 @@ export class DialogoRetiro {
         this.encabezado().nativeElement.focus();
       } else if (!abierto && dialogo.open) {
         dialogo.close();
-        destinoFoco(this.retorno, this.origen)?.focus();
+        devolverFoco(this.documento, this.injector, dialogo, [this.retorno, this.origen, untracked(this.respaldoFoco)]);
         this.origen = null;
         this.retorno = null;
       }

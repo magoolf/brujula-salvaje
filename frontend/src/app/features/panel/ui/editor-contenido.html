@@ -17,14 +17,15 @@
   <div class="editor" data-testid="editor-contenido" [attr.data-tipo]="tipo">
     <header class="cabecera-pagina">
       <p class="migas"><a [routerLink]="rutaListado">{{ def.plural }}</a></p>
-      <h1 id="editor-titulo" tabindex="-1">{{ titulo() }}</h1>
+      <!-- #tituloEditor: respaldo del foco al cerrar diálogos cuyo disparador desaparece o sigue deshabilitado (WCAG 2.4.3). -->
+      <h1 id="editor-titulo" #tituloEditor tabindex="-1">{{ titulo() }}</h1>
     </header>
 
     <!-- Avisos de página -->
     @if (store.conflicto()) {
       <app-banner variante="error" testId="editor-conflicto">
         Otra persona guardó cambios en este contenido mientras lo editabas. Para no sobrescribirlos, recarga la versión actual.
-        <button banner-accion type="button" appBoton tamano="sm" variante="secondary" data-testid="editor-recargar" (click)="confirmacion.set('recargar')">
+        <button banner-accion type="button" appBoton tamano="sm" variante="secondary" data-testid="editor-recargar" (click)="retornoConfirmacion.set(null); confirmacion.set('recargar')">
           Recargar
         </button>
       </app-banner>
@@ -743,7 +744,7 @@
                           <li>
                             <span><strong>Revisión {{ r.numero }}</strong> · {{ etiquetaMotivo[r.motivo] }} · {{ r.creadaPor }} · <time [attr.datetime]="r.creadaEn.toISOString()">{{ fechaHora(r.creadaEn) }}</time></span>
                             @if (!soloLectura()) {
-                              <button type="button" appBoton tamano="sm" variante="secondary" [attr.data-testid]="'editor-restaurar-' + r.numero" [disabled]="store.procesando()" (click)="pedirRestaurar(r.numero, r.creadaEn)">
+                              <button type="button" appBoton tamano="sm" variante="secondary" [attr.data-testid]="'editor-restaurar-' + r.numero" [disabled]="store.procesando()" #botonRestaurar (click)="pedirRestaurar(r.numero, r.creadaEn, botonRestaurar)">
                                 Restaurar en el formulario <span class="bs-solo-lectores">la revisión {{ r.numero }}</span>
                               </button>
                             }
@@ -793,7 +794,8 @@
                 data-testid="editor-accion-principal"
                 [cargando]="principal === 'GUARDAR_PAGINA' ? store.guardando() : store.procesando()"
                 [disabled]="!enLinea() || store.guardando() || store.procesando()"
-                (click)="accionPrincipal()"
+                #botonPrincipal
+                (click)="accionPrincipal(botonPrincipal)"
               >
                 {{ etiquetaAccion[principal] }}
               </button>
@@ -858,12 +860,14 @@
       (confirmar)="confirmarPublicacion()"
       (reintentarOperacion)="reintentarPublicacion()"
       (irACampo)="irACampo($event)"
+      [respaldoFoco]="tituloEditor"
     />
     <app-dialogo-retiro
       [abierto]="dialogoRetiro()"
       (abiertoChange)="cerrarDialogoRetiro($event)"
       [titulo]="contenido.formulario.titulo"
       [retornoFoco]="resumenMasAcciones()?.nativeElement ?? null"
+      [respaldoFoco]="tituloEditor"
       (retirar)="confirmarRetiro($event)"
     />
   }
@@ -877,7 +881,8 @@
     [textoCancelar]="textoConfirmacion().cancelar"
     [procesando]="store.procesando()"
     idBase="editor-confirmacion"
-    [retornoFoco]="confirmacion() === 'eliminar' ? (resumenMasAcciones()?.nativeElement ?? null) : null"
+    [retornoFoco]="confirmacion() === 'eliminar' ? (resumenMasAcciones()?.nativeElement ?? null) : retornoConfirmacion()"
+    [respaldoFoco]="tituloEditor"
     (confirmar)="confirmacion() === 'salir' ? responderSalida(true) : confirmar()"
   >
     <p>{{ textoConfirmacion().texto }}</p>

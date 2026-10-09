@@ -414,11 +414,15 @@ describe('EditorContenidoStore (SCR-036)', () => {
     await estable();
     expect(store.accesoDenegado()).toBe(true);
     expect(store.acciones()?.principal).toBe('GUARDAR_PAGINA');
+    // Sin acceso no se pide el historial (el servidor respondería 403, QA TKT-050 OBS-QA050-01).
+    expect(r3.revisiones).not.toHaveBeenCalled();
+    expect(store.revisiones()).toBeNull();
     TestBed.resetTestingModule();
     configurar(r3, { tipo: 'paginas', id: '2' }, {}, 'ADMINISTRADOR');
     store = TestBed.inject(EditorContenidoStore);
     await estable();
     expect(store.accesoDenegado()).toBe(false);
+    expect(r3.revisiones).toHaveBeenCalledWith('PAGINA', 11, 1);
   });
 });
 
@@ -557,6 +561,55 @@ describe('PublicacionStore (SCR-038)', () => {
     await store.analizar(publicado, formulario());
     await store.confirmar(publicado, formulario());
     expect(store.pendientesPrincipal()).toEqual([{ campo: 'slug', codigo: 'validacion', mensaje: 'Inmutable.', referencias: [] }]);
+  });
+
+  it('AC_TKT023_09 actualizar publicación: RULE-006 de la vista previa (sin afinidad) es un aviso; decide el análisis (QA F-03)', async () => {
+    const r = repo();
+    const relacionados = { campo: '_general', codigo: 'relacionados_insuficientes', mensaje: 'Se necesitan al menos 3 contenidos relacionados publicados.', referencias: [] };
+    r.analizar.mockResolvedValue(analisis({ operacion: 'ACTUALIZAR_PUBLICACION' }));
+    r.vistaPrevia.mockResolvedValue({ ...VISTA, requisitos: { cumple: false, pendientes: [relacionados] } });
+    const store = crear(r);
+    const publicado = contenido({ tipo: 'ITINERARIO', estado: 'PUBLICADO', nuncaPublicado: false });
+    await store.analizar(publicado, formulario('ITINERARIO'));
+    expect(store.pendientesPrincipal()).toEqual([]);
+    expect(store.avisosPrincipal()).toEqual([relacionados]);
+    expect(store.totalPendientes()).toBe(0);
+    expect(store.confirmable()).toBe(true);
+
+    // Si el PUT final lo rechaza (422), se muestran sus errores y no es confirmable.
+    r.actualizar.mockRejectedValueOnce(
+      http(422, {
+        code: 'publicacion_invalida',
+        errores_por_entidad: [{ id: 11, tipo: 'ITINERARIO', titulo: 'Torres', rol: 'PRINCIPAL', errores: [{ campo: '_general', code: 'relacionados_insuficientes', mensaje: relacionados.mensaje }] }],
+      }),
+    );
+    const { error } = await store.confirmar(publicado, formulario('ITINERARIO'));
+    expect(error?.codigo).toBe('publicacion_invalida');
+    expect(store.pendientesPrincipal()).toEqual([expect.objectContaining({ codigo: 'relacionados_insuficientes' })]);
+    expect(store.confirmable()).toBe(false);
+  });
+
+  it('AC_TKT023_09 actualizar publicación: el resto de requisitos de la vista previa sigue bloqueando y el análisis del servidor manda (QA F-03)', async () => {
+    const r = repo();
+    const relacionados = { campo: '_general', codigo: 'relacionados_insuficientes', mensaje: 'Se necesitan al menos 3 contenidos relacionados publicados.', referencias: [] };
+    const resumen = { campo: 'resumen', codigo: 'obligatorio', mensaje: 'Falta.', referencias: [] };
+    r.vistaPrevia.mockResolvedValue({ ...VISTA, requisitos: { cumple: false, pendientes: [resumen, relacionados] } });
+    const store = crear(r);
+    const publicado = contenido({ tipo: 'GUIA', estado: 'PUBLICADO', nuncaPublicado: false });
+    await store.analizar(publicado, formulario('GUIA'));
+    expect(store.pendientesPrincipal()).toEqual([resumen]);
+    expect(store.avisosPrincipal()).toEqual([relacionados]);
+    expect(store.confirmable()).toBe(false);
+
+    // El servidor (con afinidad) también lo incumple: bloquea y no se duplica como aviso.
+    r.analizar.mockResolvedValue(
+      analisis({ confirmable: false, entidad: { ...analisis().entidad, cumple: false, pendientes: [relacionados] } }),
+    );
+    r.vistaPrevia.mockResolvedValue({ ...VISTA, requisitos: { cumple: false, pendientes: [relacionados] } });
+    await store.analizar(publicado, formulario('GUIA'));
+    expect(store.pendientesPrincipal()).toEqual([relacionados]);
+    expect(store.avisosPrincipal()).toEqual([]);
+    expect(store.confirmable()).toBe(false);
   });
 
   it('AC_TKT023_10 retirar: impacto, motivo obligatorio, cascada confirmada e impacto modificado', async () => {

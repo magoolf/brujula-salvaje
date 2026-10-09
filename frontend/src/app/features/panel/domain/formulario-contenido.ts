@@ -362,7 +362,7 @@ export const MENSAJES = {
   slug: 'Usa solo minúsculas, números y guiones (sin guiones al principio ni al final).',
   entero: 'Escribe un número entero.',
   numero: 'Escribe un número.',
-  fechaFutura: 'La fecha de revisión no puede ser futura.',
+  fechaFutura: 'La fecha de última revisión no puede ser futura.',
   url: 'Escribe una dirección completa que empiece por http:// o https://.',
   duracion: 'La duración mínima no puede ser mayor que la máxima.',
   principal: 'El tipo principal debe estar entre los tipos marcados.',

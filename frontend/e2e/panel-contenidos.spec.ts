@@ -7,6 +7,7 @@
 import { Page, expect, test } from '@playwright/test';
 
 import {
+  apiGet,
   crearBorrador,
   crearGuiaPublicable,
   editarComoOtro,
@@ -14,7 +15,7 @@ import {
   publicarPorApi,
   sufijo,
 } from './panel-contenidos-soporte';
-import { entrarComoEditorCompartido, irA, omitirSinStack } from './panel-soporte';
+import { entrarComoEditorCompartido, expectPanel, irA, omitirSinStack } from './panel-soporte';
 import { sinViolacionesGraves } from './utilidades';
 
 // Límites de tasa reales del entorno: los reintentos tras un 429 pueden alargar un caso.
@@ -280,6 +281,109 @@ test.describe('Panel · contenidos (TKT-023)', () => {
       await expect(masAcciones).toBeFocused();
     }
     expect((await obtenerContenido(page, 'guias', borrador.id)).estado_editorial).toBe('BORRADOR');
+  });
+
+  test('AC_TKT023_10 / AC_TKT023_11 / AC_TKT023_12 foco tras CONFIRMAR retirar, reactivar y restaurar (QA TKT-023 F-02-R)', async ({ page }) => {
+    test.setTimeout(240_000);
+    await entrarComoEditor(page);
+    const guia = await crearGuiaPublicable(page);
+    await publicarPorApi(page, 'guias', guia);
+    await irA(page, `/panel/contenido/guias/${guia.id}`);
+    const titulo = page.locator('#editor-titulo');
+    const principal = page.getByTestId('editor-accion-principal');
+
+    // Retirar desde «Más acciones»: el menú desaparece (RETIRADO) y el foco va al encabezado.
+    await page.getByTestId('editor-mas-acciones').focus();
+    await page.keyboard.press('Enter');
+    await page.getByTestId('editor-retirar').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('retiro-motivo')).toBeFocused();
+    await page.keyboard.type('Motivo de prueba de foco (E2E)');
+    await page.getByTestId('retiro-confirmar').focus();
+    await page.keyboard.press('Enter');
+    await expectPanel(page.getByTestId('editor-estado')).toHaveText('Retirado');
+    await expect(page.getByTestId('dialogo-retiro')).toBeHidden();
+    await expect(page.getByTestId('editor-mas-acciones')).toHaveCount(0);
+    await expect(titulo).toBeFocused();
+
+    // Reactivar como borrador: el botón principal vuelve a estar habilitado y recupera el foco.
+    await principal.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('editor-confirmacion-cancelar')).toBeFocused();
+    await page.getByTestId('editor-confirmacion-confirmar').focus();
+    await page.keyboard.press('Enter');
+    await expectPanel(page.getByTestId('editor-estado')).toHaveText('Borrador');
+    await expectPanel(page.getByTestId('editor-confirmacion')).toBeHidden();
+    await expect(principal).toBeEnabled();
+    await expect(principal).toBeFocused();
+
+    // Restaurar (teclado y ratón): el botón estaba [disabled] durante el proceso y recupera el foco.
+    const restaurar = page.getByTestId('editor-restaurar-1');
+    await restaurar.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('editor-confirmacion-cancelar')).toBeFocused();
+    await page.getByTestId('editor-confirmacion-confirmar').focus();
+    await page.keyboard.press('Enter');
+    await expectPanel(page.getByTestId('editor-confirmacion')).toBeHidden();
+    await expectPanel(page.getByTestId('editor-aviso')).toContainText('revisión 1');
+    await expect(restaurar).toBeFocused();
+    // WebKit no enfoca los botones al pulsarlos con el ratón: el retorno es explícito.
+    await restaurar.click();
+    await page.getByTestId('editor-confirmacion-confirmar').click();
+    await expectPanel(page.getByTestId('editor-confirmacion')).toBeHidden();
+    await expect(restaurar).toBeFocused();
+  });
+
+  test('AC_TKT023_09 actualizar publicación de contenido de la semilla con menos de 3 relacionados curados: aviso, no bloqueo (QA TKT-023 F-03)', async ({ page }, info) => {
+    // Un contenido distinto por motor (los 3 tipos afectados) para que los motores no se pisen la versión.
+    const casos: Record<string, { readonly ruta: string; readonly slug: string }> = {
+      chromium: { ruta: 'itinerarios', slug: 'dolomitas-via-ferrata-en-5-dias' },
+      firefox: { ruta: 'guias', slug: 'que-preguntar-antes-de-reservar-con-un-operador-local' },
+      webkit: { ruta: 'tipos-aventura', slug: 'travesias-por-desierto-y-expediciones' },
+    };
+    const caso = casos[info.project.name] ?? casos['chromium'];
+    test.setTimeout(240_000);
+    await entrarComoEditor(page);
+    const lista = await apiGet<{ resultados: { id: number; slug: string | null }[] }>(page, `/contenidos/${caso.ruta}?estado=PUBLICADO`);
+    const semilla = lista.resultados.find((c) => c.slug === caso.slug);
+    expect(semilla, `la semilla debe tener «${caso.slug}» publicado`).toBeDefined();
+    const antes = await obtenerContenido(page, caso.ruta, semilla!.id);
+    expect((antes['relaciones'] as unknown[]).length).toBeLessThan(3);
+
+    await irA(page, `/panel/contenido/${caso.ruta}/${semilla!.id}`);
+    const principal = page.getByTestId('editor-accion-principal');
+    await expect(principal).toHaveText('Actualizar publicación');
+    await principal.click();
+    await expectPanel(page.getByTestId('publicacion-resumen')).toBeVisible();
+    await expect(page.getByTestId('publicacion-errores')).toHaveCount(0);
+    await expect(page.getByTestId('publicacion-avisos')).toContainText('Se necesitan al menos 3 contenidos relacionados publicados.');
+    await expect(page.getByTestId('publicacion-confirmar')).toBeEnabled();
+    await axe(page);
+    const put = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().endsWith(`/contenidos/${caso.ruta}/${semilla!.id}`));
+    await page.getByTestId('publicacion-confirmar').click();
+    expect((await put).status()).toBe(200);
+    await expectPanel(page.getByTestId('dialogo-publicacion')).toBeHidden();
+    await expectPanel(page.getByTestId('editor-exito')).toContainText('está publicado');
+    const despues = await obtenerContenido(page, caso.ruta, semilla!.id);
+    expect(despues.estado_editorial).toBe('PUBLICADO');
+    expect(despues.version).toBeGreaterThan(antes.version);
+  });
+
+  test('AC_TKT023_09 un contenido publicado que incumple de verdad sigue sin poder actualizarse (QA TKT-023 F-03)', async ({ page }) => {
+    test.setTimeout(240_000);
+    await entrarComoEditor(page);
+    const guia = await crearGuiaPublicable(page);
+    await publicarPorApi(page, 'guias', guia);
+    await irA(page, `/panel/contenido/guias/${guia.id}`);
+    await page.getByTestId('campo-resumen').fill('');
+    await page.getByTestId('editor-accion-principal').click();
+    await expectPanel(page.getByTestId('publicacion-errores')).toContainText('El resumen es obligatorio.');
+    await expect(page.getByTestId('publicacion-confirmar')).toHaveCount(0);
+    await page.getByTestId('publicacion-volver').click();
+    await expectPanel(page.getByTestId('dialogo-publicacion')).toBeHidden();
+    const servidor = await obtenerContenido(page, 'guias', guia.id);
+    expect(servidor.estado_editorial).toBe('PUBLICADO');
+    expect(servidor['resumen']).toBe('Resumen de una guía creada por las pruebas de extremo a extremo.');
   });
 
   test('AC_TKT023_05 conflicto de versión: aviso sin sobrescribir y «Recargar»', async ({ page }) => {

@@ -166,6 +166,11 @@ export class EditorContenido {
   protected readonly dialogoPublicacion = signal(false);
   protected readonly dialogoRetiro = signal(false);
   protected readonly confirmacion = signal<Confirmacion>(null);
+  /**
+   * Control que abrió la confirmación («Reactivar», «Restaurar»): retorno explícito del foco, porque
+   * WebKit no enfoca los botones al pulsarlos y `activeElement` no sirve como origen (QA F-02-R).
+   */
+  protected readonly retornoConfirmacion = signal<HTMLElement | null>(null);
   protected readonly revisionARestaurar = signal<{ numero: number; fecha: Date } | null>(null);
   protected readonly diaAbierto = signal<string | null>(null);
   protected readonly masAcciones = signal(false);
@@ -362,6 +367,7 @@ export class EditorContenido {
       this.store.guardarEnMemoria(this.valor());
       return true;
     }
+    this.retornoConfirmacion.set(null);
     this.confirmacion.set('salir');
     return new Promise<boolean>((resolver) => (this.resolverSalida = resolver));
   }
@@ -597,11 +603,12 @@ export class EditorContenido {
     await this.router.navigateByUrl(rutaVistaPrevia(this.tipo, this.store.id()));
   }
 
-  protected async accionPrincipal(): Promise<void> {
+  protected async accionPrincipal(disparador: HTMLElement | null = null): Promise<void> {
     const accion = this.acciones()?.principal;
     if (accion === 'GUARDAR_PAGINA') {
       await this.guardar();
     } else if (accion === 'REACTIVAR') {
+      this.retornoConfirmacion.set(disparador);
       this.confirmacion.set('reactivar');
     } else if (accion === 'PUBLICAR' || accion === 'ACTUALIZAR') {
       await this.abrirPublicacion();
@@ -692,6 +699,7 @@ export class EditorContenido {
   }
 
   protected pedirEliminar(): void {
+    this.retornoConfirmacion.set(null);
     this.masAcciones.set(false);
     this.confirmacion.set('eliminar');
   }
@@ -725,7 +733,8 @@ export class EditorContenido {
     this.confirmacion.set(null);
   }
 
-  protected pedirRestaurar(numero: number, fecha: Date): void {
+  protected pedirRestaurar(numero: number, fecha: Date, disparador: HTMLElement | null = null): void {
+    this.retornoConfirmacion.set(disparador);
     this.revisionARestaurar.set({ numero, fecha });
     this.confirmacion.set('restaurar');
   }

@@ -23,6 +23,19 @@ export interface RequisitosPublicacion {
 
 export const SIN_REQUISITOS: RequisitosPublicacion = { cumple: true, pendientes: [] };
 
+/**
+ * Requisitos que la vista previa solo aproxima (DEC-AUTO-114, DEC-AUTO-986): RULE-006 cuenta en la
+ * vista previa únicamente los relacionados curados ya publicados, sin el complemento automático por
+ * afinidad que el servidor sí suma al analizar y al guardar. Son avisos, no bloqueos: decide el
+ * análisis del servidor (y, en último término, el 422 del guardado).
+ */
+const CODIGOS_ORIENTATIVOS_VISTA_PREVIA: ReadonlySet<string> = new Set(['relacionados_insuficientes']);
+
+/** ¿El requisito de la vista previa es orientativo (no bloquea «Actualizar publicación»)? */
+export function esOrientativoVistaPrevia(requisito: Requisito): boolean {
+  return CODIGOS_ORIENTATIVOS_VISTA_PREVIA.has(requisito.codigo);
+}
+
 export type RolEntidad = 'PRINCIPAL' | 'COPUBLICACION' | 'CASCADA';
 
 /** Validación de una entidad en el estado resultante de la operación (ValidacionEntidad). */

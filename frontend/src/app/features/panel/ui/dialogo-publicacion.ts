@@ -9,6 +9,7 @@ import {
   inject,
   input,
   output,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -22,6 +23,7 @@ import { FormularioContenido, RefContenido, idDestinoCampo, proponerSlug } from 
 import { formatearFechaLarga } from '../domain/fechas';
 import { ETIQUETA_TIPO_SINGULAR } from '../domain/tablero';
 import { PublicacionStore } from '../state/publicacion.store';
+import { devolverFoco } from './dialogo-confirmacion';
 
 /**
  * SCR-038 variante «Publicar / Actualizar publicación» (FEAT-036, FLOW-011/012, CHG-BP-001):
@@ -151,6 +153,15 @@ import { PublicacionStore } from '../state/publicacion.store';
                   </ul>
                 </section>
               }
+              @if (store.avisosPrincipal().length > 0) {
+                <app-banner variante="warning" testId="publicacion-avisos">
+                  @for (aviso of store.avisosPrincipal(); track $index) {
+                    <span data-testid="publicacion-aviso">{{ texto(aviso) }} </span>
+                  }
+                  Es orientativo: al actualizar se completan con contenidos afines ya publicados. Si aun así
+                  no se alcanza el mínimo, se te indicará y la publicación no cambiará.
+                </app-banner>
+              }
               @if (!enLinea()) {
                 <p class="ayuda" data-testid="publicacion-sin-conexion">Sin conexión: no se puede confirmar ahora.</p>
               }
@@ -192,6 +203,8 @@ export class DialogoPublicacion {
   readonly reintentarOperacion = output<void>();
   /** Enlace del ErrorSummary: cierra el diálogo y enfoca el campo. */
   readonly irACampo = output<string>();
+  /** Último recurso al cerrar si el disparador ya no puede recibir el foco (WCAG 2.4.3). */
+  readonly respaldoFoco = input<HTMLElement | null>(null);
   /** Fragmento del enlace a un campo del editor (href real, no «#»). */
   protected readonly destinoCampo = idDestinoCampo;
 
@@ -239,7 +252,7 @@ export class DialogoPublicacion {
         this.titulo().nativeElement.focus();
       } else if (!abierto && dialogo.open) {
         dialogo.close();
-        this.origen?.focus();
+        devolverFoco(this.documento, this.injector, dialogo, [this.origen, untracked(this.respaldoFoco)]);
         this.origen = null;
       }
     });

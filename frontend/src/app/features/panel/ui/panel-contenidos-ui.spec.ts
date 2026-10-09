@@ -13,6 +13,7 @@ import { ContenidoEditable, ContenidoResumen, PaginaContenidos } from '../domain
 import { FormularioContenido, formularioVacio } from '../domain/formulario-contenido';
 import { SesionPanel, TipoContenido } from '../domain/modelos';
 import { VistaPreviaContenido } from '../domain/vista-previa';
+import { enfocarPrimero } from './dialogo-confirmacion';
 import { RUTAS_PANEL } from './panel.routes';
 import { pintarHtmlSaneado, serializarHtmlSaneado } from './saneado-html';
 
@@ -487,6 +488,49 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(el('dialogo-publicacion').hasAttribute('open')).toBe(false);
   });
 
+  it('AC_TKT023_09 F-03: «Actualizar publicación» con menos de 3 relacionados curados es un aviso, no un bloqueo', async () => {
+    const relacionados = { campo: '_general', codigo: 'relacionados_insuficientes', mensaje: 'Se necesitan al menos 3 contenidos relacionados publicados.', referencias: [] };
+    const publicado = contenido({ tipo: 'ITINERARIO', estado: 'PUBLICADO', nuncaPublicado: false, slugBloqueado: true, formulario: formulario('ITINERARIO'), urlPublica: '/itinerarios/w' });
+    const m = await montar('/panel/contenido/itinerarios/11', (r) => {
+      r.obtener.mockResolvedValue(publicado);
+      r.analizar.mockResolvedValue(analisis({ operacion: 'ACTUALIZAR_PUBLICACION' }));
+      r.vistaPrevia.mockResolvedValue({ ...VISTA, requisitos: { cumple: false, pendientes: [relacionados] } });
+      r.actualizar.mockResolvedValue(publicado);
+    });
+    await vi.waitFor(() => expect(el('editor-accion-principal').textContent).toContain('Actualizar publicación'));
+    await pulsar(m, 'editor-accion-principal');
+    await vi.waitFor(() => expect(existe('publicacion-resumen')).toBe(true));
+    expect(existe('publicacion-errores')).toBe(false);
+    expect(el('publicacion-avisos').textContent).toContain('Se necesitan al menos 3 contenidos relacionados publicados.');
+    expect(el<HTMLButtonElement>('publicacion-confirmar').disabled).toBe(false);
+    await pulsar(m, 'publicacion-confirmar');
+    expect(m.repo.actualizar).toHaveBeenCalled();
+    await vi.waitFor(() => expect(el('dialogo-publicacion').hasAttribute('open')).toBe(false));
+  });
+
+  it('AC_TKT023_09 F-03: si el servidor rechaza la actualización (422), se muestran sus errores', async () => {
+    const relacionados = { campo: '_general', codigo: 'relacionados_insuficientes', mensaje: 'Se necesitan al menos 3 contenidos relacionados publicados.', referencias: [] };
+    const publicado = contenido({ tipo: 'GUIA', estado: 'PUBLICADO', nuncaPublicado: false, slugBloqueado: true, formulario: formulario('GUIA'), urlPublica: '/guias/capas' });
+    const m = await montar('/panel/contenido/guias/11', (r) => {
+      r.obtener.mockResolvedValue(publicado);
+      r.analizar.mockResolvedValue(analisis({ operacion: 'ACTUALIZAR_PUBLICACION' }));
+      r.vistaPrevia.mockResolvedValue({ ...VISTA, requisitos: { cumple: false, pendientes: [relacionados] } });
+      r.actualizar.mockRejectedValue(
+        http(422, {
+          code: 'publicacion_invalida',
+          errores_por_entidad: [{ id: 11, tipo: 'GUIA', titulo: 'Capas', rol: 'PRINCIPAL', errores: [{ campo: '_general', code: 'relacionados_insuficientes', mensaje: relacionados.mensaje }] }],
+        }),
+      );
+    });
+    await vi.waitFor(() => expect(el('editor-accion-principal').textContent).toContain('Actualizar publicación'));
+    await pulsar(m, 'editor-accion-principal');
+    await vi.waitFor(() => expect(existe('publicacion-confirmar')).toBe(true));
+    await pulsar(m, 'publicacion-confirmar');
+    await vi.waitFor(() => expect(existe('publicacion-errores')).toBe(true));
+    expect(el('publicacion-errores').textContent).toContain('Se necesitan al menos 3 contenidos relacionados publicados.');
+    expect(existe('publicacion-confirmar')).toBe(false);
+  });
+
   it('AC_TKT023_07 / AC_TKT023_08 publicación inválida: lista enlazada, referencias y bloqueo de cascada', async () => {
     const pendiente = {
       campo: 'tipos',
@@ -544,6 +588,9 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(el('editor-retirado').textContent).toContain('Reactívalo como borrador');
     expect(el('editor-accion-principal').textContent).toContain('Reactivar como borrador');
     expect(el<HTMLFieldSetElement>('seccion-identidad').querySelector('fieldset')?.disabled).toBe(true);
+    // F-02-R (QA ciclo 2): «Más acciones» desaparece al retirar; el foco va al encabezado del editor.
+    expect(existe('editor-mas-acciones')).toBe(false);
+    await vi.waitFor(() => expect(document.activeElement?.id).toBe('editor-titulo'));
   });
 
   it('AC_TKT023_10 retiro bloqueado por usos: solo «Entendido»', async () => {
@@ -629,6 +676,9 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(m.repo.reactivar).toHaveBeenCalled();
     await vi.waitFor(() => expect(el('editor-estado').textContent).toContain('Borrador'));
     expect(el('editor-aviso').textContent).toContain('Reactivaste');
+    // F-02-R: el disparador vuelve a estar habilitado tras el proceso y recupera el foco.
+    await vi.waitFor(() => expect(document.activeElement).toBe(el('editor-accion-principal')));
+    expect(el<HTMLButtonElement>('editor-accion-principal').disabled).toBe(false);
     expect(existe('editor-eliminar')).toBe(false);
     TestBed.resetTestingModule();
 
@@ -656,6 +706,8 @@ describe('Panel · contenidos (TKT-023)', () => {
     expect(el<HTMLInputElement>('campo-titulo').value).toBe('Versión antigua');
     expect(el('editor-guardado').textContent).toContain('Cambios sin guardar');
     expect(el('editor-aviso').textContent).toContain('revisión 2');
+    // F-02-R: «Restaurar» estaba [disabled] mientras se procesaba; al terminar recupera el foco.
+    await vi.waitFor(() => expect(document.activeElement).toBe(el('editor-restaurar-2')));
     expect(m.repo.actualizar).not.toHaveBeenCalled();
     expect(m.repo.publicar).not.toHaveBeenCalled();
   });
@@ -879,5 +931,26 @@ describe('saneado del texto enriquecido (RULE-022)', () => {
     const soloVacio = document.createElement('div');
     soloVacio.appendChild(document.createElement('p'));
     expect(serializarHtmlSaneado(soloVacio)).toBe('');
+  });
+});
+
+describe('enfocarPrimero (WCAG 2.4.3, QA TKT-023 F-02-R)', () => {
+  it('AC_TKT023_10 salta candidatos desconectados, deshabilitados o en un <details> cerrado y usa el respaldo', () => {
+    const suelto = document.createElement('button');
+    const deshabilitado = document.createElement('button');
+    deshabilitado.disabled = true;
+    const respaldo = document.createElement('h1');
+    respaldo.tabIndex = -1;
+    document.body.append(deshabilitado, respaldo);
+    try {
+      expect(enfocarPrimero(document, [null, suelto, deshabilitado, respaldo])).toBe(respaldo);
+      expect(document.activeElement).toBe(respaldo);
+      deshabilitado.disabled = false;
+      expect(enfocarPrimero(document, [deshabilitado, respaldo])).toBe(deshabilitado);
+      expect(enfocarPrimero(document, [suelto])).toBeNull();
+    } finally {
+      deshabilitado.remove();
+      respaldo.remove();
+    }
   });
 });

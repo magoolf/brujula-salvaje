@@ -88,7 +88,9 @@ export class EditorContenidoStore {
   private readonly recursoRevisiones = resource({
     params: () => {
       const contenido = this.contenido();
-      if (contenido === null) return undefined;
+      // Sin acceso (403 o página legal con Editor, RULE-014/TKT-050) no se pide el historial: el
+      // servidor respondería 403 y la vista es SCR-048 (QA TKT-050 OBS-QA050-01).
+      if (contenido === null || this.accesoDenegado()) return undefined;
       return {
         tipo: contenido.tipo,
         id: contenido.id,

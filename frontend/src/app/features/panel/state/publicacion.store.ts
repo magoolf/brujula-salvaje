@@ -22,6 +22,7 @@ import {
   ResultadoTransicion,
   cascadaConfirmada,
   conCascada,
+  esOrientativoVistaPrevia,
   motivoValido,
 } from '../domain/ciclo-editorial';
 import { ContenidoEditable } from '../domain/contenidos';
@@ -57,7 +58,11 @@ export class PublicacionStore {
 
   private readonly _fase = signal<FasePublicacion>('inactiva');
   private readonly _analisis = signal<AnalisisPublicacion | null>(null);
-  /** «Actualizar publicación»: requisitos del formulario (vista previa) además del análisis. */
+  /**
+   * «Actualizar publicación»: requisitos del formulario (vista previa) además del análisis. La
+   * confirmabilidad la decide el análisis del servidor; de la vista previa solo bloquean los
+   * requisitos que el servidor comprueba igual (los orientativos son avisos).
+   */
   private readonly _requisitosFormulario = signal<RequisitosPublicacion | null>(null);
   private readonly _erroresPorEntidad = signal<readonly ErroresEntidad[]>([]);
   private readonly _erroresCampo = signal<readonly Requisito[]>([]);
@@ -79,15 +84,29 @@ export class PublicacionStore {
   readonly erroresPorEntidad = this._erroresPorEntidad.asReadonly();
 
   /**
-   * Requisitos pendientes de la entidad principal: los del análisis (o de la vista previa en
-   * «Actualizar publicación») y los de un 422 por campo.
+   * Requisitos pendientes de la entidad principal: los del análisis del servidor, los de la vista
+   * previa del formulario en «Actualizar publicación» que el servidor exige igual al guardar, y los
+   * de un 422. Los orientativos de la vista previa (RULE-006 sin afinidad) no bloquean: van a
+   * `avisosPrincipal` (QA TKT-023 F-03, DEC-AUTO-986).
    */
   readonly pendientesPrincipal = computed<readonly Requisito[]>(() => {
     const porEntidad = this._erroresPorEntidad().find((e) => e.rol === 'PRINCIPAL');
     if (porEntidad) return porEntidad.errores;
     if (this._erroresCampo().length > 0) return this._erroresCampo();
     const analisis = this._analisis();
-    return [...(this._requisitosFormulario()?.pendientes ?? []), ...(analisis?.entidad.pendientes ?? [])];
+    const delFormulario = (this._requisitosFormulario()?.pendientes ?? []).filter((r) => !esOrientativoVistaPrevia(r));
+    return [...delFormulario, ...(analisis?.entidad.pendientes ?? [])];
+  });
+  /**
+   * Avisos no bloqueantes de la vista previa (p. ej. «menos de 3 relacionados curados publicados»):
+   * el servidor completa los relacionados por afinidad, así que se informa sin impedir confirmar. Se
+   * omiten si el análisis del servidor ya informa el mismo requisito (entonces sí bloquea).
+   */
+  readonly avisosPrincipal = computed<readonly Requisito[]>(() => {
+    const delServidor = new Set((this._analisis()?.entidad.pendientes ?? []).map((r) => r.codigo));
+    return (this._requisitosFormulario()?.pendientes ?? []).filter(
+      (r) => esOrientativoVistaPrevia(r) && !delServidor.has(r.codigo),
+    );
   });
   /** Tipos co-publicados con errores (de un 422 o del análisis). */
   readonly pendientesCopublicacion = computed(() => {
