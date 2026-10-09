@@ -15,6 +15,7 @@ import {
 import { RUTA_ACCESO_DENEGADO, esPasoDeCuentaObligatorio, rutaParaPaso } from '../domain/acceso';
 import { PasoPendiente, RolPanel } from '../domain/modelos';
 import { puedeAcceder } from '../domain/secciones';
+import { CargaPanelStore } from '../state/carga-panel.store';
 import { SesionPanelStore } from '../state/sesion-panel.store';
 
 /**
@@ -25,6 +26,18 @@ import { SesionPanelStore } from '../state/sesion-panel.store';
 
 /** Clave de `data` con el rol mínimo de una ruta del panel (TKT-022/023/024 la usan). */
 export const DATO_ROL_MINIMO = 'rolMinimo';
+
+/**
+ * Carga completa de una URL del panel con la sesión aún sin leer (QA TKT-010 OBS-C3-01): la ruta de
+ * carga (CargaPanel, sin guards) coincide al instante, recuerda la URL y muestra el armazón mínimo
+ * mientras se resuelve la sesión. Síncrono: nunca espera a la API.
+ */
+export const sesionSinResolverMatch: CanMatchFn = () => {
+  const carga = inject(CargaPanelStore);
+  if (!carga.necesitaCarga()) return false;
+  carga.recordarDestino();
+  return true;
+};
 
 /**
  * Armazón del panel (TPL-PANEL-SHELL): exige sesión completa. Sin sesión → SCR-030 con un

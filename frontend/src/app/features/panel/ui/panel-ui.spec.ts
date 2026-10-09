@@ -482,7 +482,8 @@ describe('Panel — acceso y armazón (FLOW-010)', () => {
     expect(el(m, 'tablero-alerta-responsable_sin_definir').textContent).toContain('Faltan los datos');
     expect(el(m, 'tablero-alerta-responsable_sin_definir').querySelector('a')).toBeNull();
     expect(existe(m, 'tablero-salud')).toBe(true);
-    expect(existe(m, 'tablero-accesos')).toBe(false);
+    // TKT-022: el único acceso rápido implementado es «Subir medios» (RULE-030).
+    expect(el(m, 'tablero-acceso-subir-medios').getAttribute('href')).toBe('/panel/medios');
     expect(el(m, 'panel-nav-tablero').getAttribute('aria-current')).toBe('page');
     expect(el(m, 'panel-seccion-actual').textContent).toContain('Tablero');
   });
