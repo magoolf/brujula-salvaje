@@ -590,7 +590,7 @@ tickets:
   - id: TKT-OPS-033
     titulo: "MEDIUM (CI frágil ante Docker Hub, 2026-10-09: 429 de límite anónimo y 504 en auth.docker.io tumban el job de infraestructura y bloquean todos los PR): reducir la dependencia de Docker Hub en CI sin credenciales nuevas: imágenes base y el frontend de sintaxis docker/dockerfile vía mirror.gcr.io u otro registro público con digest fijado, caché de capas/imágenes entre jobs, reintentos con backoff en build/pull; documentar. Si hiciera falta autenticarse en Docker Hub, es Puerta Humana (§0.5, secretos)"
     fase: F6
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_devops
     trazabilidad: [TKT-OPS-003, "RSK disponibilidad CI"]
     depende_de: []
