@@ -7,11 +7,14 @@ No dependen del contrato ni del backend reales (que cambian en cada ticket): un 
 Cada ejecución del gate tiene un límite de 60 s: los casos autorreferenciados (A*) colgaban el gate
 anterior (explosión exponencial de comparar()/forma(), OBS-QA-OPS004-01) y ahora terminan en
 milisegundos. Salida 1 si algún caso no da el resultado esperado o agota el tiempo.
+F-QA022-01 (TKT-OPS-027): el gate hijo se lanza con PYTHONUTF8=1 y PYTHONIOENCODING=utf-8 y su
+salida se decodifica con errors="replace" (en Windows sin PYTHONUTF8 fallaba con stdout None).
 """
 
 from __future__ import annotations
 
 import copy
+import os
 import pathlib
 import subprocess
 import sys
@@ -23,6 +26,8 @@ from typing import Any
 import yaml
 
 Doc = dict[str, Any]
+# F-QA022-01: el hijo escribe UTF-8 sea cual sea la página de códigos local (Windows cp1252).
+ENV_HIJO = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
 
 def ref(n: str) -> dict[str, str]:
@@ -348,6 +353,8 @@ def main() -> int:
         if len(sys.argv) > 1
         else str(pathlib.Path(__file__).with_name("gate_contrato.py"))
     )
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")  # F-QA022-01
     fallos = 0
     with tempfile.TemporaryDirectory() as d:
         fc, fg, ff = (str(pathlib.Path(d, n)) for n in ("c.yaml", "g.yaml", "f.yaml"))
@@ -365,12 +372,14 @@ def main() -> int:
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
+                    errors="replace",
+                    env=ENV_HIJO,
                     timeout=60,
                     check=False,
                 )
                 rc: int | str = p.returncode
                 err = next(
-                    (x[9:] for x in p.stdout.splitlines() if x.startswith("::error::")),
+                    (x[9:] for x in (p.stdout or "").splitlines() if x.startswith("::error::")),
                     "",
                 )
             except subprocess.TimeoutExpired:

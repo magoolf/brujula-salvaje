@@ -2432,6 +2432,39 @@ Sin cambios de imágenes, compose, workflow ni variables. La imagen del frontend
 ### 28.9 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (incluido el image scan) e integrarlo (sin editar contenido). Después, sincronizar los PR #50, #51 y #52 con `main` y relanzar su CI.
 
+## 29. TKT-OPS-026: grupo `vitest` en Dependabot (F7, soporte; DEC-AUTO-956)
+
+> Numeración: TKT-OPS-027 (§31, renumerada al sincronizar con `main`), TKT-OPS-028 (§30) y TKT-OPS-029 (§32) se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
+
+### 29.1 Estado
+COMPLETADO en la rama `tkt-ops-026-grupo-vitest`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 29.2 Objetivo
+El PR #58 de Dependabot (vitest 5.0.2 -> 5.0.3) falla en `npm ci` con `ERESOLVE` (run 37780415306): `@vitest/coverage-v8` 5.0.2 declara como peer la versión exacta `vitest@5.0.2`, así que actualizar uno sin el otro rompe el árbol. Hay que actualizarlos en el mismo PR.
+
+### 29.3 Cambios realizados
+- `.github/dependabot.yml`, ecosistema `npm` de `/frontend`: nuevo grupo `vitest` con `patterns: ["vitest", "@vitest/*"]` y `update-types: ["minor", "patch"]`, junto al grupo `angular`, que no cambia.
+- No cambia la política: siguen ignorándose las majors (`ignore` `version-update:semver-major` para `*`), se mantiene `versioning-strategy: "increase"` (versiones exactas en `package.json`), `open-pull-requests-limit: 3` y el prefijo de commit. Los patrones no se solapan con los de `angular`.
+- El PR #58 lo cierra el Orquestador tras integrar este cambio, para que Dependabot lo regenere agrupado. DevOps no lo cierra.
+
+### 29.4 Versiones / infraestructura / dependencias / variables de entorno
+Sin cambios de dependencias, lockfiles, imágenes, compose, workflows ni variables.
+
+### 29.5 Validaciones ejecutadas (2026-10-08, en local)
+- Validación contra el esquema JSON de SchemaStore `dependabot-2.0.json` (copia de `raw.githubusercontent.com/SchemaStore/schemastore/master`) con `jsonschema` 4.25.1 y `pyyaml` 6.0.3: **válido**. Grupos npm resultantes: `angular` y `vitest`. `ignore` y `versioning-strategy` sin cambios.
+- Control negativo: la misma copia, con `update-types: ["minor", "bogus"]`, **falla** con `ValidationError: 'bogus' is not one of ['major', 'minor', 'patch']`. Esto confirma que el validador no da por buena cualquier entrada.
+- `bash infra/ci/dependabot_cobertura.sh .`: exit 0 (el ecosistema docker no cambia).
+- NO VALIDADO en local: la agrupación real solo se ve cuando Dependabot regenere el PR (siguiente ejecución o "Check for updates" tras cerrar #58).
+
+### 29.6 Riesgos / pendientes
+- Ninguno nuevo. Si en el futuro se añade otro plugin `@vitest/*` (p. ej. `@vitest/ui`), el grupo lo cubre sin más cambios.
+
+### 29.7 Archivos modificados
+`.github/dependabot.yml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 29.8 Próximo agente
+**Orquestador**: confirmar el CI de este PR e integrarlo sin editar contenido. Después, cerrar #58 con un comentario para que Dependabot lo regenere agrupado (vitest + @vitest/coverage-v8), y someter el PR nuevo al CI y a la QA de regresión como el resto de PR de Dependabot.
+
 ## 30. TKT-OPS-028: CVE-2026-4775 (HIGH) en `tiff` de la imagen del proxy: se retira el módulo `image-filter` (F7, soporte; desbloquea el CI; DEC-AUTO-962)
 
 > Numeración: el PR #63 (TKT-OPS-026) añade §29 al final de este documento. Si este PR se integra antes, el conflicto con #63 será solo textual: hay que mantener ambas partes, §29 antes de §30.
@@ -2492,6 +2525,82 @@ Sin cambios de compose, redes, healthchecks, variables ni lockfiles.
 ### 30.10 Próximo agente
 **Orquestador**: confirmar el CI real de este PR (image scan de las 6 imágenes y smoke anti-evasión) e integrarlo (sin editar contenido). Después, sincronizar los PR abiertos con `main`. Actualizar RSK-OPS-046 (ahora solo `pcre2`) en `audit_log.md`.
 
+## 31. TKT-OPS-027: mejoras del gate de cobertura y del enmascarado del `.env` (hallazgos LOW de la QA de TKT-OPS-022; DEC-AUTO-957)
+
+> Numeración: esta sección se entregó como §30 y se renumeró a §31 al sincronizar con `main`, porque TKT-OPS-028 ya ocupaba la §30 (TKT-OPS-026 ocupa la §29 y TKT-OPS-029 la §32). Estos tickets se entregan en paralelo y también añaden contenido al final de este documento. Si hay conflicto al integrar, es solo textual: se conservan todas las secciones en orden de número.
+
+### 31.1 Estado
+COMPLETADO en la rama `tkt-ops-027-gate-cobertura-mejoras`, incluido F-QA022-03 (§31.6): TKT-034 ya está en `main` (PR #61 @ ece6cb5) y las excepciones TKT-OPS-022-EXC-01/02 se han retirado. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 31.2 Objetivo
+Corregir los cuatro hallazgos LOW/INFO de la QA de TKT-OPS-022 (PASS, ciclo 1/3):
+- **F-QA022-01**: en Windows sin `PYTHONUTF8=1`, `gate_cobertura_controles.py` acaba en `TypeError`. El hijo escribe en cp1252, la decodificación UTF-8 falla y deja `stdout` en `None`. A `gate_contrato_controles.py` le pasa lo mismo (`AttributeError: 'NoneType' object has no attribute 'splitlines'`). Ambos casos se reprodujeron en local antes de corregir.
+- **F-QA022-02**: el gate no impedía que un archivo de `[vistas_no_criticas]` sirviera rutas `/api/v1/panel/**`. Ese archivo quedaba sujeto solo al total (> 80 %) y no al umbral crítico (> 95 %).
+- **F-QA022-03**: retirar las excepciones TKT-OPS-022-EXC-01/02 (`sesiones.py` y `permisos.py`) cuando se integre TKT-034, que deja ambos archivos al 100 %.
+- **F-QA022-04**: `enmascarar_env.sh` solo enmascaraba por sufijo (`_PASSWORD|_KEY|_SECRET|_TOKEN`). Una variable nueva con `CHANGE_ME` en `.env.example` y sin ese sufijo habría salido en claro en el log.
+
+### 31.3 Cambios realizados
+- **F-QA022-01**: `gate_cobertura_controles.py` y `gate_contrato_controles.py` lanzan el hijo con `env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}` y `errors="replace"`. Además usan `(stdout or "")` y `sys.stdout.reconfigure(errors="replace")`, para no abortar al reimprimir la salida en una consola cp1252.
+- **F-QA022-02**:
+  - Nueva clave configurable `[clasificar_vistas].prefijos_criticos = ["/api/v1/panel/"]` en `cobertura_umbrales.toml`.
+  - `gate_cobertura.py` falla si un archivo del inventario del URLconf sirve una ruta bajo esos prefijos y no está en una regla de vistas críticas. El mensaje indica dónde está el archivo: `[vistas_no_criticas]`, `[api_soporte]`, excluido por nombre o sin clasificar. Antes de comparar, se eliminan las anclas `^` de `re_path` y las `//`.
+  - Falla cerrado si la lista está mal formada (sin `/` inicial) o si está vacía con `urlconf_obligatorio = true`.
+  - Controles nuevos: P6 y N28-N32 (sintéticos), R7-R8 (configuración e inventario reales). R5 ahora espera el mensaje de ruta crítica, porque su ruta de prueba es `/api/v1/panel/auth/mfa/nueva`.
+- **F-QA022-04**:
+  - `enmascarar_env.sh` acepta `--plantilla .env.example`. Con esa opción enmascara y exige no vacías TODAS las variables que sustituye `init-env.sh`, tengan o no sufijo de secreto. Usa el mismo `case` (`*=CHANGE_ME_FERNET|*=CHANGE_ME`); hoy son 8.
+  - Falla si la plantilla no existe o no declara ningún `CHANGE_ME`. Se mantienen el criterio por sufijo y las obligatorias explícitas.
+  - Las tres invocaciones del workflow (jobs `infra`, `backend` e `images`) pasan `--plantilla .env.example`.
+  - Nuevo `infra/ci/enmascarar_env_controles.sh` con 10 controles, y un paso nuevo en el job `infra`, antes de generar el `.env`.
+- **F-QA022-03**: el campo `ticket` de EXC-01/02 pasa a citar TKT-034, el ticket real (antes "TKT-OPS-022-DEV (propuesto...)"). La retirada se hizo después, en un commit aparte (§31.6).
+
+### 31.4 Versiones / infraestructura / dependencias / variables de entorno
+- Sin dependencias nuevas: solo biblioteca estándar y bash.
+- Sin cambios en imágenes, compose ni variables. `.env.example` no cambia: es la plantilla que lee `--plantilla`.
+
+### 31.5 Validaciones ejecutadas (2026-10-08, en local)
+Entorno: Windows 11, Python 3.11.9, Git Bash, con `PYTHONUTF8` y `PYTHONIOENCODING` SIN definir (`env -u`).
+- **Reproducción de F-QA022-01** con los archivos de `origin/main`:
+  - `gate_cobertura_controles.py`: `TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'`.
+  - `gate_contrato_controles.py`: `AttributeError: 'NoneType' object has no attribute 'splitlines'`.
+- **Tras la corrección**:
+  - `gate_cobertura_controles.py`, sintéticos: **39/39** (los 33 previos más P6 y N28-N32), exit 0.
+  - `gate_contrato_controles.py`: **27/27**, exit 0.
+- **Controles reales R1-R8**: **47/47** (antes de F-QA022-03; tras retirar las excepciones R4 se omite y quedan 46, §31.6).
+  - Datos de entrada: inventario REAL del URLconf (`vistas_urlconf.py`: 98 rutas en 9 archivos, 0 externos), `cobertura_umbrales.toml` real y un coverage.json SINTÉTICO al 100 % para los 167 archivos del backend.
+  - Con ese coverage, R1 solo prueba la clasificación: los 7 archivos que sirven `/api/v1/panel/**` ya son críticos.
+  - La cobertura REAL (pytest con PostgreSQL) solo la valida el CI del PR. No se levantó PostgreSQL en local por la RAM disponible.
+- **Mutación**: los controles nuevos, ejecutados contra el `gate_cobertura.py` de `main`, dan 34/39 (MAL en N28-N32). Es decir, detectan el hueco de F-QA022-02.
+- **`enmascarar_env_controles.sh`**: **10/10**. P1 genera un `.env` con el `init-env.sh` real y comprueba que sus 8 valores aleatorios salen como `::add-mask::`. Contra el `enmascarar_env.sh` de `main` da 2/10.
+- **Otros**:
+  - `ruff check` y `ruff format --check` sobre `infra/ci/` con la configuración del backend: OK.
+  - `bash -n` de los dos `.sh`: OK.
+  - `politica_trivy.sh .`: OK (3 invocaciones, 1 gate, 16 excepciones).
+  - `ci.yaml` cargado con PyYAML: OK.
+- **NOT_RUN**: `mypy` sobre `infra/ci/`. El plugin de django-stubs exige settings, y el CI tampoco lo ejecuta fuera de `backend/`.
+
+### 31.6 F-QA022-03 (retirada de TKT-OPS-022-EXC-01/02): HECHA
+- TKT-034 (PR #61) está integrado en `main` @ ece6cb5, y esta rama ya lo contiene tras sincronizarse con `main`.
+- Verificación previa, con el CI de esta rama con TKT-034 dentro (run 37866845144, job `backend`, pytest sobre PostgreSQL con el toolchain del CI):
+  - `apps/cuentas/sesiones.py` al 100,00 % (62 sentencias, 16 ramas, 0 sin cubrir).
+  - `apps/cuentas/permisos.py` al 100,00 % (41 sentencias, 10 ramas, 0 sin cubrir).
+  - El gate avisaba en las dos: `::warning:: ... ya cumple endpoints criticos (> 95 %) con 100.00 %: retira la excepción DEC-AUTO-948 (TKT-OPS-022-EXC-0x)`.
+- Cambio: se borran los dos bloques `[[excepciones]]` de `infra/ci/cobertura_umbrales.toml`, y su cabecera registra la retirada. No queda ninguna excepción vigente, así que ninguna se mantiene.
+- Efecto en los controles: R4 (fecha simulada tras la caducidad) solo se ejecuta si hay excepciones, de modo que ahora se omite. Los controles del job `backend` pasan de 47 a 46: 39 sintéticos más R1-R3 y R5-R8.
+- Evidencia de cierre: el CI del commit de retirada, que figura en el HANDOFF_ENVELOPE de #65.
+
+### 31.7 Riesgos / pendientes
+- `prefijos_criticos` cubre `/api/v1/panel/**`, que incluye la autenticación (`/api/v1/panel/auth/**`). Si en el futuro hay rutas autenticadas con efectos fuera de ese prefijo, se añaden a la lista con DEC-AUTO.
+- `--plantilla` exige que TODA variable `CHANGE_ME` de `.env.example` esté en el `.env` generado. Con `init-env.sh` siempre se cumple, porque genera el `.env` desde esa misma plantilla.
+
+### 31.8 Archivos modificados
+`infra/ci/gate_cobertura.py`, `infra/ci/gate_cobertura_controles.py`, `infra/ci/gate_contrato_controles.py`, `infra/ci/cobertura_umbrales.toml`, `infra/ci/enmascarar_env.sh`, `infra/ci/enmascarar_env_controles.sh` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 31.9 Próximo agente
+**Orquestador**:
+1. Confirmar el CI real del PR: el job `backend` ejecuta los 46 controles sobre el coverage.json real (47 si vuelve a haber excepciones), y el job `infra`, los 10 del enmascarado.
+2. Lanzar la QA del ticket.
+3. F-QA022-03 está cerrado en esta rama (§31.6): no hay nada pendiente con #61.
+
 ## 32. TKT-OPS-029: GHSA-xw65-4hp5-5hc7, GHSA-8r5x-fm3f-whwj y GHSA-p8wg-vrv2-v86f (CRITICAL) en `handlebars` del frontend (F7, soporte; desbloquea el CI; DEC-AUTO-965)
 
 > Numeración: §29 la ocupa el PR #63 (TKT-OPS-026) y el PR #65 (TKT-OPS-027) añade otra §30 que choca con la §30 de TKT-OPS-028 que ya está en `main`, así que tendrá que pasar a §31. Por eso esta sección es la §32. Si hay conflicto, será solo textual: se mantienen todas las secciones en orden numérico.
@@ -2526,6 +2635,7 @@ No cambian imágenes, compose, workflow ni variables. `handlebars` es dependenci
 ### 32.7 Riesgos / pendientes
 - No hay riesgos nuevos. Mientras no se integre, el CI de `main` y de los PR abiertos sigue en rojo en `npm audit`.
 - Hay que renumerar la §30 duplicada del PR #65 (ver la nota de numeración).
+- Renumeración HECHA: al sincronizar el PR #65 con `main`, la sección de TKT-OPS-027 pasó a ser la §31.
 
 ### 32.8 Archivos modificados
 `frontend/package-lock.json`, `docs/05_operacion/DEVOPS_HANDOFF.md`.

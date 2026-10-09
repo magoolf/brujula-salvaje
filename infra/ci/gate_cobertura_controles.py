@@ -30,22 +30,39 @@ Sintéticos (árbol de backend falso en un directorio temporal):
   N25 URLconf: módulo externo sin [vistas_externas] -> 1
   N26 urlconf_obligatorio sin --vistas-urlconf -> 1
   N27 inventario del URLconf vacío -> 1
+  TKT-OPS-027 (QA de TKT-OPS-022, F-QA022-02: rutas críticas por prefijo):
+  P6 vista crítica que sirve /api/v1/panel/** (también con ancla ^ de re_path) -> 0
+  N28 un archivo de [vistas_no_criticas] sirve /api/v1/panel/x -> 1
+  N29 un archivo de [api_soporte] sirve /api/v1/panel/y -> 1 (mensaje de ruta crítica)
+  N30 re_path "^api/v1/panel/z" servido por una vista no crítica -> 1
+  N31 urlconf_obligatorio con prefijos_criticos vacío -> 1
+  N32 prefijos_criticos mal formado (sin / inicial) -> 1
 Con coverage.json e inventario del URLconf REALES (en CI, tras pytest y vistas_urlconf.py):
   R1 configuración versionada -> 0       R2 umbral imposible (services > 100) -> 1
   R3 coverage.json real manipulado (un services a 50 %) -> 1
   R4 fecha simulada tras la caducidad de las excepciones vigentes -> 1 (si hay excepciones)
-  R5 inventario real + vista nueva apps/cuentas/vistas_mfa.py -> 1
+  R5 inventario real + vista nueva apps/cuentas/vistas_mfa.py (/api/v1/panel/**) -> 1
   R6 configuración real sin --vistas-urlconf -> 1
+  R7 inventario real + /api/v1/panel/** servido por una vista de [vistas_no_criticas] -> 1
+  R8 configuración real sin prefijos_criticos -> 1
+F-QA022-01 (TKT-OPS-027): los hijos se lanzan con PYTHONUTF8=1 y PYTHONIOENCODING=utf-8 y la salida
+se decodifica con errors="replace": en Windows sin PYTHONUTF8 la consola cp1252 del hijo hacía
+fallar la decodificación UTF-8 (stdout None -> TypeError).
 """
 
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import subprocess
 import sys
 import tempfile
+import tomllib
+
+# F-QA022-01: el hijo escribe UTF-8 sea cual sea la página de códigos local (Windows cp1252).
+ENV_HIJO = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
 BASE_TOML = """
 [[reglas]]
@@ -65,6 +82,7 @@ patrones = ["apps/a/api/views.py"]
 [clasificar_vistas]
 patrones = ["apps/*/api/*.py", "apps/*/views.py", "apps/*/views/*.py"]
 excluir = ["*/__init__.py", "*serializers.py", "*urls.py", "*/filtros.py"]
+prefijos_criticos = ["/api/v1/panel/"]
 [vistas_no_criticas]
 "apps/b/api/views.py" = "pública de solo lectura"
 [api_soporte]
@@ -174,8 +192,10 @@ def ejecutar(
             capture_output=True,
             text=True,
             encoding="utf-8",
+            errors="replace",
+            env=ENV_HIJO,
         )
-        return r.returncode, r.stdout + r.stderr
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
 def main(argv: list[str]) -> int:
@@ -183,6 +203,8 @@ def main(argv: list[str]) -> int:
         sys.stderr.write("\n".join(__doc__.splitlines()[2:4]) + "\n")
         return 2
     gate = argv[1]
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")  # F-QA022-01: no abortar al reimprimir la salida
     casos: list[tuple[str, int, str, tuple[int, str]]] = []
 
     def caso(nombre: str, esperado: int, patron: str, res: tuple[int, str]) -> None:
@@ -395,6 +417,62 @@ def main(argv: list[str]) -> int:
         r"ilegible o vacío",
         ejecutar(gate, cov(OK), BASE_TOML, urlconf={"archivos": {}, "externos": {}}),
     )
+    critica_ok = inventario(
+        {"apps/a/api/views.py": ["/api/v1/panel/a/", "/^api/v1/panel/a/(?P<pk>[0-9]+)/$"]}
+    )
+    caso(
+        "P6 vista crítica sirve /api/v1/panel/**",
+        0,
+        r"-> PASS",
+        ejecutar(gate, cov(OK), BASE_TOML, urlconf=critica_ok),
+    )
+    no_critica_panel = inventario({"apps/b/api/views.py": ["/publico/b", "/api/v1/panel/x"]})
+    caso(
+        "N28 [vistas_no_criticas] sirve /api/v1/panel/x",
+        1,
+        r"apps/b/api/views.py sirve rutas críticas \(/api/v1/panel/x; "
+        r".*está \[vistas_no_criticas\]",
+        ejecutar(gate, cov(OK), BASE_TOML, urlconf=no_critica_panel),
+    )
+    soporte_panel = inventario({"apps/b/api/base.py": ["/api/v1/panel/y"]})
+    caso(
+        "N29 [api_soporte] sirve /api/v1/panel/y",
+        1,
+        r"apps/b/api/base.py sirve rutas críticas .*está \[api_soporte\]",
+        ejecutar(gate, cov(OK), BASE_TOML, urlconf=soporte_panel),
+    )
+    re_path_panel = inventario({"apps/b/api/views.py": ["/publico/b", "/^api/v1/panel/z$"]})
+    caso(
+        "N30 re_path ^api/v1/panel/z en vista no crítica",
+        1,
+        r"apps/b/api/views.py sirve rutas críticas \(/\^api/v1/panel/z\$",
+        ejecutar(gate, cov(OK), BASE_TOML, urlconf=re_path_panel),
+    )
+    caso(
+        "N31 urlconf_obligatorio sin prefijos_criticos",
+        1,
+        r"prefijos_criticos está vacío: .*falla cerrado",
+        ejecutar(
+            gate,
+            cov(OK),
+            BASE_TOML.replace(
+                'prefijos_criticos = ["/api/v1/panel/"]',
+                "prefijos_criticos = []\nurlconf_obligatorio = true",
+            ),
+            urlconf=URLCONF_OK,
+        ),
+    )
+    caso(
+        "N32 prefijos_criticos sin / inicial",
+        1,
+        r"prefijos_criticos debe ser una lista de rutas que empiezan por /",
+        ejecutar(
+            gate,
+            cov(OK),
+            BASE_TOML.replace('"/api/v1/panel/"]', '"api/v1/panel/"]'),
+            urlconf=URLCONF_OK,
+        ),
+    )
 
     if len(argv) == 6:
         real_cov, real_toml, raiz = pathlib.Path(argv[2]), pathlib.Path(argv[3]), argv[4]
@@ -425,8 +503,10 @@ def main(argv: list[str]) -> int:
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
+                    errors="replace",
+                    env=ENV_HIJO,
                 )
-                return r.returncode, r.stdout + r.stderr
+                return r.returncode, (r.stdout or "") + (r.stderr or "")
 
         caso("R1 configuración real", 0, r"-> PASS", real(toml_txt))
         imposible = re.sub(
@@ -447,7 +527,8 @@ def main(argv: list[str]) -> int:
         caso(
             "R5 URLconf real + vistas_mfa.py",
             1,
-            r"vista del URLconf sin clasificar: apps/cuentas/vistas_mfa.py",
+            # TKT-OPS-027: ruta /api/v1/panel/** -> la detecta antes la regla de rutas críticas.
+            r"apps/cuentas/vistas_mfa.py sirve rutas críticas .*está sin clasificar",
             real(toml_txt, urlconf_txt=json.dumps(inv)),
         )
         caso(
@@ -455,6 +536,24 @@ def main(argv: list[str]) -> int:
             1,
             r"urlconf_obligatorio",
             real(toml_txt, con_urlconf=False),
+        )
+        conf = tomllib.loads(toml_txt)
+        no_critica = sorted(conf.get("vistas_no_criticas", {}))[0]
+        prefijo = conf["clasificar_vistas"]["prefijos_criticos"][0].rstrip("/")
+        inv7 = json.loads(real_urlconf.read_text(encoding="utf-8"))
+        inv7["archivos"].setdefault(no_critica, []).append(prefijo + "/control-r7/")
+        caso(
+            f"R7 URLconf real + {prefijo}/** en {no_critica}",
+            1,
+            re.escape(no_critica) + r" sirve rutas críticas .*está \[vistas_no_criticas\]",
+            real(toml_txt, urlconf_txt=json.dumps(inv7)),
+        )
+        sin_prefijos = re.sub(r"(?m)^prefijos_criticos = .*\n", "", toml_txt)
+        caso(
+            "R8 configuración real sin prefijos_criticos",
+            1,
+            r"prefijos_criticos está vacío",
+            real(sin_prefijos),
         )
 
     fallos = 0
