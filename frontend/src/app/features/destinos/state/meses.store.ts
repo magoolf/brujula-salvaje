@@ -13,7 +13,11 @@ import { FILTROS_VACIOS } from '../domain/filtros';
 export class MesesIndiceStore {
   private readonly repo = inject(DestinosRepositorio);
 
-  private readonly recurso = resource({ loader: () => this.repo.meses() });
+  // `id` (TKT-016): ver destinos-listado.store.ts (hidratación sin esqueleto ni recreación del DOM).
+  private readonly recurso = resource({
+    id: 'recurso:destinos-meses',
+    loader: () => this.repo.meses(),
+  });
 
   // `hasValue()` evita que `.value()` lance al leerlo mientras el recurso está en error.
   readonly meses = computed(() => (this.recurso.hasValue() ? this.recurso.value() : []));
@@ -46,6 +50,7 @@ export class DestinosDelMesStore {
   });
 
   private readonly recurso = resource({
+    id: 'recurso:destinos-del-mes',
     params: () => this.mes(),
     loader: ({ params }) =>
       params === null

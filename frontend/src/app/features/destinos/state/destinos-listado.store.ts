@@ -37,12 +37,19 @@ export class DestinosListadoStore {
     filtrosDesdeQueryParams(paramMapARegistro(this.queryParamMap())),
   );
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto en la
+  // hidratación, así que la plantilla reutiliza el DOM del servidor en vez de pasar por el
+  // esqueleto (layout shift del pie) y recrear el listado. Solo se usa en la primera hidratación.
   private readonly recursoListado = resource({
+    id: 'recurso:destinos-listado',
     params: () => this.filtros(),
     loader: ({ params }) => this.repo.listar(params),
   });
 
-  private readonly recursoFacetas = resource({ loader: () => this.repo.facetas() });
+  private readonly recursoFacetas = resource({
+    id: 'recurso:destinos-facetas',
+    loader: () => this.repo.facetas(),
+  });
 
   // `hasValue()` evita que `.value()` lance al leerlo mientras el recurso está en error.
   readonly pagina = computed(() =>

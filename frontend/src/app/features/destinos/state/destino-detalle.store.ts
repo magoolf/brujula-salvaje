@@ -32,13 +32,18 @@ export class DestinoDetalleStore {
     requireSync: true,
   });
 
+  // `id` (TKT-016): ver destinos-listado.store.ts (hidratación sin esqueleto ni recreación del DOM).
   private readonly recurso = resource({
+    id: 'recurso:destino-detalle',
     params: () => this.slug(),
     loader: ({ params }) => this.repo.detalle(params),
   });
 
   /** RULE-010: se pide una sola vez (sin `params`, el recurso no depende del slug). */
-  private readonly recursoDescargo = resource({ loader: () => this.repo.textoDescargo() });
+  private readonly recursoDescargo = resource({
+    id: 'recurso:destino-descargo',
+    loader: () => this.repo.textoDescargo(),
+  });
   // `hasValue()` evita que `.value()` lance al leerlo mientras el recurso está en error.
   readonly descargo = computed(() =>
     this.recursoDescargo.hasValue() ? this.recursoDescargo.value() : null,
