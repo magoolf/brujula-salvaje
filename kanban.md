@@ -530,14 +530,14 @@ tickets:
   - id: TKT-OPS-031
     titulo: "HIGH (CI rojo en todos los PR desde 2026-10-09): CVE-2026-78667 (Go stdlib net/http, DoS; corregida en Go 1.26.9/1.27.2) en /usr/local/bin/supercronic v0.2.49 (compilado con Go 1.26.6) de las imágenes scheduler y backup; no hay release corregida de supercronic. Compilar supercronic v0.2.49 desde el código fuente (tag verificado por commit SHA) en una etapa builder con Go >= 1.26.9 fijado por digest, binario estático, reproducible, sin cambiar el comportamiento; o actualizar a una release corregida si aparece. Sin entradas nuevas en .trivyignore"
     fase: F6
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_devops
     trazabilidad: [RSK-OPS-001, "THREAT supply chain"]
     depende_de: []
-    archivos_permitidos: ["infra/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    archivos_permitidos: ["infra/**", ".github/workflows/**", ".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup."]
+    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup.", "2026-10-09 PR #77 @ 57cad6b (CI 37958056463 verde): supercronic v0.2.49 (commit 8e0a4a4) compilado con golang:1.26.9-trixie por digest, receta idéntica en ambos Dockerfile con control en CI, grupo golang en Dependabot, DEVOPS_HANDOFF §33; trivy 0 HIGH/CRITICAL en las 6 imágenes sin tocar .trivyignore. NOT_RUN: arm64. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-09
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
