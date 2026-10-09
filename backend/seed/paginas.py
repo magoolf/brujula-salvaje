@@ -7,10 +7,10 @@ licencia por medio, mostrados junto a cada imagen), así que no hay una funciona
 cubrir, solo una página institucional adicional que no cabe en el esquema. Ver HANDOFF (gap).
 
 Contenido honesto y verificable a partir de las decisiones ya tomadas en requirements.yaml
-(DEC-AUTO-002 sin hosting, DEC-AUTO-005 panel interno, DEC-AUTO-967 fotografías de Wikimedia Commons con licencia libre,
-DEC-AUTO-015 sin analítica ni cookies no esenciales en el sitio público): no se inventan datos de
-un responsable legal real (ConfigSitio.responsable_* queda como marcador, GAP-004, fuera de
-alcance de este comando).
+(DEC-AUTO-002 sin hosting, DEC-AUTO-005 panel interno, DEC-AUTO-967 fotografías de Wikimedia
+Commons con licencia libre, DEC-AUTO-015 sin analítica ni cookies no esenciales en el sitio
+público): no se inventan datos de un responsable legal real (ConfigSitio.responsable_* queda como
+marcador, GAP-004, fuera de alcance de este comando).
 """
 
 from __future__ import annotations

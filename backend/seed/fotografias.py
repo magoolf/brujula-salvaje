@@ -68,7 +68,9 @@ class Foto:
             raise FotoNoDisponibleError(f"Falta el archivo {self.archivo}")
         datos = ruta.read_bytes()
         if hashlib.sha256(datos).hexdigest() != self.sha256:
-            raise FotoNoDisponibleError(f"La huella de {self.archivo} no coincide con el manifiesto")
+            raise FotoNoDisponibleError(
+                f"La huella de {self.archivo} no coincide con el manifiesto"
+            )
         return datos
 
 

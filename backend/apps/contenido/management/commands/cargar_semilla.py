@@ -21,6 +21,7 @@ una "cuenta de sistema" se descartó explícitamente por THREAT-027, sin cuentas
 from __future__ import annotations
 
 import dataclasses
+from datetime import date
 from typing import Any, cast
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -95,7 +96,10 @@ class Command(BaseCommand):
             "ITINERARIO": set(),
             "GUIA": set(),
         }
-        self.fecha_revision = timezone.now().date()
+        # Misma referencia que `reglas._fecha_no_futura` (`date.today()`, fecha local del proceso):
+        # con `timezone.now().date()` (UTC) la carga fallaba con `fecha_futura` en las horas en que
+        # la fecha UTC ya es la del día siguiente a la local (detectado en TKT-041).
+        self.fecha_revision = date.today()
         self.stdout.write("TKT-007 — carga de semilla de contenido")
 
         self._licencias = dict(Licencia.objects.values_list("codigo", "pk"))

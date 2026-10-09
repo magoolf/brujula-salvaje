@@ -17,7 +17,9 @@ from apps.medios.models import EstadoMedio, Medio
 
 pytestmark = pytest.mark.django_db
 
-migracion = importlib.import_module("apps.catalogos.migrations.0004_licencias_cc_versiones_anteriores")
+migracion = importlib.import_module(
+    "apps.catalogos.migrations.0004_licencias_cc_versiones_anteriores"
+)
 
 ESPERADAS = {
     "CC-BY-2.0": "https://creativecommons.org/licenses/by/2.0/",
