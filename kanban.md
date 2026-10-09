@@ -335,6 +335,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9)."]
     actualizado: 2026-10-08
+  - id: TKT-045
+    titulo: "MEDIUM (Developer TKT-023): RULE-009 (la fecha de revisión no puede ser futura) solo se valida en el cliente con la fecha local; el backend la acepta (DateField sin validación, TIME_ZONE=UTC) y un cliente API directo puede guardar fechas futuras. Validar en el serializer/servicio del panel con tolerancia de zona horaria (fecha <= hoy en UTC-5 de Colombia o <= hoy UTC+14, documentando la elección), Problem Details 422/400 coherente con el contrato, tests"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-023, "RULE-009", MOD-010]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/contenido/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-973."]
+    actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -455,6 +467,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-962. Detectado en el run 37830313288 (PR #62 CHG-API-006, ajeno al diff): brujula/proxy Total 1 (HIGH 1) tiff CVE-2026-4775 fixed 4.7.2-r0; el resto de imágenes 0.", "PR #64 @ ae0cfd9: apk del nginx-module-image-filter (módulo nunca cargado; 41 paquetes en lugar de 70, sin tiff/libgd/libexpat), control en el build; CI verde completo (run 37836015217: build+trivy+SBOM+smoke+schemathesis). DEC-AUTO-964: validación por CI como en TKT-OPS-024. Integrado (gh pr merge 64 --merge @ ea33268). DONE."]
     actualizado: 2026-10-08
+  - id: TKT-OPS-030
+    titulo: "LOW (QA TKT-OPS-027): (OBS-01) ruta_normalizada() de infra/ci/gate_cobertura.py solo quita '^' y '//': rutas escritas como regex ('/^api/v1/panel$', '(?P<s>panel)', barras escapadas) eluden prefijos_criticos en vistas no críticas; quitar también '$' y '\' y fallar si un archivo no crítico sirve una ruta regex que contenga 'panel', con controles negativos M4/M7. (OBS-02 INFO) comparar también [vistas_externas] con prefijos_criticos. (OBS-03 INFO) eliminar el comentario obsoleto '33 sintéticos + 6 reales' de ci.yaml"
+    fase: F7
+    estado: TODO
+    owner: devops
+    trazabilidad: [TKT-OPS-027, "Skill_Backend §8"]
+    depende_de: [TKT-OPS-027]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-971. Mutaciones de la QA: scratchpad 56bc59a0…/q027/mut.py."]
+    actualizado: 2026-10-08
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
@@ -463,21 +487,21 @@ tickets:
     trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
     depende_de: []
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-957."]
+    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Pendiente: resincronizar tras #63, CI y merge."]
     actualizado: 2026-10-08
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: ["Skill_devops §5", "Skill_devops §4.2"]
     depende_de: []
     archivos_permitidos: [".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-956. 2026-10-08: update-branch de #54-#57 ejecutado por el Orquestador; #58 run 37780415306 FAIL ERESOLVE."]
+    evidencia: ["DEC-AUTO-956. 2026-10-08: update-branch de #54-#57 ejecutado por el Orquestador; #58 run 37780415306 FAIL ERESOLVE.", "2026-10-08 PR #63 sincronizado (f829cf5, CI 37866726692 verde); QA_VERDICT PASS ciclo 1/3. update-branch tras #69, CI verde, integrado (gh pr merge 63 --merge @ f080842); #58 cerrado para que Dependabot lo regenere agrupado. DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-025
     titulo: "HIGH, PRIORIDAD MÁXIMA (bloquea el CI de main y de todos los PR): GHSA-68fv-2mgg-jv7q (HIGH, DoS del bucle de eventos) en source-map-js 1.2.1, dependencia transitiva del frontend (postcss, @tailwindcss/node, css-tree, magicast, sass). Subir source-map-js a la versión corregida solo en frontend/package-lock.json (package.json sin cambios); verificar npm ci, npm audit --audit-level=high, build y tests del frontend; rama propia desde origin/main y PR"
@@ -726,10 +750,10 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-010, FEAT-033, FEAT-034, FEAT-035, FEAT-036, FEAT-037, FEAT-038, FEAT-039, FEAT-040, FEAT-049, FEAT-050, FLOW-011, FLOW-012, SCR-035, SCR-036, SCR-037, SCR-038, "RULE-001..012", "RULE-020..027"]
     depende_de: [TKT-010, TKT-022]
-    archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/api/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts"]
+    archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/api/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts", "frontend/e2e/panel-acceso.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal.", "2026-10-08 PR #71 @ 28af6cc, CI 37869963051 verde; unit 681/681; build inicial +0,02 kB; panel-contenidos 8/8 x3 motores (fix de fecha UTC en el soporte E2E). BLOCKED por 2 asserts obsoletos de panel-acceso.spec.ts (TKT-010) que TKT-023 cambia intencionadamente -> DEC-AUTO-972 amplía archivos_permitidos a ese spec. Riesgo RULE-009 solo en cliente -> TKT-045."]
     actualizado: 2026-10-08
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
@@ -1082,14 +1106,14 @@ tickets:
   - id: TKT-019
     titulo: "GAP DE PLANIFICACIÓN: SCR-022 (Mapa del sitio HTML, `/mapa-del-sitio`, MOD-001, FEAT-025) tiene prioridad MUST y es la segunda vía obligatoria exigida por RULE-030/OBJ-001 (junto con Inicio) para que 'toda página publicada sea alcanzable' -- pero NUNCA fue asignado a ningún Micro-Ticket (ni TKT-008 ni TKT-009 lo incluyen en su alcance). Resultado: /mapa-del-sitio devuelve HTTP 404 real en producción HOY, pese a que el pie de página (GI-02, construido en TKT-008) ya lo enlaza -- es un enlace roto en vivo para cualquier visitante que lo pulse. Encontrado por QA durante la verificación de RULE-030 en TKT-009 ciclo 1/3 (no es un defecto de TKT-008 ni TKT-009: es un hueco en la descomposición original de tickets de esta sesión). Implementar: página HTML que agrupa todas las páginas publicadas por sección (destinos, itinerarios, tipos de aventura, guías, colecciones, glosario, institucional), MUST, REQ-021/020"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [MOD-001, "SCR-022", "FEAT-025", "RULE-030", "OBJ-001"]
     depende_de: [TKT-008, TKT-009]
     archivos_permitidos: ["frontend/src/app/features/mapa-del-sitio/**", "frontend/src/app/app.routes.ts", "frontend/e2e/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 805b2e7: tests/a11y/contrato/seguridad/performance PASS (95 rutas 200 reales, SSR con los 72+24 enlaces, axe 0, CLS 0). F-01 MEDIUM: el índice de secciones usa href='#seccion-x' y con <base href=/> lleva a /#seccion-x (Inicio) en 3 motores; AC_TKT019_02 no lo detecta. F-02 MEDIUM: AC_TKT019_04 agota el cupo publico-lectura compartido (385 llamadas, 53 x 429) y hace fallar specs de otros tickets. F-03 LOW: reintentos ante estado-error sin comprobar 429 y crawl que solo mira el status. OBS-01/02 preexistentes -> TKT-042. Ciclo 2/3 al Developer.", "Ciclo 2/3 entregado @ d3f7627 (CI run 37858291250 verde): índice con href /mapa-del-sitio#seccion-x + irASeccion (foco en h2, replaceState; sin routerLink porque FocoRuta devuelve el foco al h1); E2E con una ruta por patrón, reintento solo ante 429 real y rechazo de estado-error/404; suite pública 56/56 en 3 motores con 0 x 429. QA ciclo 2/3 despachada."]
+    evidencia: ["Abierto a partir del HANDOFF de QA en TKT-009 ciclo 1/3 (agente aa764ec0f042e41cd): confirmado con curl real contra el stack en producción-equivalente que /mapa-del-sitio devuelve 404; enlace ya presente en el pie de página desde TKT-008 (core/layout/pie-sitio). Depende de TKT-009 para poder enlazar itinerarios/guías/tipos/colecciones/glosario/búsqueda ya construidos.", "2026-10-08: despachado (ruta crítica, MUST).", "2026-10-08 entregado @ PR #69 (805b2e7, CI run 37850307483 verde): feature mapa-del-sitio con datos de /publico/indice, /meses y /glosario (sin cambio de contrato), TransferState (CLS 0,42 -> corregido), enlaces de /cuando-ir por número; 582 unit PASS, build +0,12 kB inicial, E2E 6/6 en 3 motores, axe 0 serious/critical. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 805b2e7: tests/a11y/contrato/seguridad/performance PASS (95 rutas 200 reales, SSR con los 72+24 enlaces, axe 0, CLS 0). F-01 MEDIUM: el índice de secciones usa href='#seccion-x' y con <base href=/> lleva a /#seccion-x (Inicio) en 3 motores; AC_TKT019_02 no lo detecta. F-02 MEDIUM: AC_TKT019_04 agota el cupo publico-lectura compartido (385 llamadas, 53 x 429) y hace fallar specs de otros tickets. F-03 LOW: reintentos ante estado-error sin comprobar 429 y crawl que solo mira el status. OBS-01/02 preexistentes -> TKT-042. Ciclo 2/3 al Developer.", "Ciclo 2/3 entregado @ d3f7627 (CI run 37858291250 verde): índice con href /mapa-del-sitio#seccion-x + irASeccion (foco en h2, replaceState; sin routerLink porque FocoRuta devuelve el foco al h1); E2E con una ruta por patrón, reintento solo ante 429 real y rechazo de estado-error/404; suite pública 56/56 en 3 motores con 0 x 429. QA ciclo 2/3 despachada.", "2026-10-08 QA_VERDICT PASS ciclo 2/3 @ d3f7627 (F-01..F-03 verificados; suite pública 56/56 x3 motores, 0 x 429; axe 0; CLS mapa <=0,1 8/8). OBS-01 (scroll al volver atrás tras replaceState) no bloqueante. PR #69 integrado @ 1fce826 con CI verde."]
     actualizado: 2026-10-08
 ```
 
