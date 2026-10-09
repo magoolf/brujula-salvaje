@@ -16,6 +16,13 @@ Reglas clave:
   serializan por usuario normalizado con un bloqueo consultivo, exista o no la cuenta, ANTES de
   bloquear su fila; si la espera supera `lock_timeout` (o hay interbloqueo) la respuesta es la
   misma 401 `credenciales_invalidas` para cualquier usuario (antes, 409 solo si existía).
+- Mismo coste exista o no la cuenta (F-03/F-04 de la QA de TKT-040, CWE-204, TKT-044): la fila de
+  la cuenta se bloquea sin esperar (FOR NO KEY UPDATE NOWAIT); si otra operación la tiene
+  bloqueada, el intento sigue el MISMO camino que un usuario inexistente (hash de referencia,
+  contador en caché y LOGIN_FALLIDO sin actor) en lugar de esperar `lock_timeout`. Sin contención,
+  ambos caminos hacen el mismo trabajo de caché (lectura y escritura del contador por usuario),
+  la misma consulta de la cuenta y la misma auditoría; la cuenta operativa solo añade el UPDATE de
+  su contador.
 - Toda acción se audita en la misma transacción (FEAT-046). Nunca se registran secretos.
 - Las contraseñas temporales se devuelven una sola vez y solo se guarda su hash (AC-106).
 """
@@ -187,16 +194,16 @@ def _leer_fallos(usuario: str) -> dict[str, Any]:
     return dict(datos) if isinstance(datos, dict) else {"intentos": 0, "bloqueos": 0, "hasta": None}
 
 
-def _bloqueo_en_cache(usuario: str, ahora: datetime) -> datetime | None:
-    hasta = _leer_fallos(usuario).get("hasta")
+def _bloqueo_de(fallos: dict[str, Any], ahora: datetime) -> datetime | None:
+    hasta = fallos.get("hasta")
     if hasta and datetime.fromisoformat(hasta) > ahora:
         return datetime.fromisoformat(hasta)
     return None
 
 
-def _fallo_en_cache(usuario: str, ahora: datetime) -> datetime | None:
-    """Suma un fallo; devuelve el fin del bloqueo si con él se bloquea."""
-    datos = _leer_fallos(usuario)
+def _fallo_en_cache(usuario: str, datos: dict[str, Any], ahora: datetime) -> datetime | None:
+    """Suma un fallo a `datos` (leídos con _leer_fallos) y lo guarda; devuelve el fin del bloqueo
+    si con él se bloquea."""
     hasta = datetime.fromisoformat(datos["hasta"]) if datos.get("hasta") else None
     if hasta is not None and ahora - hasta > REINICIO_PROGRESION:
         datos["bloqueos"] = 0
@@ -361,19 +368,39 @@ def iniciar_sesion(usuario: str, contrasena: str, ip: str | None) -> ResultadoLo
         raise CredencialesInvalidas() from exc
 
 
+def _bloquear_cuenta_sin_esperar(normalizado: str) -> tuple[CuentaStaff | None, bool]:
+    """(cuenta con ese usuario, en cualquier estado, o None; True si su fila estaba bloqueada).
+
+    FOR NO KEY UPDATE (basta para el contador y no choca con el FOR KEY SHARE de las FK que la
+    referencian) y NOWAIT: con la fila bloqueada por otra operación no se espera `lock_timeout`,
+    que distinguiría una cuenta existente de un usuario inexistente (F-04, CWE-204)."""
+    try:
+        with transaction.atomic():
+            cuenta = (
+                CuentaStaff.objects.select_for_update(nowait=True, no_key=True)
+                .filter(usuario=normalizado)
+                .first()
+            )
+    except DatabaseError as exc:
+        if sqlstate_de(exc) not in SQLSTATE_CONCURRENCIA:
+            raise
+        logger.warning("login_contencion", momento="fila_cuenta")
+        return None, True
+    return cuenta, False
+
+
 def _intento_login(normalizado: str, contrasena: str, ip: str | None) -> ResultadoLogin:
     ahora = timezone.now()
     bloqueo: datetime | None = None
     exito: ResultadoLogin | None = None
     with transaction.atomic():
         _serializar_login(normalizado)
-        cuenta = (
-            CuentaStaff.objects.select_for_update()
-            .filter(usuario=normalizado, estado__in=selectors.ESTADOS_CON_SESION)
-            .first()
-        )
-        if cuenta is None:
-            bloqueo = _fallo_sin_cuenta(normalizado, contrasena, ahora, ip)
+        cuenta, contencion = _bloquear_cuenta_sin_esperar(normalizado)
+        if cuenta is None or cuenta.estado not in selectors.ESTADOS_CON_SESION:
+            # Inexistente, no operativa o con la fila bloqueada (sin actor: la FK pediría FOR KEY
+            # SHARE sobre una fila que otra transacción puede tener con FOR UPDATE).
+            actor = None if contencion else cuenta
+            bloqueo = _fallo_sin_cuenta(normalizado, contrasena, ahora, ip, actor)
         else:
             _liberar_bloqueo_cumplido(cuenta, ahora)
             if cuenta.bloqueado_hasta is not None:
@@ -383,8 +410,10 @@ def _intento_login(normalizado: str, contrasena: str, ip: str | None) -> Resulta
                 exito = _credencial_correcta(cuenta, ahora, ip)
             else:
                 bloqueo = _registrar_fallo(cuenta, ahora, ip)
-                if bloqueo is None:
-                    exito = None
+                # Mismo trabajo de caché que un usuario inexistente (F-03, CWE-204): el contador
+                # por usuario se lleva también para la cuenta operativa (solo decide el bloqueo
+                # cuando no hay cuenta operativa; aquí manda la fila).
+                _fallo_en_cache(normalizado, _leer_fallos(normalizado), ahora)
     if exito is not None:
         return exito
     if bloqueo is not None:
@@ -393,16 +422,16 @@ def _intento_login(normalizado: str, contrasena: str, ip: str | None) -> Resulta
 
 
 def _fallo_sin_cuenta(
-    usuario: str, contrasena: str, ahora: datetime, ip: str | None
+    usuario: str, contrasena: str, ahora: datetime, ip: str | None, actor: CuentaStaff | None
 ) -> datetime | None:
-    """Usuario inexistente o no operativo: mismo coste, contador en caché y auditoría."""
-    bloqueo_vigente = _bloqueo_en_cache(usuario, ahora)
+    """Usuario inexistente, no operativo o con la fila bloqueada: mismo coste (hash de referencia),
+    contador en caché y auditoría."""
+    fallos = _leer_fallos(usuario)
+    bloqueo_vigente = _bloqueo_de(fallos, ahora)
     if bloqueo_vigente is not None:
         return bloqueo_vigente
     check_password(contrasena, _hash_ficticio())
-    nuevo_bloqueo = _fallo_en_cache(usuario, ahora)
-    existente = selectors.cuenta_por_usuario(usuario)
-    actor = existente if existente is not None else None
+    nuevo_bloqueo = _fallo_en_cache(usuario, fallos, ahora)
     _auditar(AccionAuditoria.LOGIN_FALLIDO, actor, resultado=ResultadoAuditoria.FALLO, ip=ip)
     if nuevo_bloqueo is not None:
         _auditar(AccionAuditoria.BLOQUEO, actor, ip=ip)

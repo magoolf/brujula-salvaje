@@ -11,16 +11,28 @@ para que un fallo del guardado tenga la respuesta del contrato y no el 400 `vali
 `SessionInterrupted`. Por eso `save()` no repite un UPDATE si los datos ya se guardaron tal cual en
 esta petición (el guardado final de SessionMiddleware queda sin consultas y solo fija la cookie), y
 `fallo_por_contencion` distingue un fallo por bloqueo (55P03/40P01/40001) de una fila ya borrada.
+
+TKT-044 (THREAT-002): invalidar una sesión no puede depender de poder borrar su fila. Si otra
+transacción la tiene bloqueada, `invalidar_clave` no espera: inserta una marca de revocación (una
+fila de esta misma tabla con clave `~<sha256>`, sin cuenta y con la caducidad máxima de una sesión)
+y `SessionStore` nunca carga una clave que tenga marca (misma consulta, NOT EXISTS por la PK). Las
+marcas caducan y las retira la purga horaria de caducadas (`clear_expired`). Sin cambio de esquema.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
+import logging
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
+from django.conf import settings
 from django.contrib.sessions.backends.base import CreateError, UpdateError
 from django.contrib.sessions.backends.db import SessionStore as SessionStoreBD
-from django.db import DatabaseError, IntegrityError, router, transaction
+from django.core.exceptions import SuspiciousOperation
+from django.db import DatabaseError, IntegrityError, connections, router, transaction
+from django.db.models import Exists
+from django.utils import timezone
 
 from apps.core.exceptions import SQLSTATE_CONCURRENCIA, sqlstate_de
 
@@ -34,6 +46,11 @@ CLAVE_AUTENTICADO_EN = "panel_autenticado_en"
 
 # En una actualización no se reescribe creado_en (tiene db_default y conserva su valor).
 _CAMPOS_ACTUALIZABLES = ["session_data", "expire_date", "cuenta", "autenticado_en"]
+# Prefijo de las marcas de revocación: no está en VALID_KEY_CHARS de Django ([a-z0-9]), así que
+# ninguna clave de sesión real empieza por él y una marca nunca se carga como sesión (TKT-044).
+_PREFIJO_REVOCACION = "~"
+# Intentos de alta de una clave nueva que choca con una existente (CreateError) antes de rendirse.
+_INTENTOS_CLAVE_NUEVA = 10
 
 
 def _fecha(valor: Any) -> datetime | None:
@@ -68,6 +85,46 @@ def marcar_guardada(sesion: SessionBase) -> None:
         sesion._guardado = (sesion.session_key, dict(sesion._get_session()))  # type: ignore[attr-defined]
 
 
+def clave_revocacion(clave: str) -> str:
+    """Clave (40 caracteres, la longitud de la columna) de la marca de revocación de `clave`."""
+    return _PREFIJO_REVOCACION + hashlib.sha256(clave.encode()).hexdigest()[:39]
+
+
+def invalidar_clave(clave: str) -> bool:
+    """Garantiza que la sesión `clave` deja de valer, sin esperar bloqueos (TKT-044, THREAT-002).
+
+    Borra su fila con NOWAIT. Si otra transacción la tiene bloqueada (una renovación en curso, una
+    invalidación de las sesiones de la cuenta que aún puede deshacerse...), inserta su marca de
+    revocación: la marca no referencia la cuenta ni toca la fila bloqueada, así que no espera a
+    nadie, y `SessionStore` ya no carga esa clave aunque la fila sobreviva. Devuelve True si la
+    fila se borró (o no existía) y False si quedó revocada por la marca. Otros errores de la BD se
+    propagan (no se oculta que la sesión pudo quedar viva)."""
+    modelo = SessionStore.get_model_class()
+    using = router.db_for_write(modelo)
+    tabla = connections[using].ops.quote_name(modelo._meta.db_table)
+    # Identificador de la tabla citado por quote_name; el valor va parametrizado.
+    sentencia = (
+        f"DELETE FROM {tabla} WHERE session_key IN "  # noqa: S608  # nosec B608
+        f"(SELECT session_key FROM {tabla} WHERE session_key = %s FOR UPDATE NOWAIT)"
+    )
+    try:
+        with transaction.atomic(using=using), connections[using].cursor() as cursor:
+            cursor.execute(sentencia, [clave])
+    except DatabaseError as exc:
+        if not fallo_por_contencion(exc):
+            raise
+    else:
+        return True
+    caducidad = timezone.now() + timedelta(
+        seconds=max(settings.PANEL_SESION_MAXIMA_SEGUNDOS, settings.SESSION_COOKIE_AGE)
+    )
+    modelo.objects.using(using).bulk_create(
+        [modelo(session_key=clave_revocacion(clave), session_data="", expire_date=caducidad)],
+        ignore_conflicts=True,  # otra invalidación ya la marcó
+    )
+    return False
+
+
 class SessionStore(SessionStoreBD):
     def __init__(self, session_key: str | None = None) -> None:
         super().__init__(session_key)
@@ -86,6 +143,62 @@ class SessionStore(SessionStoreBD):
         instancia.cuenta_id = cuenta_id if isinstance(cuenta_id, int) else None
         instancia.autenticado_en = _fecha(data.get(CLAVE_AUTENTICADO_EN))
         return instancia
+
+    def _validate_session_key(self, key: str | None) -> bool:
+        """Una clave de marca de revocación nunca es una clave de sesión válida (TKT-044)."""
+        valida = super()._validate_session_key(key)  # type: ignore[misc]
+        return bool(valida) and not str(key).startswith(_PREFIJO_REVOCACION)
+
+    def _get_session_from_db(self) -> SesionPanel | None:
+        """Como el de Django, pero una clave revocada (con marca) no carga (TKT-044): la misma
+        consulta por la PK comprueba que no exista su marca de revocación."""
+        clave = str(self.session_key)
+        modelo = self.model
+        try:
+            return cast(
+                "SesionPanel",
+                modelo.objects.filter(
+                    ~Exists(modelo.objects.filter(session_key=clave_revocacion(clave)))
+                ).get(session_key=clave, expire_date__gt=timezone.now()),
+            )
+        except (modelo.DoesNotExist, SuspiciousOperation) as exc:
+            if isinstance(exc, SuspiciousOperation):
+                logging.getLogger(f"django.security.{exc.__class__.__name__}").warning(str(exc))
+            self._session_key = None
+            return None
+
+    def crear_con_clave_nueva(self) -> str | None:
+        """Da de alta (INSERT) una clave nueva con los datos actuales y devuelve la anterior, que
+        NO se borra: la invalida quien llama con `invalidar_clave` (TKT-044).
+
+        A diferencia de `cycle_key` de Django (que asigna la clave nueva ANTES de guardarla), si la
+        INSERT falla la sesión conserva la clave anterior y el error se propaga: quien llama sabe
+        de verdad que no hubo clave nueva (F-02 de la QA de TKT-040)."""
+        datos = self._session  # type: ignore[attr-defined]
+        anterior = self.session_key
+        intentos = 0
+        while True:
+            intentos += 1
+            self._session_key = self._get_new_session_key()  # type: ignore[attr-defined]
+            try:
+                self.save(must_create=True)
+                break
+            except CreateError as exc:
+                if intentos < _INTENTOS_CLAVE_NUEVA:
+                    continue  # clave repetida: se prueba otra
+                # Sin clave nueva tras varios intentos (p. ej. la FK de la cuenta ya no existe):
+                # el error de la BD a quien llama.
+                self._session_key = anterior
+                causa = exc.__cause__
+                if isinstance(causa, DatabaseError):
+                    raise causa from exc
+                raise
+            except BaseException:
+                self._session_key = anterior
+                raise
+        self._session_cache = datos
+        self.modified = True
+        return anterior
 
     def save(self, must_create: bool = False) -> None:
         if self.session_key is None:
