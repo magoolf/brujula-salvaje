@@ -335,6 +335,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9)."]
     actualizado: 2026-10-08
+  - id: TKT-045
+    titulo: "MEDIUM (Developer TKT-023): RULE-009 (la fecha de revisión no puede ser futura) solo se valida en el cliente con la fecha local; el backend la acepta (DateField sin validación, TIME_ZONE=UTC) y un cliente API directo puede guardar fechas futuras. Validar en el serializer/servicio del panel con tolerancia de zona horaria (fecha <= hoy en UTC-5 de Colombia o <= hoy UTC+14, documentando la elección), Problem Details 422/400 coherente con el contrato, tests"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-023, "RULE-009", MOD-010]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/contenido/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-973."]
+    actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -738,10 +750,10 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [MOD-010, FEAT-033, FEAT-034, FEAT-035, FEAT-036, FEAT-037, FEAT-038, FEAT-039, FEAT-040, FEAT-049, FEAT-050, FLOW-011, FLOW-012, SCR-035, SCR-036, SCR-037, SCR-038, "RULE-001..012", "RULE-020..027"]
     depende_de: [TKT-010, TKT-022]
-    archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/api/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts"]
+    archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/api/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts", "frontend/e2e/panel-acceso.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal.", "2026-10-08 PR #71 @ 28af6cc, CI 37869963051 verde; unit 681/681; build inicial +0,02 kB; panel-contenidos 8/8 x3 motores (fix de fecha UTC en el soporte E2E). BLOCKED por 2 asserts obsoletos de panel-acceso.spec.ts (TKT-010) que TKT-023 cambia intencionadamente -> DEC-AUTO-972 amplía archivos_permitidos a ese spec. Riesgo RULE-009 solo en cliente -> TKT-045."]
     actualizado: 2026-10-08
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
