@@ -290,14 +290,14 @@ tickets:
   - id: TKT-041
     titulo: "HIGH (decisión del usuario 2026-10-08): sustituir las ilustraciones geométricas de la semilla (backend/seed/imagenes.py) por fotografías reales y pertinentes con licencia libre verificada (Wikimedia Commons u otra fuente sin claves de API; solo CC0, PDM, CC BY y CC BY-SA, añadiendo al catálogo de licencias las versiones 2.0/3.0 si hacen falta), con autor, fuente y licencia registrados (REQ-043/071, créditos) y texto alternativo en español; cada foto debe mostrar de verdad el lugar/actividad (verificación visual). Cubrir portadas y galerías de los 24 destinos, itinerarios, guías, tipos de aventura, colecciones, páginas e imagen principal de inicio; procesar por el pipeline de medios existente (recodificación, sin EXIF, derivados); idempotente; tamaño acotado en el repo"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
     depende_de: []
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada."]
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS)."]
     actualizado: 2026-10-08
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
@@ -358,6 +358,30 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-975."]
+    actualizado: 2026-10-08
+  - id: TKT-047
+    titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, "Skill_UI_UX#47.2", "WCAG 1.4.3"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/e2e/inicio*.spec.ts", "frontend/e2e/contraste*.ts"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py."]
+    actualizado: 2026-10-08
+  - id: TKT-048
+    titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, TKT-021, "Skill_UI_UX#47.2", DEC-AUTO-044]
+    depende_de: [TKT-041]
+    archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/inicio/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b."]
     actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
