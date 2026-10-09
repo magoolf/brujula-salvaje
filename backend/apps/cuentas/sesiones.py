@@ -65,8 +65,10 @@ def fallo_por_contencion(exc: BaseException) -> bool:
     espera de bloqueo agotada, interbloqueo o fallo de serialización. False si la fila de la sesión
     ya no existía (UPDATE de 0 filas: logout, desactivación, cambio de contraseña en otra sesión)
     o si es otro error."""
+    vistas: set[int] = set()  # una cadena de __cause__ cíclica no debe colgar (QA TKT-044 F-A)
     actual: BaseException | None = exc
-    while actual is not None:
+    while actual is not None and id(actual) not in vistas:
+        vistas.add(id(actual))
         if isinstance(actual, DatabaseError) and sqlstate_de(actual) in SQLSTATE_CONCURRENCIA:
             return True
         actual = actual.__cause__
@@ -208,7 +210,9 @@ class SessionStore(SessionStoreBD):
                 ):
                     continue
                 self._session_key = anterior
-                raise causa from exc
+                # Sin `from exc`: exc.__cause__ ya es `causa` y encadenarla de nuevo crearía un
+                # ciclo en __cause__ (QA TKT-044 F-A). `causa` conserva su __cause__ de psycopg.
+                raise causa  # noqa: B904
             except BaseException:
                 self._session_key = anterior
                 raise

@@ -229,9 +229,11 @@ def rotar_sesion(sesion: SessionBase, *, mfa_verificado: bool | None = None) -> 
     try:
         anterior = tienda.crear_con_clave_nueva()
     except DatabaseError as exc:
-        logger.warning("sesion_no_rotada", contencion=fallo_por_contencion(exc))
+        # Primero la seguridad (THREAT-002): invalidar la anterior antes de cualquier otro
+        # cálculo, incluido el del log (QA TKT-044 F-A).
         _invalidar_anterior(tienda.session_key, momento="rotacion_fallida")
         descartar_en_memoria(tienda)
+        logger.warning("sesion_no_rotada", contencion=fallo_por_contencion(exc))
         if not _alta_imposible(exc):
             raise
         raise ErrorApi(codigo="sesion_expirada") from exc

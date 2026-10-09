@@ -49,6 +49,7 @@ from apps.cuentas.sesiones import (
     CLAVE_CUENTA,
     SessionStore,
     clave_revocacion,
+    fallo_por_contencion,
     invalidar_clave,
 )
 from apps.cuentas.tests.conftest import IP, Staff, crear_staff, entrar, post, problema
@@ -506,3 +507,112 @@ def test_AC_TKT044_04_carga_con_operacion_sospechosa_no_carga_y_se_registra(
         assert tienda.load() == {}
     assert tienda.session_key is None
     assert "manipulada" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# AC_TKT044_07 (QA TKT-044 ciclo 1, F-A): alta con FK violada por HTTP, con plazo acotado
+# ---------------------------------------------------------------------------
+PLAZO_PETICION_S = 30
+
+
+def _con_plazo(accion: Callable[[], Any]) -> Any:
+    """Ejecuta `accion` en un hilo y falla si no termina en PLAZO_PETICION_S (antes, una cadena
+    de __cause__ cíclica colgaba la petición en un bucle de CPU)."""
+    resultado: list[Any] = []
+    errores: list[BaseException] = []
+
+    def correr() -> None:
+        try:
+            resultado.append(accion())
+        except BaseException as exc:  # pragma: no cover - solo si la prueba falla
+            errores.append(exc)
+        finally:
+            connections.close_all()
+
+    hilo = threading.Thread(target=correr, daemon=True)
+    hilo.start()
+    hilo.join(PLAZO_PETICION_S)
+    assert not hilo.is_alive(), "la petición no terminó: posible bucle infinito"
+    assert not errores, errores
+    return resultado[0]
+
+
+def test_AC_TKT044_07_rotacion_con_fk_violada_es_401_sin_colgarse(
+    monkeypatch: pytest.MonkeyPatch, logs_json: Callable[[], list[dict[str, Any]]]
+) -> None:
+    """La INSERT de la clave nueva falla de verdad por FK (23503, cuenta inexistente en el COMMIT):
+    401 sesion_expirada, cookie borrada y clave anterior inválida, en tiempo acotado."""
+    staff = crear_staff("editora.fk")
+    cliente = Client(raise_request_exception=False)
+    entrar(cliente, staff)
+    anterior = _clave(cliente)
+    original = SessionStore.crear_con_clave_nueva
+
+    def con_cuenta_inexistente(self: SessionStore) -> str | None:
+        self[CLAVE_CUENTA] = _cuenta_inexistente()
+        return original(self)
+
+    monkeypatch.setattr(SessionStore, "crear_con_clave_nueva", con_cuenta_inexistente)
+    respuesta = _con_plazo(
+        lambda: post(
+            cliente,
+            "/auth/contrasena",
+            {"contrasena_actual": staff.contrasena, "contrasena_nueva": NUEVA},
+        )
+    )
+    monkeypatch.undo()
+    problema(respuesta, 401, "sesion_expirada")
+    assert _cookie_borrada(respuesta)
+    _assert_clave_invalida(anterior)
+    assert [e["contencion"] for e in _eventos_log(logs_json, "sesion_no_rotada")] == [False]
+
+
+def test_AC_TKT044_07_login_con_fk_violada_es_401_sin_colgarse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Login correcto cuya sesión nueva no puede darse de alta (la cuenta ya no existe al
+    confirmar la INSERT): 401 sesion_expirada, cookie borrada y la sesión previa invalidada."""
+    staff = crear_staff("editora.fklogin")
+    cliente = Client(raise_request_exception=False)
+    entrar(cliente, staff)
+    anterior = _clave(cliente)
+    original = services.iniciar_sesion
+
+    def sin_cuenta(*args: Any, **kwargs: Any) -> services.ResultadoLogin:
+        resultado = original(*args, **kwargs)
+        fantasma = CuentaStaff(pk=_cuenta_inexistente(), usuario="fantasma")
+        return services.ResultadoLogin(cuenta=fantasma, requiere_mfa=resultado.requiere_mfa)
+
+    monkeypatch.setattr(services, "iniciar_sesion", sin_cuenta)
+    respuesta = _con_plazo(
+        lambda: post(
+            cliente,
+            "/auth/login",
+            {"usuario": staff.cuenta.usuario, "contrasena": staff.contrasena},
+            REMOTE_ADDR=IP,
+        )
+    )
+    monkeypatch.undo()
+    problema(respuesta, 401, "sesion_expirada")
+    assert _cookie_borrada(respuesta)
+    _assert_clave_invalida(anterior)
+
+
+def test_AC_TKT044_07_error_de_alta_sin_ciclos_y_clasificacion_segura() -> None:
+    """El error que propaga el alta no forma ciclos en __cause__, y fallo_por_contencion termina
+    aunque reciba una cadena cíclica."""
+    tienda = SessionStore()
+    tienda[CLAVE_CUENTA] = _cuenta_inexistente()
+    with pytest.raises(IntegrityError) as info:
+        tienda.save()
+    vistos: list[BaseException] = []
+    actual: BaseException | None = info.value
+    while actual is not None:
+        assert all(actual is not visto for visto in vistos), "ciclo en __cause__"
+        vistos.append(actual)
+        actual = actual.__cause__
+    assert len(vistos) == 2  # IntegrityError de Django -> error de psycopg
+    assert fallo_por_contencion(info.value) is False
+    a, b = IntegrityError("a"), IntegrityError("b")
+    a.__cause__, b.__cause__ = b, a
+    assert fallo_por_contencion(a) is False
