@@ -7,7 +7,7 @@
 #   - pg_dump / pg_restore / psql 18.6 y libpq 18.6 COPIADOS de la imagen fijada de la BD (mismo
 #     digest que el servidor -> cliente idéntico al servidor, requisito de ADR-DB-004);
 #   - solo las bibliotecas Debian que esos binarios necesitan (ldd, ver DEVOPS_HANDOFF §17) + age;
-#   - supercronic verificado por sha256. Sin servidor, sin perl completo, sin gnupg, sin libxml2.
+#   - supercronic v0.2.49 compilado desde el fuente con Go corregido (etapa "supercronic", TKT-OPS-031). Sin servidor, sin perl completo, sin gnupg, sin libxml2.
 #   Contexto de build: infra/backup     Contexto adicional: ops=./scripts/ops
 # Herramientas que usan backup.sh / restore-local.sh: bash, pg_dump, pg_restore, psql, tar,
 # sha256sum, age, find, sort, tail, mktemp, date, grep (coreutils/findutils/tar/grep de la base).
@@ -16,6 +16,52 @@
 # =============================================================================
 # Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
 # no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
+
+# >>> receta supercronic (TKT-OPS-031, DEC-AUTO-979) — BLOQUE IDÉNTICO en infra/backup/Dockerfile e
+# infra/docker/backend.Dockerfile (lo exige infra/ci/supercronic_receta.sh en el job "infra").
+# supercronic v0.2.49 es la última release (2026-08-14) y su binario publicado está compilado con
+# Go 1.26.6 -> CVE-2026-78667 (net/http, DoS, HIGH; corregida en Go 1.26.9 / 1.27.2). Se compila
+# el MISMO código fuente de la release (tag v0.2.49 verificado contra su commit SHA: el SHA-1 del
+# commit cubre todo el árbol) con un Go corregido. Misma receta que build.sh de upstream
+# (CGO_ENABLED=0, -X main.Version=<tag>) + -trimpath y -buildvcs=false (reproducible).
+# Módulos verificados con go.sum + sum.golang.org (go mod verify). Se compila en la plataforma
+# destino (TARGETARCH amd64/arm64; sin --platform=$BUILDPLATFORM: el control de Dependabot rechaza
+# variables en FROM). Imagen golang LITERAL con digest (Dependabot la
+# sigue; grupo "golang" en .github/dependabot.yml actualiza ambos Dockerfile en un único PR).
+# Cuando upstream publique una release compilada con Go corregido, puede volverse al binario
+# publicado (ADD + sha256) — ver DEVOPS_HANDOFF.md §33.
+FROM golang:1.26.9-trixie@sha256:f89535b7caea67fa9ff0ba009894bff8f3be915e49cb635477c8ce04e045db5d AS supercronic
+ARG TARGETARCH
+ARG SUPERCRONIC_VERSION=v0.2.49
+ARG SUPERCRONIC_COMMIT=8e0a4a40090de8a22942c9fa573e27885ce18311
+ARG GO_MIN_VERSION=go1.26.9
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOTOOLCHAIN=local \
+    GOFLAGS=-mod=readonly
+WORKDIR /src
+RUN set -eu; \
+    git init -q .; \
+    git remote add origin https://github.com/aptible/supercronic.git; \
+    git fetch -q --depth 1 origin "refs/tags/${SUPERCRONIC_VERSION}"; \
+    got="$(git rev-parse 'FETCH_HEAD^{commit}')"; \
+    [ "$got" = "${SUPERCRONIC_COMMIT}" ] || { echo "tag ${SUPERCRONIC_VERSION} -> $got, esperado ${SUPERCRONIC_COMMIT}" >&2; exit 1; }; \
+    git -c advice.detachedHead=false checkout -q "${SUPERCRONIC_COMMIT}"; \
+    rm -rf .git; \
+    go mod download; \
+    go mod verify
+RUN set -eu; \
+    case "${TARGETARCH}" in amd64|arm64) ;; *) echo "arquitectura no soportada: ${TARGETARCH}" >&2; exit 1 ;; esac; \
+    GOARCH="${TARGETARCH}" go build -trimpath -buildvcs=false \
+      -ldflags="-X main.Version=${SUPERCRONIC_VERSION}" -o /out/supercronic .; \
+    go version -m /out/supercronic > /out/supercronic.buildinfo; \
+    cat /out/supercronic.buildinfo; \
+    v="$(head -n1 /out/supercronic.buildinfo | awk '{print $2}')"; \
+    [ "$v" = "$(go env GOVERSION)" ] || { echo "Go del binario inesperado: $v" >&2; exit 1; }; \
+    [ "$(printf '%s\n%s\n' "${GO_MIN_VERSION}" "$v" | sort -V | head -n1)" = "${GO_MIN_VERSION}" ] || { echo "Go $v < ${GO_MIN_VERSION}" >&2; exit 1; }; \
+    grep -qE '^[[:space:]]+build[[:space:]]+CGO_ENABLED=0$' /out/supercronic.buildinfo; \
+    grep -qE "^[[:space:]]+build[[:space:]]+GOARCH=${TARGETARCH}\$" /out/supercronic.buildinfo
+# <<< receta supercronic
 
 # ---------------------------------------------------------------------------
 # pgclient: extrae de la imagen fijada de la BD solo el cliente 18.6 (binarios + libpq)
@@ -31,14 +77,10 @@ RUN set -eu; \
 # final
 # ---------------------------------------------------------------------------
 FROM debian:13.7-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
-ARG TARGETARCH
 ARG AGE_DEB_VERSION=1.2.1-1+b5
 ARG KRB5_DEB_VERSION=1.21.3-5+deb13u1
 ARG LDAP_DEB_VERSION=2.6.10+dfsg-1
 ARG READLINE_DEB_VERSION=8.2-6
-ARG SUPERCRONIC_VERSION=v0.2.49
-ARG SUPERCRONIC_SHA256_AMD64=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1
-ARG SUPERCRONIC_SHA256_ARM64=02aa0cb229ba09050cba6638059dadb9eedc2276632ea43d6a57a2f8c1629dd5
 ARG OPENSSL_DEB_VERSION=3.5.7-1~deb13u3
 ARG PCRE2_DEB_VERSION=10.46-1~deb13u3
 
@@ -91,14 +133,11 @@ RUN set -eu; \
     psql --version | grep -q ' 18\.6'; \
     age --version
 
-ADD --chmod=0755 https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-${TARGETARCH} /usr/local/bin/supercronic
+# supercronic compilado en la etapa "supercronic" (TKT-OPS-031); buildinfo (go version -m) como evidencia.
+COPY --from=supercronic --chown=root:root --chmod=0755 /out/supercronic /usr/local/bin/supercronic
+COPY --from=supercronic --chown=root:root /out/supercronic.buildinfo /usr/local/share/brujula/supercronic.buildinfo
 RUN set -eu; \
-    case "${TARGETARCH}" in \
-      amd64) expected="${SUPERCRONIC_SHA256_AMD64}" ;; \
-      arm64) expected="${SUPERCRONIC_SHA256_ARM64}" ;; \
-      *) echo "arquitectura no soportada: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    echo "${expected}  /usr/local/bin/supercronic" | sha256sum -c -; \
+    supercronic -version | grep -qx 'v0.2.49'; \
     install -d -m 0755 /etc/brujula
 
 COPY --from=ops --chown=root:root --chmod=0555 backup.sh restore-local.sh /usr/local/bin/

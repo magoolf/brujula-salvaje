@@ -64,6 +64,11 @@ updates:
     groups:
       postgres:
         patterns: ["postgres"]
+      # TKT-OPS-031 (DEC-AUTO-979): la etapa "supercronic" (golang con digest) está copiada en
+      # /infra/docker y /infra/backup y debe ser idéntica (infra/ci/supercronic_receta.sh): se
+      # actualiza en un único PR. Las menores de Go (1.26 -> 1.27) se proponen; las mayores no.
+      golang:
+        patterns: ["golang"]
 
   # compose*.yaml: hoy no fija imágenes de terceros (todas son brujula/*, construidas desde los
   # Dockerfile de arriba; postgres pasó a infra/db/Dockerfile, TKT-OPS-005). Se mantiene para que una
