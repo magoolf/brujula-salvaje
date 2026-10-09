@@ -123,13 +123,12 @@ async function getConReintento(page: Page, url: string): Promise<APIResponse> {
  */
 async function medir(page: Page, ruta: string): Promise<Medicion> {
   await instrumentar(page);
-  let vio429 = false;
+  const red = { vio429: false };
   page.on('response', (r) => {
-    if (r.url().includes('/api/') && r.status() === 429) vio429 = true;
+    if (r.url().includes('/api/') && r.status() === 429) red.vio429 = true;
   });
-  let medicion: Medicion = { cls: null, pie: 0, retirados: [] };
   for (let intento = 0; intento < REINTENTOS_LIMITE; intento++) {
-    vio429 = false;
+    red.vio429 = false;
     const respuesta = await page.goto(ruta);
     expect(respuesta?.status()).toBe(200);
     await esperarHidratacion(page);
@@ -137,12 +136,12 @@ async function medir(page: Page, ruta: string): Promise<Medicion> {
     // rápida, hasta ~850 ms en la ficha). Se deja 1,5 s y la red en reposo.
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1_500);
-    medicion = await page.evaluate(() => {
+    const medicion: Medicion = await page.evaluate(() => {
       const e = (window as unknown as Ventana).__tkt016;
       return { cls: e.cls, pie: e.pie, retirados: e.retirados };
     });
     const limiteEnPagina = TEXTO_LIMITE.test(await page.locator('main').innerText());
-    if (!vio429 && !limiteEnPagina) return medicion;
+    if (!red.vio429 && !limiteEnPagina) return medicion;
     await page.waitForTimeout(3_000);
   }
   throw new Error(`Límite de tasa persistente al medir ${ruta}`);
