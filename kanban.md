@@ -290,14 +290,14 @@ tickets:
   - id: TKT-041
     titulo: "HIGH (decisión del usuario 2026-10-08): sustituir las ilustraciones geométricas de la semilla (backend/seed/imagenes.py) por fotografías reales y pertinentes con licencia libre verificada (Wikimedia Commons u otra fuente sin claves de API; solo CC0, PDM, CC BY y CC BY-SA, añadiendo al catálogo de licencias las versiones 2.0/3.0 si hacen falta), con autor, fuente y licencia registrados (REQ-043/071, créditos) y texto alternativo en español; cada foto debe mostrar de verdad el lugar/actividad (verificación visual). Cubrir portadas y galerías de los 24 destinos, itinerarios, guías, tipos de aventura, colecciones, páginas e imagen principal de inicio; procesar por el pipeline de medios existente (recodificación, sin EXIF, derivados); idempotente; tamaño acotado en el repo"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
     depende_de: []
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias)."]
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-08
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
