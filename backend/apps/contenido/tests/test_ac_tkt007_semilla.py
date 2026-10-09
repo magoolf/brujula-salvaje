@@ -2,7 +2,7 @@
 idempotencia exigida por el ticket.
 
 La fixture `semilla` carga el dataset UNA sola vez por módulo (17 pruebas leen el mismo estado
-ya sembrado; el comando genera ~130 medios reales con Pillow y publica ~90 contenidos, y
+ya sembrado; el comando sube ~130 fotografías por el pipeline de medios y publica ~90 contenidos, y
 repetirlo en cada prueba resulta impracticable: una primera versión con alcance por prueba tardó
 más de media hora solo para este archivo). Para lograrlo sin filtrar datos reales a OTRAS pruebas
 del resto de la suite (lo que sí ocurrió con una versión anterior que usaba
@@ -25,6 +25,7 @@ import pytest
 from django.core.management import call_command
 from django.db import transaction
 from django.db.models import Count
+from django.test import Client
 
 from apps.contenido import reglas
 from apps.contenido.models import (
@@ -38,10 +39,12 @@ from apps.contenido.models import (
     TipoAventura,
     TipoContenido,
 )
-from apps.medios.models import Medio
+from apps.medios.models import EstadoMedio, Medio
+from seed import fotografias as seed_fotos
 
 T = TipoContenido
 E = EstadoEditorial
+COMMONS = "https://commons.wikimedia.org/wiki/File:"
 
 CATEGORIAS_GUIA_ESPERADAS = {
     "preparacion-fisica",
@@ -260,25 +263,66 @@ def test_AC_033_paginas_institucionales_publicadas_y_no_retirables(semilla: None
 
 
 # ---------------------------------------------------------------------------
-# REQ-043: 100% de los medios con licencia, autor/crédito y alt real
+# REQ-043/REQ-071 (TKT-041): 100% de los medios son fotografías del manifiesto con licencia
+# compatible, autor, fuente y alt; la página de Créditos los lista todos con su atribución.
 # ---------------------------------------------------------------------------
 def test_REQ_043_medios_100_por_ciento_con_licencia_autor_y_alt(semilla: None, db: None) -> None:
-    medios = list(Medio.objects.all())
-    assert len(medios) >= 100
-    sin_alt = [m.pk for m in medios if not m.texto_alternativo]
-    sin_autor = [m.pk for m in medios if not m.autor_credito]
+    medios = list(Medio.objects.select_related("licencia"))
+    manifiesto = {f.sha256: f for f in seed_fotos.fotos()}
+    # Todas las fotos del manifiesto se usan y no hay ningún medio ajeno a él.
+    assert len(medios) == len(manifiesto) >= 100
+    assert {m.huella_sha256 for m in medios} == set(manifiesto)
+    sin_alt = [m.pk for m in medios if not (m.texto_alternativo or "").strip()]
+    sin_autor = [m.pk for m in medios if not (m.autor_credito or "").strip()]
+    sin_fuente = [m.pk for m in medios if not (m.fuente_url or "").startswith(COMMONS)]
     sin_licencia = [m.pk for m in medios if m.licencia_id is None]
     assert sin_alt == []
     assert sin_autor == []
+    assert sin_fuente == []
     assert sin_licencia == []
-    # DEC-AUTO-014: ilustraciones propias, licencia "PROPIA" (obra propia del equipo editorial),
-    # nunca hotlink a bancos de imágenes de terceros.
-    licencias_usadas = {m.licencia.codigo for m in medios if m.licencia_id is not None}
-    assert licencias_usadas == {"PROPIA"}
-    # Alt real y descriptivo: ninguno debería ser el genérico "imagen de destino" citado en el
-    # ticket como ejemplo de lo que NO se quiere.
-    genericos = [m.pk for m in medios if m.texto_alternativo.strip().lower() == "imagen de destino"]
+    assert {m.estado for m in medios} == {EstadoMedio.DISPONIBLE}
+    for m in medios:
+        foto = manifiesto[m.huella_sha256]
+        assert m.licencia is not None
+        # Solo CC0, dominio público, CC BY y CC BY-SA (nada NC/ND), del catálogo y compatibles.
+        assert m.licencia.codigo == foto.licencia
+        assert m.licencia.codigo in seed_fotos.LICENCIAS_ADMITIDAS
+        assert m.licencia.compatible_publicacion is True
+        assert m.licencia.url_texto_legal == foto.url_licencia
+        assert m.texto_alternativo == foto.alt
+        assert m.autor_credito == foto.autor
+        assert m.fuente_url == foto.pagina
+    # TKT-041 sustituye a DEC-AUTO-014: ya no quedan ilustraciones "PROPIA".
+    assert not any(m.licencia and m.licencia.codigo == "PROPIA" for m in medios)
+    # Alt real y descriptivo, nunca genérico ni de ilustración.
+    genericos = [
+        m.pk
+        for m in medios
+        if (m.texto_alternativo or "").strip().lower() == "imagen de destino"
+        or "ilustración" in (m.texto_alternativo or "").lower()
+    ]
     assert genericos == []
+
+
+def test_REQ_043_creditos_listan_todos_los_medios_con_atribucion(semilla: None, db: None) -> None:
+    api = Client(raise_request_exception=False)
+    creditos: list[dict[str, Any]] = []
+    url: str | None = "/api/v1/publico/creditos"
+    while url:
+        respuesta = api.get(url)
+        assert respuesta.status_code == 200
+        pagina = respuesta.json()
+        creditos.extend(pagina["resultados"])
+        url = pagina["siguiente"]  # enlace relativo o None en la última página
+    # Todos los medios están en uso (portada, galería o portada de inicio) y aparecen en Créditos.
+    assert len(creditos) == Medio.objects.count()
+    for credito in creditos:
+        imagen = credito["imagen"]
+        assert imagen["autor_credito"]
+        assert imagen["fuente_url"].startswith(COMMONS)
+        assert imagen["licencia"]["codigo"] in seed_fotos.LICENCIAS_ADMITIDAS
+        assert imagen["licencia"]["url_texto_legal"].startswith("https://creativecommons.org/")
+        assert imagen["texto_alternativo"]
 
 
 # ---------------------------------------------------------------------------
