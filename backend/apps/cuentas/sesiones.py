@@ -193,23 +193,25 @@ class SessionStore(SessionStoreBD):
     def _alta_con_clave_nueva(self, anterior: str | None) -> None:
         """INSERT de los datos actuales con una clave nueva. Solo una clave repetida (23505) se
         reintenta con otra; cualquier otro fallo restaura `anterior` y propaga el error de la BD."""
-        for intento in range(1, _INTENTOS_CLAVE_NUEVA + 1):
+        intento = 0
+        while True:
+            intento += 1
             self._session_key = self._get_new_session_key()  # type: ignore[attr-defined]
             try:
                 self.save(must_create=True)
+                return
             except CreateError as exc:
-                causa = exc.__cause__
-                repetida = causa is not None and sqlstate_de(causa) == _SQLSTATE_CLAVE_REPETIDA
-                if repetida and intento < _INTENTOS_CLAVE_NUEVA:
+                causa = cast(IntegrityError, exc.__cause__)  # save() la encadena siempre
+                if (
+                    sqlstate_de(causa) == _SQLSTATE_CLAVE_REPETIDA
+                    and intento < _INTENTOS_CLAVE_NUEVA
+                ):
                     continue
                 self._session_key = anterior
-                if isinstance(causa, DatabaseError):
-                    raise causa from exc
-                raise
+                raise causa from exc
             except BaseException:
                 self._session_key = anterior
                 raise
-            return
 
     def save(self, must_create: bool = False) -> None:
         if self.session_key is None:

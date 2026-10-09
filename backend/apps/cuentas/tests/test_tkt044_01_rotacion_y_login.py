@@ -30,9 +30,11 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import timedelta
 from typing import Any
+from unittest import mock
 
 import pytest
 from django.core.cache import cache
+from django.core.exceptions import SuspiciousOperation
 from django.db import IntegrityError, connection, connections, transaction
 from django.db.models import Max
 from django.test import Client
@@ -490,3 +492,17 @@ def test_AC_TKT044_06_acceso_completo_reinicia_el_contador_en_cache() -> None:
     assert services._leer_fallos("editora.contador")["intentos"] == 1
     assert _login("editora.contador", staff.contrasena)[0].status_code == 200
     assert services._leer_fallos("editora.contador")["intentos"] == 0
+
+
+def test_AC_TKT044_04_carga_con_operacion_sospechosa_no_carga_y_se_registra(
+    editora_con_sesion: tuple[Staff, str], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Como la de Django: una SuspiciousOperation al cargar deja la sesión vacía y se registra."""
+    _, clave = editora_con_sesion
+    tienda = SessionStore(clave)
+    with mock.patch.object(
+        SesionPanel.objects, "filter", side_effect=SuspiciousOperation("manipulada")
+    ):
+        assert tienda.load() == {}
+    assert tienda.session_key is None
+    assert "manipulada" in caplog.text
