@@ -32,9 +32,12 @@ export class DestinoDetalleStore {
     requireSync: true,
   });
 
-  // `id` (TKT-016): ver destinos-listado.store.ts (hidratación sin esqueleto ni recreación del DOM).
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
   private readonly recurso = resource({
-    id: 'recurso:destino-detalle',
+    id: `recurso:destino-detalle:${this.slug()}`,
     params: () => this.slug(),
     loader: ({ params }) => this.repo.detalle(params),
   });

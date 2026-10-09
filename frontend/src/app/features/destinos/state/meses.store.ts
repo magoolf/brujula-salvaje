@@ -50,7 +50,7 @@ export class DestinosDelMesStore {
   });
 
   private readonly recurso = resource({
-    id: 'recurso:destinos-del-mes',
+    id: `recurso:destinos-del-mes:${this.mes()}`,
     params: () => this.mes(),
     loader: ({ params }) =>
       params === null
