@@ -410,7 +410,7 @@ tickets:
   - id: TKT-051
     titulo: "MEDIUM (QA TKT-023 OBS-BE-01): el PUT de un Tipo PUBLICADO valida el mínimo de 8 elementos del checklist contra el checklist guardado y no contra el enviado: acepta reducirlo a 7 (queda publicado incumpliendo RULE) y después rechaza con 422 checklist_insuficiente cualquier corrección (6, 8 o 10), bloqueando el contenido. Validar requisitos de publicación sobre el estado resultante del PUT para todos los tipos y colecciones de hijos (checklist, días, elementos, relaciones); tests de regresión, incluida la recuperación de contenido ya inconsistente"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-023, TKT-006, MOD-010]
     depende_de: []
