@@ -423,3 +423,4 @@
 2026-10-09 | DEC-AUTO | TKT-016 | DEC-AUTO-985 (ORIGEN: EXPANSIÓN_AUTÓNOMA): F-02 se corrige en TKT-016 ampliando archivos_permitidos a frontend/src/index.html y frontend/src/styles/** (alternativa: ticket aparte, rechazada porque /destinos está en el alcance nominal del ticket y su CLS bloquearía igualmente el PASS). Reversible | kanban.md
 2026-10-09 | DELEGACION | TKT-016 | Ciclo de corrección 2/3 al Developer (F-01..F-04) | kanban.md
 2026-10-09 | ENTREGA | TKT-023 | PR #71 @ dfb82c8, CI verde: main integrado (TKT-045), AC_TKT023_12 incondicional y PASS en 3 motores, E2E panel 69/69. Re-QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-023
+2026-10-09 | ENTREGA | TKT-050 | PR #79 @ f8e04e5, CI verde: 403 permiso_denegado para Editor en revisiones de páginas legales, sin auditoría ni enumeración; 46 tests. QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-050

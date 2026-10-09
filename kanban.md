@@ -398,14 +398,14 @@ tickets:
   - id: TKT-050
     titulo: "LOW (QA TKT-045 F-QA045-01, preexistente, control de acceso): un Editor obtiene 200 en GET de la lista y del detalle de revisiones y en POST .../revisiones/{n}/restaurar de las páginas legales (AVISO_LEGAL, POLITICA_COOKIES, POLITICA_DATOS), solo editables por Administrador (el PUT ya da 403). Aplicar _autorizar_pagina en RestaurarRevision, DetalleRevision y la lista de revisiones cuando el tipo sea PAGINA; 403 permiso_denegado según contrato; tests por rol y página"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-045, MOD-010, "THREAT control de acceso por objeto"]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt050*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-983. Reproducción: scratchpad 7e63c98e…/qa/acceso.log."]
+    evidencia: ["DEC-AUTO-983. Reproducción: scratchpad 7e63c98e…/qa/acceso.log.", "2026-10-09 PR #79 @ f8e04e5 (CI verde): _autorizar_revisiones en lista/detalle/restaurar (404 antes que 403, 403 antes de buscar la revisión y de auditar); 46 tests (16 FAIL en main); pytest 1458 PASS; contrato sin cambios (403 ya declarado). QA ciclo 1/3 despachada.""]
     actualizado: 2026-10-09
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
