@@ -326,14 +326,14 @@ tickets:
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [TKT-040, "THREAT-002", "CWE-204"]
     depende_de: [TKT-040]
     archivos_permitidos: ["backend/apps/cuentas/**", "backend/apps/core/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9).", "2026-10-08 entregado PR #72 @ 7b114f7 (CI 37870716674 verde, 1351 tests, 97,56 %): marca de revocación en sesion_panel si el DELETE choca con bloqueo, INSERT verificada antes de cambiar la clave, 401 sesion_expirada si no se puede rotar, login con NOWAIT y caminos igualados; AC_TKT044 16 PASS en rama / 14 FAIL en main. Ampliaciones aceptadas en DEC-AUTO-974. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9).", "2026-10-08 entregado PR #72 @ 7b114f7 (CI 37870716674 verde, 1351 tests, 97,56 %): marca de revocación en sesion_panel si el DELETE choca con bloqueo, INSERT verificada antes de cambiar la clave, 401 sesion_expirada si no se puede rotar, login con NOWAIT y caminos igualados; AC_TKT044 16 PASS en rama / 14 FAIL en main. Ampliaciones aceptadas en DEC-AUTO-974. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 y F-03/F-04 verificados con PostgreSQL real (QA4-QA9 corregidos; marcas no falsificables; EXPLAIN 0,029 ms; 0 hallazgos de seguridad). F-A MEDIUM: con FK violada en el alta/rotación, __cause__ cíclico (raise causa from exc) hace que fallo_por_contencion no termine (bucle de CPU) y la clave anterior no se invalida; hoy solo provocable con operación directa en BD; en main también se cuelga. Ciclo de corrección 2/3 al Developer."]
     actualizado: 2026-10-08
   - id: TKT-045
     titulo: "MEDIUM (Developer TKT-023): RULE-009 (la fecha de revisión no puede ser futura) solo se valida en el cliente con la fecha local; el backend la acepta (DateField sin validación, TIME_ZONE=UTC) y un cliente API directo puede guardar fechas futuras. Validar en el serializer/servicio del panel con tolerancia de zona horaria (fecha <= hoy en UTC-5 de Colombia o <= hoy UTC+14, documentando la elección), Problem Details 422/400 coherente con el contrato, tests"
