@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING, Any, cast
 import structlog
 from django.conf import settings
 from django.contrib.sessions.backends.base import UpdateError
-from django.db import DatabaseError
+from django.db import DatabaseError, IntegrityError
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.middleware.csrf import CsrfViewMiddleware
 from django.utils import timezone
@@ -173,13 +173,20 @@ def _guardar_tras_efecto(sesion: SessionBase) -> None:
         descartar_en_memoria(sesion)
         raise ErrorApi(codigo="sesion_expirada") from exc
     except DatabaseError as exc:
-        # Alta de una sesión nueva (login) que choca con un bloqueo: no hay sesión que entregar
-        # y el efecto ya está confirmado → 401 sesion_expirada, no 409.
-        if not fallo_por_contencion(exc):
+        # Alta de una sesión nueva (login) que choca con un bloqueo o cuya cuenta ya no existe
+        # (FK violada, TKT-044): no hay sesión que entregar y el efecto ya está confirmado →
+        # 401 sesion_expirada, no 409.
+        if not _alta_imposible(exc):
             raise
-        logger.warning("sesion_no_creada", contencion=True)
+        logger.warning("sesion_no_creada", contencion=fallo_por_contencion(exc))
         descartar_en_memoria(sesion)
         raise ErrorApi(codigo="sesion_expirada") from exc
+
+
+def _alta_imposible(exc: DatabaseError) -> bool:
+    """La INSERT de una clave nueva falló por contención (55P03/40P01/40001) o porque la cuenta
+    ya no existe (FK violada): sin sesión que entregar → 401. Otro error de la BD es un 500."""
+    return fallo_por_contencion(exc) or isinstance(exc, IntegrityError)
 
 
 def _invalidar_anterior(clave: str | None, *, momento: str) -> None:
@@ -212,8 +219,8 @@ def rotar_sesion(sesion: SessionBase, *, mfa_verificado: bool | None = None) -> 
 
     La vista la llama tras su efecto (TKT-040): nunca 409. TKT-044:
     - alta (INSERT) de la clave nueva con los datos; si falla de verdad (bloqueo de la cuenta por
-      la FK, otro error...), la clave anterior se invalida igualmente y se descarta la sesión: 401
-      `sesion_expirada` si fue por contención; otro error de la BD se propaga (500);
+      la FK, cuenta borrada, otro error...), la clave anterior se invalida igualmente y se descarta
+      la sesión: 401 `sesion_expirada` (_alta_imposible); otro error de la BD se propaga (500);
     - la clave anterior se invalida aunque su fila esté bloqueada (marca de revocación)."""
     tienda = cast(SessionStore, sesion)
     if mfa_verificado is not None:
@@ -222,11 +229,10 @@ def rotar_sesion(sesion: SessionBase, *, mfa_verificado: bool | None = None) -> 
     try:
         anterior = tienda.crear_con_clave_nueva()
     except DatabaseError as exc:
-        contencion = fallo_por_contencion(exc)
-        logger.warning("sesion_no_rotada", contencion=contencion)
+        logger.warning("sesion_no_rotada", contencion=fallo_por_contencion(exc))
         _invalidar_anterior(tienda.session_key, momento="rotacion_fallida")
         descartar_en_memoria(tienda)
-        if not contencion:
+        if not _alta_imposible(exc):
             raise
         raise ErrorApi(codigo="sesion_expirada") from exc
     _invalidar_anterior(anterior, momento="rotacion")

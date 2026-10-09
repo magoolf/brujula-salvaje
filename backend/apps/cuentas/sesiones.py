@@ -49,8 +49,9 @@ _CAMPOS_ACTUALIZABLES = ["session_data", "expire_date", "cuenta", "autenticado_e
 # Prefijo de las marcas de revocación: no está en VALID_KEY_CHARS de Django ([a-z0-9]), así que
 # ninguna clave de sesión real empieza por él y una marca nunca se carga como sesión (TKT-044).
 _PREFIJO_REVOCACION = "~"
-# Intentos de alta de una clave nueva que choca con una existente (CreateError) antes de rendirse.
+# Intentos de alta de una clave nueva que choca con una existente (23505) antes de rendirse.
 _INTENTOS_CLAVE_NUEVA = 10
+_SQLSTATE_CLAVE_REPETIDA = "23505"  # unique_violation
 
 
 def _fecha(valor: Any) -> datetime | None:
@@ -176,29 +177,39 @@ class SessionStore(SessionStoreBD):
         de verdad que no hubo clave nueva (F-02 de la QA de TKT-040)."""
         datos = self._session  # type: ignore[attr-defined]
         anterior = self.session_key
-        intentos = 0
-        while True:
-            intentos += 1
+        self._alta_con_clave_nueva(anterior)
+        self._session_cache = datos
+        self.modified = True
+        return anterior
+
+    def create(self) -> None:
+        """Alta de una sesión nueva (login). Como la de Django, pero acotada: Django reintenta
+        para siempre ante cualquier CreateError, y una FK de la cuenta violada (cuenta borrada
+        mientras tanto: las FK son DEFERRABLE y fallan en el COMMIT) no es una clave repetida y
+        nunca dejaría de fallar (TKT-044). Ese error de la BD se propaga a quien llama."""
+        self._alta_con_clave_nueva(None)
+        self.modified = True
+
+    def _alta_con_clave_nueva(self, anterior: str | None) -> None:
+        """INSERT de los datos actuales con una clave nueva. Solo una clave repetida (23505) se
+        reintenta con otra; cualquier otro fallo restaura `anterior` y propaga el error de la BD."""
+        for intento in range(1, _INTENTOS_CLAVE_NUEVA + 1):
             self._session_key = self._get_new_session_key()  # type: ignore[attr-defined]
             try:
                 self.save(must_create=True)
-                break
             except CreateError as exc:
-                if intentos < _INTENTOS_CLAVE_NUEVA:
-                    continue  # clave repetida: se prueba otra
-                # Sin clave nueva tras varios intentos (p. ej. la FK de la cuenta ya no existe):
-                # el error de la BD a quien llama.
-                self._session_key = anterior
                 causa = exc.__cause__
+                repetida = causa is not None and sqlstate_de(causa) == _SQLSTATE_CLAVE_REPETIDA
+                if repetida and intento < _INTENTOS_CLAVE_NUEVA:
+                    continue
+                self._session_key = anterior
                 if isinstance(causa, DatabaseError):
                     raise causa from exc
                 raise
             except BaseException:
                 self._session_key = anterior
                 raise
-        self._session_cache = datos
-        self.modified = True
-        return anterior
+            return
 
     def save(self, must_create: bool = False) -> None:
         if self.session_key is None:
