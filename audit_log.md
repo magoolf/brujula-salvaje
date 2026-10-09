@@ -413,3 +413,8 @@
 2026-10-09 | QA_PASS | TKT-OPS-031 | QA_VERDICT PASS ciclo 1/3 @ 57cad6b: CVE-2026-78667 y CVE-2026-97031 corregidas con Go 1.26.9, build reproducible, cadena de suministro verificada, regresión real scheduler/backup. OBS-01/02 LOW y OBS-03 INFO -> TKT-OPS-032 (DEC-AUTO-982, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). NOT_RUN: arm64 | HANDOFF_ENVELOPE QA TKT-OPS-031
 2026-10-09 | INTEGRACION | TKT-OPS-031 | PR #77 integrado en main con QA PASS y CI verde (@ d91e152). DONE. CI de main desbloqueado | PR #77
 2026-10-09 | ENTREGA | TKT-016 | PR #75 @ 1731b61 READY_FOR_VALIDATION: 24 rutas públicas CLS ≤ 0,1 y 0 nodos SSR retirados en 3 motores; QA ciclo 1/3 despachada. Riesgo: /guardados 0,0507 (contenido de localStorage) | HANDOFF_ENVELOPE TKT-016
+2026-10-09 | INTEGRACION | TKT-044 | PR #72 integrado en main con QA PASS y CI verde tras TKT-OPS-031 (@ 145ec1a). DONE | PR #72
+2026-10-09 | INTEGRACION | TKT-041 | PR #70 integrado en main con QA PASS y CI verde (@ bc54a50). DONE | PR #70
+2026-10-09 | QA_PASS | TKT-045 | QA_VERDICT PASS ciclo 1/3 @ cf24228: restaurar ida y vuelta 110/110 en 7 tipos, revisiones antiguas 64/64, E2E de TKT-023 30/30, RULE-009 en 3 zonas, saneado 60 payloads, schemathesis 0 5xx. F-QA045-01 LOW preexistente (Editor accede a revisiones de páginas legales) -> TKT-050 (DEC-AUTO-983); OBS-QA045-03 contrato -> CHG-API-007 (DEC-AUTO-984). Ambas ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles | HANDOFF_ENVELOPE QA TKT-045
+2026-10-09 | INTEGRACION | TKT-045 | PR #76 integrado en main con QA PASS y CI verde (@ 1030e4b). DONE. TKT-023 desbloqueado | PR #76
+2026-10-09 | DELEGACION | TKT-023 | Developer: merge de main en tkt-023-panel-contenidos y AC_TKT023_12 sin condición; después re-QA ciclo 2/3 | kanban.md
