@@ -82,14 +82,16 @@ async function destinosPublicados(page: Page): Promise<{ tipo: string; id: numbe
  */
 export async function crearGuiaPublicable(page: Page, titulo = `Guía E2E ${sufijo()}`): Promise<ContenidoApi> {
   const categorias = await apiGet<Pagina<{ id: number }>>(page, '/taxonomias/categorias-guia');
-  const hoy = new Date().toISOString().slice(0, 10);
+  // Ayer en UTC: nunca es futura para el navegador, sea cual sea su zona horaria (UTC−12..+14). Con la
+  // fecha UTC de hoy, a partir de las 19:00 en Colombia el editor la ve como futura (RULE-009).
+  const revision = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
   return apiEscribir<ContenidoApi>(page, 'post', '/contenidos/guias', {
     titulo,
     categoria_id: categorias.resultados[0].id,
     resumen: 'Resumen de una guía creada por las pruebas de extremo a extremo.',
     cuerpo: '<p>Cuerpo de la guía con <strong>consejos</strong> prácticos para la montaña.</p>',
     portada_id: await medioDisponible(page),
-    fecha_ultima_revision: hoy,
+    fecha_ultima_revision: revision,
     fuentes: [{ titulo: 'Fuente de prueba', url: 'https://example.org/fuente' }],
     relaciones: await destinosPublicados(page),
     seo_titulo: titulo.slice(0, 70),
