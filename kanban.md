@@ -206,14 +206,14 @@ tickets:
   - id: TKT-016
     titulo: "Investigar y corregir la causa raíz de un layout-shift compartido del shell/hidratación (no específico de una página): CLS medido de forma intermitente entre 0 y 1.16 tanto en Inicio como en /destinos (Skill_UI_UX §47.2 exige ≤0.1), con app-pie-sitio desplazándose 300-420ms después de la hidratación. Documentado por el Developer de TKT-008 tras descartar 4 hipótesis específicas de Inicio (doble fetch ya corregido con TransferState, imágenes rotas, remount real del footer, esqueleto SSR) sin aislar la causa; puede requerir tocar frontend/src/app/app.config.ts (fuera del alcance de un solo Developer-ticket previo, con una restricción de CSP ya documentada ahí por TKT-002 sobre event replay que hay que respetar)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [MOD-001, MOD-002, "Skill_UI_UX#47.2"]
     depende_de: [TKT-008]
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/core/layout/**", "frontend/src/app/features/inicio/**", "frontend/src/app/features/destinos/**", "frontend/e2e/**", "frontend/src/app/features/*/state/*.store.ts", "frontend/src/app/features/*/state/*.store.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente.", "2026-10-09 PR #75 @ 2d35b12: causa raíz = resource() sin id no transfiere el valor del SSR y la hidratación pasa por el esqueleto; corregido en inicio y destinos (CLS ≤0,0002 en 3 motores x3, 135 E2E PASS). BLOCKED por 8 rutas cuyos stores estaban fuera de alcance -> DEC-AUTO-980 amplía a features/*/state/*.store(.spec).ts. CI rojo solo por CVE-2026-78667 (TKT-OPS-031)."]
+    evidencia: ["Línea base actualizada por QA (ciclo 2/3 de TKT-008, entorno propio 100% reproducible, sin ruido de rate-limit durante la medición): CLS Inicio = 1.609 (2 corridas idénticas), CLS /destinos = 0.674 (1 corrida) -- notablemente más severo que la primera medición del Developer (0-1.16 intermitente). QA recomienda revisar la prioridad de este ticket al alza dado el nivel de reproducibilidad y severidad.", "Dato de TKT-020 (A/B igual en main): /creditos con CLS 0.398 y /acerca-de con 1.12 en Chromium, en ambos casos por el desplazamiento de app-pie-sitio. Es probablemente la misma causa raíz de este ticket: incluir esas rutas en la verificación.", "QA TKT-010 c3: CLS de /destinos bimodal (0.25/0.67/0.95), /acerca-de 1.181 e Inicio (AC_TKT008_14 falla 6/10 en main y en la rama), todo preexistente.", "2026-10-09 PR #75 @ 2d35b12: causa raíz = resource() sin id no transfiere el valor del SSR y la hidratación pasa por el esqueleto; corregido en inicio y destinos (CLS ≤0,0002 en 3 motores x3, 135 E2E PASS). BLOCKED por 8 rutas cuyos stores estaban fuera de alcance -> DEC-AUTO-980 amplía a features/*/state/*.store(.spec).ts. CI rojo solo por CVE-2026-78667 (TKT-OPS-031).", "2026-10-09 PR #75 @ 1731b61: id en resource() de todos los stores públicos (clave con los parámetros de la URL); 24 rutas públicas CLS ≤0,0014 salvo guía 0,009 y /guardados 0,0507, 0 nodos SSR retirados; cls-hidratacion 243/243 en 3 motores x3; unit 661. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-08
   - id: TKT-017
     titulo: "GAP de datos/medios: las imágenes de portada de los destinos devuelven 404 en el stack Docker real (la API construye bien la URL del derivado, p. ej. /media/publico/medios/derivados/<hash>-800.avif, pero el archivo físico no se sirve). Hallazgo colateral del Developer de TKT-008 durante la investigación de CLS; probablemente relacionado con la generación de derivados del comando de semilla de TKT-007 o con el montaje de volúmenes de medios. Investigar causa raíz; si resulta ser configuración de infraestructura/volúmenes (no código de aplicación), usar Botón de Pánico hacia DevOps en vez de tocar infra/** directamente"
@@ -530,14 +530,26 @@ tickets:
   - id: TKT-OPS-031
     titulo: "HIGH (CI rojo en todos los PR desde 2026-10-09): CVE-2026-78667 (Go stdlib net/http, DoS; corregida en Go 1.26.9/1.27.2) en /usr/local/bin/supercronic v0.2.49 (compilado con Go 1.26.6) de las imágenes scheduler y backup; no hay release corregida de supercronic. Compilar supercronic v0.2.49 desde el código fuente (tag verificado por commit SHA) en una etapa builder con Go >= 1.26.9 fijado por digest, binario estático, reproducible, sin cambiar el comportamiento; o actualizar a una release corregida si aparece. Sin entradas nuevas en .trivyignore"
     fase: F6
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_devops
     trazabilidad: [RSK-OPS-001, "THREAT supply chain"]
     depende_de: []
     archivos_permitidos: ["infra/**", ".github/workflows/**", ".github/dependabot.yml", "docs/05_operacion/DEVOPS_HANDOFF.md"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup.", "2026-10-09 PR #77 @ 57cad6b (CI 37958056463 verde): supercronic v0.2.49 (commit 8e0a4a4) compilado con golang:1.26.9-trixie por digest, receta idéntica en ambos Dockerfile con control en CI, grupo golang en Dependabot, DEVOPS_HANDOFF §33; trivy 0 HIGH/CRITICAL en las 6 imágenes sin tocar .trivyignore. NOT_RUN: arm64. QA ciclo 1/3 despachada.", "2026-10-09 QA_VERDICT PASS ciclo 1/3: CVE-2026-78667 y CVE-2026-97031 ausentes (control positivo con el binario upstream), build reproducible, tag=commit, cadena verificada, regresión real de scheduler/backup con BD, SIGTERM limpio. OBS-01/02/03 -> TKT-OPS-032. Integrado PR #77 @ d91e152 con CI verde. DONE."]
+    actualizado: 2026-10-09
+  - id: TKT-OPS-032
+    titulo: "LOW (QA TKT-OPS-031 OBS-01..03): (1) supercronic_receta.sh debe exigir invariantes dentro del bloque (GOFLAGS=-mod=readonly, GOTOOLCHAIN=local, sin GOSUMDB/GONOSUMDB/GOINSECURE/GOPRIVATE/GOPROXY=direct, presencia de go mod verify y de la comprobación commit==tag) con casos negativos; (2) /usr/local/bin/supercronic como destino una sola vez y solo con --from=supercronic; (3) el JSON de evidencia de trivy 'sin .trivyignore' sale filtrado por la autocarga de ./.trivyignore: generarlo sin filtrar, compatible con politica_trivy.py"
+    fase: F6
+    estado: TODO
+    owner: Skill_devops
+    trazabilidad: [TKT-OPS-031, "THREAT supply chain"]
+    depende_de: [TKT-OPS-031]
+    archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-979. Run 37954467230 (PR #72): trivy HIGH x2 CVE-2026-78667 en supercronic (gobinary) de scheduler y backup.", "2026-10-09 PR #77 @ 57cad6b (CI 37958056463 verde): supercronic v0.2.49 (commit 8e0a4a4) compilado con golang:1.26.9-trixie por digest, receta idéntica en ambos Dockerfile con control en CI, grupo golang en Dependabot, DEVOPS_HANDOFF §33; trivy 0 HIGH/CRITICAL en las 6 imágenes sin tocar .trivyignore. NOT_RUN: arm64. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-982. Mutaciones M3-M7 de la QA (rc=0)."]
     actualizado: 2026-10-09
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
