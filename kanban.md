@@ -290,14 +290,14 @@ tickets:
   - id: TKT-041
     titulo: "HIGH (decisión del usuario 2026-10-08): sustituir las ilustraciones geométricas de la semilla (backend/seed/imagenes.py) por fotografías reales y pertinentes con licencia libre verificada (Wikimedia Commons u otra fuente sin claves de API; solo CC0, PDM, CC BY y CC BY-SA, añadiendo al catálogo de licencias las versiones 2.0/3.0 si hacen falta), con autor, fuente y licencia registrados (REQ-043/071, créditos) y texto alternativo en español; cada foto debe mostrar de verdad el lugar/actividad (verificación visual). Cubrir portadas y galerías de los 24 destinos, itinerarios, guías, tipos de aventura, colecciones, páginas e imagen principal de inicio; procesar por el pipeline de medios existente (recodificación, sin EXIF, derivados); idempotente; tamaño acotado en el repo"
     fase: F7
-    estado: IN_PROGRESS
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [TKT-007, REQ-043, REQ-071, RSK-002, GAP-008]
     depende_de: []
     archivos_permitidos: ["backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/test_ac_tkt007*", "backend/apps/catalogos/migrations/**", "backend/apps/catalogos/tests/**", "backend/apps/medios/tests/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias)."]
+    evidencia: ["DECISION_HUMANA 2026-10-08: el usuario pide que el Orquestador busque y coloque fotografías reales. DEC-AUTO-967: fuente Wikimedia Commons (sin API key, licencia por archivo verificable); sustituye a DEC-AUTO-014 (solo ilustraciones propias).", "2026-10-08 entregado PR #70 @ ae545ad (CI 37870911477 verde): 129 fotos de Commons con MANIFIESTO (sha256, autor, licencia, alt), 24 MB, migración 0004 (CC BY/BY-SA 2.0/2.5/3.0), pipeline de medios real, idempotente; pytest 1340 PASS. cargar_semilla usa date.today() (corrige el fallo de zona horaria, parte de TKT-045). Riesgo: contraste del rótulo pequeño del hero sobre la foto. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 HIGH contraste del hero de inicio sobre la foto nueva (rótulo 1,08-1,33:1; H1 mín. 1,41; subtítulo mín. 2,60; regresión frente a main, axe lo deja incomplete). F-02 MEDIUM LCP +0,2-0,6 s (inicio 3,06 s; fichas 3,45 s; main ya >2,5 s) por codificación por defecto de Pillow -> TKT-048 (DEC-AUTO-976). Licencias 129/129 verificadas en Commons, EXIF 0, créditos 129/129, idempotente, schemathesis 0 fallos. OBS-01..05 en alcance. Ciclo de corrección 2/3 al Developer (F-01 + OBS)."]
     actualizado: 2026-10-08
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
@@ -326,26 +326,62 @@ tickets:
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
     fase: F7
-    estado: IN_PROGRESS
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [TKT-040, "THREAT-002", "CWE-204"]
     depende_de: [TKT-040]
     archivos_permitidos: ["backend/apps/cuentas/**", "backend/apps/core/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9)."]
+    evidencia: ["DEC-AUTO-970. Reproducción: scratchpad/qa040/qa_tests/test_qa040_carreras.py (QA4, QA5, QA6, QA6b, QA7, QA9).", "2026-10-08 entregado PR #72 @ 7b114f7 (CI 37870716674 verde, 1351 tests, 97,56 %): marca de revocación en sesion_panel si el DELETE choca con bloqueo, INSERT verificada antes de cambiar la clave, 401 sesion_expirada si no se puede rotar, login con NOWAIT y caminos igualados; AC_TKT044 16 PASS en rama / 14 FAIL en main. Ampliaciones aceptadas en DEC-AUTO-974. QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3: F-01 y F-03/F-04 verificados con PostgreSQL real (QA4-QA9 corregidos; marcas no falsificables; EXPLAIN 0,029 ms; 0 hallazgos de seguridad). F-A MEDIUM: con FK violada en el alta/rotación, __cause__ cíclico (raise causa from exc) hace que fallo_por_contencion no termine (bucle de CPU) y la clave anterior no se invalida; hoy solo provocable con operación directa en BD; en main también se cuelga. Ciclo de corrección 2/3 al Developer."]
     actualizado: 2026-10-08
   - id: TKT-045
-    titulo: "MEDIUM (Developer TKT-023): RULE-009 (la fecha de revisión no puede ser futura) solo se valida en el cliente con la fecha local; el backend la acepta (DateField sin validación, TIME_ZONE=UTC) y un cliente API directo puede guardar fechas futuras. Validar en el serializer/servicio del panel con tolerancia de zona horaria (fecha <= hoy en UTC-5 de Colombia o <= hoy UTC+14, documentando la elección), Problem Details 422/400 coherente con el contrato, tests"
+    titulo: "HIGH (QA TKT-023 F-01 + Developer TKT-023 RULE-009): (1) F-01 HIGH: restaurar revisión pierde datos: services._instantanea (l.236-259) recorre solo subtipo._meta.fields (sin M2M ni hijos) y usa campo.name sin _id; restaurar_revision (l.2198) devuelve esa instantánea, incumpliendo el contrato ('Cuerpo compatible con {Tipo}Actualizacion'): faltan relaciones, terminos_ids, fuentes (todos), tipos_ids/galeria_ids (destino), dias (itinerario), checklist (tipo), elementos (colección), destinos_ids/tipos_ids (guía) y las FK salen sin _id. Instantánea completa y respuesta conforme a {Tipo}Actualizacion para los 7 tipos; compatibilidad con revisiones antiguas incompletas (no inventar: devolver lo que haya y marcar/advertir según contrato, sin borrar datos actuales por omisión); tests por tipo ida y vuelta. (2) RULE-009 en servidor con el criterio de DEC-AUTO-977: fecha_revision válida si <= fecha actual en UTC+14; Problem Details coherente con el contrato. (3) OBS-02: analisis-publicacion debe devolver confirmable:false si un tipo del destino está RETIRADO (hoy publicar da 422 tipo_retirado tras confirmar). (4) OBS-03 hardening: saneado.py debe descartar href relativos al protocolo ('//host') y eliminar el contenido de <script>/<style>, no dejarlo como texto"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [TKT-023, "RULE-009", "SCR-038", "FEAT-039", MOD-010, "THREAT XSS"]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/saneado.py", "backend/apps/contenido/selectors.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt045*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-973, DEC-AUTO-977. La parte de la semilla (fecha UTC) ya la corrige TKT-041. Reproducción F-01: scratchpad 56bc59a0…/qa023/specs/qa-restaurar2.spec.ts y qa-restaurar3.spec.ts. Disjunto de TKT-041 (management/ y test_ac_tkt007*)."]
+    actualizado: 2026-10-08
+  - id: TKT-046
+    titulo: "LOW (Developer TKT-023): E2E intermitente AC_TKT022_02 en firefox ('route.fulfill: Fetch response has been disposed' en panel-soporte.ts:313): el soporte de TKT-022 no desmonta la ruta del borde 429 al cerrar la página; aplicar afterEach con page.unrouteAll({behavior:'ignoreErrors'}) en panel-medios*/panel-selector* como ya hace panel-contenidos.spec.ts"
     fase: F7
     estado: TODO
     owner: Skill_Developer
-    trazabilidad: [TKT-023, "RULE-009", MOD-010]
-    depende_de: []
-    archivos_permitidos: ["backend/apps/contenido/**"]
+    trazabilidad: [TKT-022, TKT-023]
+    depende_de: [TKT-023]
+    archivos_permitidos: ["frontend/e2e/panel-soporte.ts", "frontend/e2e/panel-medios*.spec.ts", "frontend/e2e/panel-selector*.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-973."]
+    evidencia: ["DEC-AUTO-975."]
+    actualizado: 2026-10-08
+  - id: TKT-047
+    titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, "Skill_UI_UX#47.2", "WCAG 1.4.3"]
+    depende_de: []
+    archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/e2e/inicio*.spec.ts", "frontend/e2e/contraste*.ts"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py."]
+    actualizado: 2026-10-08
+  - id: TKT-048
+    titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-041, TKT-021, "Skill_UI_UX#47.2", DEC-AUTO-044]
+    depende_de: [TKT-041]
+    archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/inicio/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b."]
     actualizado: 2026-10-08
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
@@ -482,14 +518,14 @@ tickets:
   - id: TKT-OPS-027
     titulo: "LOW (QA de TKT-OPS-022): (F-QA022-01) gate_cobertura_controles.py da TypeError en Windows sin PYTHONUTF8=1 (UnicodeDecodeError del hijo cp1252): pasar env PYTHONUTF8=1/PYTHONIOENCODING=utf-8 y errors='replace' en subprocess.run, también en gate_contrato_controles si aplica; (F-QA022-02) el gate debe fallar si un archivo de [vistas_no_criticas] o [api_soporte] sirve rutas /api/v1/panel/** (prefijo crítico configurable en el TOML), con control negativo; (F-QA022-04) enmascarar todos los valores que init-env.sh genera desde CHANGE_ME o declarar las 8 obligatorias; (F-QA022-03, tras integrar TKT-034) retirar TKT-OPS-022-EXC-01/02 y, mientras existan, corregir su campo ticket a TKT-034"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [TKT-OPS-022, TKT-034, "Skill_Backend §8"]
     depende_de: []
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Pendiente: resincronizar tras #63, CI y merge."]
+    evidencia: ["DEC-AUTO-957.", "2026-10-08 PR #65 @ e2e5975 (sincronizado con main; §30 renumerada a §31; EXC-01/02 retiradas con sesiones.py y permisos.py al 100 %), CI 37868923649 verde. QA_VERDICT PASS ciclo 1/3 (mutaciones M0-M9, Windows sin PYTHONUTF8, enmascarado 8/8). OBS-01/02/03 -> TKT-OPS-030. Resincronizado tras #63, CI verde, integrado (gh pr merge 65 --merge @ 612d29e). DONE."]
     actualizado: 2026-10-08
   - id: TKT-OPS-026
     titulo: "Dependabot del 2026-10-05: (a) #54 ruff 0.16.10, #55 cryptography 50.0.2, #57 @types/node 24.19.1 y #56 grupo angular (12 paquetes): sincronizadas con main y sujetas a QA de regresión (una QA_VERDICT por PR) antes de integrar; (b) #58 vitest 5.0.3 falla en npm ci (ERESOLVE: @vitest/coverage-v8 5.0.2 exige vitest 5.0.2): añadir en .github/dependabot.yml un grupo vitest (vitest, @vitest/*) para que se actualicen juntos, cerrar #58 y dejar que Dependabot lo regenere agrupado"
@@ -746,14 +782,14 @@ tickets:
   - id: TKT-023
     titulo: "Panel 3/4 -- contenidos: SCR-035 Listado por tipo (filtros estado/texto, orden por última modificación), SCR-036 Editor de los 7 tipos (destino, itinerario con días, guía, tipo con checklist, colección, término, página), SCR-037 Vista previa sin persistir (noindex, marca BORRADOR), SCR-038 Publicar/Actualizar/Retirar/Reactivar con análisis de publicación e impacto de retiro, revisiones y restauración, bloqueo optimista"
     fase: F7
-    estado: IN_PROGRESS
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-010, FEAT-033, FEAT-034, FEAT-035, FEAT-036, FEAT-037, FEAT-038, FEAT-039, FEAT-040, FEAT-049, FEAT-050, FLOW-011, FLOW-012, SCR-035, SCR-036, SCR-037, SCR-038, "RULE-001..012", "RULE-020..027"]
-    depende_de: [TKT-010, TKT-022]
+    depende_de: [TKT-010, TKT-022, TKT-045]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/api/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts", "frontend/e2e/panel-acceso.spec.ts"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal.", "2026-10-08 PR #71 @ 28af6cc, CI 37869963051 verde; unit 681/681; build inicial +0,02 kB; panel-contenidos 8/8 x3 motores (fix de fecha UTC en el soporte E2E). BLOCKED por 2 asserts obsoletos de panel-acceso.spec.ts (TKT-010) que TKT-023 cambia intencionadamente -> DEC-AUTO-972 amplía archivos_permitidos a ese spec. Riesgo RULE-009 solo en cliente -> TKT-045."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Depende de TKT-022 porque el editor abre el selector de medios SCR-041. Si resulta demasiado grande, el Developer puede proponer una subdivisión por tipo de contenido (Botón de Pánico no requerido: basta con reportarlo).", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-08 DEC-AUTO-960: arranca en paralelo al ciclo 2 de TKT-022, en rama apilada sobre tkt-022-panel-medios (necesita el selector SCR-041); no edita las E2E de TKT-022 ni panel-soporte.ts. Al integrarse TKT-022, la rama incorpora main por merge normal.", "2026-10-08 PR #71 @ 28af6cc, CI 37869963051 verde; unit 681/681; build inicial +0,02 kB; panel-contenidos 8/8 x3 motores (fix de fecha UTC en el soporte E2E). BLOCKED por 2 asserts obsoletos de panel-acceso.spec.ts (TKT-010) que TKT-023 cambia intencionadamente -> DEC-AUTO-972 amplía archivos_permitidos a ese spec. Riesgo RULE-009 solo en cliente -> TKT-045.", "2026-10-08 desbloqueado: PR #71 @ 864895b (CI 37872050812 verde), panel-acceso AC_TKT010_08/09 actualizados (9dcd527), panel E2E 3 motores PASS salvo intermitente preexistente AC_TKT022_02 en firefox (-> TKT-046). QA ciclo 1/3 despachada.", "2026-10-08 QA_VERDICT FAIL ciclo 1/3 @ 864895b: F-01 HIGH restaurar revisión vacía colecciones y FK (causa en backend _instantanea, fuera de alcance -> TKT-045); F-02 MEDIUM foco perdido al cerrar Retirar/Eliminar abiertos desde Más acciones (WCAG 2.4.3). Resto PASS (unit 719, E2E panel 3 motores, flujos Editor/Admin, 409, vista previa noindex, XSS rejected, axe 0, +0,02 kB). OBS-01 RULE-009 en cliente con fecha local -> DEC-AUTO-977 (<= hoy en UTC+14). Ciclo 2/3 al Developer: F-02 + OBS-01 + assert de campos restaurados en AC_TKT023_12 (verde solo tras TKT-045); re-QA tras integrar TKT-045."]
     actualizado: 2026-10-08
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
