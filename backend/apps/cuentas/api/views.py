@@ -33,6 +33,7 @@ from apps.cuentas.api import serializers as s
 from apps.cuentas.autenticacion import (
     abrir_sesion,
     cerrar_sesion,
+    descartar_sesion,
     leer_sesion,
     rotar_sesion,
 )
@@ -70,7 +71,7 @@ def _errores(*codigos: int) -> dict[Any, OpenApiResponse]:
         401: "401 no_autenticado / sesion_expirada / credenciales_invalidas / mfa_*.",
         403: "403 permiso_denegado / csrf_invalido / paso pendiente.",
         404: "404 no_encontrado / pagina_fuera_de_rango.",
-        409: "409 conflicto (transicion_invalida, duplicado, ultimo_administrador...).",
+        409: "409 conflicto (conflicto_version, transicion_invalida, duplicado...).",
         422: "422 regla_negocio / idempotencia_conflicto.",
         429: "429 limite_tasa / acceso_bloqueado_temporalmente (Retry-After).",
         500: "500 error_interno.",
@@ -161,7 +162,7 @@ class IniciarSesion(APIView):
         tags=["panel-auth"],
         auth=[{"csrfToken": []}],  # type: ignore[list-item]
         request=s.LoginEntradaSerializer,
-        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 429, 500)},
+        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 409, 429, 500)},
     )
     def post(self, request: Request) -> Response:
         entrada = s.LoginEntradaSerializer(data=request.data)
@@ -191,7 +192,7 @@ class VerificarMfa(_VistaPanel):
         summary="Segundo factor (TOTP o código de recuperación)",
         tags=["panel-auth"],
         request=s.MfaVerificacionEntradaSerializer,
-        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 429, 500)},
+        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 409, 429, 500)},
     )
     def post(self, request: Request) -> Response:
         entrada = s.MfaVerificacionEntradaSerializer(data=request.data)
@@ -200,7 +201,7 @@ class VerificarMfa(_VistaPanel):
         try:
             services.verificar_mfa(cuenta.pk, entrada.validated_data["codigo"], _ip(request))
         except services.AccesoBloqueado:
-            cerrar_sesion(request.session)
+            descartar_sesion(request.session)  # el bloqueo ya está confirmado (TKT-040)
             raise
         rotar_sesion(request.session, mfa_verificado=True)
         return _estado_actual(request)
@@ -216,12 +217,15 @@ class CerrarSesion(_VistaPanel):
         request=None,
         responses={
             204: OpenApiResponse(description="Sesión invalidada."),
-            **_errores(401, 403, 429, 500),
+            **_errores(401, 403, 409, 429, 500),
         },
     )
     def post(self, request: Request) -> Response:
-        services.cerrar_sesion(cuenta_de(request), _ip(request))
+        cuenta = cuenta_de(request)
+        # Primero el borrado de la sesión y después la auditoría (TKT-040): si el borrado choca
+        # con un bloqueo, 409 conflicto_version sin efectos y el reintento es seguro.
         cerrar_sesion(request.session)
+        services.cerrar_sesion(cuenta, _ip(request))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -248,10 +252,11 @@ class RenovarSesion(_VistaPanel):
         summary="Seguir conectado (renueva la inactividad; nunca supera el máximo de 12 h)",
         tags=["panel-auth"],
         request=None,
-        responses={200: s.SesionEstadoSerializer, **_errores(401, 403, 429, 500)},
+        responses={200: s.SesionEstadoSerializer, **_errores(401, 403, 409, 429, 500)},
     )
     def post(self, request: Request) -> Response:
-        # La autenticación ya renovó la inactividad (acotada por la expiración absoluta).
+        # La autenticación ya renovó y GUARDÓ la inactividad (acotada por la expiración absoluta):
+        # contención → 409 conflicto_version; sesión invalidada → 401 sesion_expirada (TKT-040).
         return _estado_actual(request)
 
 
@@ -263,7 +268,7 @@ class CambiarContrasena(_VistaPanel):
         summary="Cambiar la contraseña propia (obligatorio tras alta o restablecimiento)",
         tags=["panel-auth"],
         request=s.CambioContrasenaEntradaSerializer,
-        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 429, 500)},
+        responses={200: s.SesionEstadoSerializer, **_errores(400, 401, 403, 409, 429, 500)},
     )
     def post(self, request: Request) -> Response:
         entrada = s.CambioContrasenaEntradaSerializer(data=request.data)
@@ -328,8 +333,8 @@ class Autorizacion(_VistaPanelMixta):
         datos = entrada.validated_data
         cuenta = cuenta_de(request)
         if datos["decision"] == "NO_AUTORIZO":
+            cerrar_sesion(request.session)  # antes de auditar (TKT-040, como el logout)
             services.cerrar_sesion(cuenta, _ip(request))
-            cerrar_sesion(request.session)
             return Response(status=status.HTTP_204_NO_CONTENT)
         services.registrar_autorizacion(cuenta.pk, datos["version_politica"])
         cuenta.refresh_from_db()

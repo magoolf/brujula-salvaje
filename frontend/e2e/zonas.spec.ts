@@ -29,7 +29,8 @@ function instalarMuestreador(): void {
   }
   const w = window as unknown as { __zonas: Registro };
   w.__zonas = { paso: '', violaciones: [], estados: [] };
-  const PANEL = ['app-layout-acceso', 'app-shell-panel'];
+  // TKT-022 (OBS-C3-01): app-carga-panel es el armazón mínimo del panel mientras se lee la sesión.
+  const PANEL = ['app-layout-acceso', 'app-shell-panel', 'app-carga-panel'];
   const NEUTROS = ['app-shell-publico', 'app-banner-sin-conexion', 'router-outlet', ...PANEL];
 
   const evaluar = (origen: string): void => {
@@ -39,12 +40,14 @@ function instalarMuestreador(): void {
     if (raiz === null) return;
     const hijos = Array.from(raiz.children).map((e) => e.localName);
     const shell = raiz.querySelector(':scope > app-shell-publico');
-    const panel = raiz.querySelector(':scope > app-layout-acceso, :scope > app-shell-panel');
+    const panel = raiz.querySelector(
+      ':scope > app-layout-acceso, :scope > app-shell-panel, :scope > app-carga-panel',
+    );
     const mains = document.querySelectorAll('main').length;
     const fallos: string[] = [];
     const sueltos = hijos.filter((t) => !NEUTROS.includes(t));
     if (sueltos.length > 0) fallos.push(`contenido sin chrome (${sueltos.join(',')})`);
-    if (document.querySelector('app-shell-publico :is(app-layout-acceso, app-shell-panel)')) {
+    if (document.querySelector('app-shell-publico :is(app-layout-acceso, app-shell-panel, app-carga-panel)')) {
       fallos.push('armazón del panel dentro de ShellPublico');
     }
     if (shell !== null && panel !== null) fallos.push('ShellPublico y armazón del panel a la vez');
