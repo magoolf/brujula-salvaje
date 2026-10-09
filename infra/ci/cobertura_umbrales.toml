@@ -61,10 +61,14 @@ patrones = [
 #    archivo real; cada archivo debe estar clasificado igual, esté donde esté. Un archivo excluido o
 #    de [api_soporte] que sirve rutas FALLA (los nombres de "excluir" no son una vía de escape).
 #    urlconf_obligatorio = true: sin --vistas-urlconf el gate falla cerrado.
+# 3) rutas críticas (TKT-OPS-027, F-QA022-02): un archivo que sirve rutas bajo prefijos_criticos
+#    DEBE estar en la regla de endpoints críticos; si está en [vistas_no_criticas], [api_soporte],
+#    excluido o sin clasificar, el gate falla. Con urlconf_obligatorio = true no puede estar vacía.
 [clasificar_vistas]
 patrones = ["apps/*/api/*.py", "apps/*/views.py", "apps/*/views/*.py"]
 excluir = ["*/__init__.py", "*serializers.py", "*urls.py", "*/filtros.py"]
 urlconf_obligatorio = true
+prefijos_criticos = ["/api/v1/panel/"]
 
 [vistas_no_criticas]
 "apps/contenido/api/views.py" = "API pública de solo lectura (/api/v1/publico/**), sin autenticación ni escritura; sigue sujeta al total > 80 %"
@@ -86,22 +90,7 @@ urlconf_obligatorio = true
 # puntos y >= 60 %. Una excepción que ya no hace falta solo avisa (::warning::): retírala en el
 # siguiente ticket de DevOps. EXC-01/EXC-02 de TKT-OPS-021 retiradas en TKT-OPS-022 (TKT-032
 # integrado: catalogos/api/views.py e inicio/api/views.py al 100 %).
+# TKT-OPS-022-EXC-01/02 (DEC-AUTO-948: apps/cuentas/sesiones.py y permisos.py) retiradas en
+# TKT-OPS-027 (F-QA022-03) tras integrar TKT-034 (PR #61, ece6cb5): ambos al 100 % en el CI (run
+# 37866845144). Sin excepciones vigentes: el control R4 (caducidad) se omite mientras no haya ninguna.
 # -----------------------------------------------------------------------------
-
-[[excepciones]]
-archivo = "apps/cuentas/sesiones.py"
-umbral_minimo = 75.0
-registrada = 2026-10-01
-caduca = 2026-11-15
-ticket = "TKT-OPS-022-DEV (propuesto: tests de sesiones.py)"
-decision = "DEC-AUTO-948 (TKT-OPS-022-EXC-01)"
-motivo = "76,00 % en main @ d453dae (pytest Linux, toolchain del CI). Pasa a crítico por F-QA021-04; DevOps no escribe código de aplicación: el Developer añade los tests. Retirar al integrarlos."
-
-[[excepciones]]
-archivo = "apps/cuentas/permisos.py"
-umbral_minimo = 94.0
-registrada = 2026-10-01
-caduca = 2026-11-15
-ticket = "TKT-OPS-022-DEV (propuesto: tests de permisos.py)"
-decision = "DEC-AUTO-948 (TKT-OPS-022-EXC-02)"
-motivo = "94,12 % en main @ d453dae (pytest Linux, toolchain del CI). Pasa a crítico por F-QA021-04; el mismo ticket de Developer lo sube por encima de 95 %. Retirar al integrarlo."
