@@ -1,0 +1,80 @@
+<section class="bs-contenedor pagina" data-testid="pagina-mapa-del-sitio">
+  <header class="cabecera">
+    <h1>Mapa del sitio</h1>
+    <p class="entradilla">Todas las páginas publicadas del sitio, agrupadas por sección.</p>
+  </header>
+
+  @if (store.error(); as error) {
+    <app-estado-error [mensaje]="error.mensaje" (reintentar)="store.recargar()" />
+  } @else if (store.secciones(); as secciones) {
+    <nav aria-label="Secciones del mapa del sitio" class="indice" data-testid="mapa-indice">
+      <ul>
+        @for (seccion of secciones; track seccion.id) {
+          <li>
+            <a
+              [href]="rutaSeccion(seccion.id)"
+              data-testid="mapa-indice-enlace"
+              (click)="irASeccion($event, seccion.id)"
+              >{{ seccion.titulo }}</a
+            >
+          </li>
+        }
+      </ul>
+    </nav>
+
+    @for (seccion of secciones; track seccion.id) {
+      <section
+        class="seccion"
+        [id]="'seccion-' + seccion.id"
+        [attr.aria-labelledby]="'titulo-' + seccion.id"
+        [attr.data-testid]="'mapa-seccion-' + seccion.id"
+      >
+        <h2 [id]="'titulo-' + seccion.id">{{ seccion.titulo }}</h2>
+
+        @if (seccion.enlacesSeccion.length > 0) {
+          <ul class="enlaces enlaces-seccion">
+            @for (enlace of seccion.enlacesSeccion; track enlace.ruta) {
+              <li>
+                <a [routerLink]="enlace.ruta" data-testid="mapa-enlace-seccion">{{ enlace.etiqueta }}</a>
+              </li>
+            }
+          </ul>
+        }
+
+        @for (grupo of seccion.grupos; track grupo.id) {
+          <div class="grupo" [attr.data-testid]="'mapa-grupo-' + grupo.id">
+            @if (grupo.titulo !== null) {
+              <h3 [id]="'grupo-' + grupo.id">
+                @if (grupo.ruta !== null) {
+                  <a [routerLink]="grupo.ruta" data-testid="mapa-enlace">{{ grupo.titulo }}</a>
+                } @else {
+                  {{ grupo.titulo }}
+                }
+              </h3>
+            }
+            <ul
+              class="enlaces columnas"
+              [attr.aria-labelledby]="grupo.titulo !== null ? 'grupo-' + grupo.id : 'titulo-' + seccion.id"
+            >
+              @for (enlace of grupo.enlaces; track enlace.ruta + '#' + (enlace.fragmento ?? '')) {
+                <li>
+                  <a
+                    [routerLink]="enlace.ruta"
+                    [queryParams]="enlace.queryParams"
+                    [fragment]="enlace.fragmento"
+                    data-testid="mapa-enlace"
+                    >{{ enlace.etiqueta }}</a
+                  >
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </section>
+    }
+
+    <p class="total" data-testid="mapa-total">{{ store.total() }} enlaces a páginas publicadas.</p>
+  } @else {
+    <app-estado-cargando forma="linea" [cantidad]="12" etiqueta="Cargando mapa del sitio…" />
+  }
+</section>
