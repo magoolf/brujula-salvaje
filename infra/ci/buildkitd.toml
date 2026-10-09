@@ -1,0 +1,6 @@
+# BuildKit del builder docker-container de setup-buildx-action (job "images"), TKT-OPS-033.
+# Mismo espejo que el Engine (infra/ci/espejo_registro.sh): las referencias docker.io (imágenes base
+# fijadas por digest y el frontend docker/dockerfile:1) se resuelven primero en mirror.gcr.io, sin
+# token de auth.docker.io; si el espejo falla, BuildKit vuelve a registry-1.docker.io.
+[registry."docker.io"]
+  mirrors = ["mirror.gcr.io"]
