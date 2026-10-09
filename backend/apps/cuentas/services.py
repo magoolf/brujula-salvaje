@@ -453,7 +453,8 @@ def _acceso_completo(cuenta: CuentaStaff, ahora: datetime, ip: str | None) -> No
     # El contador por usuario en caché también lo lleva la cuenta operativa (TKT-044): un acceso
     # completo lo reinicia, como el de la fila (si no, un intento con la fila bloqueada, que decide
     # con la caché, podría ver un bloqueo de fallos ya superados).
-    cache.delete(_clave_fallos(cuenta.usuario))
+    if cuenta.usuario:
+        cache.delete(_clave_fallos(cuenta.usuario))
     cuenta.last_login = ahora
     cuenta.save(
         update_fields=[
