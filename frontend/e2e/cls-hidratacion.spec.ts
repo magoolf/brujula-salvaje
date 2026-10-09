@@ -154,35 +154,19 @@ interface Caso {
   id: string;
   nombre: string;
   ruta: (slug: (listado: Listado) => Promise<string>) => Promise<string> | string;
-  /**
-   * Alcance de TKT-016: además del CLS se exige que la hidratación reutilice el DOM del SSR
-   * (ningún hijo de la página enrutada retirado). En el resto solo se exige el umbral de CLS.
-   */
-  estricto?: boolean;
-  /** Rutas cuyos stores están fuera de los archivos_permitidos de TKT-016 (ampliación pendiente). */
-  pendiente?: string;
 }
 
-const pendiente = (store: string): string =>
-  `TKT-016 BLOCKED (alcance): ${store} está fuera de archivos_permitidos y necesita ` +
-  'resource({ id }) como inicio/destinos para que la hidratación no vuelva al esqueleto.';
-const INSTITUCIONAL = pendiente('features/institucional/state/pagina-institucional.store.ts');
-
 const CASOS: readonly Caso[] = [
-  // Alcance de TKT-016 (features/inicio y features/destinos).
-  { id: 'AC_TKT016_01', estricto: true, nombre: 'Inicio', ruta: () => '/' },
-  { id: 'AC_TKT016_02', estricto: true, nombre: 'Explorar destinos', ruta: () => '/destinos' },
+  { id: 'AC_TKT016_01', nombre: 'Inicio', ruta: () => '/' },
+  { id: 'AC_TKT016_02', nombre: 'Explorar destinos', ruta: () => '/destinos' },
   {
     id: 'AC_TKT016_03',
-    estricto: true,
     nombre: 'Ficha de destino',
     ruta: async (slug) => `/destinos/${await slug('destinos')}`,
   },
-  { id: 'AC_TKT016_04', estricto: true, nombre: 'Cuándo ir', ruta: () => '/cuando-ir' },
-  { id: 'AC_TKT016_07', estricto: true, nombre: 'Destinos del mes', ruta: () => '/cuando-ir/1' },
-  { id: 'AC_TKT016_08', estricto: true, nombre: 'Mapa de destinos', ruta: () => '/destinos/mapa' },
-  // Resto de páginas públicas: regresión del umbral de CLS (las fichas aún recrean el DOM del SSR
-  // al hidratar porque sus stores no transfieren el valor, pero sin desplazamiento medible).
+  { id: 'AC_TKT016_04', nombre: 'Cuándo ir', ruta: () => '/cuando-ir' },
+  { id: 'AC_TKT016_07', nombre: 'Destinos del mes', ruta: () => '/cuando-ir/1' },
+  { id: 'AC_TKT016_08', nombre: 'Mapa de destinos', ruta: () => '/destinos/mapa' },
   { id: 'AC_TKT016_09', nombre: 'Itinerarios', ruta: () => '/itinerarios' },
   {
     id: 'AC_TKT016_10',
@@ -204,50 +188,47 @@ const CASOS: readonly Caso[] = [
     ruta: async (slug) => `/colecciones/${await slug('colecciones')}`,
   },
   { id: 'AC_TKT016_17', nombre: 'Mapa del sitio', ruta: () => '/mapa-del-sitio' },
-  // Fuera de alcance: CLS medido > 0,1 en algún motor, o sin margen estable (categoría de guías:
-  // 0,089 en Firefox) porque la hidratación vuelve al esqueleto (ver el HANDOFF de TKT-016).
+  { id: 'AC_TKT016_24', nombre: 'Guardados', ruta: () => '/guardados' },
   {
     id: 'AC_TKT016_05',
     nombre: 'Créditos',
     ruta: () => '/creditos',
-    pendiente: pendiente('features/institucional/state/creditos.store.ts'),
   },
-  { id: 'AC_TKT016_06', nombre: 'Acerca de', ruta: () => '/acerca-de', pendiente: INSTITUCIONAL },
+  { id: 'AC_TKT016_06', nombre: 'Acerca de', ruta: () => '/acerca-de' },
   {
     id: 'AC_TKT016_18',
     nombre: 'Política de datos',
     ruta: () => '/politica-de-tratamiento-de-datos',
-    pendiente: INSTITUCIONAL,
   },
   {
     id: 'AC_TKT016_19',
     nombre: 'Política de cookies',
     ruta: () => '/politica-de-cookies',
-    pendiente: INSTITUCIONAL,
   },
   {
     id: 'AC_TKT016_20',
     nombre: 'Aviso legal',
     ruta: () => '/aviso-legal',
-    pendiente: INSTITUCIONAL,
   },
   {
     id: 'AC_TKT016_21',
     nombre: 'Glosario',
     ruta: () => '/glosario',
-    pendiente: pendiente('features/glosario/state/glosario.store.ts'),
   },
   {
     id: 'AC_TKT016_22',
     nombre: 'Búsqueda',
     ruta: () => '/buscar?q=volcan',
-    pendiente: pendiente('features/busqueda/state/busqueda.store.ts'),
+  },
+  {
+    id: 'AC_TKT016_25',
+    nombre: 'Búsqueda por grupo',
+    ruta: () => '/buscar?q=volcan&tipo=destinos',
   },
   {
     id: 'AC_TKT016_23',
     nombre: 'Categoría de guías',
     ruta: async (slug) => `/guias/categoria/${await slug('categorias-guia')}`,
-    pendiente: pendiente('features/guias/state/guias-categoria.store.ts'),
   },
 ];
 
@@ -256,11 +237,6 @@ test.describe('TKT-016 CLS tras la hidratación ≤ 0,1 (Skill_UI_UX §47.2)', (
     test(`${caso.id} ${caso.nombre}: sin layout shift ni DOM del SSR recreado al hidratar`, async ({
       page,
     }) => {
-      // TKT016_INCLUIR_PENDIENTES=1 mide también las rutas pendientes (diagnóstico y ampliación).
-      test.fixme(
-        caso.pendiente !== undefined && process.env['TKT016_INCLUIR_PENDIENTES'] !== '1',
-        caso.pendiente,
-      );
       const slug = async (listado: Listado): Promise<string> => {
         const respuesta = await getConReintento(page, `/api/v1/publico/${listado}`);
         expect(respuesta.ok()).toBe(true);
@@ -275,7 +251,79 @@ test.describe('TKT-016 CLS tras la hidratación ≤ 0,1 (Skill_UI_UX §47.2)', (
       });
       if (cls !== null) expect(cls).toBeLessThanOrEqual(0.1);
       expect(pie).toBeLessThanOrEqual(0.1);
-      if (caso.estricto) expect(retirados).toEqual([]);
+      expect(retirados).toEqual([]);
     });
   }
+});
+
+/**
+ * Las claves de TransferState incluyen los parámetros de la URL y Angular solo las consulta durante
+ * la hidratación: tras ella, la navegación en el cliente (sin recargar la página) debe pedir y
+ * pintar los datos de la nueva URL, nunca reutilizar los transferidos por el SSR de la anterior.
+ */
+test.describe('TKT-016 sin datos obsoletos al navegar en el cliente tras hidratar', () => {
+  async function marcarDocumento(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      (window as unknown as { __tkt016Doc: boolean }).__tkt016Doc = true;
+    });
+  }
+
+  async function mismoDocumento(page: Page): Promise<boolean> {
+    return page.evaluate(
+      () => (window as unknown as { __tkt016Doc?: boolean }).__tkt016Doc === true,
+    );
+  }
+
+  test('AC_TKT016_26 /buscar: una nueva consulta pide y pinta sus propios resultados', async ({
+    page,
+  }) => {
+    await page.goto('/buscar?q=volcan');
+    await esperarHidratacion(page);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('«volcan»');
+    await marcarDocumento(page);
+
+    const peticion = page.waitForResponse(
+      (r) => r.url().includes('/api/v1/publico/busqueda') && r.url().includes('q=patagonia'),
+    );
+    const campo = page.getByTestId('busqueda-campo');
+    await campo.getByTestId('campo-busqueda-entrada').fill('patagonia');
+    await campo.getByTestId('campo-busqueda-enviar').click();
+    const respuesta = await peticion;
+    expect(respuesta.status()).toBe(200);
+    const cuerpo = (await respuesta.json()) as { total: number };
+
+    await expect(page).toHaveURL(/q=patagonia/);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('«patagonia»');
+    await expect(page.getByTestId('busqueda-total')).toContainText(String(cuerpo.total));
+    expect(await mismoDocumento(page)).toBe(true);
+  });
+
+  test('AC_TKT016_27 ficha de destino: el enlace a otra ficha pinta la nueva, no la del SSR', async ({
+    page,
+  }) => {
+    const listado = await getConReintento(page, '/api/v1/publico/destinos');
+    const { resultados } = (await listado.json()) as { resultados: { slug: string }[] };
+    const origen = resultados[0].slug;
+    await page.goto(`/destinos/${origen}`);
+    await esperarHidratacion(page);
+    const tituloOrigen = await page.getByRole('heading', { level: 1 }).innerText();
+    await marcarDocumento(page);
+
+    const enlace = page
+      .getByTestId('pagina-destino')
+      .locator(
+        `a[href^="/destinos/"]:not([href="/destinos/${origen}"]):not([href^="/destinos/mapa"])`,
+      )
+      .first();
+    const destino = ((await enlace.getAttribute('href')) ?? '').replace('/destinos/', '');
+    expect(destino).not.toBe('');
+    const detalle = await getConReintento(page, `/api/v1/publico/destinos/${destino}`);
+    const { titulo } = (await detalle.json()) as { titulo: string };
+    expect(titulo).not.toBe(tituloOrigen);
+
+    await enlace.click();
+    await expect(page).toHaveURL(new RegExp(`/destinos/${destino}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(titulo);
+    expect(await mismoDocumento(page)).toBe(true);
+  });
 });
