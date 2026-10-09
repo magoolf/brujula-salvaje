@@ -49,9 +49,9 @@ from apps.medios import services as medios_services
 from apps.medios.models import Medio
 from seed import colecciones as seed_colecciones
 from seed import destinos as seed_destinos
+from seed import fotografias as seed_fotos
 from seed import glosario as seed_glosario
 from seed import guias as seed_guias
-from seed import imagenes as seed_imagenes
 from seed import itinerarios as seed_itinerarios
 from seed import paginas as seed_paginas
 from seed import paises as seed_paises
@@ -66,7 +66,6 @@ E = EstadoEditorial
 # NULL para cargas de semilla; `cast` evita `type: ignore` repetido en cada llamada sin cambiar
 # el valor real en tiempo de ejecución (que sigue siendo `None`).
 ACTOR_ID: int = cast(int, None)
-AUTOR_MEDIOS = "Equipo editorial de Brújula Salvaje"  # REQ-023, DEC-AUTO-039 (firma de equipo)
 
 # Clique de arranque de RULE-006 (ver `_bootstrap_publicar`): 1 tipo + 1 destino por cada uno de
 # los 4 pares, elegidos para desbloquear 4 tipos distintos a la vez.
@@ -99,7 +98,7 @@ class Command(BaseCommand):
         self.fecha_revision = timezone.now().date()
         self.stdout.write("TKT-007 — carga de semilla de contenido")
 
-        self._licencia_propia_id = Licencia.objects.get(codigo="PROPIA").pk
+        self._licencias = dict(Licencia.objects.values_list("codigo", "pk"))
         self._paises = self._cargar_paises()
 
         self._tipos = self._cargar_tipos_borrador()
@@ -129,28 +128,36 @@ class Command(BaseCommand):
         )
 
     # -----------------------------------------------------------------------
-    # Medios (ilustraciones propias, RSK-002/DEC-AUTO-014/REQ-043)
+    # Medios (fotografías reales con licencia libre, TKT-041/REQ-043/REQ-071)
     # -----------------------------------------------------------------------
-    def _subir_imagen(
-        self, semilla: str, variante: int, *, alt: str, autor: str = AUTOR_MEDIOS
-    ) -> int:
-        """Genera una ilustración propia determinista y la sube/cataloga vía los servicios
-        reales de `apps.medios`. Idempotente: la deduplicación por `huella_sha256` de
-        `subir_medios` hace que una segunda ejecución con la misma semilla reutilice el medio
-        ya existente en vez de crear uno nuevo."""
-        contenido_bytes = seed_imagenes.generar_ilustracion(semilla, variante=variante)
-        nombre = f"{semilla.replace(':', '-')}-{variante}.png"
-        archivo = SimpleUploadedFile(nombre, contenido_bytes, content_type="image/png")
-        resultados = medios_services.subir_medios(ACTOR_ID, [archivo])
-        resultado = resultados[0]
+    def _subir_imagen(self, asignacion: str) -> int:
+        """Sube y cataloga, vía los servicios reales de `apps.medios`, la fotografía que el
+        manifiesto (`seed/fotos/MANIFIESTO.json`) asigna a `asignacion` (p. ej.
+        `destino:dolomitas:0`). `subir_medios` valida tipo por contenido, recodifica sin EXIF y
+        genera los derivados; su deduplicación por `huella_sha256` hace la operación idempotente
+        (una segunda ejecución, o una foto compartida entre dos contenidos, reutiliza el medio).
+
+        Sin respaldo de ilustraciones (DEC-AUTO-967): si falta la foto, su archivo o su licencia
+        en el catálogo, el comando falla de forma explícita en lugar de publicar una imagen
+        genérica sin procedencia."""
+        try:
+            foto = seed_fotos.foto_para(asignacion)
+            contenido_bytes = foto.leer()
+        except seed_fotos.FotoNoDisponibleError as exc:
+            raise CommandError(str(exc)) from exc
+        licencia_id = self._licencias.get(foto.licencia)
+        if foto.licencia not in seed_fotos.LICENCIAS_ADMITIDAS or licencia_id is None:
+            raise CommandError(f"Licencia no admitida o fuera del catálogo: {foto.licencia}")
+        archivo = SimpleUploadedFile(foto.archivo, contenido_bytes, content_type="image/jpeg")
+        resultado = medios_services.subir_medios(ACTOR_ID, [archivo])[0]
         if resultado.resultado == "ACEPTADO":
             medio_id = resultado.medio.pk  # type: ignore[union-attr]
         elif resultado.resultado == "DUPLICADO":
             medio_id = resultado.medio_existente_id
         else:
-            raise CommandError(f"Medio rechazado ({semilla}#{variante}): {resultado.motivo}")
+            raise CommandError(f"Medio rechazado ({foto.archivo}): {resultado.motivo}")
         if medio_id is None:  # pragma: no cover - defensivo, no debería ocurrir nunca
-            raise CommandError(f"Medio sin id ({semilla}#{variante}): {resultado}")
+            raise CommandError(f"Medio sin id ({foto.archivo}): {resultado}")
         medio = Medio.objects.get(pk=medio_id)
         pendiente = (
             not medio.texto_alternativo or not medio.autor_credito or medio.licencia_id is None
@@ -160,10 +167,11 @@ class Command(BaseCommand):
                 medio_id,
                 ACTOR_ID,
                 {
-                    "texto_alternativo": alt,
-                    "autor_credito": autor,
-                    "pie_de_foto": alt,
-                    "licencia_id": self._licencia_propia_id,
+                    "titulo_interno": foto.titulo_commons[:150],
+                    "texto_alternativo": foto.alt,
+                    "autor_credito": foto.autor,
+                    "fuente_url": foto.pagina,
+                    "licencia_id": licencia_id,
                 },
             )
         return medio_id
@@ -207,11 +215,7 @@ class Command(BaseCommand):
                 resultado[t.slug] = existente
                 self._contador["reutilizados"] += 1
                 continue
-            portada_id = self._subir_imagen(
-                f"tipo:{t.slug}",
-                0,
-                alt=f"Ilustración abstracta que representa la actividad «{t.titulo}»",
-            )
+            portada_id = self._subir_imagen(f"tipo:{t.slug}")
             datos = {
                 "titulo": t.titulo,
                 "slug": t.slug,
@@ -302,17 +306,8 @@ class Command(BaseCommand):
                 resultado[d.slug] = existente
                 self._contador["reutilizados"] += 1
                 continue
-            portada_id = self._subir_imagen(
-                f"destino:{d.slug}", 0, alt=f"Ilustración de portada de {d.titulo}"
-            )
-            galeria_ids = [
-                self._subir_imagen(
-                    f"destino:{d.slug}",
-                    i,
-                    alt=f"Ilustración {i} de {d.titulo}: paisaje y actividad principal",
-                )
-                for i in (1, 2, 3)
-            ]
+            portada_id = self._subir_imagen(f"destino:{d.slug}:0")
+            galeria_ids = [self._subir_imagen(f"destino:{d.slug}:{i}") for i in (1, 2, 3)]
             tipos_ids = [self._tipos[slug].pk for slug in d.tipos_slugs]
             datos = {
                 "titulo": d.titulo,
@@ -485,11 +480,7 @@ class Command(BaseCommand):
                 resultado[it.slug] = existente
                 self._contador["reutilizados"] += 1
                 continue
-            portada_id = self._subir_imagen(
-                f"itinerario:{it.slug}",
-                0,
-                alt=f"Ilustración de portada del itinerario «{it.titulo}»",
-            )
+            portada_id = self._subir_imagen(f"itinerario:{it.slug}")
             datos = {
                 "titulo": it.titulo,
                 "slug": it.slug,
@@ -554,9 +545,7 @@ class Command(BaseCommand):
             categoria_id = categorias.get(g.categoria_slug)
             if categoria_id is None:
                 raise CommandError(f"Categoría de guía no sembrada: {g.categoria_slug}")
-            portada_id = self._subir_imagen(
-                f"guia:{g.slug}", 0, alt=f"Ilustración de portada de la guía «{g.titulo}»"
-            )
+            portada_id = self._subir_imagen(f"guia:{g.slug}")
             terminos_slugs = list(
                 dict.fromkeys([*g.terminos_slugs, *terminos_por_guia.get(g.slug, [])])
             )
@@ -615,9 +604,7 @@ class Command(BaseCommand):
                 resultado[c.slug] = existente
                 self._contador["reutilizados"] += 1
                 continue
-            portada_id = self._subir_imagen(
-                f"coleccion:{c.slug}", 0, alt=f"Ilustración de portada de la colección «{c.titulo}»"
-            )
+            portada_id = self._subir_imagen(f"coleccion:{c.slug}")
             elementos = []
             for indice, elemento in enumerate(c.elementos):
                 objetivo = (
@@ -751,9 +738,7 @@ class Command(BaseCommand):
         ni el borrado y recreado de destacados que hace el servicio) y, si difiere, se actualiza
         con el servicio real sin excepciones. En ambos casos cuenta como reutilizada (TKT-012:
         antes esta rama no incrementaba el contador informativo)."""
-        hero_medio_id = self._subir_imagen(
-            "inicio:hero", 0, alt="Ilustración abstracta de portada del inicio de Brújula Salvaje"
-        )
+        hero_medio_id = self._subir_imagen("inicio:hero")
         destacados_destinos = [self._destinos[d.slug].pk for d in seed_destinos.DESTINOS[:6]]
         destacados_itinerarios = [
             self._itinerarios[i.slug].pk for i in seed_itinerarios.ITINERARIOS[:3]

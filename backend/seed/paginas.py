@@ -7,7 +7,7 @@ licencia por medio, mostrados junto a cada imagen), así que no hay una funciona
 cubrir, solo una página institucional adicional que no cabe en el esquema. Ver HANDOFF (gap).
 
 Contenido honesto y verificable a partir de las decisiones ya tomadas en requirements.yaml
-(DEC-AUTO-002 sin hosting, DEC-AUTO-005 panel interno, DEC-AUTO-014 medios propios con licencia,
+(DEC-AUTO-002 sin hosting, DEC-AUTO-005 panel interno, DEC-AUTO-967 fotografías de Wikimedia Commons con licencia libre,
 DEC-AUTO-015 sin analítica ni cookies no esenciales en el sitio público): no se inventan datos de
 un responsable legal real (ConfigSitio.responsable_* queda como marcador, GAP-004, fuera de
 alcance de este comando).
@@ -60,11 +60,13 @@ PAGINAS: list[PaginaSemilla] = [
             "una persona individual: refleja un proceso de creación, revisión y publicación "
             "compartido por quienes mantienen el sitio.</p>"
             "<h2>Medios e imágenes</h2>"
-            "<p>Las ilustraciones que acompañan cada contenido son obra propia del equipo "
-            "editorial, no fotografías de terceros: se trata de ilustraciones abstractas "
-            "generadas para representar cada destino sin depender de bancos de imágenes "
-            "externos cuya licencia no podamos verificar de forma fiable. Cada imagen muestra su "
-            "autoría, licencia y una descripción alternativa junto al propio contenido.</p>"
+            "<p>Las fotografías que acompañan cada contenido proceden de Wikimedia Commons y "
+            "solo se usan con licencias libres que permiten su publicación: dominio público, "
+            "CC0, Creative Commons Atribución (CC BY) o Atribución-CompartirIgual (CC BY-SA). "
+            "Antes de publicarla comprobamos que cada foto muestra de verdad el lugar o la "
+            "actividad que ilustra. Cada imagen indica su autoría, su licencia y un enlace a la "
+            "página de origen, y lleva una descripción alternativa; la página de Créditos las "
+            "reúne todas.</p>"
             "<h2>Lo que este sitio no es</h2>"
             "<p>Este sitio no sustituye la valoración de guías certificados, operadores locales "
             "autorizados ni las fuentes oficiales de cada destino o parque. Los descargos de "
@@ -172,10 +174,12 @@ PAGINAS: list[PaginaSemilla] = [
             "actividad de aventura conlleva riesgos inherentes que la persona usuaria asume al "
             "practicarla.</p>"
             "<h2>Propiedad de los contenidos</h2>"
-            "<p>Los textos, ilustraciones y demás elementos originales de Brújula Salvaje son "
-            "obra del equipo editorial. El uso de enlaces internos entre contenidos del propio "
-            "sitio está permitido; la reproducción de textos o imágenes fuera del sitio "
-            "requiere atribución adecuada según se indique en cada caso.</p>"
+            "<p>Los textos y demás elementos originales de Brújula Salvaje son obra del equipo "
+            "editorial. Las fotografías son obra de sus autores y se publican bajo la licencia "
+            "libre que se indica junto a cada una, con enlace a su página de origen. El uso de "
+            "enlaces internos entre contenidos del propio sitio está permitido; la reproducción "
+            "de textos o imágenes fuera del sitio requiere atribución adecuada según se indique "
+            "en cada caso.</p>"
             "<h2>Enlaces y menciones a terceros</h2>"
             "<p>Las menciones a lugares, parques, operadores, comunidades o instituciones no "
             "constituyen recomendación comercial ni relación contractual alguna con Brújula "
