@@ -386,7 +386,7 @@ tickets:
   - id: TKT-049
     titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-041, MOD-001, "Skill_UI_UX"]
     depende_de: []
@@ -410,14 +410,14 @@ tickets:
   - id: TKT-051
     titulo: "MEDIUM (QA TKT-023 OBS-BE-01): el PUT de un Tipo PUBLICADO valida el mínimo de 8 elementos del checklist contra el checklist guardado y no contra el enviado: acepta reducirlo a 7 (queda publicado incumpliendo RULE) y después rechaza con 422 checklist_insuficiente cualquier corrección (6, 8 o 10), bloqueando el contenido. Validar requisitos de publicación sobre el estado resultante del PUT para todos los tipos y colecciones de hijos (checklist, días, elementos, relaciones); tests de regresión, incluida la recuperación de contenido ya inconsistente"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-023, TKT-006, MOD-010]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt051*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-987. Reproducción: scratchpad 7e63c98e…/specs/qa-checklist.spec.ts y checklist-repro.txt.", "2026-10-09 PR #81 @ 507fda8 (CI verde): colecciones hijas aplicadas antes de validar en el PUT de publicado (DEC-DEV-051-01, dentro de la transacción); analisis-publicacion de publicado no destino solo con reglas multi-entidad (DEC-DEV-051-02, posible interacción con TKT-023). 16 tests (10 FAIL en main), pytest 1474. QA ciclo 1/3 despachada.""]
+    evidencia: ["DEC-AUTO-987. Reproducción: scratchpad 7e63c98e…/specs/qa-checklist.spec.ts y checklist-repro.txt.", "2026-10-09 PR #81 @ 507fda8 (CI verde): colecciones hijas aplicadas antes de validar en el PUT de publicado (DEC-DEV-051-01, dentro de la transacción); analisis-publicacion de publicado no destino solo con reglas multi-entidad (DEC-DEV-051-02, posible interacción con TKT-023). 16 tests (10 FAIL en main), pytest 1474. QA ciclo 1/3 despachada."", "2026-10-09 QA_VERDICT PASS ciclo 1/3 @ 507fda8: repro 8/7/6/8/10 -> 200/422/422/200/200; huella de BD sin cambios en 22 casos 422; 48 carreras sin estados intermedios; UI de TKT-023 compatible (15/15 + E2E panel 39/39); sin camino para publicar inválido; contrato y seguridad 0. OBS-QA051-01 -> CHG-API-007. Integrado PR #81. DONE."]
     actualizado: 2026-10-09
   - id: TKT-052
     titulo: "LOW (QA TKT-050 OBS-QA050-02, preexistente): las operaciones de ciclo con tipo=paginas no aplican la autorización por página: un Editor recibe en páginas legales GET impacto-retiro 200 con retirable:true (contradice AC-033: las páginas no se retiran), publicar/reactivar 409 y retirar 400. Responder 403 permiso_denegado para páginas no autorizadas y retirable:false para PAGINA; tests por rol"
@@ -465,7 +465,7 @@ tickets:
     archivos_permitidos: ["docs/adr/**", "contracts/openapi.yaml"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040.", "F-05 QA TKT-040: un GET con contención responde 401 sesion_expirada sin borrar la cookie y la sesión sigue válida (el frontend enviará al login sin necesidad): documentarlo; riesgo residual de la rotación fallida es de hasta 12 h (máximo absoluto), no 30 min, hasta TKT-044.", "2026-10-09 (DEC-AUTO-984) incluye OBS-QA045-03: ColeccionActualizacion/creación admite terminos_ids por ContenidoComunCampos pero el servidor responde 400 desde TKT-045; excluirlo del esquema de colección. Si cambia el esquema, regenerar el cliente del frontend (npm run api:generate) en ticket de Developer."]
+    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040.", "F-05 QA TKT-040: un GET con contención responde 401 sesion_expirada sin borrar la cookie y la sesión sigue válida (el frontend enviará al login sin necesidad): documentarlo; riesgo residual de la rotación fallida es de hasta 12 h (máximo absoluto), no 30 min, hasta TKT-044.", "2026-10-09 (DEC-AUTO-984) incluye OBS-QA045-03: ColeccionActualizacion/creación admite terminos_ids por ContenidoComunCampos pero el servidor responde 400 desde TKT-045; excluirlo del esquema de colección. Si cambia el esquema, regenerar el cliente del frontend (npm run api:generate) en ticket de Developer.", "2026-10-09 (DEC-AUTO-993) incluye OBS-QA051-01: AnalisisPublicacion.entidad debe decir que en ACTUALIZAR_PUBLICACION solo contiene reglas multi-entidad para todo tipo (en un no destino siempre cumple); los requisitos de campos los dan la vista previa y el PUT (TKT-051, DEC-DEV-051-02)."]
     actualizado: 2026-10-09
   - id: TKT-040
     titulo: "MEDIUM (QA CHG-API-006 F-01, NV-01, INFO): (a) SessionMiddleware.process_response guarda la sesión fuera del EXCEPTION_HANDLER de DRF: ante 55P03/40P01/40001 o fila de sesion_panel borrada por una invalidación concurrente, SessionStore.save lanza UpdateError -> SessionInterrupted -> 400 validacion. Traducirlo a 409 conflicto_version (Problem Details, reintentable) o a 401 sesion_expirada si la fila ya no existe, en todas las escrituras del panel que renuevan la inactividad (incluida panelRenovarSesion), con pruebas de carrera; (b) NV-01 (CWE-204): en panelIniciarSesion un 409 por contención del FOR UPDATE de la cuenta delata que el usuario existe: respuesta uniforme con la de credenciales inválidas (o NOWAIT/SKIP con respuesta uniforme), con prueba; (c) declarar 409 en @extend_schema de las 8 vistas de CHG-API-006 para que el esquema generado coincida con el contrato"

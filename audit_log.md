@@ -445,3 +445,6 @@
 2026-10-09 | QA_PASS | TKT-023 | QA_VERDICT PASS ciclo 3/3 @ bd51e03: F-03 (216/216 actualizaciones por UI, bloqueos reales intactos), F-02-R (foco nunca en <body>), F-01, RULE-009, axe 0, seguridad 0. OBS-C3-01/03 LOW -> TKT-054 (DEC-AUTO-992, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-023
 2026-10-09 | INTEGRACION | TKT-023 | PR #71 integrado en main con QA PASS y CI verde. DONE. Panel de contenidos completo | PR #71
 2026-10-09 | DELEGACION | TKT-048 | Developer TKT-048 HIGH (worktree aislado): codificación de derivados, regeneración, imagen LCP de ficha e inicio (incluye <picture> de la portada de inicio, solapa con TKT-029). Disjunto de TKT-051 (QA) | kanban.md
+2026-10-09 | QA_PASS | TKT-051 | QA_VERDICT PASS ciclo 1/3 @ 507fda8: estado resultante validado, 422 sin persistir nada, sin estados intermedios en concurrencia, compatible con la UI de TKT-023. OBS-QA051-01 LOW (texto del contrato) -> CHG-API-007 (DEC-AUTO-993, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-051
+2026-10-09 | INTEGRACION | TKT-051 | PR #81 integrado en main con QA PASS y CI verde. DONE | PR #81
+2026-10-09 | DELEGACION | TKT-049 | Developer TKT-049 (worktree aislado, core/layout), disjunto de TKT-048 | kanban.md
