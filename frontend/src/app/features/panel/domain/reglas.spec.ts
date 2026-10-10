@@ -111,7 +111,7 @@ describe('catálogo de secciones (DEC-ESTRUCTURA-03, RULE-030)', () => {
     expect(accesosRapidos('ADMINISTRADOR', catalogo).map((a) => a.id)).toEqual(['subir', 'cuentas']);
   });
 
-  it('AC_TKT010_09 / AC_TKT023_17 el catálogo real solo contiene secciones implementadas (TKT-022 Medios, TKT-023 contenidos)', () => {
+  it('AC_TKT010_09 / AC_TKT023_17 / AC_TKT024_01 el catálogo real solo contiene secciones implementadas (TKT-022 Medios, TKT-023 contenidos, TKT-024 configuración y administración)', () => {
     expect(SECCIONES_PANEL.map((s) => s.ruta)).toEqual([
       '/panel',
       '/panel/contenido/destinos',
@@ -122,14 +122,29 @@ describe('catálogo de secciones (DEC-ESTRUCTURA-03, RULE-030)', () => {
       '/panel/contenido/glosario',
       '/panel/contenido/paginas',
       '/panel/medios',
+      '/panel/inicio',
+      '/panel/taxonomias',
+      '/panel/usuarios',
+      '/panel/auditoria',
+      '/panel/configuracion',
       '/panel/cuenta',
     ]);
     expect(accesosRapidos('EDITOR').map((a) => a.ruta)).toEqual([
       '/panel/contenido/destinos/nuevo',
       '/panel/medios',
     ]);
-    expect(accesosRapidos('ADMINISTRADOR').map((a) => a.id)).toEqual(['nuevo-destino', 'subir-medios']);
-    expect(seccionesVisibles('EDITOR').length).toBe(10);
+    expect(accesosRapidos('ADMINISTRADOR').map((a) => a.id)).toEqual(['nuevo-destino', 'subir-medios', 'nueva-cuenta']);
+    expect(seccionesVisibles('EDITOR').length).toBe(12);
+    expect(seccionesVisibles('ADMINISTRADOR').length).toBe(15);
+    // AC-105: las secciones de Administrador no se muestran al Editor.
+    expect(seccionesVisibles('EDITOR').map((s) => s.id)).not.toContain('usuarios');
+    expect(seccionesVisibles('EDITOR').map((s) => s.id)).not.toContain('auditoria');
+    expect(seccionesVisibles('EDITOR').map((s) => s.id)).not.toContain('configuracion');
+    expect(seccionDeRuta('/panel/usuarios/nuevo')?.id).toBe('usuarios');
+    // La alerta «responsable sin definir» del Tablero ya enlaza a SCR-047 (solo Administrador).
+    expect(enlaceDisponible('/panel/configuracion', 'ADMINISTRADOR')).toBe('/panel/configuracion');
+    expect(enlaceDisponible('/panel/configuracion', 'EDITOR')).toBeNull();
+    expect(enlaceDisponible('/panel/inicio', 'EDITOR')).toBe('/panel/inicio');
     // Las URL de los contenidos (listado, editor y vista previa) pertenecen a su sección.
     expect(seccionDeRuta('/panel/contenido/guias/4')?.id).toBe('contenido-guias');
     expect(enlaceDisponible('/panel/contenido/destinos?estado=BORRADOR', 'EDITOR')).toBe(
