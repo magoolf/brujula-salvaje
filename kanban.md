@@ -491,6 +491,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024."]
     actualizado: 2026-10-10
+  - id: TKT-058
+    titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-024, AC-030, SCR-046, MOD-013]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/auditoria/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/."]
+    actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -938,14 +950,14 @@ tickets:
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [MOD-012, MOD-013, FEAT-043, FEAT-044, FEAT-045, FEAT-046, FEAT-047, FLOW-014, SCR-042, SCR-043, SCR-044, SCR-045, SCR-046, SCR-047, RULE-014, RULE-015, RULE-016, RULE-017]
     depende_de: [TKT-010, TKT-023]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede.", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-10 PR #85 @ 10c9ef0 (CI verde): SCR-042..047 en chunks diferidos (DEC-AUTO-1040..1047); vitest 813, E2E Chromium panel-configuracion 6/6 con axe y regresión del panel en verde. RSK-TKT024-01 (backend /panel/inicio sin referencias) -> TKT-057. QA ciclo 1/3 despachada."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede.", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-10 PR #85 @ 10c9ef0 (CI verde): SCR-042..047 en chunks diferidos (DEC-AUTO-1040..1047); vitest 813, E2E Chromium panel-configuracion 6/6 con axe y regresión del panel en verde. RSK-TKT024-01 (backend /panel/inicio sin referencias) -> TKT-057. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (la contraseña temporal se descarta sin confirmación al volver, navegar o recargar; falta canDeactivate/beforeunload en usuarios/:id), FALLO-02 LOW (en SCR-043 activar pestaña lleva el foco al h1 por router.navigate + FocoRuta), OBS-PERF-01 LOW (NgTemplateOutlet sube al chunk inicial +0,6 kB). Seguridad, contrato y regresión 185/185 PASS. OBS-BE-01 -> TKT-058. Evidencia: scratchpad 1af7dc66…/q024/. Devuelto al Developer (ciclo 2/3)."]
     actualizado: 2026-10-10
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"

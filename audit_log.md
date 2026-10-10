@@ -467,3 +467,5 @@
 2026-10-10 | ENTREGA | TKT-024 | PR #85 @ 10c9ef0, CI verde: panel 4/4 (destacados, taxonomías, configuración, cuentas, auditoría). DEC-AUTO-1040..1047 (Developer, reversibles). RSK-TKT024-01 -> TKT-057 MEDIUM backend (DEC-AUTO-1022, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-024
 2026-10-10 | DELEGACION | TKT-024 | QA ciclo 1/3 sobre PR #85 (solo Chromium) | kanban.md
 2026-10-10 | DELEGACION | TKT-057 | Developer backend /panel/inicio (worktree aislado, apps/inicio). Disjunto de las QA en curso | kanban.md
+2026-10-10 | QA_FAIL | TKT-024 | QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (secreto temporal descartado sin confirmación), FALLO-02 LOW (foco al h1 al activar pestaña en SCR-043), OBS-PERF-01 LOW. OBS-BE-01 (auditoría con '#<id>') -> TKT-058 (DEC-AUTO-1023, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-024
+2026-10-10 | DELEGACION | TKT-024 | Devuelto al mismo Developer para el ciclo 2/3 | kanban.md
