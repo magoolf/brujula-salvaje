@@ -134,7 +134,7 @@ type Edicion =
               [attr.aria-controls]="'taxonomias-panel'"
               [attr.tabindex]="c === store.catalogo() ? 0 : -1"
               [attr.data-testid]="'taxonomias-tab-' + c"
-              (click)="activar(c)"
+              (click)="void activar(c)"
               (keydown)="alTeclearPestana($event, i)"
             >
               {{ definiciones[c].etiqueta }}
@@ -562,15 +562,24 @@ export class PaginaTaxonomias {
   }
 
   // ------------------------------------------------------------------ pestañas
-  protected activar(catalogo: Catalogo): void {
+  /**
+   * Activa una pestaña navegando a `?catalogo=` (enlace directo y «Atrás»). Cambiar de pestaña no es
+   * cambiar de vista: el foco que FocoRuta lleva al h1 tras la navegación se devuelve al control que
+   * la activó, la pestaña o el select en móvil (WCAG 2.4.3, QA TKT-024 FALLO-02). FocoRuta registra
+   * su afterNextRender al emitirse NavigationEnd, antes de que resuelva `navigate`: este va después.
+   */
+  protected async activar(catalogo: Catalogo, origen: 'pestana' | 'select' = 'pestana'): Promise<void> {
     if (catalogo === this.store.catalogo()) return;
-    void this.router.navigate([], { relativeTo: this.ruta, queryParams: { catalogo } });
+    const ok = await this.router.navigate([], { relativeTo: this.ruta, queryParams: { catalogo } });
+    if (!ok) return;
+    const id = origen === 'select' ? 'taxonomias-catalogo' : `taxonomias-tab-${catalogo}`;
+    afterNextRender(() => this.documento.getElementById(id)?.focus(), { injector: this.injector });
   }
 
   protected alElegirCatalogo(evento: Event): void {
     const valor = (evento.target as HTMLSelectElement).value;
     const catalogo = CATALOGOS.find((c) => c === valor);
-    if (catalogo !== undefined) this.activar(catalogo);
+    if (catalogo !== undefined) void this.activar(catalogo, 'select');
   }
 
   /** Activación manual: las flechas, Inicio y Fin mueven el foco; Enter/Espacio activan (click). */

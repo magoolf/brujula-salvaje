@@ -275,6 +275,85 @@ test.describe('Panel · configuración y administración (TKT-024)', () => {
     await axe(page);
   });
 
+  test('AC_TKT024_06 QA c1 FALLO-01: la contraseña temporal no se descarta sin «Ya la guardé» (menú, Atrás y recarga)', async ({ page }) => {
+    await entrarComoAdminCompartido(page);
+    await irA(page, '/panel/usuarios');
+    await page.getByTestId('cuentas-nueva').click();
+    await expectPanel(page.getByTestId('cuenta-formulario')).toBeVisible();
+    const usuario = `e2e.secreto.${sufijo()}`;
+    await page.getByTestId('cuenta-campo-usuario').fill(usuario);
+    await page.getByTestId('cuenta-campo-nombre').fill('Secreto E2E');
+    await page.getByTestId('cuenta-rol-EDITOR').check();
+    await page.getByTestId('cuenta-guardar').click();
+    await expectPanel(page.getByTestId('secreto-temporal')).toBeVisible();
+    // La URL ya es la de la cuenta creada y no hay «Volver» mientras el secreto está visible.
+    await expect(page).toHaveURL(/\/panel\/usuarios\/\d+$/);
+    const urlCuenta = page.url();
+    await expect(page.getByTestId('cuenta-volver')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: `Contraseña temporal de ${usuario}` })).toBeFocused();
+
+    // Menú lateral: pide confirmación; «Cancelar» se queda con el secreto.
+    await page.getByTestId('panel-nav-usuarios').click();
+    const dialogo = page.getByTestId('cuenta-dialogo-salir');
+    await expect(dialogo).toBeVisible();
+    await expect(dialogo).toContainText('no podrás volver a verla');
+    await expect(page.getByTestId('cuenta-dialogo-salir-cancelar')).toBeFocused();
+    await axe(page);
+    await page.getByTestId('cuenta-dialogo-salir-cancelar').click();
+    await expect(page).toHaveURL(urlCuenta);
+    await expect(page.getByTestId('secreto-temporal')).toBeVisible();
+
+    // Atrás del navegador: también pregunta.
+    await page.goBack();
+    await expect(dialogo).toBeVisible();
+    await page.getByTestId('cuenta-dialogo-salir-cancelar').click();
+    await expect(page.getByTestId('secreto-temporal')).toBeVisible();
+    await expect(page).toHaveURL(urlCuenta);
+
+    // Recarga: aviso nativo (beforeunload); al aceptarlo, la ficha explica cómo emitir otra contraseña.
+    const avisos: string[] = [];
+    page.on('dialog', (d) => {
+      avisos.push(d.type());
+      void d.accept();
+    });
+    await page.reload();
+    await page.locator('html[data-app-lista="true"]').waitFor({ state: 'attached' });
+    expect(avisos).toContain('beforeunload');
+    await expect(page).toHaveURL(urlCuenta);
+    await expectPanel(page.getByTestId('cuenta-aviso-pendiente')).toContainText('Restablecer contraseña');
+    await expect(page.getByTestId('secreto-temporal')).toHaveCount(0);
+    await expect(page.getByTestId('cuenta-campo-usuario')).toHaveValue(usuario);
+    await expect(page.getByTestId('cuenta-guardar')).toHaveText('Guardar');
+  });
+
+  test('AC_TKT024_04 QA c1 FALLO-02: activar una pestaña o el select «Catálogo» mantiene el foco en el control', async ({ page }) => {
+    await entrarComoEditorCompartido(page);
+    await irA(page, '/panel/taxonomias');
+    await expectPanel(page.getByTestId('taxonomias-tabla')).toBeVisible();
+    await page.getByTestId('taxonomias-tab-paises').click();
+    await expect(page).toHaveURL(/catalogo=paises/);
+    await expectPanel(page.getByTestId('taxonomias-tabla')).toBeVisible();
+    await expect(page.getByTestId('taxonomias-tab-paises')).toBeFocused();
+    // Teclado: la flecha mueve el foco y Enter activa; el foco sigue en la pestaña activada.
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('taxonomias-tab-categorias')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/catalogo=categorias/);
+    await expect(page.getByTestId('taxonomias-tab-categorias')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('taxonomias-tab-categorias')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press(' ');
+    await expect(page).toHaveURL(/catalogo=licencias/);
+    await expect(page.getByTestId('taxonomias-tab-licencias')).toBeFocused();
+    // Móvil: el select «Catálogo» conserva el foco al cambiar.
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.getByTestId('taxonomias-select').selectOption('escalas');
+    await expect(page).toHaveURL(/catalogo=escalas/);
+    await expectPanel(page.getByTestId('taxonomias-tabla-dificultad')).toBeVisible();
+    await expect(page.getByTestId('taxonomias-select')).toBeFocused();
+    await axe(page);
+  });
+
   test('AC_TKT024_09 FLOW-016: auditoría de solo lectura con filtros en la URL y «Ver cambios»', async ({ page }) => {
     await entrarComoAdminCompartido(page);
     // Una acción auditada reciente y propia: reguardar la configuración tal cual (CONFIG_SITIO).

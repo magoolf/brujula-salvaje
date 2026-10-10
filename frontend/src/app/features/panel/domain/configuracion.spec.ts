@@ -43,6 +43,7 @@ import {
   mensajeConflictoCuenta,
   motivoRolBloqueado,
   paginaDesdeQuery,
+  pendienteDeActivacion,
   validarCuenta,
   varianteEstadoCuenta,
 } from './cuentas';
@@ -371,6 +372,8 @@ describe('cuentas del equipo (SCR-044/045, FLOW-015, RULE-015)', () => {
     expect(varianteEstadoCuenta('DESACTIVADA')).toBe('retirado');
     expect(varianteEstadoCuenta('ANONIMIZADA')).toBe('neutral');
     expect(esAnonimizada(cuenta({ estado: 'ANONIMIZADA' }))).toBe(true);
+    expect(pendienteDeActivacion(cuenta({ estado: 'PENDIENTE_ACTIVACION' }))).toBe(true);
+    expect(pendienteDeActivacion(cuenta())).toBe(false);
     expect(DEFINICION_ACCION.desactivar.efecto).toContain('Se cerrarán todas sus sesiones de inmediato');
   });
 

@@ -1,4 +1,4 @@
-import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -21,6 +21,7 @@ import { EstadoCargando } from '../../../shared/ui/estado-cargando/estado-cargan
 import { EstadoError } from '../../../shared/ui/estado-error/estado-error';
 import { Insignia } from '../../../shared/ui/insignia/insignia';
 import {
+  AVISO_PENDIENTE_ACTIVACION,
   AYUDA_USUARIO,
   AccionCuenta,
   CAMPOS_CUENTA,
@@ -34,6 +35,8 @@ import {
   esAnonimizada,
   formularioDesdeCuenta,
   mensajeConflictoCuenta,
+  pendienteDeActivacion,
+  TEXTO_SALIDA_SECRETO,
   varianteEstadoCuenta,
 } from '../domain/cuentas';
 import { sinError } from '../domain/errores-formulario';
@@ -43,8 +46,10 @@ import { ETIQUETA_ROL, RUTA_USUARIOS } from '../domain/secciones';
 import { FormularioCuentaStore } from '../state/cuentas-equipo.store';
 import { AccesoDenegado } from './acceso-denegado';
 import { CampoTexto } from './campo-texto';
+import { ControlSalida } from './control-salida';
 import { DialogoConfirmacion } from './dialogo-confirmacion';
 import { PaginaNoEncontradaPanel } from './pagina-no-encontrada-panel';
+import { ConSalidaControlada } from './salida-editor.guard';
 import { SecretoTemporal } from './secreto-temporal';
 
 const ID_CAMPO: Readonly<Record<CampoCuenta, string>> = {
@@ -69,7 +74,6 @@ const DESCRIPCION_ROL: Readonly<Record<RolPanel, string>> = {
 @Component({
   selector: 'app-pagina-formulario-cuenta',
   imports: [
-    NgTemplateOutlet,
     RouterLink,
     Banner,
     Boton,
@@ -90,38 +94,94 @@ const DESCRIPCION_ROL: Readonly<Record<RolPanel, string>> = {
       <app-acceso-denegado />
     } @else {
       <div class="pagina ancho-640" data-testid="pagina-formulario-cuenta">
-        <p class="volver"><a [routerLink]="rutaUsuarios" data-testid="cuenta-volver">Volver a Cuentas del equipo</a></p>
+        @if (!store.secreto()) {
+          <p class="volver"><a [routerLink]="rutaUsuarios" data-testid="cuenta-volver">Volver a Cuentas del equipo</a></p>
+        }
 
         @if (store.secreto(); as secreto) {
-          <app-secreto-temporal [usuario]="secreto.usuario" [secreto]="secreto.contrasena" (guardado)="alGuardarSecreto(secreto.cuentaId)" />
-        } @else if (store.esAlta()) {
-          <h1 tabindex="-1" #encabezado>Nueva cuenta</h1>
-          <p class="nota">La cuenta queda pendiente de activación: en su primer acceso deberá cambiar la contraseña temporal y autorizar el tratamiento de datos.</p>
-          <ng-container *ngTemplateOutlet="formulario" />
-        } @else if (store.cuenta(); as cuenta) {
-          <header class="titulo-insignia">
-            <h1 tabindex="-1" #encabezado data-testid="cuenta-titulo">{{ cuenta.etiqueta }}</h1>
-            <app-insignia [variante]="varianteEstado(cuenta.estado)" data-testid="cuenta-estado">{{ etiquetaEstado[cuenta.estado] }}</app-insignia>
-          </header>
-          @if (store.avisoExito(); as aviso) {
-            <app-banner variante="success" testId="cuenta-exito">{{ aviso }}</app-banner>
-          }
-          @if (errorAccion(); as mensaje) {
-            <app-banner variante="error" testId="cuenta-error-accion">{{ mensaje }}</app-banner>
-          }
-          <dl class="datos" data-testid="cuenta-datos">
-            <div><dt>Verificación en dos pasos</dt><dd>{{ cuenta.mfaActivo ? 'Activada' : 'No activada' }}</dd></div>
-            <div><dt>Último acceso</dt><dd>{{ cuenta.ultimoAccesoEn ? fechaHora(cuenta.ultimoAccesoEn) : 'Nunca' }}</dd></div>
-            <div><dt>Alta</dt><dd>{{ fechaHora(cuenta.creadoEn) }}</dd></div>
-            @if (cuenta.desactivadoEn; as fecha) {
-              <div><dt>Desactivada</dt><dd>{{ fechaHora(fecha) }}</dd></div>
+          <app-secreto-temporal [usuario]="secreto.usuario" [secreto]="secreto.contrasena" (guardado)="alGuardarSecreto()" />
+        } @else {
+          @if (store.esAlta()) {
+            <h1 tabindex="-1" #encabezado>Nueva cuenta</h1>
+            <p class="nota">La cuenta queda pendiente de activación: en su primer acceso deberá cambiar la contraseña temporal y autorizar el tratamiento de datos.</p>
+          } @else if (store.cuenta(); as cuenta) {
+            <header class="titulo-insignia">
+              <h1 tabindex="-1" #encabezado data-testid="cuenta-titulo">{{ cuenta.etiqueta }}</h1>
+              <app-insignia [variante]="varianteEstado(cuenta.estado)" data-testid="cuenta-estado">{{ etiquetaEstado[cuenta.estado] }}</app-insignia>
+            </header>
+            @if (store.avisoExito(); as aviso) {
+              <app-banner variante="success" testId="cuenta-exito">{{ aviso }}</app-banner>
             }
-          </dl>
-          @if (anonimizada()) {
-            <p class="nota" data-testid="cuenta-anonimizada">Esta cuenta está anonimizada: sus datos se eliminaron y la auditoría muestra un seudónimo. No admite cambios.</p>
+            @if (errorAccion(); as mensaje) {
+              <app-banner variante="error" testId="cuenta-error-accion">{{ mensaje }}</app-banner>
+            }
+            <dl class="datos" data-testid="cuenta-datos">
+              <div><dt>Verificación en dos pasos</dt><dd>{{ cuenta.mfaActivo ? 'Activada' : 'No activada' }}</dd></div>
+              <div><dt>Último acceso</dt><dd>{{ cuenta.ultimoAccesoEn ? fechaHora(cuenta.ultimoAccesoEn) : 'Nunca' }}</dd></div>
+              <div><dt>Alta</dt><dd>{{ fechaHora(cuenta.creadoEn) }}</dd></div>
+              @if (cuenta.desactivadoEn; as fecha) {
+                <div><dt>Desactivada</dt><dd>{{ fechaHora(fecha) }}</dd></div>
+              }
+            </dl>
+            @if (avisoPendiente()) {
+              <app-banner variante="info" testId="cuenta-aviso-pendiente">{{ textoPendiente }}</app-banner>
+            }
+            @if (anonimizada()) {
+              <p class="nota" data-testid="cuenta-anonimizada">Esta cuenta está anonimizada: sus datos se eliminaron y la auditoría muestra un seudónimo. No admite cambios.</p>
+            }
+          } @else if (store.error(); as error) {
+            <h1 tabindex="-1">Cuenta del equipo</h1>
+            <app-estado-error [mensaje]="error.mensaje" [anunciar]="true" [rutaSalida]="rutaUsuarios" etiquetaSalida="Volver a Cuentas del equipo" testId="cuenta-error" (reintentar)="store.recargar()" />
           } @else {
-            <ng-container *ngTemplateOutlet="formulario" />
-            @if (store.acciones().length > 0) {
+            <h1 tabindex="-1">Cuenta del equipo</h1>
+            <app-estado-cargando forma="linea" [cantidad]="4" etiqueta="Cargando la cuenta…" testId="cuenta-cargando" />
+          }
+          @if (mostrarFormulario()) {
+            @if (erroresGenerales().length > 0) {
+              <div id="cuenta-errores" class="resumen-errores" tabindex="-1" role="alert" data-testid="cuenta-errores">
+                @for (mensaje of erroresGenerales(); track $index) {
+                  <p>{{ mensaje }}</p>
+                }
+              </div>
+            }
+            <form class="formulario seccion" novalidate (submit)="enviar($event)" data-testid="cuenta-formulario">
+              <h2 class="bs-solo-lectores">Datos de la cuenta</h2>
+              @if (store.esAlta()) {
+                <app-campo-texto [campo]="usuario" etiqueta="Usuario" [idCampo]="id.usuario" nombreCampo="usuario" [obligatorio]="true" [ayuda]="ayudaUsuario" autocomplete="off" [error]="errores().usuario ?? null" testId="cuenta-campo-usuario" (editado)="limpiarError('usuario')" />
+              } @else {
+                <div class="campo">
+                  <label [for]="id.usuario">Usuario</label>
+                  <input class="entrada-texto mono" type="text" readonly [id]="id.usuario" name="usuario" [value]="usuario()" aria-describedby="cuenta-usuario-ayuda" data-testid="cuenta-campo-usuario" />
+                  <p class="ayuda" id="cuenta-usuario-ayuda">El usuario no se puede cambiar.</p>
+                </div>
+              }
+              <app-campo-texto [campo]="nombreVisible" etiqueta="Nombre visible" [idCampo]="id.nombreVisible" nombreCampo="nombre_visible" [obligatorio]="true" [maximo]="limiteNombre" [error]="errores().nombreVisible ?? null" testId="cuenta-campo-nombre" (editado)="limpiarError('nombreVisible')" />
+              <fieldset class="grupo" [id]="id.rol" tabindex="-1" [attr.aria-describedby]="motivoRol() ? 'cuenta-rol-motivo' : null" data-testid="cuenta-campo-rol">
+                <legend>Rol <span class="obligatorio">(obligatorio)</span></legend>
+                @if (motivoRol(); as motivo) {
+                  <p class="ayuda" id="cuenta-rol-motivo" data-testid="cuenta-rol-motivo">{{ motivo }}</p>
+                }
+                @for (r of roles; track r) {
+                  <label class="casilla">
+                    <input type="radio" name="rol" [value]="r" [checked]="rol() === r" [disabled]="motivoRol() !== null" [attr.data-testid]="'cuenta-rol-' + r" (change)="elegirRol(r)" />
+                    <span><strong>{{ etiquetaRol[r] }}</strong> <span class="ayuda">{{ descripcionRol[r] }}</span></span>
+                  </label>
+                }
+                @if (errores().rol; as mensaje) {
+                  <p class="error-campo" data-testid="cuenta-campo-rol-error">{{ mensaje }}</p>
+                }
+              </fieldset>
+              <div class="acciones">
+                <button type="submit" appBoton [cargando]="guardando()" [deshabilitadoEnfocable]="!enLinea()" data-testid="cuenta-guardar">
+                  {{ guardando() ? 'Guardando…' : store.esAlta() ? 'Crear' : 'Guardar' }}
+                </button>
+                @if (!enLinea()) {
+                  <p class="ayuda">Sin conexión: podrás guardar cuando vuelva.</p>
+                }
+              </div>
+            </form>
+          }
+          @if (mostrarAcciones()) {
               <section class="seccion acciones-cuenta" aria-labelledby="cuenta-acciones-titulo" data-testid="cuenta-acciones">
                 <h2 id="cuenta-acciones-titulo">Acciones de la cuenta</h2>
                 <ul class="lista-acciones">
@@ -146,61 +206,8 @@ const DESCRIPCION_ROL: Readonly<Record<RolPanel, string>> = {
                   }
                 </ul>
               </section>
-            }
           }
-        } @else if (store.error(); as error) {
-          <h1 tabindex="-1">Cuenta del equipo</h1>
-          <app-estado-error [mensaje]="error.mensaje" [anunciar]="true" [rutaSalida]="rutaUsuarios" etiquetaSalida="Volver a Cuentas del equipo" testId="cuenta-error" (reintentar)="store.recargar()" />
-        } @else {
-          <h1 tabindex="-1">Cuenta del equipo</h1>
-          <app-estado-cargando forma="linea" [cantidad]="4" etiqueta="Cargando la cuenta…" testId="cuenta-cargando" />
         }
-
-        <ng-template #formulario>
-          @if (erroresGenerales().length > 0) {
-            <div id="cuenta-errores" class="resumen-errores" tabindex="-1" role="alert" data-testid="cuenta-errores">
-              @for (mensaje of erroresGenerales(); track $index) {
-                <p>{{ mensaje }}</p>
-              }
-            </div>
-          }
-          <form class="formulario seccion" novalidate (submit)="enviar($event)" data-testid="cuenta-formulario">
-            <h2 class="bs-solo-lectores">Datos de la cuenta</h2>
-            @if (store.esAlta()) {
-              <app-campo-texto [campo]="usuario" etiqueta="Usuario" [idCampo]="id.usuario" nombreCampo="usuario" [obligatorio]="true" [ayuda]="ayudaUsuario" autocomplete="off" [error]="errores().usuario ?? null" testId="cuenta-campo-usuario" (editado)="limpiarError('usuario')" />
-            } @else {
-              <div class="campo">
-                <label [for]="id.usuario">Usuario</label>
-                <input class="entrada-texto mono" type="text" readonly [id]="id.usuario" name="usuario" [value]="usuario()" aria-describedby="cuenta-usuario-ayuda" data-testid="cuenta-campo-usuario" />
-                <p class="ayuda" id="cuenta-usuario-ayuda">El usuario no se puede cambiar.</p>
-              </div>
-            }
-            <app-campo-texto [campo]="nombreVisible" etiqueta="Nombre visible" [idCampo]="id.nombreVisible" nombreCampo="nombre_visible" [obligatorio]="true" [maximo]="limiteNombre" [error]="errores().nombreVisible ?? null" testId="cuenta-campo-nombre" (editado)="limpiarError('nombreVisible')" />
-            <fieldset class="grupo" [id]="id.rol" tabindex="-1" [attr.aria-describedby]="motivoRol() ? 'cuenta-rol-motivo' : null" data-testid="cuenta-campo-rol">
-              <legend>Rol <span class="obligatorio">(obligatorio)</span></legend>
-              @if (motivoRol(); as motivo) {
-                <p class="ayuda" id="cuenta-rol-motivo" data-testid="cuenta-rol-motivo">{{ motivo }}</p>
-              }
-              @for (r of roles; track r) {
-                <label class="casilla">
-                  <input type="radio" name="rol" [value]="r" [checked]="rol() === r" [disabled]="motivoRol() !== null" [attr.data-testid]="'cuenta-rol-' + r" (change)="elegirRol(r)" />
-                  <span><strong>{{ etiquetaRol[r] }}</strong> <span class="ayuda">{{ descripcionRol[r] }}</span></span>
-                </label>
-              }
-              @if (errores().rol; as mensaje) {
-                <p class="error-campo" data-testid="cuenta-campo-rol-error">{{ mensaje }}</p>
-              }
-            </fieldset>
-            <div class="acciones">
-              <button type="submit" appBoton [cargando]="guardando()" [deshabilitadoEnfocable]="!enLinea()" data-testid="cuenta-guardar">
-                {{ guardando() ? 'Guardando…' : store.esAlta() ? 'Crear' : 'Guardar' }}
-              </button>
-              @if (!enLinea()) {
-                <p class="ayuda">Sin conexión: podrás guardar cuando vuelva.</p>
-              }
-            </div>
-          </form>
-        </ng-template>
 
         <app-dialogo-confirmacion
           [abierto]="accionPendiente() !== null"
@@ -214,6 +221,16 @@ const DESCRIPCION_ROL: Readonly<Record<RolPanel, string>> = {
           (confirmar)="confirmarAccion()"
         >
           <p>{{ efectoPendiente() }}</p>
+        </app-dialogo-confirmacion>
+        <app-dialogo-confirmacion
+          [abierto]="salida.abierta()"
+          (abiertoChange)="responderSalida(false)"
+          titulo="¿Salir sin guardar la contraseña temporal?"
+          textoConfirmar="Salir sin guardarla"
+          idBase="cuenta-dialogo-salir"
+          (confirmar)="responderSalida(true)"
+        >
+          <p>{{ textoSalidaSecreto }}</p>
         </app-dialogo-confirmacion>
       </div>
     }
@@ -279,7 +296,7 @@ const DESCRIPCION_ROL: Readonly<Record<RolPanel, string>> = {
     }
   `,
 })
-export class PaginaFormularioCuenta {
+export class PaginaFormularioCuenta implements ConSalidaControlada {
   protected readonly store = inject(FormularioCuentaStore);
   protected readonly enLinea = inject(Conectividad).enLinea;
   private readonly router = inject(Router);
@@ -310,6 +327,20 @@ export class PaginaFormularioCuenta {
   protected readonly errorAccion = signal<string | null>(null);
   protected readonly accionPendiente = signal<AccionCuenta | null>(null);
 
+  protected readonly textoPendiente = AVISO_PENDIENTE_ACTIVACION;
+  protected readonly textoSalidaSecreto = TEXTO_SALIDA_SECRETO;
+  /** OneTimeSecret: salir sin «Ya la guardé» pide confirmación (y aviso nativo al recargar o cerrar). */
+  protected readonly salida = new ControlSalida(() => this.store.secreto() !== null);
+  protected readonly mostrarFormulario = computed(
+    () => this.store.esAlta() || (this.store.cuenta() !== null && !this.anonimizada()),
+  );
+  protected readonly mostrarAcciones = computed(
+    () => !this.store.esAlta() && this.mostrarFormulario() && this.store.acciones().length > 0,
+  );
+  protected readonly avisoPendiente = computed(() => {
+    const cuenta = this.store.cuenta();
+    return cuenta !== null && pendienteDeActivacion(cuenta);
+  });
   protected readonly anonimizada = computed(() => {
     const cuenta = this.store.cuenta();
     return cuenta !== null && esAnonimizada(cuenta);
@@ -379,9 +410,20 @@ export class PaginaFormularioCuenta {
       return;
     }
     this.guardando.set(true);
-    const error = this.store.esAlta() ? await this.store.crear(formulario) : await this.store.guardar(formulario);
+    const esAlta = this.store.esAlta();
+    const error = esAlta ? await this.store.crear(formulario) : await this.store.guardar(formulario);
     this.guardando.set(false);
-    if (error === null) return;
+    if (error === null) {
+      // Tras el alta, la URL pasa a la ficha de la cuenta creada (sin entrada nueva en el historial):
+      // una recarga no vuelve a ofrecer el alta (QA TKT-024 FALLO-01).
+      const secreto = this.store.secreto();
+      if (esAlta && secreto !== null) {
+        await this.router.navigate([RUTA_USUARIOS, secreto.cuentaId], { replaceUrl: true });
+        // El foco de cambio de ruta (FocoRuta) iría al contenido: se devuelve al título del secreto.
+        afterNextRender(() => this.documento.getElementById('secreto-titulo')?.focus(), { injector: this.injector });
+      }
+      return;
+    }
     if (error.codigo === 'duplicado') {
       this.errores.set({ usuario: 'Ya existe una cuenta con ese usuario.' });
     } else if (error.categoria === 'conflicto') {
@@ -414,14 +456,24 @@ export class PaginaFormularioCuenta {
   }
 
   /** «Ya la guardé»: se olvida el secreto; tras el alta se va a la ficha de la cuenta creada. */
-  protected async alGuardarSecreto(cuentaId: number): Promise<void> {
-    const eraAlta = this.store.esAlta();
+  protected alGuardarSecreto(): void {
     this.store.olvidarSecreto();
-    if (eraAlta) {
-      await this.router.navigate([RUTA_USUARIOS, cuentaId], { replaceUrl: true });
-      return;
-    }
     afterNextRender(() => this.encabezado()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * canDeactivate (QA TKT-024 FALLO-01): con la contraseña temporal sin confirmar, salir (Volver,
+   * menú, Atrás) pide confirmación; el paso del alta a la ficha de la cuenta creada no cuenta.
+   */
+  puedeSalir(destino: string): boolean | Promise<boolean> {
+    const secreto = this.store.secreto();
+    if (secreto !== null && destino === `${RUTA_USUARIOS}/${secreto.cuentaId}`) return true;
+    return this.salida.puedeSalir();
+  }
+
+  protected responderSalida(salir: boolean): void {
+    if (salir) this.store.olvidarSecreto();
+    this.salida.responder(salir);
   }
 
   private enfocarPrimerError(): void {

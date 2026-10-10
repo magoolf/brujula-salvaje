@@ -163,6 +163,8 @@ export const RUTAS_PANEL: Routes = [
         path: 'usuarios/:id',
         title: 'Cuenta del equipo',
         data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        // La contraseña temporal (OneTimeSecret) solo se descarta con «Ya la guardé» (AC-106).
+        canDeactivate: [cambiosSinGuardarGuard],
         loadComponent: () => import('./pagina-formulario-cuenta').then((m) => m.PaginaFormularioCuenta),
       },
       {

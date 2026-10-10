@@ -71,6 +71,21 @@ export function varianteEstadoCuenta(estado: EstadoCuenta): VarianteEstadoCuenta
 
 export const ROLES: readonly RolPanel[] = ['EDITOR', 'ADMINISTRADOR'];
 
+/** Cuenta que aún no completó su primer acceso (tiene una contraseña temporal vigente). */
+export function pendienteDeActivacion(cuenta: CuentaEquipo): boolean {
+  return cuenta.estado === 'PENDIENTE_ACTIVACION';
+}
+
+/**
+ * Aviso en la ficha de una cuenta pendiente (QA TKT-024 FALLO-01): si la contraseña temporal se
+ * perdió (p. ej. al recargar), no se puede volver a mostrar y hay que emitir otra.
+ */
+export const AVISO_PENDIENTE_ACTIVACION =
+  'Esta cuenta aún no completó su primer acceso. La contraseña temporal solo se mostró una vez: si no la guardaste, emite otra con «Restablecer contraseña».';
+
+export const TEXTO_SALIDA_SECRETO =
+  'La contraseña temporal se muestra solo esta vez. Si sales sin guardarla, no podrás volver a verla y tendrás que emitir otra con «Restablecer contraseña».';
+
 export function esAnonimizada(cuenta: CuentaEquipo): boolean {
   return cuenta.estado === 'ANONIMIZADA';
 }

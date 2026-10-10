@@ -405,9 +405,40 @@ describe('Panel · configuración editorial y administración (TKT-024)', { time
     expect(el('secreto-valor').textContent).toContain('temporal-ABCDEFGH12');
     expect(el('secreto-temporal').textContent).toContain('Se muestra solo esta vez.');
     expect(existe('cuenta-formulario')).toBe(false);
-    await pulsar(m, 'secreto-guardado');
+    // FALLO-01 (QA c1): la URL ya es la de la cuenta creada (una recarga no repite el alta) y no hay «Volver».
     await vi.waitFor(() => expect(m.router.url).toBe('/panel/usuarios/8'));
-    expect(existe('secreto-temporal')).toBe(false);
+    expect(existe('secreto-temporal')).toBe(true);
+    expect(existe('cuenta-volver')).toBe(false);
+    // Salir sin «Ya la guardé» pide confirmación: «Cancelar» se queda con el secreto visible…
+    const cancelada = m.router.navigateByUrl('/panel/usuarios');
+    await vi.waitFor(() => expect(el('cuenta-dialogo-salir').hasAttribute('open')).toBe(true));
+    expect(el('cuenta-dialogo-salir').textContent).toContain('no podrás volver a verla');
+    el('cuenta-dialogo-salir-cancelar').click();
+    expect(await cancelada).toBe(false);
+    expect(TestBed.inject(Location).path()).toBe('/panel/usuarios/8');
+    expect(existe('secreto-temporal')).toBe(true);
+    // …y confirmar descarta el secreto y sale.
+    const salida = m.router.navigateByUrl('/panel/acceso-denegado');
+    await vi.waitFor(() => expect(el('cuenta-dialogo-salir').hasAttribute('open')).toBe(true));
+    el('cuenta-dialogo-salir-confirmar').click();
+    expect(await salida).toBe(true);
+  });
+
+  it('AC_TKT024_06 SCR-045: «Ya la guardé» descarta el secreto sin preguntar al salir; aviso en cuentas pendientes', async () => {
+    const m = await montar('/panel/usuarios/5', 'ADMINISTRADOR', ({ cuentas }) => {
+      cuentas.obtener.mockResolvedValue(cuenta({ estado: 'PENDIENTE_ACTIVACION' }));
+      cuentas.administradoresActivos.mockResolvedValue(2);
+      cuentas.ejecutarAccion.mockResolvedValue({ cuenta: cuenta({ estado: 'PENDIENTE_ACTIVACION' }), contrasenaTemporal: 'temporal-QQQQQQQQ77' });
+    });
+    await vi.waitFor(() => expect(existe('cuenta-aviso-pendiente')).toBe(true));
+    expect(el('cuenta-aviso-pendiente').textContent).toContain('Restablecer contraseña');
+    await pulsar(m, 'cuenta-accion-restablecerContrasena');
+    await pulsar(m, 'cuenta-dialogo-accion-confirmar');
+    await vi.waitFor(() => expect(existe('secreto-temporal')).toBe(true));
+    await pulsar(m, 'secreto-guardado');
+    expect(existe('cuenta-volver')).toBe(true);
+    const salida = m.router.navigateByUrl('/panel/acceso-denegado');
+    expect(await salida).toBe(true);
   });
 
   it('AC_TKT024_08 SCR-045: el último Administrador activo no se puede desactivar ni degradar (motivo visible)', async () => {
