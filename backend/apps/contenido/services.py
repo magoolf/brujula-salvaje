@@ -1573,6 +1573,13 @@ def _actualizar_publicacion(
         tipos_quitados = tipos_ids_previos - set(subtipo._tipos_ids_pendientes)
         subtipo.tipos_aventura.set(subtipo._tipos_ids_pendientes)
         del subtipo._tipos_ids_pendientes
+    # TKT-051: los requisitos de publicación se validan sobre el estado RESULTANTE de la operación.
+    # Las colecciones hijas `replace-all` (días, checklist, elementos, destinos de la guía) se
+    # aplicaban DESPUÉS de validar, de modo que la regla leía las GUARDADAS: se aceptaba dejar un
+    # tipo publicado con 7 elementos de checklist y luego se rechazaba cualquier corrección. Se
+    # aplican aquí, dentro de la transacción de `actualizar`: si la validación falla, el 422 hace
+    # rollback y no se persiste nada.
+    _confirmar_pendientes_m2m(subtipo)
 
     entidades_afectadas: list[dict[str, Any]] = []
     errores_por_entidad: list[dict[str, Any]] = []
@@ -1616,7 +1623,6 @@ def _actualizar_publicacion(
     contenido.version += 1
     contenido.save()
     subtipo.save()
-    _confirmar_pendientes_m2m(subtipo)
     _crear_revision(contenido, MotivoRevision.ACTUALIZACION, actor_id)
     _auditar(
         accion=AccionAuditoria.ACTUALIZAR_PUBLICACION,
@@ -2471,11 +2477,14 @@ def analizar_publicacion(
                 [TipoAventura.objects.get(pk=r["id"]) for r in tipos_en_cascada],
                 itinerarios_ya_en_cascada=set(),
             )
-    entidad_errores = (
-        _validar_entidad_para_publicar(tipo, contenido, subtipo)
-        if tipo != T.DESTINO
-        else errores_tipos
-    )
+    # TKT-051: en ACTUALIZAR_PUBLICACION el análisis no recibe el estado propuesto del formulario
+    # (salvo los tipos de un destino), así que NO valida los campos ni las colecciones GUARDADOS:
+    # eso declaraba "no confirmable" la corrección de un contenido ya inconsistente (p. ej. un tipo
+    # publicado con 7 elementos de checklist), cuando el PUT valida el estado RESULTANTE y la
+    # acepta. Como en el destino, `entidad` solo contiene las reglas multi-entidad (ninguna fuera
+    # del destino, contrato `panelAnalizarPublicacion`); el resto lo informa la vista previa y lo
+    # decide de forma definitiva el PUT.
+    entidad_errores = errores_tipos
     entidad = {
         "tipo": tipo,
         "id": contenido.pk,
