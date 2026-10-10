@@ -422,14 +422,14 @@ tickets:
   - id: TKT-052
     titulo: "LOW (QA TKT-050 OBS-QA050-02, preexistente): las operaciones de ciclo con tipo=paginas no aplican la autorización por página: un Editor recibe en páginas legales GET impacto-retiro 200 con retirable:true (contradice AC-033: las páginas no se retiran), publicar/reactivar 409 y retirar 400. Responder 403 permiso_denegado para páginas no autorizadas y retirable:false para PAGINA; tests por rol"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-050, "AC-033", "THREAT control de acceso por objeto"]
     depende_de: [TKT-050]
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/contenido/services.py", "backend/apps/contenido/tests/test_tkt052*"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log.", "2026-10-10 PR #83 @ 5e4a830 (CI verde): _autorizar_ciclo (generaliza el helper de TKT-050) en publicar, analisis-publicacion, impacto-retiro, retirar y reactivar; orden 400->404->403->idempotencia->409 (DEC-AUTO-1070/1071); retirable=false para PAGINA (DEC-AUTO-1072). 76 tests (46 FAIL en main), pytest CI 1554, cobertura 97,75 %. Notas documentales del contrato (retirable de páginas, orden 404/403) -> CHG-API-007. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 5e4a830: HTTP real 217/0, A/B 462 casos (40 diferencias, todas esperadas), sin efectos en 403/404, sin oráculo, schemathesis Editor/Admin 0 5xx, E2E panel 26/26, seguridad 0. OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) -> CHG-API-007. Pendiente de integrar tras PR #84."]
+    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log.", "2026-10-10 PR #83 @ 5e4a830 (CI verde): _autorizar_ciclo (generaliza el helper de TKT-050) en publicar, analisis-publicacion, impacto-retiro, retirar y reactivar; orden 400->404->403->idempotencia->409 (DEC-AUTO-1070/1071); retirable=false para PAGINA (DEC-AUTO-1072). 76 tests (46 FAIL en main), pytest CI 1554, cobertura 97,75 %. Notas documentales del contrato (retirable de páginas, orden 404/403) -> CHG-API-007. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 5e4a830: HTTP real 217/0, A/B 462 casos (40 diferencias, todas esperadas), sin efectos en 403/404, sin oráculo, schemathesis Editor/Admin 0 5xx, E2E panel 26/26, seguridad 0. OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) -> CHG-API-007. Integrado PR #83. DONE."]
     actualizado: 2026-10-10
   - id: TKT-053
     titulo: "LOW (QA TKT-016 OBS-01, preexistente): en URLs de paginación fuera de rango (la API devuelve 404 pagina_fuera_de_rango) el estado de error no se transfiere del SSR y la hidratación vuelve a pedir y pasa por el esqueleto: /itinerarios?pagina=9 CLS 0,9067, /glosario?pagina=2 0,1325, /destinos?pagina=2 pie desplazado 3277 px. Además /destinos?pagina=2 responde HTTP 200 con estado-error. Transferir/reutilizar el estado de error al hidratar (o renderizar el error de forma estable) y devolver el código HTTP adecuado en SSR; E2E de CLS en esas rutas en 3 motores"
