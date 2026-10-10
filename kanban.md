@@ -482,14 +482,14 @@ tickets:
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-024, FLOW-014, SCR-042, MOD-012]
     depende_de: [TKT-024]
     archivos_permitidos: ["backend/apps/inicio/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024."]
+    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
@@ -526,6 +526,30 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058."]
+    actualizado: 2026-10-10
+  - id: TKT-061
+    titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-004, TKT-057]
+    depende_de: []
+    archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    actualizado: 2026-10-10
+  - id: TKT-062
+    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-057, TKT-058, AC-030]
+    depende_de: [TKT-057, TKT-058]
+    archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

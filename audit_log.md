@@ -477,3 +477,5 @@
 2026-10-10 | ENTREGA | TKT-024 | Corrección ciclo 1 @ 48fe6ab, CI verde (DEC-AUTO-1048/1049). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-024
 2026-10-10 | ENTREGA | TKT-058 | PR #87 @ 26dc29b, CI verde: la auditoría resuelve la etiqueta del actor. Riesgo: cargar_semilla sin 'sistema' -> TKT-060 (DEC-AUTO-1025, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-058
 2026-10-10 | DELEGACION | TKT-058 | QA ciclo 1/3 sobre PR #87 | kanban.md
+2026-10-10 | ENTREGA | TKT-057 | PR #86 @ 674646e, CI verde: referencias reales y etiqueta del usuario en /panel/inicio (DEC-AUTO-1080..1083). R-1080-1 -> TKT-061 (DEC-AUTO-1026), R-1080-2 -> TKT-062 (DEC-AUTO-1027), ambos ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles | HANDOFF_ENVELOPE TKT-057
+2026-10-10 | DELEGACION | TKT-057 | QA ciclo 1/3 sobre PR #86 | kanban.md
