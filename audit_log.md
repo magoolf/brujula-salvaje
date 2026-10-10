@@ -474,3 +474,4 @@
 2026-10-10 | QA_PASS | TKT-048 | QA_VERDICT PASS ciclo 1/3 @ 0dd704c: sin regresión injustificada (inicio +132 ms aceptado por resolución correcta; ficha -324 ms), imágenes -50 %, seguridad 0. OBS-QA048-01..03 -> TKT-059 (DEC-AUTO-1024, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible); OBS-QA048-05 -> TKT-056; regenerar_derivados al runbook de F9 | HANDOFF_ENVELOPE QA TKT-048
 2026-10-10 | INTEGRACION | TKT-048 | PR #84 sincronizado con main, CI verde, integrado. DONE | PR #84
 2026-10-10 | INTEGRACION | TKT-052 | PR #83 sincronizado con main, CI verde, integrado. DONE | PR #83
+2026-10-10 | ENTREGA | TKT-024 | Corrección ciclo 1 @ 48fe6ab, CI verde (DEC-AUTO-1048/1049). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-024
