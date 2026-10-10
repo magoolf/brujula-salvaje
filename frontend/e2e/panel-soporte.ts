@@ -280,12 +280,12 @@ let sesionEditor: Cookie[] | null = null;
 /** Margen mínimo de vigencia (inactividad) para reutilizar una sesión guardada. */
 const VIGENCIA_MINIMA_MS = 5 * 60_000;
 
-async function sesionVigente(page: Page): Promise<boolean> {
+async function sesionVigente(page: Page, rol: Rol = 'EDITOR'): Promise<boolean> {
   const respuesta = await conReintentoRed(() => page.request.get(`${API}/auth/sesion`));
   if (respuesta.status() !== 200) return false;
   const estado = (await respuesta.json()) as { rol: string; paso_pendiente: string; expira_inactividad_en: string };
   return (
-    estado.rol === 'EDITOR' &&
+    estado.rol === rol &&
     estado.paso_pendiente === 'NINGUNO' &&
     Date.parse(estado.expira_inactividad_en) - Date.now() > VIGENCIA_MINIMA_MS
   );
@@ -340,6 +340,27 @@ export async function entrarComoEditorCompartido(page: Page): Promise<void> {
   }
   await entrarPorApi(page, crearCuenta());
   sesionEditor = await page.context().cookies();
+}
+
+/** Sesión de Administrador de este worker (TKT-024) y su cuenta (para las reglas sobre la propia cuenta). */
+let sesionAdmin: { cookies: Cookie[]; cuenta: CuentaPrueba } | null = null;
+
+/**
+ * Como `entrarComoEditorCompartido`, con un ADMINISTRADOR activo con MFA (obligatorio para el rol,
+ * DEC-AUTO-037). Devuelve la cuenta con la que se entró.
+ */
+export async function entrarComoAdminCompartido(page: Page): Promise<CuentaPrueba> {
+  await absorberLimiteBorde(page);
+  if (sesionAdmin) {
+    await page.context().addCookies(sesionAdmin.cookies);
+    if (await sesionVigente(page, 'ADMINISTRADOR')) return sesionAdmin.cuenta;
+    await page.context().clearCookies();
+    sesionAdmin = null;
+  }
+  const cuenta = crearCuenta({ rol: 'ADMINISTRADOR', conMfa: true });
+  await entrarPorApi(page, cuenta);
+  sesionAdmin = { cookies: await page.context().cookies(), cuenta };
+  return cuenta;
 }
 
 /**

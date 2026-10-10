@@ -86,6 +86,8 @@ describe('SesionPanelStore (STATE-004)', () => {
       'contenido-glosario',
       'contenido-paginas',
       'medios',
+      'inicio',
+      'taxonomias',
       'cuenta',
     ]);
     expect(await store.cerrarSesion()).toBeNull();

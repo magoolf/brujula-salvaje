@@ -32,6 +32,13 @@ export const RUTA_TABLERO = '/panel';
 export const RUTA_MEDIOS = '/panel/medios';
 /** SCR-035 Listados de contenidos por tipo (MOD-010, TKT-023). */
 export const RUTA_CONTENIDO = '/panel/contenido';
+/** MOD-012 (TKT-024): SCR-042 Destacados, SCR-043 Taxonomías y SCR-047 Configuración [Admin]. */
+export const RUTA_DESTACADOS = '/panel/inicio';
+export const RUTA_TAXONOMIAS = '/panel/taxonomias';
+export const RUTA_CONFIGURACION = '/panel/configuracion';
+/** MOD-013 (TKT-024): SCR-044/045 Cuentas del equipo y SCR-046 Auditoría [Admin]. */
+export const RUTA_USUARIOS = '/panel/usuarios';
+export const RUTA_AUDITORIA = '/panel/auditoria';
 
 const contenido = (id: string, etiqueta: string, ruta: string): SeccionPanel => ({
   id: `contenido-${id}`,
@@ -61,6 +68,24 @@ export const SECCIONES_PANEL: readonly SeccionPanel[] = [
     ruta: RUTA_MEDIOS,
     rolMinimo: 'EDITOR',
     accesosRapidos: [{ id: 'subir-medios', etiqueta: 'Subir medios', ruta: RUTA_MEDIOS }],
+  },
+  // MOD-012 y MOD-013 (TKT-024).
+  { id: 'inicio', etiqueta: 'Destacados de inicio', ruta: RUTA_DESTACADOS, rolMinimo: 'EDITOR', accesosRapidos: [] },
+  { id: 'taxonomias', etiqueta: 'Taxonomías', ruta: RUTA_TAXONOMIAS, rolMinimo: 'EDITOR', accesosRapidos: [] },
+  {
+    id: 'usuarios',
+    etiqueta: 'Cuentas del equipo',
+    ruta: RUTA_USUARIOS,
+    rolMinimo: 'ADMINISTRADOR',
+    accesosRapidos: [{ id: 'nueva-cuenta', etiqueta: 'Nueva cuenta', ruta: `${RUTA_USUARIOS}/nuevo` }],
+  },
+  { id: 'auditoria', etiqueta: 'Auditoría', ruta: RUTA_AUDITORIA, rolMinimo: 'ADMINISTRADOR', accesosRapidos: [] },
+  {
+    id: 'configuracion',
+    etiqueta: 'Configuración del sitio',
+    ruta: RUTA_CONFIGURACION,
+    rolMinimo: 'ADMINISTRADOR',
+    accesosRapidos: [],
   },
   { id: 'cuenta', etiqueta: 'Mi cuenta', ruta: '/panel/cuenta', rolMinimo: 'EDITOR', accesosRapidos: [] },
 ];
