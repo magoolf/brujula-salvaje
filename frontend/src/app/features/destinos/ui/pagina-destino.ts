@@ -23,7 +23,17 @@ import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-c
 import { formatoDuracion, formatoFechaEsCo, nombreMes, tieneItinerariosPropios } from '../domain/destino';
 import { formatoCoordenadas } from '../domain/mapa';
 import { DestinoDetalleStore } from '../state/destino-detalle.store';
+import { mantenerPrecargaImagen, precargaDe } from './precarga-portada';
 import { VisorGaleria } from './visor-galeria';
+
+/**
+ * `sizes` de la portada de la ficha (imagen LCP, TKT-048): ocupa el ancho del contenedor
+ * `.bs-contenedor` (máx. 1280px = 80rem) menos su margen lateral (16/32/48px según el punto de
+ * corte, `--bs-grid-margin-*`). Antes era `100vw`, que en escritorio pedía un derivado mayor que el
+ * pintado; en móvil (412px a DPR 1,75) el navegador sigue eligiendo el de 800px.
+ */
+export const SIZES_PORTADA =
+  '(min-width: 80rem) 1184px, (min-width: 64rem) calc(100vw - 6rem), (min-width: 48rem) calc(100vw - 4rem), calc(100vw - 2rem)';
 
 /** SCR-004 Ficha de destino (FEAT-006..015). */
 @Component({
@@ -56,6 +66,7 @@ export class PaginaDestino {
   private readonly seo = inject(Seo);
 
   protected readonly marca = NOMBRE_MARCA;
+  protected readonly sizesPortada = SIZES_PORTADA;
   protected readonly compartiendo = signal(false);
   protected readonly mensajeCompartir = signal<string | null>(null);
 
@@ -91,6 +102,14 @@ export class PaginaDestino {
   });
 
   constructor() {
+    // TKT-048: preload responsivo de la portada (imagen LCP) con el mismo srcset/sizes que pinta
+    // `ImagenResponsiva`, para que no compita detrás de los `modulepreload` del bundle.
+    mantenerPrecargaImagen(
+      computed(() => {
+        const portada = this.store.destino()?.portada ?? null;
+        return portada === null ? null : precargaDe(portada.derivados, SIZES_PORTADA);
+      }),
+    );
     // FEAT-027/CON-007: los metadatos se recalculan cada vez que llega un destino nuevo (incluida
     // la navegación entre fichas vía "Sigue explorando", que reutiliza este mismo componente).
     effect(() => {

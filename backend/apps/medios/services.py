@@ -20,6 +20,7 @@ import io
 import os
 import shutil
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +51,52 @@ _FORMATOS_ORIGEN_PIL = {
     "WEBP": FormatoOrigen.WEBP,
 }
 ANCHOS_DERIVADOS = (400, 800, 1200, 1600, 2000)
-FORMATOS_DERIVADOS = (FormatoDerivado.WEBP, FormatoDerivado.JPEG, FormatoDerivado.AVIF)
+
+# TKT-048 (QA TKT-041 F-02, Skill_UI_UX §47.2: LCP ≤ 2,5 s; PERFORMANCE_SPEC: imagen LCP ≤ 200 KB
+# en móvil): parámetros de codificación EXPLÍCITOS. Antes se guardaba con los valores por defecto
+# de Pillow (AVIF quality=75, JPEG quality=75 sin progresivo, WebP quality=80): el AVIF de 800 px
+# pesaba 94-174 KB y en 330 de 387 casos de la semilla era MAYOR que el WebP (291 mayor que el
+# JPEG), y es el formato que el navegador elige primero en el `<picture>`.
+# - AVIF quality 52 / speed 6: la ganancia de AVIF sobre WebP está en calidades medias; speed 6 es
+#   el equilibrio de libavif entre tiempo (subida síncrona, ADR-DB-005) y tamaño.
+# - WebP quality 78 / method 5: method 6 apenas reduce más y duplica el tiempo.
+# - JPEG quality 80, progresivo y con tablas Huffman optimizadas (respaldo universal del `<img>`).
+# Ninguno lleva EXIF/XMP/ICC (THREAT-007): la imagen base se limpia en `_codificar_derivados`.
+PARAMETROS_CODIFICACION: dict[str, dict[str, Any]] = {
+    FormatoDerivado.JPEG: {"quality": 80, "progressive": True, "optimize": True},
+    FormatoDerivado.WEBP: {"quality": 78, "method": 5},
+    FormatoDerivado.AVIF: {"quality": 52, "speed": 6},
+}
+# Del menos al más eficiente: cada formato se compara con el anterior servido.
+ORDEN_CODIFICACION = (FormatoDerivado.JPEG, FormatoDerivado.WEBP, FormatoDerivado.AVIF)
+# Calidades de reintento si un formato eficiente pesa MÁS que el menos eficiente ya codificado del
+# mismo ancho (ocurre en imágenes casi planas, donde la cabecera del contenedor domina). Si ni así
+# cabe, ese derivado no se genera: el `<picture>` del frontend ofrece cada formato en un `<source>`
+# propio y el navegador elige el PRIMERO que soporta, así que servir un AVIF mayor que el WebP (o un
+# WebP mayor que el JPEG) solo empeora la carga.
+CALIDADES_REINTENTO: dict[str, tuple[int, ...]] = {
+    FormatoDerivado.WEBP: (70, 62),
+    FormatoDerivado.AVIF: (44, 36),
+}
+
+
+@dataclass(frozen=True)
+class DerivadoCodificado:
+    formato: str
+    ancho: int
+    alto: int
+    contenido: bytes
+
+
+@dataclass(frozen=True)
+class Codificacion:
+    """Derivados codificados de una imagen y formatos que este entorno no sabe escribir (p. ej.
+    AVIF si Pillow no tiene libavif): estos últimos no se descartan por tamaño, simplemente no hay
+    datos nuevos, y `regenerar_derivados` conserva los existentes."""
+
+    derivados: list[DerivadoCodificado]
+    no_soportados: frozenset[str]
+
 
 # TKT-017: layout físico de MEDIA_ROOT documentado en `docs/05_operacion/DEVOPS_HANDOFF.md` §6
 # (Dependencias y tareas del Developer) y DEC-AUTO-147, pero nunca implementado por TKT-006 --
@@ -110,13 +156,24 @@ def _preparar_directorio(directorio: Path, area: str) -> None:
 
 
 def _guardar_bytes(area: str, relativa: str, contenido: bytes) -> None:
+    """Escritura atómica (TKT-048): se escribe en un temporal oculto del mismo directorio (nginx
+    no lo sirve: su location solo admite `[A-Za-z0-9/_-]+.(avif|webp|jpe?g)`) y se sustituye con
+    `os.replace`, de modo que nunca se publica un derivado a medio escribir (p. ej. cuando
+    `regenerar_derivados` escribe en `publico/`)."""
     ruta = _ruta_absoluta(area, relativa)
     _preparar_directorio(ruta.parent, area)
-    ruta.write_bytes(contenido)
+    temporal = ruta.with_name(f".{ruta.name}.tmp")
+    temporal.write_bytes(contenido)
     try:
-        os.chmod(ruta, _MODO_ARCHIVO[area])
+        os.chmod(temporal, _MODO_ARCHIVO[area])
     except OSError:  # pragma: no cover - defensivo (FS sin chmod POSIX real)
         logger.warning("chmod_archivo_fallo", ruta=str(ruta))
+    os.replace(temporal, ruta)
+
+
+def _borrar_archivos(relativa: str) -> None:
+    for area in (RAIZ_PUBLICA, RAIZ_PRIVADA):
+        _ruta_absoluta(area, relativa).unlink(missing_ok=True)
 
 
 def _sha256(contenido: bytes) -> str:
@@ -183,41 +240,200 @@ def _resanear(imagen: Image.Image) -> tuple[bytes, str, str]:
     return contenido, _sha256(contenido), extension
 
 
-def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
-    derivados: list[MedioDerivado] = []
+def _codificar(imagen: Image.Image, formato: str, calidad: int | None = None) -> bytes:
+    """Codifica `imagen` en `formato` con los parámetros de `PARAMETROS_CODIFICACION` (y, si se
+    indica, otra `quality`). Puede lanzar OSError/ValueError/KeyError si el formato no tiene
+    codificador en este Pillow."""
+    parametros = dict(PARAMETROS_CODIFICACION[formato])
+    if calidad is not None:
+        parametros["quality"] = calidad
+    buffer = io.BytesIO()
+    imagen.save(buffer, format=str(formato), **parametros)
+    return buffer.getvalue()
+
+
+def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> dict[str, bytes]:
+    """Codifica un ancho en los tres formatos garantizando AVIF ≤ WebP ≤ JPEG en bytes entre los
+    que se sirven (TKT-048): un formato eficiente que pesa más que el anterior servido se reintenta
+    con `CALIDADES_REINTENTO` y, si sigue pesando más, se descarta."""
+    resultado: dict[str, bytes] = {}
+    techo: int | None = None  # peso del último formato servido (el menos eficiente hasta aquí)
+    for formato in ORDEN_CODIFICACION:
+        if formato in no_soportados:
+            continue
+        try:
+            contenido = _codificar(redimensionada, formato)
+        except (OSError, ValueError, KeyError):
+            # El soporte de escritura AVIF depende de que Pillow esté compilado con libavif; si no
+            # está disponible se omite ese formato (se registra y se sigue).
+            logger.warning("derivado_omitido", formato=str(formato), ancho=redimensionada.width)
+            no_soportados.add(formato)
+            continue
+        if techo is not None and len(contenido) > techo:
+            for calidad in CALIDADES_REINTENTO.get(formato, ()):
+                contenido = _codificar(redimensionada, formato, calidad)
+                if len(contenido) <= techo:
+                    break
+            else:
+                logger.info(
+                    "derivado_descartado_por_peso",
+                    formato=str(formato),
+                    ancho=redimensionada.width,
+                    peso=len(contenido),
+                    techo=techo,
+                )
+                continue
+        resultado[formato] = contenido
+        techo = len(contenido)
+    return resultado
+
+
+def _codificar_derivados(imagen: Image.Image) -> Codificacion:
+    """Derivados responsivos de `imagen` (anchos de `ANCHOS_DERIVADOS` que no superan el original,
+    más el ancho original), sin metadatos (THREAT-007)."""
+    derivados: list[DerivadoCodificado] = []
+    no_soportados: set[str] = set()
     ancho_original, alto_original = imagen.size
     anchos = sorted({a for a in ANCHOS_DERIVADOS if a <= ancho_original} | {ancho_original})
     base = imagen.convert("RGB")
+    # `convert`/`resize` copian `info`: se vacía para que ningún codificador pueda reutilizar
+    # EXIF/XMP/ICC del archivo de origen (AVIF y WebP leen `icc_profile`/`exif` de `info`).
+    base.info = {}
     for ancho in anchos:
         alto = round(alto_original * (ancho / ancho_original))
         redimensionada = base.resize((ancho, alto), Image.Resampling.LANCZOS)
-        for formato in FORMATOS_DERIVADOS:
-            buffer = io.BytesIO()
-            try:
-                redimensionada.save(buffer, format=str(formato))
-            except (OSError, ValueError, KeyError):
-                # El soporte de escritura AVIF depende de que Pillow esté compilado con
-                # libavif; si no está disponible se omite ese derivado (se registra y se sigue).
-                logger.warning("derivado_omitido", formato=str(formato), ancho=ancho)
+        redimensionada.info = {}
+        for formato, contenido in _codificar_ancho(redimensionada, no_soportados).items():
+            derivados.append(DerivadoCodificado(formato, ancho, alto, contenido))
+    return Codificacion(derivados=derivados, no_soportados=frozenset(no_soportados))
+
+
+def _ruta_derivado(huella: str, ancho: int, formato: str, version: str = "") -> str:
+    """`derivados/<huella>-<ancho>.<ext>`; con `version` (regeneración, TKT-048),
+    `derivados/<huella>-<ancho>-<version>.<ext>`: nginx sirve `/media/publico/**` con
+    `Cache-Control: immutable` (un año), así que un contenido nuevo nunca reutiliza una URL ya
+    publicada -- los navegadores y cachés seguirían sirviendo el archivo antiguo."""
+    sufijo = f"-{version}" if version else ""
+    return f"derivados/{huella}-{ancho}{sufijo}.{str(formato).lower()}"
+
+
+def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
+    derivados: list[MedioDerivado] = []
+    for codificado in _codificar_derivados(imagen).derivados:
+        # Recién generado: el medio dueño siempre está en PENDIENTE_METADATOS (DEC-AUTO-110,
+        # ningún medio nace DISPONIBLE), así que el derivado empieza en `privado/`;
+        # `catalogar()` lo mueve a `publico/` si y cuando el medio pasa a DISPONIBLE.
+        ruta = _ruta_derivado(huella, codificado.ancho, codificado.formato)
+        _guardar_bytes(RAIZ_PRIVADA, ruta, codificado.contenido)
+        derivados.append(
+            MedioDerivado(
+                formato=codificado.formato,
+                ancho_px=codificado.ancho,
+                alto_px=codificado.alto,
+                ruta=ruta,
+                peso_bytes=len(codificado.contenido),
+                sha256=_sha256(codificado.contenido),
+            )
+        )
+    return derivados
+
+
+@dataclass
+class ResultadoRegeneracion:
+    creados: int = 0
+    actualizados: int = 0
+    sin_cambios: int = 0
+    eliminados: int = 0
+    omitido: bool = False
+
+
+def regenerar_derivados(medio_id: int) -> ResultadoRegeneracion:
+    """TKT-048: vuelve a codificar los derivados de un medio ya existente con los parámetros
+    actuales (`PARAMETROS_CODIFICACION`) a partir de su original saneado (`privado/originales/`).
+
+    - Idempotente: un derivado cuyo contenido no cambia (misma huella y archivo presente) no se
+      toca; una segunda ejecución no reescribe nada.
+    - Un derivado cuyo contenido cambia se escribe en una ruta NUEVA versionada con su huella
+      (`_ruta_derivado(..., version)`) en el área que corresponde al estado del medio
+      (DEC-AUTO-110: `publico/` solo si DISPONIBLE), y la fila pasa a apuntar a ella: las URL
+      públicas son `immutable` y no pueden cambiar de contenido. La API pública construye la URL a
+      partir de `ruta`, así que las páginas nuevas ya piden el archivo nuevo.
+    - Crea los derivados que falten y elimina (fila y archivo) los que la codificación actual
+      descarta por pesar más que un formato menos eficiente. Los formatos que este entorno no sabe
+      escribir (p. ej. AVIF sin libavif) se conservan tal cual.
+    - Los archivos sustituidos o descartados se borran solo si la transacción confirma
+      (`on_commit`): un rollback nunca deja una fila apuntando a un archivo inexistente (como mucho,
+      un archivo nuevo sin fila, inofensivo).
+    - Bloquea la fila del medio (`select_for_update`) para no cruzarse con `catalogar()`/
+      `retirar()`, que mueven los archivos entre áreas."""
+    resultado = ResultadoRegeneracion()
+    with transaction.atomic():
+        medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
+        if medio is None:
+            raise NoEncontrado()
+        original = _ruta_absoluta(RAIZ_PRIVADA, medio.archivo_saneado_ruta)
+        if not original.exists():
+            logger.warning("regenerar_original_no_encontrado", medio_id=medio.pk)
+            resultado.omitido = True
+            return resultado
+        with Image.open(original) as imagen:
+            imagen.load()
+            codificacion = _codificar_derivados(imagen)
+        area = RAIZ_PUBLICA if medio.estado == EstadoMedio.DISPONIBLE else RAIZ_PRIVADA
+        existentes = {(d.formato, d.ancho_px): d for d in medio.derivados.all()}
+        nuevos = {(c.formato, c.ancho): c for c in codificacion.derivados}
+        obsoletas: list[str] = []
+        for clave, codificado in nuevos.items():
+            sha = _sha256(codificado.contenido)
+            derivado = existentes.get(clave)
+            if (
+                derivado is not None
+                and derivado.sha256 == sha
+                and _ruta_absoluta(area, derivado.ruta).exists()
+            ):
+                resultado.sin_cambios += 1
                 continue
-            contenido = buffer.getvalue()
-            sha = _sha256(contenido)
-            # Recién generado: el medio dueño siempre está en PENDIENTE_METADATOS (DEC-AUTO-110,
-            # ningún medio nace DISPONIBLE), así que el derivado empieza en `privado/`;
-            # `catalogar()` lo mueve a `publico/` si y cuando el medio pasa a DISPONIBLE.
-            ruta = f"derivados/{huella}-{ancho}.{str(formato).lower()}"
-            _guardar_bytes(RAIZ_PRIVADA, ruta, contenido)
-            derivados.append(
-                MedioDerivado(
-                    formato=formato,
-                    ancho_px=ancho,
-                    alto_px=alto,
+            ruta = _ruta_derivado(
+                medio.huella_sha256, codificado.ancho, codificado.formato, version=sha[:12]
+            )
+            _guardar_bytes(area, ruta, codificado.contenido)
+            if derivado is None:
+                MedioDerivado.objects.create(
+                    medio=medio,
+                    formato=codificado.formato,
+                    ancho_px=codificado.ancho,
+                    alto_px=codificado.alto,
                     ruta=ruta,
-                    peso_bytes=len(contenido),
+                    peso_bytes=len(codificado.contenido),
                     sha256=sha,
                 )
-            )
-    return derivados
+                resultado.creados += 1
+            else:
+                if derivado.ruta != ruta:
+                    obsoletas.append(derivado.ruta)
+                derivado.alto_px = codificado.alto
+                derivado.ruta = ruta
+                derivado.peso_bytes = len(codificado.contenido)
+                derivado.sha256 = sha
+                derivado.save(update_fields=["alto_px", "ruta", "peso_bytes", "sha256"])
+                resultado.actualizados += 1
+        for clave, derivado in existentes.items():
+            if clave in nuevos or clave[0] in codificacion.no_soportados:
+                continue
+            obsoletas.append(derivado.ruta)
+            derivado.delete()
+            resultado.eliminados += 1
+        for ruta_obsoleta in obsoletas:
+            transaction.on_commit(partial(_borrar_archivos, ruta_obsoleta))
+    logger.info(
+        "derivados_regenerados",
+        medio_id=medio_id,
+        creados=resultado.creados,
+        actualizados=resultado.actualizados,
+        sin_cambios=resultado.sin_cambios,
+        eliminados=resultado.eliminados,
+    )
+    return resultado
 
 
 def _mover_derivados(medio: Medio, *, hacia: str) -> None:
