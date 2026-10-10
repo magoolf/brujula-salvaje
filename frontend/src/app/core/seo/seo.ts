@@ -3,12 +3,18 @@ import { CSP_NONCE, Injectable, REQUEST, Renderer2, RendererFactory2, inject } f
 import { Meta, Title } from '@angular/platform-browser';
 
 import { JsonLd, serializarJsonLd, urlAbsoluta } from './datos-estructurados';
+import { DerivadoImagenSeo, urlImagenRedes } from './imagen-redes';
 import { LOCALE_OG, NOMBRE_MARCA, SEPARADOR_TITULO } from './marca';
 
 export interface ImagenSeo {
   /** URL absoluta o ruta desde la raíz del mismo origen. */
   readonly url: string;
   readonly alt: string;
+  /**
+   * Derivados de la imagen: si se pasan, `og:image` usa el más adecuado para redes sociales
+   * (JPEG/WebP de ~1200 px, ver `urlImagenRedes`) en lugar de `url`.
+   */
+  readonly derivados?: readonly DerivadoImagenSeo[];
 }
 
 export interface MetadatosPagina {
@@ -82,7 +88,9 @@ export class Seo {
     this.fijarMeta(
       'property',
       'og:image',
-      datos.imagen ? urlAbsoluta(this.origen(), datos.imagen.url) : undefined,
+      datos.imagen
+        ? urlAbsoluta(this.origen(), urlImagenRedes(datos.imagen.url, datos.imagen.derivados))
+        : undefined,
     );
     this.fijarMeta('property', 'og:image:alt', datos.imagen?.alt);
     this.fijarMeta('name', 'twitter:card', datos.imagen ? 'summary_large_image' : 'summary');

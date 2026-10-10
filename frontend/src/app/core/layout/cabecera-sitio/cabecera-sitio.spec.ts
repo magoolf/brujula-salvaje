@@ -63,17 +63,28 @@ describe('CabeceraSitio (GI-01)', () => {
     fixture.nativeElement.remove();
   });
 
-  it('botón Menú abre el cajón modal (CDK Dialog) con retorno del foco', async () => {
+  it('botón Menú abre el cajón modal (CDK Dialog, cargado bajo demanda) con retorno del foco', async () => {
     const { raiz, fixture } = await crear();
     const abrir = vi.spyOn(TestBed.inject(Dialog), 'open');
-    (raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement).click();
+    const boton = raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement;
+    boton.click();
+    // Doble clic mientras se carga el módulo del cajón: un único diálogo (TKT-056).
+    boton.click();
+    await vi.waitFor(() => expect(abrir).toHaveBeenCalled());
+    expect(abrir).toHaveBeenCalledTimes(1);
     expect(abrir).toHaveBeenCalledWith(
       MenuMovil,
       expect.objectContaining({
         ariaLabelledBy: 'menu-movil-titulo',
-        restoreFocus: raiz.querySelector('[data-testid="cabecera-boton-menu"]'),
+        autoFocus: 'first-tabbable',
+        restoreFocus: boton,
       }),
     );
+    TestBed.inject(Dialog).closeAll();
+
+    // Ya cargado, un nuevo clic vuelve a abrirlo.
+    boton.click();
+    await vi.waitFor(() => expect(abrir).toHaveBeenCalledTimes(2));
     TestBed.inject(Dialog).closeAll();
     fixture.nativeElement.remove();
   });

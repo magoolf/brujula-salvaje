@@ -1,5 +1,4 @@
-import { Dialog } from '@angular/cdk/dialog';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, Injector, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Compartir } from '../../../core/layout/compartir';
@@ -23,7 +22,6 @@ import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-c
 import { formatoDuracion, formatoFechaEsCo, nombreMes, tieneItinerariosPropios } from '../domain/destino';
 import { formatoCoordenadas } from '../domain/mapa';
 import { DestinoDetalleStore } from '../state/destino-detalle.store';
-import { VisorGaleria } from './visor-galeria';
 
 /**
  * `sizes` de la portada de la ficha (imagen LCP, TKT-048): ocupa el ancho del contenedor
@@ -61,7 +59,7 @@ export class PaginaDestino {
   protected readonly store = inject(DestinoDetalleStore);
   protected readonly guardados = inject(GuardadosStore);
   private readonly compartirServicio = inject(Compartir);
-  private readonly dialogo = inject(Dialog);
+  private readonly injector = inject(Injector);
   private readonly seo = inject(Seo);
 
   protected readonly marca = NOMBRE_MARCA;
@@ -118,7 +116,9 @@ export class PaginaDestino {
       this.seo.establecer({
         titulo: destino.titulo,
         descripcion: destino.resumen,
-        imagen: destino.portada ? { url: destino.portada.src, alt: destino.portada.alt } : undefined,
+        imagen: destino.portada
+          ? { url: destino.portada.src, alt: destino.portada.alt, derivados: destino.portada.derivados }
+          : undefined,
         tipoOg: 'article',
         datosEstructurados,
       });
@@ -164,15 +164,23 @@ export class PaginaDestino {
     }
   }
 
-  protected abrirGaleria(indice: number): void {
+  private abriendoGaleria = false;
+
+  /** Abre el visor (cargado bajo demanda, TKT-056); un segundo clic durante la carga no abre otro. */
+  protected async abrirGaleria(indice: number): Promise<void> {
     const destino = this.store.destino();
-    if (destino === null || destino.galeria.length === 0) return;
-    this.dialogo.open(VisorGaleria, {
-      data: { imagenes: destino.galeria, indiceInicial: indice, tituloDestino: destino.titulo },
-      backdropClass: 'bs-fondo-dialogo',
-      panelClass: 'bs-panel-dialogo-completo',
-      autoFocus: 'first-tabbable',
-    });
+    if (destino === null || destino.galeria.length === 0 || this.abriendoGaleria) return;
+    this.abriendoGaleria = true;
+    try {
+      const { abrirVisorGaleria } = await import('./visor-galeria');
+      abrirVisorGaleria(this.injector, {
+        imagenes: destino.galeria,
+        indiceInicial: indice,
+        tituloDestino: destino.titulo,
+      });
+    } finally {
+      this.abriendoGaleria = false;
+    }
   }
 
   protected esMesRecomendado(mes: number): boolean {

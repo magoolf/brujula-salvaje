@@ -78,7 +78,9 @@ export class PaginaGuia {
       this.seo.establecer({
         titulo: guia.titulo,
         descripcion: guia.resumen,
-        imagen: guia.portada ? { url: guia.portada.src, alt: guia.portada.alt } : undefined,
+        imagen: guia.portada
+          ? { url: guia.portada.src, alt: guia.portada.alt, derivados: guia.portada.derivados }
+          : undefined,
         tipoOg: 'article',
         datosEstructurados,
       });

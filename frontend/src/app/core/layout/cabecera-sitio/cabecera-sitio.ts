@@ -1,5 +1,3 @@
-import { Dialog } from '@angular/cdk/dialog';
-import { Overlay } from '@angular/cdk/overlay';
 import {
   Component,
   ElementRef,
@@ -15,13 +13,13 @@ import { CampoBusqueda } from '../../../shared/ui/campo-busqueda/campo-busqueda'
 import { Enlace } from '../../../shared/ui/enlace/enlace';
 import { Icono } from '../../../shared/ui/icono/icono';
 import { NOMBRE_MARCA } from '../../seo/marca';
-import { MenuMovil } from '../menu-movil/menu-movil';
 import { NAVEGACION_PRINCIPAL } from '../navegacion';
 
 /**
  * SiteHeader GI-01 (HANDOFF_UI_UX): fija arriba (64 px; 72 px ≥ xl).
  * - ≥ xl: logo · navegación principal · búsqueda en línea.
- * - < xl: logo · botón Buscar (fila desplegable, Esc la cierra) · botón Menú (cajón CDK Dialog).
+ * - < xl: logo · botón Buscar (fila desplegable, Esc la cierra) · botón Menú (cajón CDK Dialog,
+ *   cargado bajo demanda al pulsarlo: TKT-056, ver menu-movil/abrir-menu-movil.ts).
  * Enlaces SHOULD/COULD (Colecciones*, Cuándo ir*, Guardados*) omitidos hasta que existan (RULE-030).
  *
  * TKT-049 (QA TKT-041 OBS-C2-04): con los siete enlaces, a 1280-1440 px la fila no cabía y el
@@ -209,8 +207,6 @@ export class CabeceraSitio {
   protected readonly marca = NOMBRE_MARCA;
   protected readonly navegacion = NAVEGACION_PRINCIPAL;
 
-  private readonly dialogo = inject(Dialog);
-  private readonly overlay = inject(Overlay);
   private readonly injector = inject(Injector);
   private readonly botonMenu = viewChild.required<ElementRef<HTMLButtonElement>>('botonMenu');
   private readonly botonBuscar = viewChild.required<ElementRef<HTMLButtonElement>>('botonBuscar');
@@ -218,14 +214,18 @@ export class CabeceraSitio {
   private readonly _busquedaAbierta = signal(false);
   protected readonly busquedaAbierta = this._busquedaAbierta.asReadonly();
 
-  protected abrirMenu(): void {
-    this.dialogo.open(MenuMovil, {
-      ariaLabelledBy: 'menu-movil-titulo',
-      backdropClass: 'bs-fondo-dialogo',
-      positionStrategy: this.overlay.position().global().left('0').top('0'),
-      autoFocus: 'first-tabbable',
-      restoreFocus: this.botonMenu().nativeElement,
-    });
+  private abriendoMenu = false;
+
+  /** Abre el cajón; un segundo clic mientras se carga su módulo no abre otro. */
+  protected async abrirMenu(): Promise<void> {
+    if (this.abriendoMenu) return;
+    this.abriendoMenu = true;
+    try {
+      const { abrirMenuMovil } = await import('../menu-movil/abrir-menu-movil');
+      abrirMenuMovil(this.injector, this.botonMenu().nativeElement);
+    } finally {
+      this.abriendoMenu = false;
+    }
   }
 
   protected alternarBusqueda(): void {
