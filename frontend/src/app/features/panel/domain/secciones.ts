@@ -30,9 +30,31 @@ export interface SeccionPanel {
 export const RUTA_TABLERO = '/panel';
 /** SCR-039 Biblioteca de medios (MOD-011, TKT-022). */
 export const RUTA_MEDIOS = '/panel/medios';
+/** SCR-035 Listados de contenidos por tipo (MOD-010, TKT-023). */
+export const RUTA_CONTENIDO = '/panel/contenido';
+
+const contenido = (id: string, etiqueta: string, ruta: string): SeccionPanel => ({
+  id: `contenido-${id}`,
+  etiqueta,
+  ruta: `${RUTA_CONTENIDO}/${ruta}`,
+  rolMinimo: 'EDITOR',
+  accesosRapidos: [],
+});
 
 export const SECCIONES_PANEL: readonly SeccionPanel[] = [
   { id: 'tablero', etiqueta: 'Tablero', ruta: RUTA_TABLERO, rolMinimo: 'EDITOR', accesosRapidos: [] },
+  {
+    ...contenido('destinos', 'Destinos', 'destinos'),
+    accesosRapidos: [
+      { id: 'nuevo-destino', etiqueta: 'Nuevo destino', ruta: `${RUTA_CONTENIDO}/destinos/nuevo` },
+    ],
+  },
+  contenido('itinerarios', 'Itinerarios', 'itinerarios'),
+  contenido('guias', 'Guías', 'guias'),
+  contenido('tipos-aventura', 'Tipos de aventura', 'tipos-aventura'),
+  contenido('colecciones', 'Colecciones', 'colecciones'),
+  contenido('glosario', 'Glosario', 'glosario'),
+  contenido('paginas', 'Páginas institucionales', 'paginas'),
   {
     id: 'medios',
     etiqueta: 'Medios',

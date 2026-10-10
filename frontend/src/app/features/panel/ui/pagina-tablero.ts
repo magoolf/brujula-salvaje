@@ -15,7 +15,9 @@ import {
   totalConteo,
   varianteEstado,
 } from '../domain/tablero';
+import { rutaEditor, rutaListado } from '../domain/contenidos';
 import { formatearFechaHora } from '../domain/fechas';
+import { TipoContenido } from '../domain/modelos';
 import { TableroStore } from '../state/tablero.store';
 import { AccesoDenegado } from './acceso-denegado';
 
@@ -108,10 +110,10 @@ import { AccesoDenegado } from './acceso-denegado';
                   <tbody>
                     @for (conteo of tablero.conteos; track conteo.tipo) {
                       <tr [attr.data-testid]="'tablero-conteo-' + conteo.tipo">
-                        <th scope="row">{{ etiquetaTipo[conteo.tipo] }}</th>
-                        <td>{{ conteo.borrador }}</td>
-                        <td>{{ conteo.publicado }}</td>
-                        <td>{{ conteo.retirado }}</td>
+                        <th scope="row"><a [routerLink]="listado(conteo.tipo)">{{ etiquetaTipo[conteo.tipo] }}</a></th>
+                        <td><a [routerLink]="listado(conteo.tipo)" [queryParams]="{ estado: 'BORRADOR' }" [attr.aria-label]="conteo.borrador + ' ' + etiquetaTipo[conteo.tipo] + ' en borrador'">{{ conteo.borrador }}</a></td>
+                        <td><a [routerLink]="listado(conteo.tipo)" [queryParams]="{ estado: 'PUBLICADO' }" [attr.aria-label]="conteo.publicado + ' ' + etiquetaTipo[conteo.tipo] + ' publicados'">{{ conteo.publicado }}</a></td>
+                        <td><a [routerLink]="listado(conteo.tipo)" [queryParams]="{ estado: 'RETIRADO' }" [attr.aria-label]="conteo.retirado + ' ' + etiquetaTipo[conteo.tipo] + ' retirados'">{{ conteo.retirado }}</a></td>
                         <td>{{ total(conteo) }}</td>
                       </tr>
                     }
@@ -128,7 +130,7 @@ import { AccesoDenegado } from './acceso-denegado';
                 <ul class="recientes" data-testid="tablero-recientes">
                   @for (contenido of tablero.recientes; track contenido.tipo + contenido.id) {
                     <li class="reciente">
-                      <p class="titulo">{{ contenido.titulo }}</p>
+                      <p class="titulo"><a [routerLink]="editor(contenido)">{{ contenido.titulo }}</a></p>
                       <p class="meta">
                         <span>{{ etiquetaTipoSingular[contenido.tipo] }}</span>
                         <app-insignia [variante]="variante(contenido.estado)">{{ etiquetaEstado[contenido.estado] }}</app-insignia>
@@ -273,6 +275,12 @@ export class PaginaTablero {
   protected readonly total = totalConteo;
   protected readonly variante = varianteEstado;
   protected readonly fechaHora = formatearFechaHora;
+  /** SCR-034 → SCR-035: cada número enlaza al listado filtrado (TKT-023). */
+  protected readonly listado = rutaListado;
+
+  protected editor(contenido: { readonly tipo: TipoContenido; readonly id: number }): string {
+    return rutaEditor(contenido.tipo, contenido.id);
+  }
 
   constructor() {
     inject(Seo).establecer({ titulo: 'Tablero', indexable: false });
