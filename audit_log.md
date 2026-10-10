@@ -475,3 +475,5 @@
 2026-10-10 | INTEGRACION | TKT-048 | PR #84 sincronizado con main, CI verde, integrado. DONE | PR #84
 2026-10-10 | INTEGRACION | TKT-052 | PR #83 sincronizado con main, CI verde, integrado. DONE | PR #83
 2026-10-10 | ENTREGA | TKT-024 | Corrección ciclo 1 @ 48fe6ab, CI verde (DEC-AUTO-1048/1049). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-024
+2026-10-10 | ENTREGA | TKT-058 | PR #87 @ 26dc29b, CI verde: la auditoría resuelve la etiqueta del actor. Riesgo: cargar_semilla sin 'sistema' -> TKT-060 (DEC-AUTO-1025, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-058
+2026-10-10 | DELEGACION | TKT-058 | QA ciclo 1/3 sobre PR #87 | kanban.md
