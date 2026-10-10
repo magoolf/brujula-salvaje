@@ -21,11 +21,33 @@ from apps.auditoria.models import (
     ResultadoAuditoria,
 )
 from apps.core.throttling import red_truncada
+from apps.cuentas.models import CuentaStaff
 
 ETIQUETA_DESCONOCIDO = "desconocido"
 ETIQUETA_SISTEMA = "sistema"
 _LARGO_ETIQUETA = 60
 _LARGO_TITULO = 150
+# Mismo seudónimo que pone app.fn_auditoria_seudonimizar (0002_inmutabilidad, ADR-DB-004 §1).
+PREFIJO_SEUDONIMO = "Cuenta anonimizada #"
+
+
+def etiqueta_de_actor(actor_id: int | None) -> str:
+    """Etiqueta del actor para `actor_etiqueta` (ActorRef.etiqueta: "Usuario o seudónimo").
+
+    - Sin actor o con una cuenta inexistente: 'desconocido' (DB_HANDOFF, ADR-DB-004 §1.5).
+    - Cuenta con usuario: su nombre de usuario (igual que `apps.cuentas.services._auditar`).
+    - Cuenta sin usuario: solo una cuenta ANONIMIZADA puede no tenerlo (ck_cuenta_staff_identidad),
+      así que recibe el mismo seudónimo que la seudonimización; nunca se guarda PII suya.
+
+    Una sola consulta por clave primaria, y solo cuando el llamante no pasa la etiqueta.
+    """
+    if actor_id is None:
+        return ETIQUETA_DESCONOCIDO
+    filas = list(CuentaStaff.objects.filter(pk=actor_id).values_list("usuario", flat=True)[:1])
+    if not filas:
+        return ETIQUETA_DESCONOCIDO
+    usuario = filas[0]
+    return str(usuario) if usuario else f"{PREFIJO_SEUDONIMO}{actor_id}"
 
 
 def registrar_evento(
@@ -40,8 +62,12 @@ def registrar_evento(
     campos_cambiados: Iterable[str] | None = None,
     ip: str | None = None,
 ) -> EventoAuditoria:
-    """Inserta un evento. La IP del cliente se trunca y solo se guarda si la acción lo admite."""
-    etiqueta = actor_etiqueta or (ETIQUETA_DESCONOCIDO if actor_id is None else f"#{actor_id}")
+    """Inserta un evento. La IP del cliente se trunca y solo se guarda si la acción lo admite.
+
+    Sin `actor_etiqueta` explícita, la etiqueta se resuelve desde la cuenta del actor
+    (`etiqueta_de_actor`), con el mismo criterio que los eventos de cuentas (TKT-058, AC-030).
+    """
+    etiqueta = actor_etiqueta or etiqueta_de_actor(actor_id)
     campos = sorted(set(campos_cambiados)) if campos_cambiados is not None else None
     return EventoAuditoria.objects.create(
         actor_id=actor_id,
