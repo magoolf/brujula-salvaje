@@ -502,3 +502,5 @@
 2026-10-10 | DELEGACION | TKT-060 | Developer etiqueta 'sistema' en comandos de gestión (worktree aislado) | kanban.md
 2026-10-10 | INTEGRACION | TKT-043 | PR #89 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-064, TKT-065, TKT-066) | PR #89
 2026-10-10 | INTEGRACION | TKT-061 | PR #88 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-063) | PR #88
+2026-10-10 | ENTREGA | TKT-065 | PR #92 @ 0e80078, CI verde: panel-subida aplicado a la subida de medios (DEC-AUTO-1140/1141) | HANDOFF_ENVELOPE TKT-065
+2026-10-10 | DELEGACION | TKT-065 | QA ciclo 1/3 sobre PR #92 | kanban.md
