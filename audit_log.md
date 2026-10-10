@@ -486,3 +486,4 @@
 2026-10-10 | DELEGACION | TKT-056 | Developer HIGH bundle JS/LCP (worktree aislado, frontend/src/app/**); único ticket de frontend activo (TKT-055 espera por solaparse) | kanban.md
 2026-10-10 | QA_PASS | TKT-057 | QA_VERDICT PASS ciclo 1/3 @ 674646e. OBS-QA057-01 LOW -> alcance de TKT-062 (se amplían sus archivos a inicio/services.py y auditoria/services.py por OBS-QA058-01). Integración por PR #86 tras PR #87 | HANDOFF_ENVELOPE QA TKT-057
 2026-10-10 | DELEGACION | TKT-043 | Developer LimitePorAmbito sobre DatabaseCache (worktree aislado, core/config). Disjunto de TKT-061 y TKT-056 | kanban.md
+2026-10-10 | INTEGRACION | TKT-024 | PR #85 sincronizado con main, CI verde, integrado. DONE (panel completo 4/4) | PR #85
