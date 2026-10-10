@@ -479,3 +479,5 @@
 2026-10-10 | DELEGACION | TKT-058 | QA ciclo 1/3 sobre PR #87 | kanban.md
 2026-10-10 | ENTREGA | TKT-057 | PR #86 @ 674646e, CI verde: referencias reales y etiqueta del usuario en /panel/inicio (DEC-AUTO-1080..1083). R-1080-1 -> TKT-061 (DEC-AUTO-1026), R-1080-2 -> TKT-062 (DEC-AUTO-1027), ambos ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles | HANDOFF_ENVELOPE TKT-057
 2026-10-10 | DELEGACION | TKT-057 | QA ciclo 1/3 sobre PR #86 | kanban.md
+2026-10-10 | QA_PASS | TKT-024 | QA_VERDICT PASS ciclo 2/3 @ 48fe6ab: FALLO-01/02 corregidos, OBS-PERF-01 residual INFO aceptado. Integración por PR #85 en curso | HANDOFF_ENVELOPE QA TKT-024
+2026-10-10 | DELEGACION | TKT-061 | Developer teardown robusto del test de migraciones de cuentas (worktree aislado) | kanban.md
