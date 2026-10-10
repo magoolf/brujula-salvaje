@@ -33,17 +33,28 @@ export class GuiasCategoriaStore {
     { requireSync: true },
   );
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
   private readonly recursoCategoria = resource({
+    id: `recurso:guias-categoria:${this.slug()}`,
     params: () => this.slug(),
     loader: ({ params }) => this.repo.categoria(params),
   });
 
+  // `id` (TKT-016): ver el comentario de `recursoCategoria`.
   private readonly recursoGuias = resource({
+    id: `recurso:guias-de-categoria:${this.slug()}:${this.pagina$()}`,
     params: () => ({ slug: this.slug(), pagina: this.pagina$() }),
     loader: ({ params }) => this.repo.listarGuias(params.slug, params.pagina),
   });
 
-  private readonly recursoOtrasCategorias = resource({ loader: () => this.repo.listarCategorias(1) });
+  // `id` (TKT-016): ver el comentario de `recursoCategoria`.
+  private readonly recursoOtrasCategorias = resource({
+    id: 'recurso:guias-otras-categorias',
+    loader: () => this.repo.listarCategorias(1),
+  });
 
   readonly categoria = computed(() =>
     this.recursoCategoria.hasValue() ? this.recursoCategoria.value() : null,

@@ -37,8 +37,27 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/*
+ * TKT-016 (QA F-02): Bricolage Grotesque solo se usa en negrita (600-800). El respaldo anterior
+ * cargaba Arial normal (negrita sintética, más estrecha) con size-adjust 104 %, así que los títulos
+ * cortaban en menos líneas y al llegar la fuente real el contenido bajaba (CLS 0,25 en /destinos,
+ * Lighthouse móvil). Métricas calculadas con fontTools sobre la WOFF2 instanciada en wght 700
+ * (unitsPerEm 1000, ascender 930, descender 270, lineGap 0) frente a Arial Bold con texto real del
+ * sitio: ancho medio 101,3 % (100,1 % en 600, 102,5 % en 800). ascent/descent = métrica / size-adjust.
+ */
 @font-face {
   font-family: 'Bricolage Fallback';
+  font-weight: 600 800;
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Bold'), local('Liberation Sans Bold');
+  size-adjust: 101.3%;
+  ascent-override: 91.8%;
+  descent-override: 26.7%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Bricolage Fallback';
+  font-weight: 400 500;
   src: local('Arial'), local('Helvetica'), local('Liberation Sans');
   size-adjust: 104%;
   ascent-override: 90%;

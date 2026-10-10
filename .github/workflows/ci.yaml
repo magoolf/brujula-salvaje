@@ -71,6 +71,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false, fetch-depth: 0}
+      # TKT-OPS-033 (DEC-AUTO-989): Docker Hub anónimo (429/504 en auth.docker.io) tumbaba este job al
+      # resolver "# syntax=docker/dockerfile:1". Espejo mirror.gcr.io en el Engine (registry-mirrors;
+      # FROM y digests sin cambios, Dependabot intacto) y reintentos con backoff en los builds.
+      - name: "reintentos con backoff: controles"
+        timeout-minutes: 2
+        run: bash infra/ci/reintentar_controles.sh infra/ci/reintentar.sh
+      - name: espejo de Docker Hub en el Engine (mirror.gcr.io, sin credenciales)
+        timeout-minutes: 3
+        run: bash infra/ci/espejo_registro.sh
       # TKT-OPS-022 (F-PRE-01): toda contraseña/clave efímera del .env se enmascara (comando add-mask
       # de Actions) nada más generarse, antes de cualquier salida que pudiera contenerla.
       # TKT-OPS-027 (F-QA022-04): con --plantilla .env.example se enmascaran y exigen TODAS las
@@ -138,6 +147,7 @@ jobs:
           pipx run "semgrep==${SEMGREP_VERSION}" scan --metrics=off --error --config p/docker-compose "$d"
       - name: INFRA-DB-000 (init de PostgreSQL 18.6 en modo CI)
         run: |
+          bash infra/ci/reintentar.sh 3 20 -- docker compose -f compose.yaml -f compose.ci.yaml build db
           docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
           # datlocprovider es de tipo "char": sin ::text, "char" || unknown es ambiguo en PostgreSQL 18
           # (ERROR: operator is not unique; TKT-OPS-003).
@@ -204,9 +214,15 @@ jobs:
           uv run --frozen ruff format --check .
       - name: typecheck
         run: uv run --frozen mypy .
+      - name: espejo de Docker Hub en el Engine (mirror.gcr.io, TKT-OPS-033)
+        working-directory: .
+        timeout-minutes: 3
+        run: bash infra/ci/espejo_registro.sh
       - name: PostgreSQL efímero (INFRA-DB-000 + plantilla de test)
         working-directory: .
-        run: docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
+        run: |
+          bash infra/ci/reintentar.sh 3 20 -- docker compose -f compose.yaml -f compose.ci.yaml build db
+          docker compose -f compose.yaml -f compose.ci.yaml up -d --wait db
       - name: migraciones (makemigrations --check + migrate)
         run: |
           uv run --frozen python manage.py makemigrations --check --dry-run
@@ -327,14 +343,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
+      # TKT-OPS-033: el Engine (que descarga moby/buildkit para el builder) y el BuildKit del builder
+      # docker-container usan el espejo mirror.gcr.io para docker.io (infra/ci/buildkitd.toml).
+      - name: espejo de Docker Hub en el Engine (mirror.gcr.io, sin credenciales)
+        timeout-minutes: 3
+        run: bash infra/ci/espejo_registro.sh
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with: {buildkitd-config: infra/ci/buildkitd.toml}
       - name: .env efímero (enmascarado, TKT-OPS-022)
         run: |
           bash scripts/ops/init-env.sh .env
           bash infra/ci/enmascarar_env.sh .env --plantilla .env.example DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
       - name: build imágenes (sin push)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
-        run: docker compose --profile ops build --pull
+        run: bash infra/ci/reintentar.sh 3 20 -- docker compose --profile ops build --pull
       - name: herramientas (trivy, syft) con sha256
         run: |
           curl -fsSLo /tmp/trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
