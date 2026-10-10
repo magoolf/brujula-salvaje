@@ -530,14 +530,14 @@ tickets:
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-004, TKT-057]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ c953047: causa raíz reproducida (main 1/30 agresivo y 0/10 ralentizado; rama 40/40 y 30/30), no termina sesiones ajenas, plazo acotado, sin BD residuales, pytest 1622, seguridad 0. OBS-QA061-01 -> TKT-063. Integración tras PR #89."]
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ c953047: causa raíz reproducida (main 1/30 agresivo y 0/10 ralentizado; rama 40/40 y 30/30), no termina sesiones ajenas, plazo acotado, sin BD residuales, pytest 1622, seguridad 0. OBS-QA061-01 -> TKT-063. Integrado PR #88. DONE."]
     actualizado: 2026-10-10
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
