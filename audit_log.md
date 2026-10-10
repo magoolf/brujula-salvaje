@@ -500,3 +500,4 @@
 2026-10-10 | DELEGACION | TKT-065 | Developer ámbito panel-subida en medios (worktree aislado, apps/medios/api) | kanban.md
 2026-10-10 | QA_PASS | TKT-061 | QA_VERDICT PASS ciclo 1/3 @ c953047. OBS-QA061-01 LOW -> alcance de TKT-063 (se añade backend/conftest.py a sus archivos). Integración por PR #88 tras PR #89 | HANDOFF_ENVELOPE QA TKT-061
 2026-10-10 | DELEGACION | TKT-060 | Developer etiqueta 'sistema' en comandos de gestión (worktree aislado) | kanban.md
+2026-10-10 | INTEGRACION | TKT-043 | PR #89 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-064, TKT-065, TKT-066) | PR #89
