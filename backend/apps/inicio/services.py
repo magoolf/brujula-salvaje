@@ -23,6 +23,7 @@ from apps.contenido.models import (
     TipoContenido,
 )
 from apps.core.exceptions import ErrorApi, NoEncontrado
+from apps.inicio import selectors
 from apps.inicio.models import (
     ID_SINGLETON,
     ConfigInicio,
@@ -52,7 +53,8 @@ class ReglaNegocio(ErrorApi):
 
 
 def obtener_config_inicio() -> ConfigInicio:
-    config = ConfigInicio.objects.filter(pk=ID_SINGLETON).select_related("hero_medio").first()
+    """Singleton con autor y medio del hero cargados (`selectors.config_inicio_panel`, TKT-057)."""
+    config = selectors.config_inicio_panel()
     if config is None:
         raise NoEncontrado()
     return config
@@ -123,7 +125,9 @@ def actualizar_config_inicio(actor_id: int, datos: dict[str, Any]) -> ConfigInic
             tipo_entidad="CONFIG_INICIO",
             entidad_id=ID_SINGLETON,
         )
-        return config
+    # Relectura con las relaciones que pinta la respuesta (TKT-057): la fila bloqueada no las
+    # trae y serializarla dispararía una consulta por relación.
+    return obtener_config_inicio()
 
 
 def obtener_config_sitio() -> ConfigSitio:

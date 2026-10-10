@@ -4,8 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.inicio.models import ID_SINGLETON, ConfigInicio, ConfigSitio, DestacadoInicio
-from apps.medios.selectors import medios_publicos
+from django.db.models import Prefetch
+
+from apps.contenido.models import Contenido
+from apps.inicio.models import (
+    ID_SINGLETON,
+    ConfigInicio,
+    ConfigSitio,
+    DestacadoInicio,
+    SeccionInicio,
+)
+from apps.medios.selectors import derivados_ordenados, medios_publicos
 
 MARCA_POR_DEFECTO = "Brújula Salvaje"
 
@@ -52,3 +61,26 @@ def ids_destacados(seccion: str) -> list[int]:
         .order_by("orden", "id")
         .values_list("contenido_id", flat=True)
     )
+
+
+def config_inicio_panel() -> ConfigInicio | None:
+    """Singleton para el panel (TKT-057) con todo lo que pinta `ConfigInicioPanel` cargado en 2
+    consultas: el autor de la última edición y el medio del hero con su licencia (JOIN) y sus
+    derivados (prefetch). El panel ve el medio en cualquier estado (no se filtra DISPONIBLE)."""
+    return (
+        ConfigInicio.objects.filter(pk=ID_SINGLETON)
+        .select_related("actualizado_por", "hero_medio__licencia")
+        .prefetch_related(Prefetch("hero_medio__derivados", queryset=derivados_ordenados()))
+        .first()
+    )
+
+
+def destacados_panel() -> dict[str, list[Contenido]]:
+    """Contenidos destacados por sección (en su orden), en UNA consulta con su contenido (JOIN):
+    alimenta `*_ids` y `referencias.contenidos` de `ConfigInicioPanel` sin N+1 (TKT-057). No
+    filtra por estado: el panel debe ver también los destacados retirados o en borrador."""
+    secciones: dict[str, list[Contenido]] = {seccion: [] for seccion in SeccionInicio.values}
+    filas = DestacadoInicio.objects.select_related("contenido").order_by("orden", "id")
+    for destacado in filas:
+        secciones[destacado.seccion].append(destacado.contenido)
+    return secciones

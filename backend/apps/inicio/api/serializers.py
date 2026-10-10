@@ -140,22 +140,72 @@ class ConfigInicioPanelSerializer(ConfigInicioCamposMixin):
         from apps.inicio import selectors
 
         config = instance
+        destacados = selectors.destacados_panel()
+        secciones = ("DESTINOS", "ITINERARIOS", "GUIAS")
+        medio = _medio_miniatura(config.hero_medio)
         return {
             "hero_titular": config.hero_titular,
             "hero_subtitulo": config.hero_subtitulo,
             "hero_medio_id": config.hero_medio_id,
-            "destinos_ids": selectors.ids_destacados("DESTINOS"),
-            "itinerarios_ids": selectors.ids_destacados("ITINERARIOS"),
-            "guias_ids": selectors.ids_destacados("GUIAS"),
+            "destinos_ids": [c.pk for c in destacados["DESTINOS"]],
+            "itinerarios_ids": [c.pk for c in destacados["ITINERARIOS"]],
+            "guias_ids": [c.pk for c in destacados["GUIAS"]],
             "actualizado_en": config.actualizado_en,
-            "actualizado_por": {
-                "id": config.actualizado_por_id,
-                "etiqueta": f"#{config.actualizado_por_id}"
-                if config.actualizado_por_id
-                else "sistema",
+            "actualizado_por": _actor_ref(config.actualizado_por),
+            "referencias": {
+                "medios": [medio] if medio is not None else [],
+                "contenidos": [
+                    {
+                        "tipo": c.tipo,
+                        "id": c.pk,
+                        "titulo": c.titulo,
+                        "slug": c.slug,
+                        "estado_editorial": c.estado_editorial,
+                    }
+                    for seccion in secciones
+                    for c in destacados[seccion]
+                ],
             },
-            "referencias": {"medios": [], "contenidos": []},
         }
+
+
+ETIQUETA_SISTEMA = "sistema"
+# Preferencia de formato de la miniatura a igual ancho (DEC-AUTO-1080): WebP lo pinta cualquier
+# navegador soportado y pesa menos que JPEG; AVIF puede faltar (depende de libavif en Pillow).
+_PREFERENCIA_FORMATO = {"WEBP": 0, "JPEG": 1, "AVIF": 2}
+
+
+def _actor_ref(cuenta: Any) -> dict[str, Any]:
+    """components.schemas.ActorRef: `usuario` de la cuenta; si está anonimizada (usuario NULL),
+    el mismo seudónimo que `CuentaSerializer.etiqueta` y la auditoría seudonimizada
+    ("Cuenta anonimizada #<id>"); "sistema" cuando no hay actor (carga semilla, TKT-057)."""
+    if cuenta is None:
+        return {"id": None, "etiqueta": ETIQUETA_SISTEMA}
+    return {"id": cuenta.pk, "etiqueta": cuenta.usuario or f"Cuenta anonimizada #{cuenta.pk}"}
+
+
+def _medio_miniatura(medio: Any) -> dict[str, Any] | None:
+    """components.schemas.MedioMiniatura del medio del hero. `url_miniatura` apunta al canal
+    autenticado del panel (`panelObtenerArchivoMedio`, sirve también medios no DISPONIBLES) con el
+    derivado más estrecho (DEC-AUTO-1080). Sin derivados no hay miniatura que enlazar y el medio
+    se omite (`referencias.medios` no tiene `minItems`, DEC-AUTO-1081). Usa los derivados ya
+    precargados por `selectors.config_inicio_panel` (sin consultas nuevas)."""
+    derivados = sorted(
+        medio.derivados.all(),
+        key=lambda d: (d.ancho_px, _PREFERENCIA_FORMATO.get(d.formato, 99), d.pk),
+    )
+    if not derivados:
+        return None
+    menor = derivados[0]
+    return {
+        "id": medio.pk,
+        "estado": medio.estado,
+        "texto_alternativo": medio.texto_alternativo,
+        "licencia_codigo": medio.licencia.codigo if medio.licencia_id else None,
+        "url_miniatura": (
+            f"/api/v1/panel/medios/{medio.pk}/archivo?ancho={menor.ancho_px}&formato={menor.formato}"
+        ),
+    }
 
 
 def _texto_opcional(max_length: int) -> serializers.RegexField:
