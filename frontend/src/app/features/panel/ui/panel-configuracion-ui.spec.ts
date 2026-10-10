@@ -220,7 +220,9 @@ async function pulsar(m: Montaje, testId: string): Promise<void> {
   await estable(m.harness);
 }
 
-describe('Panel · configuración editorial y administración (TKT-024)', () => {
+// Casos de varias pantallas con router real: margen ante la carga del equipo (la suite completa
+// comparte CPU); el valor por defecto (5 s) se agotaba con la suite completa en paralelo.
+describe('Panel · configuración editorial y administración (TKT-024)', { timeout: 20_000 }, () => {
   afterEach(() => TestBed.resetTestingModule());
 
   it('AC_TKT010_08 / AC_TKT024_11 un Editor en /panel/usuarios ve SCR-048 conservando la URL; el Administrador accede', async () => {
