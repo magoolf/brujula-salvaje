@@ -11,6 +11,7 @@ import { MedidorDificultad } from '../../../shared/ui/medidor-dificultad/medidor
 import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-contenido';
 import { AccesoMosaico, ACCESOS_MOSAICO, esInicioVacio } from '../domain/inicio';
 import { InicioStore } from '../state/inicio.store';
+import { SIZES_IMAGEN_PRINCIPAL, planImagenPrincipal } from './imagen-principal';
 
 /**
  * TKT-009 (QA ciclo 1/3, RULE-030): Colecciones ya existe (MOD-005) pero `ACCESOS_MOSAICO` vive en
@@ -47,6 +48,12 @@ export class PaginaInicio {
   protected readonly marca = NOMBRE_MARCA;
   protected readonly accesosMosaico: readonly AccesoMosaico[] = [...ACCESOS_MOSAICO, ACCESO_COLECCIONES];
   protected readonly buscandoSorpresa = signal(false);
+
+  /** Imagen LCP del bloque principal (TKT-048): `<picture>` AVIF/WebP + respaldo JPEG. */
+  protected readonly imagenPrincipal = computed(() =>
+    planImagenPrincipal(this.store.inicio()?.hero?.imagen ?? null),
+  );
+  protected readonly sizesImagenPrincipal = SIZES_IMAGEN_PRINCIPAL;
 
   protected readonly vacio = computed(() => {
     const inicio = this.store.inicio();
