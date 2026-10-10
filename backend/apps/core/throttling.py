@@ -102,24 +102,28 @@ FRECUENCIA_PURGA = 200
 # Una sola sentencia y una sola fila por (ámbito, origen): el ON CONFLICT DO UPDATE toma el
 # bloqueo de la fila y evalúa el WHERE sobre su versión más reciente, así que las peticiones
 # simultáneas se serializan en la fila y ninguna pierde la marca de otra. Si la cuota está
-# agotada el WHERE es falso: no se modifica nada y RETURNING no devuelve filas (denegada).
+# agotada el WHERE es falso: no se modifica nada y el CTE no devuelve filas (denegada); en ese
+# caso, y solo en ese, la misma sentencia lee el historial vigente (instantánea del inicio de la
+# sentencia), que solo sirve para calcular Retry-After. Un único viaje a la BD en ambos casos.
 # Identificador de tabla citado con quote_name (configuración LOCATION); valores parametrizados.
 _SQL_REGISTRAR = """
-INSERT INTO {tabla} AS c (cache_key, value, expires)
-VALUES (%(clave)s, ARRAY[%(ahora)s::float8]::text, to_timestamp(%(ahora)s + %(ventana)s))
-ON CONFLICT (cache_key) DO UPDATE SET
-  value = array_append(
-    ARRAY(SELECT m FROM unnest(c.value::float8[]) AS m WHERE m > %(desde)s ORDER BY m),
-    %(ahora)s::float8
-  )::text,
-  expires = EXCLUDED.expires
-WHERE (SELECT count(*) FROM unnest(c.value::float8[]) AS m WHERE m > %(desde)s) < %(maximo)s
-RETURNING value
-"""
-
-_SQL_HISTORIAL = """
-SELECT ARRAY(SELECT m FROM unnest(value::float8[]) AS m WHERE m > %(desde)s ORDER BY m)::text
-FROM {tabla} WHERE cache_key = %(clave)s
+WITH registro AS (
+  INSERT INTO {tabla} AS c (cache_key, value, expires)
+  VALUES (%(clave)s, ARRAY[%(ahora)s::float8]::text, to_timestamp(%(ahora)s + %(ventana)s))
+  ON CONFLICT (cache_key) DO UPDATE SET
+    value = array_append(
+      ARRAY(SELECT m FROM unnest(c.value::float8[]) AS m WHERE m > %(desde)s ORDER BY m),
+      %(ahora)s::float8
+    )::text,
+    expires = EXCLUDED.expires
+  WHERE (SELECT count(*) FROM unnest(c.value::float8[]) AS m WHERE m > %(desde)s) < %(maximo)s
+  RETURNING value
+)
+SELECT r.value, CASE WHEN r.value IS NULL THEN (
+  SELECT ARRAY(SELECT m FROM unnest(h.value::float8[]) AS m WHERE m > %(desde)s ORDER BY m)::text
+  FROM {tabla} AS h WHERE h.cache_key = %(clave)s
+) END
+FROM (SELECT (SELECT value FROM registro) AS value) AS r
 """
 
 _SQL_PURGAR = "DELETE FROM {tabla} WHERE expires < now()"
@@ -138,6 +142,8 @@ def registrar_peticion(
 
     Devuelve (permitida, historial vigente con la marca nueva si se permitió).
     """
+    if maximo < 1:  # cuota 0: siempre denegada, como DRF (len([]) >= 0)
+        return False, []
     cache = caches["default"]
     tabla_cache = cache._table  # type: ignore[attr-defined]
     alias = router.db_for_write(cache.cache_model_class)  # type: ignore[attr-defined]
@@ -151,19 +157,13 @@ def registrar_peticion(
         "maximo": maximo,
     }
     with conexion.cursor() as cursor:
-        if maximo < 1:
-            fila = None
-        else:
-            cursor.execute(_SQL_REGISTRAR.format(tabla=tabla), parametros)
-            fila = cursor.fetchone()
-        if fila is not None:
-            if secrets.randbelow(FRECUENCIA_PURGA) == 0:
-                cursor.execute(_SQL_PURGAR.format(tabla=tabla))
-            return True, _marcas(fila[0])
-        # Denegada: el historial solo sirve para calcular Retry-After (informativo).
-        cursor.execute(_SQL_HISTORIAL.format(tabla=tabla), parametros)
-        actual = cursor.fetchone()
-    return False, _marcas(actual[0] if actual else None)
+        cursor.execute(_SQL_REGISTRAR.format(tabla=tabla), parametros)
+        registrada, vigente = cursor.fetchone()
+        if registrada is None:
+            return False, _marcas(vigente)
+        if secrets.randbelow(FRECUENCIA_PURGA) == 0:
+            cursor.execute(_SQL_PURGAR.format(tabla=tabla))
+    return True, _marcas(registrada)
 
 
 class LimitePorAmbito(ScopedRateThrottle):
