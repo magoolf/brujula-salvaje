@@ -314,7 +314,7 @@ tickets:
   - id: TKT-043
     titulo: "MEDIUM (needs_validation, QA TKT-022 OBS-C2-04): LimitePorAmbito sobre DatabaseCache parece contar de forma no atómica bajo concurrencia: 912 GET/min a /api/v1/panel/medios/{id} con la misma cuenta en lotes de 12 concurrentes no producen ningún 429 de panel-lectura (600/min), en secuencia sí. Verificar con prueba de concurrencia y, si se confirma, hacer el conteo atómico (UPDATE ... RETURNING / incr atómico) para todos los ámbitos; comprobar que panel-login sigue exacto"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-022, "THREAT limitación de tasa"]
     depende_de: []
