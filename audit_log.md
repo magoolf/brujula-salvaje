@@ -459,3 +459,8 @@
 2026-10-10 | CORRECCION | kanban.md | Comillas sobrantes en la evidencia de TKT-050 y TKT-051 corregidas (YAML válido) | kanban.md
 2026-10-10 | DELEGACION | TKT-024 | Developer panel 4/4 (worktree aislado, features/panel + e2e). Disjunto de TKT-048 (medios/destinos/inicio) y TKT-052 (backend contenido) | kanban.md
 2026-10-10 | DELEGACION | TKT-052 | Developer autorización por página en operaciones de ciclo (worktree aislado, backend contenido) | kanban.md
+2026-10-10 | ENTREGA | TKT-048 | PR #84 @ 0dd704c, CI verde: codificación de derivados, regenerar_derivados, <picture> en inicio, sizes de portada. DEC-AUTO-1000 (precarga de portada eliminada: A/B sin diferencia significativa). LCP simulado sigue > 2,5 s por el bundle JS | HANDOFF_ENVELOPE TKT-048
+2026-10-10 | DEC-AUTO-1021 | TKT-048/TKT-056 | Alternativas: (a) devolver TKT-048 fuera de alcance; (b) ampliar archivos_permitidos de TKT-048; (c) acotar el AC de LCP de TKT-048 a la parte de imágenes y abrir TKT-056 HIGH (bundle JS) que bloquea F9. Elegida (c): mantiene tickets atómicos y el presupuesto LCP sigue exigido antes de la release. Riesgo: el LCP móvil queda > 2,5 s hasta TKT-056. Reversible. ORIGEN: EXPANSIÓN_AUTÓNOMA | kanban.md
+2026-10-10 | DELEGACION | TKT-048 | QA ciclo 1/3 sobre PR #84 (solo Chromium) | kanban.md
+2026-10-10 | ENTREGA | TKT-052 | PR #83 @ 5e4a830, CI verde: autorización por página en las 5 operaciones de ciclo, retirable=false para PAGINA. DEC-AUTO-1070..1072 (Developer, reversibles). Notas documentales del contrato añadidas al alcance de CHG-API-007 | HANDOFF_ENVELOPE TKT-052
+2026-10-10 | DELEGACION | TKT-052 | QA ciclo 1/3 sobre PR #83 | kanban.md

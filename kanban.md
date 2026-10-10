@@ -374,14 +374,14 @@ tickets:
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-041, TKT-021, "Skill_UI_UX#47.2", DEC-AUTO-044]
     depende_de: [TKT-041]
     archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/inicio/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b.", "2026-10-10 Developer relanzado tras la pausa sobre el código sin commit del worktree agent-ac49e7c60ce40b9df (commit intermedio primero; E2E solo Chromium)."]
+    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b.", "2026-10-10 Developer relanzado tras la pausa sobre el código sin commit del worktree agent-ac49e7c60ce40b9df (commit intermedio primero; E2E solo Chromium).", "2026-10-10 PR #84 @ 0dd704c (CI verde): AVIF q52/s6, WebP q78, JPEG q80 progresivo con AVIF<=WebP<=JPEG; regenerar_derivados idempotente (1335 derivados; Ha Long AVIF 800 74->33 KB); <picture> en inicio; sizes de portada ajustado; precarga eliminada por no aportar (DEC-AUTO-1000). LH móvil x5 simulado: / 2900->3050, ficha 3729->3424; solo red: ficha 2980->2481. pytest 1496, vitest 760, E2E Chromium 130/0. El LCP<=2,5 s simulado lo domina el bundle JS -> TKT-056 (DEC-AUTO-1021); el AC de LCP de este ticket se acota a la parte de imágenes."]
     actualizado: 2026-10-10
   - id: TKT-049
     titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
@@ -422,14 +422,14 @@ tickets:
   - id: TKT-052
     titulo: "LOW (QA TKT-050 OBS-QA050-02, preexistente): las operaciones de ciclo con tipo=paginas no aplican la autorización por página: un Editor recibe en páginas legales GET impacto-retiro 200 con retirable:true (contradice AC-033: las páginas no se retiran), publicar/reactivar 409 y retirar 400. Responder 403 permiso_denegado para páginas no autorizadas y retirable:false para PAGINA; tests por rol"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-050, "AC-033", "THREAT control de acceso por objeto"]
     depende_de: [TKT-050]
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/contenido/services.py", "backend/apps/contenido/tests/test_tkt052*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log."]
+    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log.", "2026-10-10 PR #83 @ 5e4a830 (CI verde): _autorizar_ciclo (generaliza el helper de TKT-050) en publicar, analisis-publicacion, impacto-retiro, retirar y reactivar; orden 400->404->403->idempotencia->409 (DEC-AUTO-1070/1071); retirable=false para PAGINA (DEC-AUTO-1072). 76 tests (46 FAIL en main), pytest CI 1554, cobertura 97,75 %. Notas documentales del contrato (retirable de páginas, orden 404/403) -> CHG-API-007. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-053
     titulo: "LOW (QA TKT-016 OBS-01, preexistente): en URLs de paginación fuera de rango (la API devuelve 404 pagina_fuera_de_rango) el estado de error no se transfiere del SSR y la hidratación vuelve a pedir y pasa por el esqueleto: /itinerarios?pagina=9 CLS 0,9067, /glosario?pagina=2 0,1325, /destinos?pagina=2 pie desplazado 3277 px. Además /destinos?pagina=2 responde HTTP 200 con estado-error. Transferir/reutilizar el estado de error al hidratar (o renderizar el error de forma estable) y devolver el código HTTP adecuado en SSR; E2E de CLS en esas rutas en 3 motores"
@@ -466,6 +466,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1020. Evidencia: scratchpad 1af7dc66…/probe049_rama.json y shots/rama_1280_textspacing.png."]
+    actualizado: 2026-10-10
+  - id: TKT-056
+    titulo: "HIGH antes de F9 (TKT-048 riesgo residual): LCP móvil simulado > 2,5 s (inicio 3050 ms, ficha 3424 ms) dominado por el render delay del bundle JS (~1,6-2,0 s; inicial 463 kB / 123 kB transfer). Reducir/dividir el bundle inicial (lazy de rutas y dependencias, defer de hidratación no crítica, revisar polyfills y providers globales) y verificar si Lantern se infla en localhost (FCP observado tras DCL); objetivo LCP <= 2,5 s en Lighthouse móvil x5 en inicio y ficha sin regresión de CLS/INP"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-048, TKT-021, "Skill_UI_UX#47.2", "Skill_Frontend#27"]
+    depende_de: [TKT-048]
+    archivos_permitidos: ["frontend/src/app/**", "frontend/src/main*.ts", "frontend/src/server.ts", "frontend/angular.json", "frontend/e2e/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
