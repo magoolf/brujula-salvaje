@@ -439,3 +439,4 @@
 2026-10-09 | INTEGRACION | TKT-OPS-033 | PR #80 integrado en main con QA PASS y CI verde. DONE. El CI ya no depende de Docker Hub | PR #80
 2026-10-09 | DELEGACION | TKT-051 | Developer TKT-051 (worktree aislado, backend contenido), disjunto de TKT-023 (frontend) y TKT-016 (QA) | kanban.md
 2026-10-09 | ENTREGA | TKT-023 | Ciclo 3/3 @ bd51e03, CI verde: F-03, F-02-R, OBS-QA050-01, OBS-02 corregidos. Re-QA ciclo 3/3 (último, §0.7) despachada | HANDOFF_ENVELOPE TKT-023
+2026-10-09 | ENTREGA | TKT-051 | PR #81 @ 507fda8, CI verde: requisitos validados sobre el estado resultante; analisis-publicacion de publicado no destino limitado a reglas multi-entidad (DEC-DEV-051-02). QA ciclo 1/3 despachada, con verificación de compatibilidad con TKT-023 | HANDOFF_ENVELOPE TKT-051

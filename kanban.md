@@ -410,14 +410,14 @@ tickets:
   - id: TKT-051
     titulo: "MEDIUM (QA TKT-023 OBS-BE-01): el PUT de un Tipo PUBLICADO valida el mínimo de 8 elementos del checklist contra el checklist guardado y no contra el enviado: acepta reducirlo a 7 (queda publicado incumpliendo RULE) y después rechaza con 422 checklist_insuficiente cualquier corrección (6, 8 o 10), bloqueando el contenido. Validar requisitos de publicación sobre el estado resultante del PUT para todos los tipos y colecciones de hijos (checklist, días, elementos, relaciones); tests de regresión, incluida la recuperación de contenido ya inconsistente"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-023, TKT-006, MOD-010]
     depende_de: []
     archivos_permitidos: ["backend/apps/contenido/services.py", "backend/apps/contenido/reglas.py", "backend/apps/contenido/api/**", "backend/apps/contenido/tests/test_tkt051*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-987. Reproducción: scratchpad 7e63c98e…/specs/qa-checklist.spec.ts y checklist-repro.txt."]
+    evidencia: ["DEC-AUTO-987. Reproducción: scratchpad 7e63c98e…/specs/qa-checklist.spec.ts y checklist-repro.txt.", "2026-10-09 PR #81 @ 507fda8 (CI verde): colecciones hijas aplicadas antes de validar en el PUT de publicado (DEC-DEV-051-01, dentro de la transacción); analisis-publicacion de publicado no destino solo con reglas multi-entidad (DEC-DEV-051-02, posible interacción con TKT-023). 16 tests (10 FAIL en main), pytest 1474. QA ciclo 1/3 despachada.""]
     actualizado: 2026-10-09
   - id: TKT-052
     titulo: "LOW (QA TKT-050 OBS-QA050-02, preexistente): las operaciones de ciclo con tipo=paginas no aplican la autorización por página: un Editor recibe en páginas legales GET impacto-retiro 200 con retirable:true (contradice AC-033: las páginas no se retiran), publicar/reactivar 409 y retirar 400. Responder 403 permiso_denegado para páginas no autorizadas y retirable:false para PAGINA; tests por rol"
