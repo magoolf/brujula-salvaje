@@ -482,14 +482,14 @@ tickets:
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-024, FLOW-014, SCR-042, MOD-012]
     depende_de: [TKT-024]
     archivos_permitidos: ["backend/apps/inicio/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 674646e: roles y 401, etiquetas sistema/usuario/seudónimo, orden de referencias, hero RETIRADO solo por canal autenticado, 3 consultas fijas, schemathesis 318/318 por rol, seguridad 0. OBS-QA057-01 LOW (relectura fuera de la transacción) -> TKT-062. Integración tras PR #87."]
+    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 674646e: roles y 401, etiquetas sistema/usuario/seudónimo, orden de referencias, hero RETIRADO solo por canal autenticado, 3 consultas fijas, schemathesis 318/318 por rol, seguridad 0. OBS-QA057-01 LOW (relectura fuera de la transacción) -> TKT-062. Integrado PR #86. DONE."]
     actualizado: 2026-10-10
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"

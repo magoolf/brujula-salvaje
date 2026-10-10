@@ -488,3 +488,4 @@
 2026-10-10 | DELEGACION | TKT-043 | Developer LimitePorAmbito sobre DatabaseCache (worktree aislado, core/config). Disjunto de TKT-061 y TKT-056 | kanban.md
 2026-10-10 | INTEGRACION | TKT-024 | PR #85 sincronizado con main, CI verde, integrado. DONE (panel completo 4/4) | PR #85
 2026-10-10 | INTEGRACION | TKT-058 | PR #87 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-060) | PR #87
+2026-10-10 | INTEGRACION | TKT-057 | PR #86 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-062) | PR #86
