@@ -1,0 +1,146 @@
+/*
+ * Estructura común de las pantallas de configuración y administración del panel (TKT-024):
+ * cabecera, formulario de ancho limitado, resumen de errores y DataTable que se convierte en
+ * tarjetas por debajo de md (HANDOFF DataTable, DEC-AUTO-070). Se comparte con styleUrls.
+ */
+.pagina {
+  display: grid;
+  gap: var(--bs-space-5);
+}
+
+/* Anchos de formulario del HANDOFF (SCR-045 640 px, SCR-047 720 px, SCR-042 880 px). */
+.pagina.ancho-640 {
+  max-width: 40rem;
+}
+
+.pagina.ancho-720 {
+  max-width: 45rem;
+}
+
+.pagina.ancho-880 {
+  max-width: 55rem;
+}
+
+.cabecera-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+}
+
+.cabecera-pagina h1 {
+  margin: 0;
+}
+
+.titulo-insignia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
+
+.resumen-errores {
+  display: grid;
+  gap: var(--bs-space-2);
+  padding: var(--bs-space-4);
+  border-inline-start: 4px solid var(--bs-color-status-error-fg);
+  background: var(--bs-color-status-error-bg);
+  color: var(--bs-color-text-default);
+}
+
+.resumen-errores h2 {
+  margin: 0;
+  font-size: var(--bs-typography-body-font-size);
+}
+
+.resumen-errores ul {
+  margin: 0;
+  padding-inline-start: var(--bs-space-5);
+}
+
+.nota {
+  margin: 0;
+  color: var(--bs-color-text-muted);
+}
+
+.recuento {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-contenedor {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  padding: var(--bs-space-2) var(--bs-space-3);
+  border-bottom: var(--bs-border-width-hairline) solid var(--bs-color-border-subtle);
+  text-align: start;
+  vertical-align: top;
+}
+
+.tabla thead th {
+  font-weight: var(--bs-font-weight-semibold);
+  color: var(--bs-color-text-muted);
+}
+
+.tabla tbody th {
+  font-weight: var(--bs-font-weight-semibold);
+}
+
+.tabla .numero {
+  font-variant-numeric: tabular-nums;
+}
+
+.acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-1);
+}
+
+/* < md: tarjetas por fila (DEC-AUTO-070) */
+@media (max-width: 47.99rem) {
+  .tabla thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .tabla,
+  .tabla tbody,
+  .tabla tr,
+  .tabla th,
+  .tabla td {
+    display: block;
+  }
+  .tabla tr {
+    margin-bottom: var(--bs-space-3);
+    padding: var(--bs-space-3);
+    border: var(--bs-border-width-hairline) solid var(--bs-color-border-subtle);
+    border-radius: var(--bs-radius-md);
+  }
+  .tabla th,
+  .tabla td {
+    border: 0;
+    padding: var(--bs-space-1) 0;
+  }
+  .tabla td[data-etiqueta]::before {
+    content: attr(data-etiqueta) ': ';
+    font-weight: var(--bs-font-weight-semibold);
+  }
+}
+
+/* md-lg: solo las columnas principales */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  .col-secundaria {
+    display: none;
+  }
+}

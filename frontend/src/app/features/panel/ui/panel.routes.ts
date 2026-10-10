@@ -10,6 +10,7 @@ import { PaginaNoEncontradaPanel } from './pagina-no-encontrada-panel';
 import { PaginaTablero } from './pagina-tablero';
 import { PaginaVerificacionMfa } from './pagina-verificacion-mfa';
 import {
+  DATO_ROL_MINIMO,
   accesoGuard,
   conSegmentosMatch,
   cuentaObligatoriaMatch,
@@ -130,8 +131,46 @@ export const RUTAS_PANEL: Routes = [
         canDeactivate: [cambiosSinGuardarGuard],
         loadComponent: () => import('./pagina-editor-contenido').then((m) => m.PaginaEditorContenido),
       },
-      // TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría) añade sus rutas aquí,
-      // antes del comodín.
+      // MOD-012 y MOD-013 (TKT-024), en chunks diferidos. Destacados y Taxonomías: Editor y
+      // Administrador; Configuración, Cuentas y Auditoría: solo Administrador (SCR-048 si no,
+      // conservando la URL, AC-105). Destacados y Configuración piden confirmación al salir con
+      // cambios sin guardar.
+      {
+        path: 'inicio',
+        title: 'Destacados de inicio',
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-destacados').then((m) => m.PaginaDestacados),
+      },
+      {
+        path: 'taxonomias',
+        title: 'Taxonomías y catálogos',
+        loadComponent: () => import('./pagina-taxonomias').then((m) => m.PaginaTaxonomias),
+      },
+      {
+        path: 'configuracion',
+        title: 'Configuración del sitio',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-configuracion').then((m) => m.PaginaConfiguracion),
+      },
+      {
+        path: 'usuarios',
+        title: 'Cuentas del equipo',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        loadComponent: () => import('./pagina-cuentas-equipo').then((m) => m.PaginaCuentasEquipo),
+      },
+      {
+        path: 'usuarios/:id',
+        title: 'Cuenta del equipo',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        loadComponent: () => import('./pagina-formulario-cuenta').then((m) => m.PaginaFormularioCuenta),
+      },
+      {
+        path: 'auditoria',
+        title: 'Registro de auditoría',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        loadComponent: () => import('./pagina-auditoria').then((m) => m.PaginaAuditoria),
+      },
       { path: '**', title: 'Página no encontrada', component: PaginaNoEncontradaPanel },
     ],
   },
