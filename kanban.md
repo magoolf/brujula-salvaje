@@ -487,9 +487,9 @@ tickets:
     trazabilidad: [TKT-024, FLOW-014, SCR-042, MOD-012]
     depende_de: [TKT-024]
     archivos_permitidos: ["backend/apps/inicio/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 674646e: roles y 401, etiquetas sistema/usuario/seudónimo, orden de referencias, hero RETIRADO solo por canal autenticado, 3 consultas fijas, schemathesis 318/318 por rol, seguridad 0. OBS-QA057-01 LOW (relectura fuera de la transacción) -> TKT-062. Integración tras PR #87."]
     actualizado: 2026-10-10
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
@@ -540,13 +540,13 @@ tickets:
     evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
     actualizado: 2026-10-10
   - id: TKT-062
-    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento)"
+    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
     fase: F7
     estado: TODO
     owner: Skill_Developer
     trazabilidad: [TKT-057, TKT-058, AC-030]
     depende_de: [TKT-057, TKT-058]
-    archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
+    archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/inicio/services.py", "backend/apps/auditoria/services.py", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
