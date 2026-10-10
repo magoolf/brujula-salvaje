@@ -24,7 +24,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import ipaddress
-import secrets
 from collections.abc import Mapping
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
@@ -94,10 +93,13 @@ def ip_cliente(meta: Mapping[str, Any]) -> str | None:
     return direcciones[-min(num_proxies, len(direcciones))]
 
 
-# Una de cada N peticiones permitidas borra las entradas caducadas de la tabla (nunca vigentes,
-# como CacheSinDesalojo._cull): sustituye a la purga que antes disparaba `cache.set` al superar
-# MAX_ENTRIES; la purga diaria PURGA_OPS sigue existiendo.
+# Purga de caducadas dentro de la misma sentencia (sin consultas extra, así que el número de
+# consultas por petición es fijo): en ~1 de cada N sentencias se borran hasta LOTE_PURGA filas
+# caducadas (nunca vigentes, como CacheSinDesalojo._cull), saltando las bloqueadas por otra
+# petición. Sustituye a la purga que antes disparaba `cache.set` al superar MAX_ENTRIES; la
+# purga diaria PURGA_OPS sigue existiendo.
 FRECUENCIA_PURGA = 200
+LOTE_PURGA = 500
 
 # Una sola sentencia y una sola fila por (ámbito, origen): el ON CONFLICT DO UPDATE toma el
 # bloqueo de la fila y evalúa el WHERE sobre su versión más reciente, así que las peticiones
@@ -105,9 +107,18 @@ FRECUENCIA_PURGA = 200
 # agotada el WHERE es falso: no se modifica nada y el CTE no devuelve filas (denegada); en ese
 # caso, y solo en ese, la misma sentencia lee el historial vigente (instantánea del inicio de la
 # sentencia), que solo sirve para calcular Retry-After. Un único viaje a la BD en ambos casos.
+# El CTE `purga` se ejecuta siempre hasta el final aunque no se referencie (PostgreSQL) y excluye
+# la clave de la petición, para no tocar dos veces la misma fila en una sentencia.
 # Identificador de tabla citado con quote_name (configuración LOCATION); valores parametrizados.
 _SQL_REGISTRAR = """
-WITH registro AS (
+WITH purga AS (
+  DELETE FROM {tabla} WHERE cache_key IN (
+    SELECT p.cache_key FROM {tabla} AS p
+    WHERE (SELECT random()) < %(probabilidad_purga)s
+      AND p.expires < now() AND p.cache_key <> %(clave)s
+    LIMIT %(lote_purga)s FOR UPDATE SKIP LOCKED
+  )
+), registro AS (
   INSERT INTO {tabla} AS c (cache_key, value, expires)
   VALUES (%(clave)s, ARRAY[%(ahora)s::float8]::text, to_timestamp(%(ahora)s + %(ventana)s))
   ON CONFLICT (cache_key) DO UPDATE SET
@@ -125,8 +136,6 @@ SELECT r.value, CASE WHEN r.value IS NULL THEN (
 ) END
 FROM (SELECT (SELECT value FROM registro) AS value) AS r
 """
-
-_SQL_PURGAR = "DELETE FROM {tabla} WHERE expires < now()"
 
 
 def _marcas(texto: str | None) -> list[float]:
@@ -155,14 +164,14 @@ def registrar_peticion(
         "ventana": ventana,
         "desde": ahora - ventana,
         "maximo": maximo,
+        "probabilidad_purga": 1.0 / FRECUENCIA_PURGA,
+        "lote_purga": LOTE_PURGA,
     }
     with conexion.cursor() as cursor:
         cursor.execute(_SQL_REGISTRAR.format(tabla=tabla), parametros)
         registrada, vigente = cursor.fetchone()
-        if registrada is None:
-            return False, _marcas(vigente)
-        if secrets.randbelow(FRECUENCIA_PURGA) == 0:
-            cursor.execute(_SQL_PURGAR.format(tabla=tabla))
+    if registrada is None:
+        return False, _marcas(vigente)
     return True, _marcas(registrada)
 
 

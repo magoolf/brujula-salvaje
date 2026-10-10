@@ -21,6 +21,7 @@ import pytest
 from django.core.cache import cache
 from django.db import connection, connections
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 
 from apps.core import throttling
 from apps.core.throttling import LimitePorAmbito
@@ -150,7 +151,7 @@ def test_TKT043_06_purga_ocasional_solo_borra_caducadas(monkeypatch) -> None:
             "('limite:viejo', '{1.0}', now() - interval '1 minute'), "
             "(':1:vigente', 'x', now() + interval '1 hour')"
         )
-    monkeypatch.setattr(throttling.secrets, "randbelow", lambda _n: 0)
+    monkeypatch.setattr(throttling, "FRECUENCIA_PURGA", 1)
     assert _permitir("panel-login", 77)
     with connection.cursor() as cursor:
         cursor.execute("SELECT cache_key FROM app.cache_limites ORDER BY cache_key")
@@ -199,3 +200,13 @@ def test_TKT043_08_formato_del_historial() -> None:
     assert throttling._marcas("{1.5,3,2.25}") == [3.0, 2.25, 1.5]
     assert throttling._marcas("{}") == []
     assert throttling._marcas(None) == []
+
+
+@pytest.mark.parametrize("frecuencia", [1, 200])
+def test_TKT043_09_una_consulta_por_peticion_con_o_sin_purga(monkeypatch, frecuencia: int) -> None:
+    """Número de consultas fijo (1) permitida o denegada, toque o no la purga (tests N+1)."""
+    monkeypatch.setattr(throttling, "FRECUENCIA_PURGA", frecuencia)
+    for _ in range(12):  # 10 permitidas + 2 denegadas
+        with CaptureQueriesContext(connection) as consultas:
+            _permitir("panel-login", 99)
+        assert len(consultas) == 1
