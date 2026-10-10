@@ -263,6 +263,8 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
       'Glosario',
       'Páginas institucionales',
       'Medios',
+      'Destacados de inicio',
+      'Taxonomías',
       'Mi cuenta',
     ]);
     expect((await page.request.get('/api/v1/panel/cuentas')).status()).toBe(403);
@@ -313,8 +315,9 @@ test.describe('Panel editorial — acceso, armazón y tablero (TKT-010)', () => 
     for (const alerta of tablero.alertas) {
       await expect(page.getByTestId(`tablero-alerta-${alerta.code}`)).toBeVisible();
     }
-    // Solo accesos rápidos a secciones implementadas (RULE-030): «Nuevo destino» (TKT-023) y «Subir medios» (TKT-022).
-    await expect(page.getByTestId('tablero-accesos').locator('a')).toHaveText(['Nuevo destino', 'Subir medios']);
+    // Solo accesos rápidos a secciones implementadas (RULE-030): «Nuevo destino» (TKT-023), «Subir
+    // medios» (TKT-022) y, para el Administrador, «Nueva cuenta» (TKT-024).
+    await expect(page.getByTestId('tablero-accesos').locator('a')).toHaveText(['Nuevo destino', 'Subir medios', 'Nueva cuenta']);
 
     const contexto = await browser.newContext();
     const editorPagina = await contexto.newPage();
