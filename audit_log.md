@@ -491,3 +491,5 @@
 2026-10-10 | INTEGRACION | TKT-057 | PR #86 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-062) | PR #86
 2026-10-10 | ENTREGA | TKT-061 | PR #88 @ c953047, CI verde: causa raíz autovacuum + DROP ... WITH (FORCE) sin privilegio; fixture bd_efimera (DEC-AUTO-1100..1102). R-1100-1 -> TKT-063 (DEC-AUTO-1029, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-061
 2026-10-10 | DELEGACION | TKT-061 | QA ciclo 1/3 sobre PR #88 | kanban.md
+2026-10-10 | ENTREGA | TKT-043 | PR #89 @ d5f1338, CI verde: limitador no atómico CONFIRMADO y corregido (DEC-AUTO-1130..1133). Riesgo MEDIUM de contadores no atómicos de login/TOTP en cuentas -> TKT-064 (DEC-AUTO-1030, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-043
+2026-10-10 | DELEGACION | TKT-043 | QA ciclo 1/3 sobre PR #89 | kanban.md
