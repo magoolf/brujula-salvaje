@@ -13,7 +13,12 @@ export class InicioStore {
   private readonly repo = inject(InicioRepositorio);
   private readonly router = inject(Router);
 
-  private readonly recurso = resource({ loader: () => this.repo.obtener() });
+  /**
+   * `id` (TKT-016): el valor resuelto en el SSR viaja en TransferState y el recurso nace ya resuelto
+   * en la hidratación. Sin él, el primer render del cliente veía el recurso «cargando», descartaba
+   * el DOM del SSR, pintaba el esqueleto (el pie se desplazaba) y luego recreaba toda la página.
+   */
+  private readonly recurso = resource({ id: 'recurso:inicio', loader: () => this.repo.obtener() });
 
   // `hasValue()` evita que `.value()` lance al leerlo mientras el recurso está en error.
   readonly inicio = computed(() => (this.recurso.hasValue() ? this.recurso.value() : null));
