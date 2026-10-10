@@ -113,15 +113,16 @@ describe('repositorios de configuración y cuentas (cliente generado)', () => {
 
   it('AC_TKT024_02 / AC_TKT024_10 inicio y configuración: lectura y escritura', async () => {
     const repo = TestBed.inject(PanelConfiguracionRepositorio);
+    const completas = { ...INICIO_DTO, destinos_ids: [1] };
     const inicio = repo.inicio();
-    http.expectOne(`${BASE}/inicio`).flush(INICIO_DTO);
+    http.expectOne(`${BASE}/inicio`).flush(completas);
     expect((await inicio).titular).toBe('Aventura');
 
     const guardar = repo.guardarInicio({ titular: 'T', subtitulo: 'S', medioId: 9, destinosIds: [1], itinerariosIds: [2], guiasIds: [3] });
     const put = http.expectOne(`${BASE}/inicio`);
     expect(put.request.method).toBe('PUT');
     expect(put.request.body).toEqual({ hero_titular: 'T', hero_subtitulo: 'S', hero_medio_id: 9, destinos_ids: [1], itinerarios_ids: [2], guias_ids: [3] });
-    put.flush(INICIO_DTO);
+    put.flush(completas);
     await guardar;
 
     const config = repo.configuracion();
@@ -141,6 +142,47 @@ describe('repositorios de configuración y cuentas (cliente generado)', () => {
     expect(putConfig.request.body).toMatchObject({ nombre_marca: 'M', lema: null, responsable_nombre: 'R' });
     putConfig.flush({ nombre_marca: 'M', texto_descargo: 'D', responsable_nombre: 'R', actualizado_en: '2026-10-02T10:00:00Z' });
     expect((await guardarConfig).responsableNombre).toBe('R');
+  });
+
+  it('AC_TKT024_02 DEC-AUTO-1047: completa las referencias que el backend no envía (título, estado y miniatura)', async () => {
+    const repo = TestBed.inject(PanelConfiguracionRepositorio);
+    const inicio = repo.inicio();
+    http.expectOne(`${BASE}/inicio`).flush({ ...INICIO_DTO, guias_ids: [70], referencias: {} });
+    await new Promise((r) => setTimeout(r, 0));
+    http.expectOne(`${BASE}/contenidos/destinos/1`).flush({ titulo: 'Cocora', estado_editorial: 'PUBLICADO', slug: 'cocora' });
+    http.expectOne(`${BASE}/contenidos/destinos/2`).flush({ estado_editorial: 'RETIRADO' });
+    http.expectOne(`${BASE}/contenidos/itinerarios/3`).flush({ titulo: 'Ruta', estado_editorial: 'PUBLICADO' });
+    http.expectOne(`${BASE}/contenidos/guias/70`).flush({ code: 'no_encontrado' }, { status: 404, statusText: 'Not Found' });
+    http.expectOne(`${BASE}/medios/9`).flush({
+      id: 9,
+      estado: 'DISPONIBLE',
+      texto_alternativo: 'Cima',
+      formato_origen: 'JPEG',
+      ancho_px: 1600,
+      alto_px: 1000,
+      peso_bytes: 1,
+      derivados: [{ formato: 'WEBP', ancho: 320, alto: 200, url: '/m/9-320.webp' }],
+      numero_usos: 1,
+      en_uso_publicado: true,
+      subido_por: { id: 1, etiqueta: '#1' },
+      subido_en: '2026-09-30T10:00:00Z',
+      actualizado_en: '2026-09-30T10:00:00Z',
+      pendientes_catalogacion: [],
+    });
+    const config = await inicio;
+    expect(config.destinos).toEqual([
+      { id: 1, tipo: 'DESTINO', titulo: 'Cocora', estado: 'PUBLICADO', slug: 'cocora' },
+      { id: 2, tipo: 'DESTINO', titulo: '#2', estado: 'RETIRADO', slug: null },
+    ]);
+    expect(config.itinerarios[0]).toMatchObject({ titulo: 'Ruta', estado: 'PUBLICADO' });
+    expect(config.guias[0]).toEqual({ id: 70, tipo: 'GUIA', titulo: '#70', estado: null });
+    expect(config.medio).toEqual({ id: 9, estado: 'DISPONIBLE', miniatura: '/m/9-320.webp', textoAlternativo: 'Cima' });
+
+    const sinMedio = repo.inicio();
+    http.expectOne(`${BASE}/inicio`).flush({ ...INICIO_DTO, destinos_ids: [1], referencias: { contenidos: INICIO_DTO.referencias.contenidos } });
+    await new Promise((r) => setTimeout(r, 0));
+    http.expectOne(`${BASE}/medios/9`).flush({ code: 'x' }, { status: 500, statusText: 'Error' });
+    expect((await sinMedio).medio).toEqual({ id: 9, estado: null, miniatura: null, textoAlternativo: null });
   });
 
   it('AC_TKT024_04 taxonomías: listar (todas las páginas), crear y actualizar cada catálogo; escalas', async () => {

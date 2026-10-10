@@ -6,8 +6,13 @@
 import { Injectable, inject } from '@angular/core';
 
 import { PanelConfiguracionService } from '../../../api/services/panel-configuracion.service';
+import { PanelContenidosService } from '../../../api/services/panel-contenidos.service';
+import { PanelMediosService } from '../../../api/services/panel-medios.service';
 import { ConfiguracionSitio, EntradaConfiguracion } from '../domain/configuracion-sitio';
 import { ConfigInicio, EntradaDestacados } from '../domain/destacados';
+import { MedioRef, RefContenido } from '../domain/formulario-contenido';
+import { derivadoPara } from '../domain/medios';
+import { EstadoEditorial } from '../domain/modelos';
 import {
   Catalogo,
   ElementoCatalogo,
@@ -32,6 +37,7 @@ import {
   mapPais,
   mapRegion,
 } from './configuracion.mapper';
+import { mapMedio } from './medios.mapper';
 
 /** Páginas máximas que se leen de un catálogo (100 por página, contrato). */
 const PAGINAS_CATALOGO = 20;
@@ -58,14 +64,70 @@ async function leerTodo<T, R>(
 @Injectable({ providedIn: 'root' })
 export class PanelConfiguracionRepositorio {
   private readonly api = inject(PanelConfiguracionService);
+  private readonly contenidosApi = inject(PanelContenidosService);
+  private readonly mediosApi = inject(PanelMediosService);
 
   // ---------------------------------------------------------------- destacados (SCR-042)
   async inicio(): Promise<ConfigInicio> {
-    return mapConfigInicio(await this.api.panelObtenerConfigInicio());
+    return this.completarReferencias(mapConfigInicio(await this.api.panelObtenerConfigInicio()));
   }
 
   async guardarInicio(entrada: EntradaDestacados): Promise<ConfigInicio> {
-    return mapConfigInicio(await this.api.panelActualizarConfigInicio({ body: aConfigInicioDto(entrada) }));
+    return this.completarReferencias(
+      mapConfigInicio(await this.api.panelActualizarConfigInicio({ body: aConfigInicioDto(entrada) })),
+    );
+  }
+
+  /**
+   * DEC-AUTO-1047: el contrato trae en `referencias` el título y el estado de cada destacado y la
+   * miniatura del medio, pero el backend actual las devuelve vacías (riesgo RSK-TKT024-01). Las que
+   * falten se completan leyendo cada contenido y el medio (como mucho 24 + 1 lecturas, solo
+   * mientras el backend no las envíe). Si una lectura falla, la referencia queda sin estado y la
+   * validación pide quitarla (no se puede garantizar que siga publicada).
+   */
+  private async completarReferencias(config: ConfigInicio): Promise<ConfigInicio> {
+    const completar = async (ref: RefContenido): Promise<RefContenido> => {
+      if (ref.estado !== null) return ref;
+      try {
+        const dto = await this.detalle(ref);
+        return { ...ref, titulo: dto.titulo ?? ref.titulo, estado: dto.estado_editorial, slug: dto.slug ?? null };
+      } catch {
+        return ref;
+      }
+    };
+    const [destinos, itinerarios, guias, medio] = await Promise.all([
+      Promise.all(config.destinos.map(completar)),
+      Promise.all(config.itinerarios.map(completar)),
+      Promise.all(config.guias.map(completar)),
+      this.completarMedio(config.medio),
+    ]);
+    return { ...config, destinos, itinerarios, guias, medio };
+  }
+
+  private detalle(ref: RefContenido): Promise<{ titulo?: string; estado_editorial: EstadoEditorial; slug?: string | null }> {
+    switch (ref.tipo) {
+      case 'ITINERARIO':
+        return this.contenidosApi.panelObtenerItinerario({ id: ref.id });
+      case 'GUIA':
+        return this.contenidosApi.panelObtenerGuia({ id: ref.id });
+      default:
+        return this.contenidosApi.panelObtenerDestino({ id: ref.id });
+    }
+  }
+
+  private async completarMedio(medio: MedioRef | null): Promise<MedioRef | null> {
+    if (medio === null || medio.estado !== null) return medio;
+    try {
+      const completo = mapMedio(await this.mediosApi.panelObtenerMedio({ id: medio.id }));
+      return {
+        id: completo.id,
+        estado: completo.estado,
+        miniatura: derivadoPara(completo.derivados, 320)?.url ?? null,
+        textoAlternativo: completo.textoAlternativo,
+      };
+    } catch {
+      return medio;
+    }
   }
 
   // ---------------------------------------------------------------- configuración (SCR-047)
