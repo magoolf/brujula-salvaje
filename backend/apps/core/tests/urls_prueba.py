@@ -85,7 +85,7 @@ class VistaDenegadaPorDefecto(APIView):
 
 
 class LimitePrueba(LimitePorAmbito):
-    THROTTLE_RATES = {"prueba": "2/min"}
+    THROTTLE_RATES = {"prueba": "2/min", "prueba-5": "5/min"}
 
 
 class VistaLimitada(_Abierta):
@@ -94,6 +94,10 @@ class VistaLimitada(_Abierta):
 
     def get(self, request: Request) -> Response:
         return Response({"ok": True})
+
+
+class VistaLimitada5(VistaLimitada):
+    throttle_scope = "prueba-5"
 
 
 class VistaPaginada(GenericAPIView):
@@ -137,6 +141,7 @@ urlpatterns = [
     path("prueba/error-api", VistaErrorApi.as_view()),
     path("prueba/denegada", VistaDenegadaPorDefecto.as_view()),
     path("prueba/limitada", VistaLimitada.as_view()),
+    path("prueba/limitada-5", VistaLimitada5.as_view()),
     path("prueba/paginada", VistaPaginada.as_view()),
     path("prueba/django-falla", vista_django_falla),
     path("prueba/django-prohibida", vista_django_prohibida),

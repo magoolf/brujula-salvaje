@@ -314,14 +314,14 @@ tickets:
   - id: TKT-043
     titulo: "MEDIUM (needs_validation, QA TKT-022 OBS-C2-04): LimitePorAmbito sobre DatabaseCache parece contar de forma no atómica bajo concurrencia: 912 GET/min a /api/v1/panel/medios/{id} con la misma cuenta en lotes de 12 concurrentes no producen ningún 429 de panel-lectura (600/min), en secuencia sí. Verificar con prueba de concurrencia y, si se confirma, hacer el conteo atómico (UPDATE ... RETURNING / incr atómico) para todos los ámbitos; comprobar que panel-login sigue exacto"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-022, "THREAT limitación de tasa"]
     depende_de: []
     archivos_permitidos: ["backend/apps/core/**", "backend/config/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/."]
+    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/.", "2026-10-10 PR #89 @ d5f1338 (CI verde): defecto CONFIRMADO en main (843 permitidas con cuota 600/min; panel-login 13 sin 429). Conteo atómico en una sentencia (INSERT ... ON CONFLICT ... RETURNING), ventana deslizante exacta, purga en CTE (DEC-AUTO-1130..1133). Rama: 600 + 312x429, panel-login exacto; latencia p50 1,4 ms. 11 tests (6 FAIL en main), pytest 1629. Contadores no atómicos en cuentas -> TKT-064. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-08
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
@@ -470,38 +470,38 @@ tickets:
   - id: TKT-056
     titulo: "HIGH antes de F9 (TKT-048 riesgo residual): LCP móvil simulado > 2,5 s (inicio 3050 ms, ficha 3424 ms) dominado por el render delay del bundle JS (~1,6-2,0 s; inicial 463 kB / 123 kB transfer). Reducir/dividir el bundle inicial (lazy de rutas y dependencias, defer de hidratación no crítica, revisar polyfills y providers globales) y verificar si Lantern se infla en localhost (FCP observado tras DCL); objetivo LCP <= 2,5 s en Lighthouse móvil x5 en inicio y ficha sin regresión de CLS/INP"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-048, TKT-021, "Skill_UI_UX#47.2", "Skill_Frontend#27"]
     depende_de: [TKT-048]
     archivos_permitidos: ["frontend/src/app/**", "frontend/src/main*.ts", "frontend/src/server.ts", "frontend/angular.json", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales)."]
+    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales).", "2026-10-10 PR #90 @ 305aaf3 (CI verde): menú móvil y visor de galería diferidos (-87 kB CDK), hidratación tras FCP, og:image JPEG 1200, sizes de tarjetas (DEC-AUTO-1110..1113). JS inicial 117,7 -> 101,6 kB transfer. LCP devtools: / 2348, ficha 2245 (≤2,5 s); Lantern localhost: / 3013->2811, ficha 3428->3068. Criterio de medición fijado por DEC-AUTO-1031. vitest 831, E2E Chromium 184/0. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-024, FLOW-014, SCR-042, MOD-012]
     depende_de: [TKT-024]
     archivos_permitidos: ["backend/apps/inicio/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1022 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-024.", "2026-10-10 PR #86 @ 674646e (CI verde tras relanzar un job por flaky ajeno): referencias reales (hero y destacados) y etiqueta del usuario, 3 consultas fijas (DEC-AUTO-1080..1083). 7 tests (6 FAIL en main), pytest 1481. R-1080-1 -> TKT-061; R-1080-2 -> TKT-062. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 674646e: roles y 401, etiquetas sistema/usuario/seudónimo, orden de referencias, hero RETIRADO solo por canal autenticado, 3 consultas fijas, schemathesis 318/318 por rol, seguridad 0. OBS-QA057-01 LOW (relectura fuera de la transacción) -> TKT-062. Integrado PR #86. DONE."]
     actualizado: 2026-10-10
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-024, AC-030, SCR-046, MOD-013]
     depende_de: []
     archivos_permitidos: ["backend/apps/auditoria/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 26dc29b: 0 filas nuevas con #<id>, seudonimización THREAT-013 verificada, Editor 403 en auditoría, schemathesis 303/0 5xx, SCR-046 Chromium 4/4, seguridad 0. OBS-QA058-01 (1 SELECT por evento sin etiqueta) -> TKT-062; OBS-QA058-02 -> DEC-AUTO-1028. Integrado PR #87. DONE."]
     actualizado: 2026-10-10
   - id: TKT-059
     titulo: "LOW (QA TKT-048 OBS-QA048-01..03): regenerar_derivados (1) docstring dice que conserva las rutas pero las versiona y borra las antiguas: corregir; (2) las URL antiguas dan 404 justo tras regenerar (pestañas abiertas, caché pública de 60 s+SWR 300 s, og:image en redes): borrado diferido con periodo de gracia (purga posterior de archivos sin fila) y alternativa ante error en el <picture> de inicio; (3) capturar DecompressionBombError/UnidentifiedImageError por medio, registrar y continuar; evitar recodificar cuando no hay cambios. Tests"
@@ -530,26 +530,50 @@ tickets:
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-004, TKT-057]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-062
-    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema"
+    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
     fase: F7
     estado: TODO
     owner: Skill_Developer
     trazabilidad: [TKT-057, TKT-058, AC-030]
     depende_de: [TKT-057, TKT-058]
-    archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
+    archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/inicio/services.py", "backend/apps/auditoria/services.py", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    actualizado: 2026-10-10
+  - id: TKT-063
+    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-061, TKT-003, TKT-005]
+    depende_de: [TKT-061]
+    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
+    actualizado: 2026-10-10
+  - id: TKT-064
+    titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-043, TKT-004, "THREAT fuerza bruta", "THREAT replay TOTP"]
+    depende_de: [TKT-043]
+    archivos_permitidos: ["backend/apps/cuentas/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
@@ -998,14 +1022,14 @@ tickets:
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [MOD-012, MOD-013, FEAT-043, FEAT-044, FEAT-045, FEAT-046, FEAT-047, FLOW-014, SCR-042, SCR-043, SCR-044, SCR-045, SCR-046, SCR-047, RULE-014, RULE-015, RULE-016, RULE-017]
     depende_de: [TKT-010, TKT-023]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/**"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede.", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-10 PR #85 @ 10c9ef0 (CI verde): SCR-042..047 en chunks diferidos (DEC-AUTO-1040..1047); vitest 813, E2E Chromium panel-configuracion 6/6 con axe y regresión del panel en verde. RSK-TKT024-01 (backend /panel/inicio sin referencias) -> TKT-057. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (la contraseña temporal se descarta sin confirmación al volver, navegar o recargar; falta canDeactivate/beforeunload en usuarios/:id), FALLO-02 LOW (en SCR-043 activar pestaña lleva el foco al h1 por router.navigate + FocoRuta), OBS-PERF-01 LOW (NgTemplateOutlet sube al chunk inicial +0,6 kB). Seguridad, contrato y regresión 185/185 PASS. OBS-BE-01 -> TKT-058. Evidencia: scratchpad 1af7dc66…/q024/. Devuelto al Developer (ciclo 2/3).", "2026-10-10 corrección c1 @ 48fe6ab (CI verde): guardia de salida + beforeunload con secreto sin confirmar, sin Volver, URL de ficha tras el alta (DEC-AUTO-1048); foco devuelto a la pestaña/select tras FocoRuta (DEC-AUTO-1049); sin NgTemplateOutlet (bundle +0,13 kB residual). vitest 817, E2E 8/8. QA ciclo 2/3 despachada."]
+    evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede.", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data.", "2026-10-10 PR #85 @ 10c9ef0 (CI verde): SCR-042..047 en chunks diferidos (DEC-AUTO-1040..1047); vitest 813, E2E Chromium panel-configuracion 6/6 con axe y regresión del panel en verde. RSK-TKT024-01 (backend /panel/inicio sin referencias) -> TKT-057. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (la contraseña temporal se descarta sin confirmación al volver, navegar o recargar; falta canDeactivate/beforeunload en usuarios/:id), FALLO-02 LOW (en SCR-043 activar pestaña lleva el foco al h1 por router.navigate + FocoRuta), OBS-PERF-01 LOW (NgTemplateOutlet sube al chunk inicial +0,6 kB). Seguridad, contrato y regresión 185/185 PASS. OBS-BE-01 -> TKT-058. Evidencia: scratchpad 1af7dc66…/q024/. Devuelto al Developer (ciclo 2/3).", "2026-10-10 corrección c1 @ 48fe6ab (CI verde): guardia de salida + beforeunload con secreto sin confirmar, sin Volver, URL de ficha tras el alta (DEC-AUTO-1048); foco devuelto a la pestaña/select tras FocoRuta (DEC-AUTO-1049); sin NgTemplateOutlet (bundle +0,13 kB residual). vitest 817, E2E 8/8. QA ciclo 2/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 2/3 @ 48fe6ab: FALLO-01 y FALLO-02 corregidos, salida legítima sin bloqueo, regresión E2E 204/204, axe 0, seguridad 0, bundle +0,12 kB (runtime Angular) aceptado. Evidencia: scratchpad 1af7dc66…/q024c2/. Integrado PR #85. DONE."]
     actualizado: 2026-10-10
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
