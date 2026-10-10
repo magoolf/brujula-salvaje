@@ -498,3 +498,5 @@
 2026-10-10 | DELEGACION | TKT-056 | QA ciclo 1/3 sobre PR #90 con criterio DEC-AUTO-1031 | kanban.md
 2026-10-10 | QA_PASS | TKT-043 | QA_VERDICT PASS ciclo 1/3 @ d5f1338: cuotas exactas en 8 ámbitos (main las excede todas). HALLAZGO-043-02 MEDIUM -> TKT-065 (DEC-AUTO-1032); OBS-043-01 LOW -> TKT-066 (DEC-AUTO-1033); ambos ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles. Integración por PR #89 en curso | HANDOFF_ENVELOPE QA TKT-043
 2026-10-10 | DELEGACION | TKT-065 | Developer ámbito panel-subida en medios (worktree aislado, apps/medios/api) | kanban.md
+2026-10-10 | QA_PASS | TKT-061 | QA_VERDICT PASS ciclo 1/3 @ c953047. OBS-QA061-01 LOW -> alcance de TKT-063 (se añade backend/conftest.py a sus archivos). Integración por PR #88 tras PR #89 | HANDOFF_ENVELOPE QA TKT-061
+2026-10-10 | DELEGACION | TKT-060 | Developer etiqueta 'sistema' en comandos de gestión (worktree aislado) | kanban.md

@@ -518,7 +518,7 @@ tickets:
   - id: TKT-060
     titulo: "LOW (TKT-058 riesgo, ADR-DB-004 §1.5): cargar_semilla registra los eventos de auditoría con actor_id=None y etiqueta 'desconocido'; DB_HANDOFF exige 'sistema' para tareas y semilla. Pasar actor_etiqueta=ETIQUETA_SISTEMA (y revisar otros comandos de gestión que auditan) con tests"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-058, TKT-007, AC-030, "ADR-DB-004"]
     depende_de: [TKT-058]
@@ -535,9 +535,9 @@ tickets:
     trazabilidad: [TKT-004, TKT-057]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ c953047: causa raíz reproducida (main 1/30 agresivo y 0/10 ralentizado; rama 40/40 y 30/30), no termina sesiones ajenas, plazo acotado, sin BD residuales, pytest 1622, seguridad 0. OBS-QA061-01 -> TKT-063. Integración tras PR #89."]
     actualizado: 2026-10-10
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
@@ -552,13 +552,13 @@ tickets:
     evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
     actualizado: 2026-10-10
   - id: TKT-063
-    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo"
+    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
     estado: TODO
     owner: Skill_Developer
     trazabilidad: [TKT-061, TKT-003, TKT-005]
     depende_de: [TKT-061]
-    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*"]
+    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
