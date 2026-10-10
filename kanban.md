@@ -530,14 +530,14 @@ tickets:
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-004, TKT-057]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
@@ -550,6 +550,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    actualizado: 2026-10-10
+  - id: TKT-063
+    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-061, TKT-003, TKT-005]
+    depende_de: [TKT-061]
+    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

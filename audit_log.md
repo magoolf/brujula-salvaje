@@ -489,3 +489,5 @@
 2026-10-10 | INTEGRACION | TKT-024 | PR #85 sincronizado con main, CI verde, integrado. DONE (panel completo 4/4) | PR #85
 2026-10-10 | INTEGRACION | TKT-058 | PR #87 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-060) | PR #87
 2026-10-10 | INTEGRACION | TKT-057 | PR #86 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-062) | PR #86
+2026-10-10 | ENTREGA | TKT-061 | PR #88 @ c953047, CI verde: causa raíz autovacuum + DROP ... WITH (FORCE) sin privilegio; fixture bd_efimera (DEC-AUTO-1100..1102). R-1100-1 -> TKT-063 (DEC-AUTO-1029, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-061
+2026-10-10 | DELEGACION | TKT-061 | QA ciclo 1/3 sobre PR #88 | kanban.md
