@@ -480,7 +480,8 @@ describe('Panel — acceso y armazón (FLOW-010)', () => {
     expect(el(m, 'tablero-conteo-DESTINO').textContent).toMatch(/Destinos\s*2\s*5\s*1\s*8/);
     expect(el(m, 'tablero-recientes').textContent).toContain('Patagonia');
     expect(el(m, 'tablero-alerta-responsable_sin_definir').textContent).toContain('Faltan los datos');
-    expect(el(m, 'tablero-alerta-responsable_sin_definir').querySelector('a')).toBeNull();
+    // TKT-024: la alerta ya enlaza a SCR-047 (sección implementada, solo Administrador).
+    expect(el(m, 'tablero-alerta-responsable_sin_definir').querySelector('a')?.getAttribute('href')).toBe('/panel/configuracion');
     expect(existe(m, 'tablero-salud')).toBe(true);
     // TKT-022: el único acceso rápido implementado es «Subir medios» (RULE-030).
     expect(el(m, 'tablero-acceso-subir-medios').getAttribute('href')).toBe('/panel/medios');
