@@ -319,9 +319,9 @@ tickets:
     trazabilidad: [TKT-022, "THREAT limitación de tasa"]
     depende_de: []
     archivos_permitidos: ["backend/apps/core/**", "backend/config/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/.", "2026-10-10 PR #89 @ d5f1338 (CI verde): defecto CONFIRMADO en main (843 permitidas con cuota 600/min; panel-login 13 sin 429). Conteo atómico en una sentencia (INSERT ... ON CONFLICT ... RETURNING), ventana deslizante exacta, purga en CTE (DEC-AUTO-1130..1133). Rama: 600 + 312x429, panel-login exacto; latencia p50 1,4 ms. 11 tests (6 FAIL en main), pytest 1629. Contadores no atómicos en cuentas -> TKT-064. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/.", "2026-10-10 PR #89 @ d5f1338 (CI verde): defecto CONFIRMADO en main (843 permitidas con cuota 600/min; panel-login 13 sin 429). Conteo atómico en una sentencia (INSERT ... ON CONFLICT ... RETURNING), ventana deslizante exacta, purga en CTE (DEC-AUTO-1130..1133). Rama: 600 + 312x429, panel-login exacto; latencia p50 1,4 ms. 11 tests (6 FAIL en main), pytest 1629. Contadores no atómicos en cuentas -> TKT-064. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ d5f1338: cuotas exactas en los 8 ámbitos por HTTP (main excede en todos), XFF no evade, 429 conforme, 48 hilos exactos, purga sin deadlocks, caché pickled intacta, inyección rechazada, seguridad 0. HALLAZGO-043-02 -> TKT-065; OBS-043-01 -> TKT-066. Evidencia: scratchpad 1af7dc66…/q043/. Integración en curso (PR #89)."]
     actualizado: 2026-10-08
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
@@ -574,6 +574,30 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043."]
+    actualizado: 2026-10-10
+  - id: TKT-065
+    titulo: "MEDIUM (QA TKT-043 HALLAZGO-043-02, preexistente, RESOURCE-EXHAUSTION): el ámbito panel-subida (20/min) nunca se aplica a POST /api/v1/panel/medios: _VistaMediosMixta.initial (apps/medios/api/views.py:101-106) fija panel-escritura (120/min) y ListaMedios.post asigna throttle_scope_subida después de check_throttles. Fijar panel-subida en initial() para POST de subida; test HTTP que falle en main (30 POST -> 20 + 10x429)"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [TKT-043, TKT-022, "THREAT subida de archivos"]
+    depende_de: [TKT-043]
+    archivos_permitidos: ["backend/apps/medios/api/**", "backend/apps/medios/tests/test_tkt065*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log."]
+    actualizado: 2026-10-10
+  - id: TKT-066
+    titulo: "LOW (QA TKT-043 OBS-043-01): en ráfagas concurrentes la denegación calcula wait() con la instantánea del historial previa al bloqueo y Retry-After puede salir menor que la espera real (8-30 s en vez de ~60 s con 10/min). Calcular la espera sobre el historial bloqueado (o duration - (now - marca más antigua) si len < cuota); test de concurrencia"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-043]
+    depende_de: [TKT-043]
+    archivos_permitidos: ["backend/apps/core/throttling.py", "backend/apps/core/tests/test_tkt066*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1033 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
