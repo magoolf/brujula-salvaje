@@ -449,3 +449,4 @@
 2026-10-09 | INTEGRACION | TKT-051 | PR #81 integrado en main con QA PASS y CI verde. DONE | PR #81
 2026-10-09 | DELEGACION | TKT-049 | Developer TKT-049 (worktree aislado, core/layout), disjunto de TKT-048 | kanban.md
 2026-10-09 | ENTREGA | TKT-049 | PR #82 @ 0ac94e8, CI verde: rótulos de la navegación en una línea entre 1024 y 1440 px en 3 motores (solo CSS con tokens + E2E). QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-049
+2026-10-09 | DECISION_HUMANA | Proceso | El usuario decide que todas las pruebas E2E, a11y, visuales y de rendimiento (Developer y QA) se ejecuten SOLO en Chromium/Google Chrome; Firefox y WebKit quedan fuera de alcance (no se reportan como NOT_RUN bloqueante, sino 'fuera de alcance por decisión del usuario'). Motivo: velocidad. Riesgo residual: defectos específicos de Firefox/Safari no detectados (se recogerá en el Informe de Entrega). Aplicado a TKT-048 y QA TKT-049 en curso | mensaje del usuario
