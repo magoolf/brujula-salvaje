@@ -422,7 +422,7 @@ tickets:
   - id: TKT-052
     titulo: "LOW (QA TKT-050 OBS-QA050-02, preexistente): las operaciones de ciclo con tipo=paginas no aplican la autorización por página: un Editor recibe en páginas legales GET impacto-retiro 200 con retirable:true (contradice AC-033: las páginas no se retiran), publicar/reactivar 409 y retirar 400. Responder 403 permiso_denegado para páginas no autorizadas y retirable:false para PAGINA; tests por rol"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-050, "AC-033", "THREAT control de acceso por objeto"]
     depende_de: [TKT-050]
@@ -430,7 +430,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log."]
-    actualizado: 2026-10-09
+    actualizado: 2026-10-10
   - id: TKT-053
     titulo: "LOW (QA TKT-016 OBS-01, preexistente): en URLs de paginación fuera de rango (la API devuelve 404 pagina_fuera_de_rango) el estado de error no se transfiere del SSR y la hidratación vuelve a pedir y pasa por el esqueleto: /itinerarios?pagina=9 CLS 0,9067, /glosario?pagina=2 0,1325, /destinos?pagina=2 pie desplazado 3277 px. Además /destinos?pagina=2 responde HTTP 200 con estado-error. Transferir/reutilizar el estado de error al hidratar (o renderizar el error de forma estable) y devolver el código HTTP adecuado en SSR; E2E de CLS en esas rutas en 3 motores"
     fase: F7
@@ -914,7 +914,7 @@ tickets:
   - id: TKT-024
     titulo: "Panel 4/4 -- configuración editorial y administración: SCR-042 Destacados de inicio (FLOW-014), SCR-043 Taxonomías y catálogos (regiones, países, categorías de guía, licencias, escalas), SCR-047 Configuración del sitio [Admin], SCR-044 Cuentas del equipo y SCR-045 Formulario de cuenta [Admin] (alta, restablecer contraseña/MFA, desactivar, reactivar, anonimizar), SCR-046 Registro de auditoría [Admin]"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [MOD-012, MOD-013, FEAT-043, FEAT-044, FEAT-045, FEAT-046, FEAT-047, FLOW-014, SCR-042, SCR-043, SCR-044, SCR-045, SCR-046, SCR-047, RULE-014, RULE-015, RULE-016, RULE-017]
     depende_de: [TKT-010, TKT-023]
@@ -922,7 +922,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Creado por DEC-AUTO-927 (división de TKT-010). Secuencial tras TKT-023 porque comparte el archivo de rutas y la navegación del panel (§0.10).", "Heredado de TKT-010: añadir el E2E de AC_TKT010_08 sobre una ruta real solo-Admin (/panel/usuarios): Editor -> SCR-048 conservando la URL; Admin -> accede.", "Límites del patrón EnlaceValor (QA TKT-010 c2): (1) un autofill que solo emite change no actualiza la señal; (2) inputs sin name; (3) errores por campo persisten hasta el siguiente envío; (4) solo cubre input de texto (no checkbox/radio/select). Tenerlos en cuenta o ampliarlo.", "Contrato de zonas de TKT-010 (DEC-DEV-ZONA-01/02): armazones nuevos del panel con <router-outlet appZona=\"panel\" />, rutas bajo la ruta panel (data DATOS_ZONA_PANEL) y specs que monten RUTAS_PANEL con esa data."]
-    actualizado: 2026-10-01
+    actualizado: 2026-10-10
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
