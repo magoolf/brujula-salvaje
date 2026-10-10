@@ -499,9 +499,9 @@ tickets:
     trazabilidad: [TKT-024, AC-030, SCR-046, MOD-013]
     depende_de: []
     archivos_permitidos: ["backend/apps/auditoria/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 26dc29b: 0 filas nuevas con #<id>, seudonimización THREAT-013 verificada, Editor 403 en auditoría, schemathesis 303/0 5xx, SCR-046 Chromium 4/4, seguridad 0. OBS-QA058-01 (1 SELECT por evento sin etiqueta) -> TKT-062; OBS-QA058-02 -> DEC-AUTO-1028. Integración tras PR #85."]
     actualizado: 2026-10-10
   - id: TKT-059
     titulo: "LOW (QA TKT-048 OBS-QA048-01..03): regenerar_derivados (1) docstring dice que conserva las rutas pero las versiona y borra las antiguas: corregir; (2) las URL antiguas dan 404 justo tras regenerar (pestañas abiertas, caché pública de 60 s+SWR 300 s, og:image en redes): borrado diferido con periodo de gracia (purga posterior de archivos sin fila) y alternativa ante error en el <picture> de inicio; (3) capturar DecompressionBombError/UnidentifiedImageError por medio, registrar y continuar; evitar recodificar cuando no hay cambios. Tests"
@@ -540,7 +540,7 @@ tickets:
     evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
     actualizado: 2026-10-10
   - id: TKT-062
-    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema"
+    titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento)"
     fase: F7
     estado: TODO
     owner: Skill_Developer
