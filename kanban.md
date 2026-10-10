@@ -374,14 +374,14 @@ tickets:
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-041, TKT-021, "Skill_UI_UX#47.2", DEC-AUTO-044]
     depende_de: [TKT-041]
     archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/destinos/**", "frontend/src/app/features/inicio/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b.", "2026-10-10 Developer relanzado tras la pausa sobre el código sin commit del worktree agent-ac49e7c60ce40b9df (commit intermedio primero; E2E solo Chromium).", "2026-10-10 PR #84 @ 0dd704c (CI verde): AVIF q52/s6, WebP q78, JPEG q80 progresivo con AVIF<=WebP<=JPEG; regenerar_derivados idempotente (1335 derivados; Ha Long AVIF 800 74->33 KB); <picture> en inicio; sizes de portada ajustado; precarga eliminada por no aportar (DEC-AUTO-1000). LH móvil x5 simulado: / 2900->3050, ficha 3729->3424; solo red: ficha 2980->2481. pytest 1496, vitest 760, E2E Chromium 130/0. El LCP<=2,5 s simulado lo domina el bundle JS -> TKT-056 (DEC-AUTO-1021); el AC de LCP de este ticket se acota a la parte de imágenes."]
+    evidencia: ["DEC-AUTO-976. A/B Lighthouse de la QA: scratchpad 56bc59a0…/qa041/lh_m, lh_b.", "2026-10-10 Developer relanzado tras la pausa sobre el código sin commit del worktree agent-ac49e7c60ce40b9df (commit intermedio primero; E2E solo Chromium).", "2026-10-10 PR #84 @ 0dd704c (CI verde): AVIF q52/s6, WebP q78, JPEG q80 progresivo con AVIF<=WebP<=JPEG; regenerar_derivados idempotente (1335 derivados; Ha Long AVIF 800 74->33 KB); <picture> en inicio; sizes de portada ajustado; precarga eliminada por no aportar (DEC-AUTO-1000). LH móvil x5 simulado: / 2900->3050, ficha 3729->3424; solo red: ficha 2980->2481. pytest 1496, vitest 760, E2E Chromium 130/0. El LCP<=2,5 s simulado lo domina el bundle JS -> TKT-056 (DEC-AUTO-1021); el AC de LCP de este ticket se acota a la parte de imágenes.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 0dd704c (Chromium): ficha 3756->3432 ms, inicio +132 ms aceptado (imagen al doble de resolución), bytes de imagen inicio 480->238 KB y ficha 134->62 KB, 0 metadatos, privados intactos, idempotente, seguridad 0. OBS-QA048-01..03 -> TKT-059; OBS-QA048-05 -> TKT-056. regenerar_derivados al runbook de F9. Integrado PR #84. DONE."]
     actualizado: 2026-10-10
   - id: TKT-049
     titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
@@ -477,7 +477,7 @@ tickets:
     archivos_permitidos: ["frontend/src/app/**", "frontend/src/main*.ts", "frontend/src/server.ts", "frontend/angular.json", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red."]
+    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales)."]
     actualizado: 2026-10-10
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
@@ -502,6 +502,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/."]
+    actualizado: 2026-10-10
+  - id: TKT-059
+    titulo: "LOW (QA TKT-048 OBS-QA048-01..03): regenerar_derivados (1) docstring dice que conserva las rutas pero las versiona y borra las antiguas: corregir; (2) las URL antiguas dan 404 justo tras regenerar (pestañas abiertas, caché pública de 60 s+SWR 300 s, og:image en redes): borrado diferido con periodo de gracia (purga posterior de archivos sin fila) y alternativa ante error en el <picture> de inicio; (3) capturar DecompressionBombError/UnidentifiedImageError por medio, registrar y continuar; evitar recodificar cuando no hay cambios. Tests"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-048, DEC-AUTO-044, THREAT-007]
+    depende_de: [TKT-048]
+    archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/inicio/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1024 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q48/."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

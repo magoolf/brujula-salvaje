@@ -471,3 +471,5 @@
 2026-10-10 | DELEGACION | TKT-024 | Devuelto al mismo Developer para el ciclo 2/3 | kanban.md
 2026-10-10 | QA_PASS | TKT-052 | QA_VERDICT PASS ciclo 1/3 @ 5e4a830 (escalada real reproducida en main: Editor publicaba página legal en BORRADOR; corregida). OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) y notas de §21.5/retirable -> CHG-API-007 (decidir allí si se alinea en código) | HANDOFF_ENVELOPE QA TKT-052
 2026-10-10 | DELEGACION | TKT-058 | Developer auditoría actor_etiqueta (worktree aislado, apps/auditoria) | kanban.md
+2026-10-10 | QA_PASS | TKT-048 | QA_VERDICT PASS ciclo 1/3 @ 0dd704c: sin regresión injustificada (inicio +132 ms aceptado por resolución correcta; ficha -324 ms), imágenes -50 %, seguridad 0. OBS-QA048-01..03 -> TKT-059 (DEC-AUTO-1024, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible); OBS-QA048-05 -> TKT-056; regenerar_derivados al runbook de F9 | HANDOFF_ENVELOPE QA TKT-048
+2026-10-10 | INTEGRACION | TKT-048 | PR #84 sincronizado con main, CI verde, integrado. DONE | PR #84
