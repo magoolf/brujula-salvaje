@@ -14,6 +14,7 @@ Actualizado por **TKT-OPS-016** (F7, HIGH, condición de F9). El limitador de bo
 Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 de las 5 imágenes Debian; actualización fijada a 10.46-1~deb13u3 de trixie-security, sin tocar `.trivyignore`, 2026-10-01): ver §24 (§23 reservado para TKT-OPS-016, PR #38).
 Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-016: la location de assets envía al SSR solo la ruta, sin query; ancla `\z`; sin `X-Forwarded-Host`/`X-Forwarded-Proto`; RSK-OPS-041 medido: 8 → 4 líneas, 2026-10-01): ver §25 y **ADR-OPS-001** (punto 7).
 Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 de la imagen `brujula/proxy` (alpine 3.24.2); `pcre2=10.49-r0` fijado en el Dockerfile, sin tocar `.trivyignore` ni la base, 2026-10-01): ver §27.
+Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub: espejo `mirror.gcr.io` en el Engine y en BuildKit del runner + reintentos con backoff, sin credenciales nuevas; FROM y digests sin cambios, 2026-10-09): ver §34.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -2689,3 +2690,53 @@ Sin cambios en compose, redes, volúmenes ni variables. El build de `scheduler` 
 
 ### 33.9 Próximo agente
 **Orquestador**: QA del PR (regresión de scheduler/backup) e integración sin editar contenido; después, sincronizar los PR abiertos con `main` y relanzar su CI.
+
+## 34. TKT-OPS-033: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub (F6, MEDIUM; desbloquea los PR; DEC-AUTO-989)
+
+### 34.1 Estado
+COMPLETADO en la rama `tkt-ops-033-espejo-registro`. Sin despliegue, sin secretos ni credenciales nuevas y sin costes (CLAUDE.md §0.5): no se autentica en Docker Hub (eso exigiría un secreto: Puerta Humana). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 34.2 Objetivo
+Desde la tarde del 2026-10-09 el job `infraestructura (compose + secret scan)` falla en todos los PR al construir la imagen de la BD: `failed to resolve source metadata for docker.io/docker/dockerfile:1: failed to authorize: failed to fetch oauth token: ... POST https://auth.docker.io/token: 504 Gateway Timeout` (antes, 429 por el límite anónimo). Runs 37993167451 (PR #79, 3 intentos) y 37991929668 (PR #75, 4 intentos). `backend`, `frontend` e `images` dependen de él y quedan saltados: el CI no puede ponerse verde.
+
+### 34.3 Diagnóstico y alternativas
+- El fallo ocurre al pedir el **token anónimo** a `auth.docker.io` (desde local responde 200): es la ruta runner de GitHub -> Docker Hub. Todo `FROM` de Docker Hub y el frontend `# syntax=docker/dockerfile:1` pasan por ahí; `ghcr.io/astral-sh/uv` no.
+- `mirror.gcr.io` (espejo público de Docker Hub de Google) sirve **sin token** (HTTP 200 anónimo, comprobado el 2026-10-09) los 7 objetos necesarios: `docker/dockerfile:1` y, **por el mismo digest**, postgres, golang, debian, nginx-unprivileged, python y node.
+- **A. Cambiar los `FROM` a `mirror.gcr.io/...@sha256:`** (descartada): Dependabot consulta la lista de tags del registro de la referencia y la de `mirror.gcr.io` es parcial (caché bajo demanda: `library/postgres` lista 1011 tags y 9292 manifiestos, solo 645 con tag); cambiaría además los nombres de dependencia (grupos `postgres`/`golang`) y la receta supercronic, y ataría el build local a Google.
+- **B. Quitar `# syntax=`** (descartada): los Dockerfile usan `RUN --mount=type=cache` y `COPY --chmod`; sin la directiva dependerían de la versión de BuildKit embebida en cada Engine. Y no resuelve las imágenes base, que también van a Docker Hub.
+- **C. `registry-mirrors` a nivel de Engine y de BuildKit del runner** (ELEGIDA): ningún Dockerfile cambia (mismas referencias `docker.io` literales con el mismo digest; contenido direccionado: el espejo no puede servir otro contenido para un digest fijado); Dependabot, `dependabot_cobertura.sh`, `supercronic_receta.sh` y `politica_trivy.py` siguen exactamente igual. Si el espejo falla, el Engine/BuildKit prueban después `registry-1.docker.io` (degradación al comportamiento anterior).
+- **Caché de capas entre jobs** (no implementada): con espejo + reintentos no hace falta para la disponibilidad; `type=gha` exigiría cambiar el driver de los jobs `infra`/`backend` y exportar caché desde compose. Queda como mejora opcional de tiempo, no de robustez.
+
+### 34.4 Cambios realizados
+- `infra/ci/espejo_registro.sh` (nuevo): fusiona `"registry-mirrors": ["https://mirror.gcr.io"]` en el `/etc/docker/daemon.json` existente del runner (con `jq`; conserva el resto de claves, espejo primero y sin duplicados), reinicia el Engine, espera a que responda y **falla** si `docker info` no informa del espejo. Variable opcional `ESPEJO_REGISTRO` (validada `https://<host>`).
+- `infra/ci/buildkitd.toml` (nuevo): `[registry."docker.io"] mirrors = ["mirror.gcr.io"]` para el builder `docker-container` de `setup-buildx-action` (job `images`, entrada `buildkitd-config`).
+- `infra/ci/reintentar.sh` (nuevo) + `infra/ci/reintentar_controles.sh` (nuevo): reintentos con backoff exponencial (3 intentos; esperas de 20 s y 40 s) que conservan el código de salida del último intento (un Dockerfile roto sigue fallando; nunca convierte un fallo en éxito) y dejan un `::warning::` por reintento. Controles: P1 éxito al primer intento, P2 éxito al tercero, N1 agota intentos y conserva rc=7, N2/N3/N4 argumentos inválidos (rc=2).
+- `.github/workflows/ci.yaml`:
+  - job `infra`: controles de `reintentar.sh` + espejo en el Engine justo tras el checkout; `INFRA-DB-000` construye `db` con `reintentar.sh 3 20 -- docker compose ... build db` antes del `up --wait` (el `up` ya no construye).
+  - job `backend`: espejo en el Engine + el mismo `build db` con reintentos antes del `up`.
+  - job `images`: espejo en el Engine **antes** de `setup-buildx-action` (que descarga `moby/buildkit` de Docker Hub a través del Engine) + `buildkitd-config: infra/ci/buildkitd.toml`; `docker compose --profile ops build --pull` con `reintentar.sh 3 20`.
+- Sin cambios en Dockerfile, compose, `.github/dependabot.yml`, `.trivyignore` ni `politica_trivy.py`.
+
+### 34.5 Versiones aprobadas
+Sin cambios de versiones ni de digests. Referencias `FROM` idénticas (docker.io, tag exacto + `@sha256`). El frontend de sintaxis sigue siendo `docker/dockerfile:1` (comportamiento previo), ahora resuelto a través del espejo.
+
+### 34.6 Infraestructura / dependencias / variables de entorno
+Sin cambios en compose, redes, volúmenes ni `.env.example`. El runner de CI necesita salida a `mirror.gcr.io` (si no la tiene, cae a Docker Hub). Ningún cambio en el entorno local del desarrollador (el espejo solo se configura en el runner).
+
+### 34.7 Validaciones ejecutadas (2026-10-09, local, Docker 29.6.1 / buildx 0.35.0 / BuildKit v0.33.1)
+- `curl` anónimo a `https://mirror.gcr.io/v2/<repo>/manifests/<digest>` de las 6 imágenes base y de `docker/dockerfile:1`: HTTP 200 en los 7.
+- Builder `docker-container` local creado con `infra/ci/buildkitd.toml` (config cargada en el contenedor: `[registry.'docker.io'] mirrors = ['mirror.gcr.io']`): resolución de `docker/dockerfile:1` y de las referencias base sin ninguna línea `[auth]` hacia Docker Hub en los logs de build. Resultado por imagen en el HANDOFF_ENVELOPE (el driver `docker-container` de Docker Desktop local cancela a veces la exportación por tarball al Engine: problema del host, no del CI).
+- `reintentar_controles.sh`: 6/6 OK. `politica_trivy_controles.sh`: 66 controles, 0 fallos; `politica_trivy.sh .`: OK (3 invocaciones, 1 gate, 16 excepciones). `dependabot_cobertura_controles.sh`: 11 controles, 0 fallos; `dependabot_cobertura.sh .`: OK. `supercronic_receta_controles.sh` (P0 + N1..N6) y `supercronic_receta.sh .`: OK (idéntica). `ci.yaml` carga con PyYAML.
+- NOT_RUN en local: `espejo_registro.sh` (reinicia el Engine con `sudo systemctl`; no se ejecuta contra el Docker Desktop del usuario). Se valida en el CI real del PR.
+
+### 34.8 Riesgos / pendientes
+- **RSK-OPS-033-A (LOW)**: dependencia de un tercero (Google) para el espejo. Mitigación: degradación automática a Docker Hub y reintentos; integridad garantizada por los digests.
+- **RSK-OPS-033-B (LOW)**: `mirror.gcr.io` es caché bajo demanda: un digest recién publicado (p. ej. en un PR de Dependabot) puede no estar todavía; entonces se descarga de Docker Hub como antes (mismo riesgo previo, solo en ese PR).
+- **RSK-OPS-033-C (LOW, previo)**: `# syntax=docker/dockerfile:1` es un tag mayor flotante que Dependabot no actualiza. No se cambia en este ticket (cambio mínimo); fijarlo por digest sería un ticket aparte.
+- Docker Hub autenticado (límite mayor) sigue siendo una opción solo con aprobación humana (secreto, CLAUDE.md §0.5).
+
+### 34.9 Archivos modificados
+`.github/workflows/ci.yaml`, `infra/ci/espejo_registro.sh` (nuevo), `infra/ci/buildkitd.toml` (nuevo), `infra/ci/reintentar.sh` (nuevo), `infra/ci/reintentar_controles.sh` (nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 34.10 Próximo agente
+**Orquestador**: revisión/QA del PR e integración sin editar contenido; después, sincronizar con `main` los PR bloqueados (#79, #75 y los de Dependabot) y relanzar su CI.
