@@ -2092,7 +2092,9 @@ def impacto_retiro(tipo: str, contenido_id: int) -> dict[str, Any]:
     destacados = list({d.seccion for d in contenido.destacados.all()})
     enlaces_entrantes = RelacionContenido.objects.filter(relacionado=contenido).count()
     return {
-        "retirable": not bloqueos_cascada,
+        # Las páginas institucionales no se retiran (AC-033, TKT-052): `retirar` responde 409
+        # transicion_invalida, así que el análisis no puede anunciarlas como retirables.
+        "retirable": tipo in TIPOS_CICLO_COMPLETO and not bloqueos_cascada,
         "itinerarios_en_cascada": [_referencia(i) for i in itinerarios],
         "tipos_en_cascada": [_referencia(t.contenido) for t in tipos_cascada],
         "bloqueos_cascada": bloqueos_cascada,

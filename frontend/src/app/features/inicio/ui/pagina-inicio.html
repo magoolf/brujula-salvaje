@@ -17,8 +17,22 @@
   </section>
 } @else if (store.inicio(); as inicio) {
   <section class="bloque-principal" data-testid="inicio-bloque-principal">
-    @if (inicio.hero?.imagen; as imagen) {
-      <img class="imagen-principal" [src]="imagen.src" [alt]="imagen.alt" width="1920" height="1080" fetchpriority="high" />
+    @if (imagenPrincipal(); as imagen) {
+      <picture class="imagen-principal" data-testid="inicio-imagen-principal">
+        @for (fuente of imagen.fuentes; track fuente.formato) {
+          <source [attr.type]="fuente.tipo" [attr.sizes]="sizesImagenPrincipal" [attr.srcset]="fuente.srcset" />
+        }
+        <img
+          [attr.sizes]="imagen.srcset ? sizesImagenPrincipal : null"
+          [attr.srcset]="imagen.srcset || null"
+          [src]="imagen.src"
+          [alt]="imagen.alt"
+          width="1920"
+          height="1080"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </picture>
     }
     <div class="scrim"></div>
     <div class="bs-contenedor contenido-principal">

@@ -466,3 +466,16 @@
 2026-10-10 | DELEGACION | TKT-052 | QA ciclo 1/3 sobre PR #83 | kanban.md
 2026-10-10 | ENTREGA | TKT-024 | PR #85 @ 10c9ef0, CI verde: panel 4/4 (destacados, taxonomías, configuración, cuentas, auditoría). DEC-AUTO-1040..1047 (Developer, reversibles). RSK-TKT024-01 -> TKT-057 MEDIUM backend (DEC-AUTO-1022, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-024
 2026-10-10 | DELEGACION | TKT-024 | QA ciclo 1/3 sobre PR #85 (solo Chromium) | kanban.md
+2026-10-10 | DELEGACION | TKT-057 | Developer backend /panel/inicio (worktree aislado, apps/inicio). Disjunto de las QA en curso | kanban.md
+2026-10-10 | QA_FAIL | TKT-024 | QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (secreto temporal descartado sin confirmación), FALLO-02 LOW (foco al h1 al activar pestaña en SCR-043), OBS-PERF-01 LOW. OBS-BE-01 (auditoría con '#<id>') -> TKT-058 (DEC-AUTO-1023, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-024
+2026-10-10 | DELEGACION | TKT-024 | Devuelto al mismo Developer para el ciclo 2/3 | kanban.md
+2026-10-10 | QA_PASS | TKT-052 | QA_VERDICT PASS ciclo 1/3 @ 5e4a830 (escalada real reproducida en main: Editor publicaba página legal en BORRADOR; corregida). OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) y notas de §21.5/retirable -> CHG-API-007 (decidir allí si se alinea en código) | HANDOFF_ENVELOPE QA TKT-052
+2026-10-10 | DELEGACION | TKT-058 | Developer auditoría actor_etiqueta (worktree aislado, apps/auditoria) | kanban.md
+2026-10-10 | QA_PASS | TKT-048 | QA_VERDICT PASS ciclo 1/3 @ 0dd704c: sin regresión injustificada (inicio +132 ms aceptado por resolución correcta; ficha -324 ms), imágenes -50 %, seguridad 0. OBS-QA048-01..03 -> TKT-059 (DEC-AUTO-1024, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible); OBS-QA048-05 -> TKT-056; regenerar_derivados al runbook de F9 | HANDOFF_ENVELOPE QA TKT-048
+2026-10-10 | INTEGRACION | TKT-048 | PR #84 sincronizado con main, CI verde, integrado. DONE | PR #84
+2026-10-10 | INTEGRACION | TKT-052 | PR #83 sincronizado con main, CI verde, integrado. DONE | PR #83
+2026-10-10 | ENTREGA | TKT-024 | Corrección ciclo 1 @ 48fe6ab, CI verde (DEC-AUTO-1048/1049). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-024
+2026-10-10 | ENTREGA | TKT-058 | PR #87 @ 26dc29b, CI verde: la auditoría resuelve la etiqueta del actor. Riesgo: cargar_semilla sin 'sistema' -> TKT-060 (DEC-AUTO-1025, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-058
+2026-10-10 | DELEGACION | TKT-058 | QA ciclo 1/3 sobre PR #87 | kanban.md
+2026-10-10 | ENTREGA | TKT-057 | PR #86 @ 674646e, CI verde: referencias reales y etiqueta del usuario en /panel/inicio (DEC-AUTO-1080..1083). R-1080-1 -> TKT-061 (DEC-AUTO-1026), R-1080-2 -> TKT-062 (DEC-AUTO-1027), ambos ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles | HANDOFF_ENVELOPE TKT-057
+2026-10-10 | DELEGACION | TKT-057 | QA ciclo 1/3 sobre PR #86 | kanban.md
