@@ -454,3 +454,6 @@
 2026-10-10 | REANUDACION | Proceso | Verificación tras la pausa: main = origin/main, PR #82 CI verde, código de TKT-048 intacto en su worktree. Bajado el stack brujulaqa049 y eliminados los worktrees qa049/qa049main. Corregida comilla sobrante en la evidencia de TKT-049 en kanban.md. Nuevo Dependabot #78 (django 5.2.18) pendiente | kanban.md
 2026-10-10 | DELEGACION | TKT-048 | Developer relanzado sobre el trabajo sin commit (commit intermedio, cierre de medición, tests, E2E solo Chromium, PR) | kanban.md
 2026-10-10 | DELEGACION | TKT-049 | QA ciclo 1/3 relanzada desde cero sobre PR #82 @ 0ac94e8, solo Chromium | kanban.md
+2026-10-10 | QA_PASS | TKT-049 | QA_VERDICT PASS ciclo 1/3 @ 0ac94e8, solo Chromium (Firefox/WebKit fuera de alcance por decisión del usuario): rótulos en 1 línea 1280-1920 px, sin desbordamiento, axe 0, CLS 0, seguridad 0. OBS-QA049-01 LOW (text-spacing WCAG 1.4.12 a 1280 px) -> TKT-055 (DEC-AUTO-1020, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-049
+2026-10-10 | INTEGRACION | TKT-049 | PR #82 sincronizado con main, CI verde, integrado @ 1c2d469. DONE | PR #82
+2026-10-10 | CORRECCION | kanban.md | Comillas sobrantes en la evidencia de TKT-050 y TKT-051 corregidas (YAML válido) | kanban.md
