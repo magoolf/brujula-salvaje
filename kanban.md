@@ -482,7 +482,7 @@ tickets:
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-024, FLOW-014, SCR-042, MOD-012]
     depende_de: [TKT-024]
