@@ -504,3 +504,5 @@
 2026-10-10 | INTEGRACION | TKT-061 | PR #88 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-063) | PR #88
 2026-10-10 | ENTREGA | TKT-065 | PR #92 @ 0e80078, CI verde: panel-subida aplicado a la subida de medios (DEC-AUTO-1140/1141) | HANDOFF_ENVELOPE TKT-065
 2026-10-10 | DELEGACION | TKT-065 | QA ciclo 1/3 sobre PR #92 | kanban.md
+2026-10-10 | ENTREGA | TKT-060 | PR #91 @ 3e688f5, CI verde: comandos con etiqueta 'sistema' en llamadas directas. Residual MEDIUM (342 eventos de la semilla vía servicios) -> TKT-067 (DEC-AUTO-1034: contexto de proceso en auditoria en lugar de parámetro en 4 servicios; ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). El AC de TKT-060 se acota a los comandos | HANDOFF_ENVELOPE TKT-060
+2026-10-10 | DELEGACION | TKT-060, TKT-065 | QA ciclo 1/3 sobre PR #91 y PR #92 | kanban.md

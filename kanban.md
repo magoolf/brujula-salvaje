@@ -518,14 +518,14 @@ tickets:
   - id: TKT-060
     titulo: "LOW (TKT-058 riesgo, ADR-DB-004 §1.5): cargar_semilla registra los eventos de auditoría con actor_id=None y etiqueta 'desconocido'; DB_HANDOFF exige 'sistema' para tareas y semilla. Pasar actor_etiqueta=ETIQUETA_SISTEMA (y revisar otros comandos de gestión que auditan) con tests"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-058, TKT-007, AC-030, "ADR-DB-004"]
     depende_de: [TKT-058]
     archivos_permitidos: ["backend/apps/*/management/commands/**", "backend/apps/*/tests/test_tkt060*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058."]
+    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
@@ -598,6 +598,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1033 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log."]
+    actualizado: 2026-10-10
+  - id: TKT-067
+    titulo: "MEDIUM (TKT-060 residual, AC-030 / ADR-DB-004 §1.5): cargar_semilla deja 342 eventos como 'desconocido' porque entran por contenido.services._auditar, catalogos.services._auditar, medios.services (catalogar) e inicio.services.actualizar_config_inicio sin actor_etiqueta. Añadir en apps/auditoria un contexto de proceso (contextvar, p. ej. auditar_como_sistema()) que registrar_evento use cuando no hay actor ni etiqueta, y envolver cargar_semilla en él; tests: semilla completa con 0 desconocido y sin efecto en peticiones HTTP concurrentes"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-060, TKT-058, AC-030, "ADR-DB-004"]
+    depende_de: [TKT-060]
+    archivos_permitidos: ["backend/apps/auditoria/**", "backend/apps/contenido/management/commands/cargar_semilla.py", "backend/apps/*/tests/test_tkt067*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1034 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Medición del Developer TKT-060 (CONFIG_INICIO 1 + CREAR 4 sistema; 342 desconocido). Se secuencia después de TKT-062 por solape en auditoria/services.py."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
