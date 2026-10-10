@@ -23,7 +23,6 @@ import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-c
 import { formatoDuracion, formatoFechaEsCo, nombreMes, tieneItinerariosPropios } from '../domain/destino';
 import { formatoCoordenadas } from '../domain/mapa';
 import { DestinoDetalleStore } from '../state/destino-detalle.store';
-import { mantenerPrecargaImagen, precargaDe } from './precarga-portada';
 import { VisorGaleria } from './visor-galeria';
 
 /**
@@ -102,14 +101,6 @@ export class PaginaDestino {
   });
 
   constructor() {
-    // TKT-048: preload responsivo de la portada (imagen LCP) con el mismo srcset/sizes que pinta
-    // `ImagenResponsiva`, para que no compita detrás de los `modulepreload` del bundle.
-    mantenerPrecargaImagen(
-      computed(() => {
-        const portada = this.store.destino()?.portada ?? null;
-        return portada === null ? null : precargaDe(portada.derivados, SIZES_PORTADA);
-      }),
-    );
     // FEAT-027/CON-007: los metadatos se recalculan cada vez que llega un destino nuevo (incluida
     // la navegación entre fichas vía "Sigue explorando", que reutiliza este mismo componente).
     effect(() => {
