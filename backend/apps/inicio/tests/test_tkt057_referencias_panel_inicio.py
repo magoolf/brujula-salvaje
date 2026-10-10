@@ -20,6 +20,7 @@ from django.utils import timezone
 
 from apps.contenido.models import Contenido
 from apps.contenido.tests import publicos
+from apps.contenido.tests.conftest import validar_contra
 from apps.contenido.tests.fabricas import crear_cuenta
 from apps.cuentas.models import CuentaStaff, EstadoCuenta
 from apps.inicio import services
@@ -82,6 +83,7 @@ def test_TKT057_put_y_get_devuelven_referencias_y_etiqueta_reales(
     esperado_actor = {"id": editora.cuenta.pk, "etiqueta": editora.cuenta.usuario}
 
     for datos in (respuesta.json(), cliente_editora.get(RUTA).json()):
+        assert validar_contra("ConfigInicioPanel", datos) == []
         assert datos["referencias"] == esperado_ref
         assert datos["actualizado_por"] == esperado_actor
         assert datos["destinos_ids"] == mundo["destinos"]
@@ -116,7 +118,7 @@ def test_TKT057_etiqueta_de_cuenta_anonimizada_es_el_seudonimo(cliente_editora: 
         usuario=None,
         nombre_visible=None,
         estado=EstadoCuenta.ANONIMIZADA,
-        password="!inutilizable",  # noqa: S106  # nosec B106 (hash inutilizable, no es un secreto)
+        password="!inutilizable",  # nosec B106 (hash inutilizable, no es un secreto)
         desactivado_en=ahora,
         anonimizado_en=ahora,
     )
