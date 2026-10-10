@@ -374,7 +374,7 @@ tickets:
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-041, TKT-021, "Skill_UI_UX#47.2", DEC-AUTO-044]
     depende_de: [TKT-041]
