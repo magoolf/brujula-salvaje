@@ -23,7 +23,12 @@ export class GlosarioStore {
     { requireSync: true },
   );
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
   private readonly recurso = resource({
+    id: `recurso:glosario:${this.pagina$()}`,
     params: () => this.pagina$(),
     loader: ({ params }) => this.repo.listar(params),
   });

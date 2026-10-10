@@ -1,4 +1,6 @@
+import { TransferState, makeStateKey } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideClientHydration } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 
 import { InicioRepositorio } from '../data/inicio.repositorio';
@@ -56,5 +58,24 @@ describe('InicioStore', () => {
     const store = TestBed.inject(InicioStore);
     const error = await store.sorprenderme();
     expect(error).not.toBeNull();
+  });
+
+  it('AC_TKT016_01 hidratación: nace resuelto con el valor del SSR (TransferState) sin pedirlo otra vez', () => {
+    const obtener = vi.fn();
+    const INICIO_SSR: Inicio = { ...INICIO, tipos: [] };
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideClientHydration(),
+        { provide: InicioRepositorio, useValue: { obtener } },
+      ],
+    });
+    TestBed.inject(TransferState).set(makeStateKey<Inicio>('recurso:inicio'), INICIO_SSR);
+    const store = TestBed.inject(InicioStore);
+    // Síncrono: el primer render del cliente ya ve los datos (no el esqueleto de «cargando»).
+    expect(store.inicio()).toEqual(INICIO_SSR);
+    expect(store.cargando()).toBe(false);
+    TestBed.tick();
+    expect(obtener).not.toHaveBeenCalled();
   });
 });
