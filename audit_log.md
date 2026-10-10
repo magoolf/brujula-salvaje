@@ -464,3 +464,5 @@
 2026-10-10 | DELEGACION | TKT-048 | QA ciclo 1/3 sobre PR #84 (solo Chromium) | kanban.md
 2026-10-10 | ENTREGA | TKT-052 | PR #83 @ 5e4a830, CI verde: autorización por página en las 5 operaciones de ciclo, retirable=false para PAGINA. DEC-AUTO-1070..1072 (Developer, reversibles). Notas documentales del contrato añadidas al alcance de CHG-API-007 | HANDOFF_ENVELOPE TKT-052
 2026-10-10 | DELEGACION | TKT-052 | QA ciclo 1/3 sobre PR #83 | kanban.md
+2026-10-10 | ENTREGA | TKT-024 | PR #85 @ 10c9ef0, CI verde: panel 4/4 (destacados, taxonomías, configuración, cuentas, auditoría). DEC-AUTO-1040..1047 (Developer, reversibles). RSK-TKT024-01 -> TKT-057 MEDIUM backend (DEC-AUTO-1022, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-024
+2026-10-10 | DELEGACION | TKT-024 | QA ciclo 1/3 sobre PR #85 (solo Chromium) | kanban.md
