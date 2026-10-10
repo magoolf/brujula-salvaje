@@ -386,14 +386,14 @@ tickets:
   - id: TKT-049
     titulo: "LOW (QA TKT-041 OBS-C2-04, preexistente): en Chromium a 1280 px los rótulos de la navegación principal parten palabras ('Destino/s', 'Guía/s'); ajustar el layout de la cabecera para que los rótulos no se corten (sin reducir tamaño táctil ni contraste), verificar 1024-1440 px en 3 motores"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-041, MOD-001, "Skill_UI_UX"]
     depende_de: []
     archivos_permitidos: ["frontend/src/app/core/layout/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-981. Captura: scratchpad 56bc59a0…/qa041/c_d1280_hero.png."]
+    evidencia: ["DEC-AUTO-981. Captura: scratchpad 56bc59a0…/qa041/c_d1280_hero.png.", "2026-10-09 PR #82 @ 0ac94e8 (CI verde): solo CSS de cabecera-sitio con tokens (nowrap, flex none, búsqueda en línea cede ancho 18rem→12rem); E2E cabecera-rotulos 15/15 en 3 motores x 1024/1279/1280/1366/1440; regresión 205/0; axe 0. QA ciclo 1/3 despachada.""]
     actualizado: 2026-10-09
   - id: TKT-050
     titulo: "LOW (QA TKT-045 F-QA045-01, preexistente, control de acceso): un Editor obtiene 200 en GET de la lista y del detalle de revisiones y en POST .../revisiones/{n}/restaurar de las páginas legales (AVISO_LEGAL, POLITICA_COOKIES, POLITICA_DATOS), solo editables por Administrador (el PUT ya da 403). Aplicar _autorizar_pagina en RestaurarRevision, DetalleRevision y la lista de revisiones cuando el tipo sea PAGINA; 403 permiso_denegado según contrato; tests por rol y página"

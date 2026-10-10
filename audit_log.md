@@ -448,3 +448,4 @@
 2026-10-09 | QA_PASS | TKT-051 | QA_VERDICT PASS ciclo 1/3 @ 507fda8: estado resultante validado, 422 sin persistir nada, sin estados intermedios en concurrencia, compatible con la UI de TKT-023. OBS-QA051-01 LOW (texto del contrato) -> CHG-API-007 (DEC-AUTO-993, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-051
 2026-10-09 | INTEGRACION | TKT-051 | PR #81 integrado en main con QA PASS y CI verde. DONE | PR #81
 2026-10-09 | DELEGACION | TKT-049 | Developer TKT-049 (worktree aislado, core/layout), disjunto de TKT-048 | kanban.md
+2026-10-09 | ENTREGA | TKT-049 | PR #82 @ 0ac94e8, CI verde: rótulos de la navegación en una línea entre 1024 y 1440 px en 3 motores (solo CSS con tokens + E2E). QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-049
