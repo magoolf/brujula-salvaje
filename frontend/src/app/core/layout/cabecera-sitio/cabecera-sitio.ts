@@ -23,6 +23,12 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
  * - ≥ xl: logo · navegación principal · búsqueda en línea.
  * - < xl: logo · botón Buscar (fila desplegable, Esc la cierra) · botón Menú (cajón CDK Dialog).
  * Enlaces SHOULD/COULD (Colecciones*, Cuándo ir*, Guardados*) omitidos hasta que existan (RULE-030).
+ *
+ * TKT-049 (QA TKT-041 OBS-C2-04): con los siete enlaces, a 1280-1440 px la fila no cabía y el
+ * flexbox comprimía la navegación hasta partir los rótulos («Destino/s»). Ahora los rótulos no se
+ * parten (nowrap) ni se comprime la navegación (flex: none); la búsqueda en línea es la pieza que
+ * cede ancho (de 18rem hasta un mínimo de 12rem) y el espacio entre enlaces pasa a space-5. El
+ * tamaño táctil (min-height size-target), el color y el foco de .bs-enlace--nav no cambian.
  */
 @Component({
   selector: 'app-cabecera-sitio',
@@ -128,6 +134,7 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
     }
     .logo {
       display: inline-flex;
+      flex: none;
       align-items: center;
       gap: var(--bs-space-2);
       min-height: var(--bs-size-target);
@@ -143,15 +150,22 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
     .busqueda-en-linea {
       display: none;
     }
+    .navegacion {
+      flex: none;
+    }
     .navegacion ul {
       display: flex;
-      gap: var(--bs-space-6);
+      gap: var(--bs-space-5);
       margin: 0;
       padding: 0;
       list-style: none;
     }
+    .navegacion a {
+      white-space: nowrap;
+    }
     .busqueda-en-linea {
-      width: 18rem;
+      flex: 0 1 18rem;
+      min-width: 12rem;
     }
     .acciones-compactas {
       display: flex;
