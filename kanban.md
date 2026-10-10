@@ -427,9 +427,9 @@ tickets:
     trazabilidad: [TKT-050, "AC-033", "THREAT control de acceso por objeto"]
     depende_de: [TKT-050]
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/contenido/services.py", "backend/apps/contenido/tests/test_tkt052*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log.", "2026-10-10 PR #83 @ 5e4a830 (CI verde): _autorizar_ciclo (generaliza el helper de TKT-050) en publicar, analisis-publicacion, impacto-retiro, retirar y reactivar; orden 400->404->403->idempotencia->409 (DEC-AUTO-1070/1071); retirable=false para PAGINA (DEC-AUTO-1072). 76 tests (46 FAIL en main), pytest CI 1554, cobertura 97,75 %. Notas documentales del contrato (retirable de páginas, orden 404/403) -> CHG-API-007. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-988. Evidencia: scratchpad 7e63c98e…/q050/acceso050.log.", "2026-10-10 PR #83 @ 5e4a830 (CI verde): _autorizar_ciclo (generaliza el helper de TKT-050) en publicar, analisis-publicacion, impacto-retiro, retirar y reactivar; orden 400->404->403->idempotencia->409 (DEC-AUTO-1070/1071); retirable=false para PAGINA (DEC-AUTO-1072). 76 tests (46 FAIL en main), pytest CI 1554, cobertura 97,75 %. Notas documentales del contrato (retirable de páginas, orden 404/403) -> CHG-API-007. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 5e4a830: HTTP real 217/0, A/B 462 casos (40 diferencias, todas esperadas), sin efectos en 403/404, sin oráculo, schemathesis Editor/Admin 0 5xx, E2E panel 26/26, seguridad 0. OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) -> CHG-API-007. Pendiente de integrar tras PR #84."]
     actualizado: 2026-10-10
   - id: TKT-053
     titulo: "LOW (QA TKT-016 OBS-01, preexistente): en URLs de paginación fuera de rango (la API devuelve 404 pagina_fuera_de_rango) el estado de error no se transfiere del SSR y la hidratación vuelve a pedir y pasa por el esqueleto: /itinerarios?pagina=9 CLS 0,9067, /glosario?pagina=2 0,1325, /destinos?pagina=2 pie desplazado 3277 px. Además /destinos?pagina=2 responde HTTP 200 con estado-error. Transferir/reutilizar el estado de error al hidratar (o renderizar el error de forma estable) y devolver el código HTTP adecuado en SSR; E2E de CLS en esas rutas en 3 motores"
@@ -494,7 +494,7 @@ tickets:
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-024, AC-030, SCR-046, MOD-013]
     depende_de: []

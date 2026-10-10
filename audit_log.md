@@ -469,3 +469,5 @@
 2026-10-10 | DELEGACION | TKT-057 | Developer backend /panel/inicio (worktree aislado, apps/inicio). Disjunto de las QA en curso | kanban.md
 2026-10-10 | QA_FAIL | TKT-024 | QA_VERDICT FAIL ciclo 1/3 @ 10c9ef0: FALLO-01 MEDIUM (secreto temporal descartado sin confirmación), FALLO-02 LOW (foco al h1 al activar pestaña en SCR-043), OBS-PERF-01 LOW. OBS-BE-01 (auditoría con '#<id>') -> TKT-058 (DEC-AUTO-1023, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE QA TKT-024
 2026-10-10 | DELEGACION | TKT-024 | Devuelto al mismo Developer para el ciclo 2/3 | kanban.md
+2026-10-10 | QA_PASS | TKT-052 | QA_VERDICT PASS ciclo 1/3 @ 5e4a830 (escalada real reproducida en main: Editor publicaba página legal en BORRADOR; corregida). OBS-QA052-01 LOW (orden del 400 de Idempotency-Key en paginas) y notas de §21.5/retirable -> CHG-API-007 (decidir allí si se alinea en código) | HANDOFF_ENVELOPE QA TKT-052
+2026-10-10 | DELEGACION | TKT-058 | Developer auditoría actor_etiqueta (worktree aislado, apps/auditoria) | kanban.md
