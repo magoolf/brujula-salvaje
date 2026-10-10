@@ -2,9 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-09 (tarde).
+> y `audit_log.md`. Última actualización: 2026-10-09 (noche).
 
 ## 1. Estado en una línea
+
+2026-10-09 (noche): DONE hoy TKT-OPS-031, TKT-044, TKT-041, TKT-045, TKT-050, TKT-OPS-033 (CI con espejo mirror.gcr.io), TKT-016, TKT-023 (panel de contenidos completo), TKT-051; CI de main verde. En curso: Developer TKT-048 HIGH (LCP: codificación de derivados, imagen LCP de ficha e inicio; worktree aislado, checkpoint PROGRESO_TKT048.md) y Developer TKT-049 (rótulos de navegación; worktree aislado). Siguientes TODO: TKT-024 (panel 4/4, grande), TKT-042/043/046/047/052/053/054, CHG-API-007 (incluye OBS de TKT-045 y TKT-051), TKT-OPS-023/030/032, TKT-025/026/028/029/030/021/036/038/039, TKT-OPS-008/009, Dependabot #54-#57/#73/#74. Luego F9/F10. Memoria del equipo justa: máx. 3 agentes, workers=1; nunca matar procesos por nombre.
 
 2026-10-09 (tarde): DONE hoy TKT-OPS-031 (#77, supercronic con Go 1.26.9), TKT-044 (#72), TKT-041 (#70), TKT-045 (#76); CI de main verde. En curso: QA TKT-016 c1/3 (PR #75 @ 1731b61); Developer TKT-023 (merge main + AC_TKT023_12 sin condición, worktree agent-a1e5ec9abe3b6b896, luego re-QA c2/3); Developer TKT-050 (worktree aislado, acceso a revisiones de páginas legales). Siguientes: TKT-048 HIGH (tras TKT-016, solapa destinos/inicio), TKT-049 (tras TKT-016, core/layout), TKT-042/043/046/047, CHG-API-007, TKT-OPS-023/030/032, TKT-024/025/026/028/029/030/021/036/038/039, TKT-OPS-008/009, Dependabot #54-#57/#73/#74. Luego F9/F10.
 
