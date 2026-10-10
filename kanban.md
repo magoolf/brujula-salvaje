@@ -494,14 +494,14 @@ tickets:
   - id: TKT-058
     titulo: "MEDIUM (QA TKT-024 OBS-BE-01, AC-030): la auditoría guarda actor_etiqueta='#<id>' en 13 tipos de acción editorial (CONFIG_SITIO, CONFIG_INICIO, CREAR, TAXONOMIA, PUBLICAR, EDITAR_MEDIO…) porque backend/apps/auditoria/services.py:44 usa el fallback f'#{actor_id}' cuando el llamador no pasa la etiqueta; contradice ActorRef.etiqueta (Usuario o seudónimo). Resolver la etiqueta del usuario en el servicio común cuando no se pasa (respetando seudonimización), tests por tipo de acción; las filas inmutables ya escritas con '#<id>' se documentan (no se reescriben salvo vía de seudonimización existente)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-024, AC-030, SCR-046, MOD-013]
     depende_de: []
     archivos_permitidos: ["backend/apps/auditoria/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 26dc29b: 0 filas nuevas con #<id>, seudonimización THREAT-013 verificada, Editor 403 en auditoría, schemathesis 303/0 5xx, SCR-046 Chromium 4/4, seguridad 0. OBS-QA058-01 (1 SELECT por evento sin etiqueta) -> TKT-062; OBS-QA058-02 -> DEC-AUTO-1028. Integración tras PR #85."]
+    evidencia: ["DEC-AUTO-1023 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q024/.", "2026-10-10 PR #87 @ 26dc29b (CI verde): etiqueta_de_actor en registrar_evento (usuario, seudónimo si anonimizada, desconocido sin actor; 1 consulta solo sin etiqueta explícita). 49 tests (46 FAIL en main), pytest 1523. Filas antiguas con #<id> se mantienen (inmutables). cargar_semilla sin etiqueta sistema -> TKT-060. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 26dc29b: 0 filas nuevas con #<id>, seudonimización THREAT-013 verificada, Editor 403 en auditoría, schemathesis 303/0 5xx, SCR-046 Chromium 4/4, seguridad 0. OBS-QA058-01 (1 SELECT por evento sin etiqueta) -> TKT-062; OBS-QA058-02 -> DEC-AUTO-1028. Integrado PR #87. DONE."]
     actualizado: 2026-10-10
   - id: TKT-059
     titulo: "LOW (QA TKT-048 OBS-QA048-01..03): regenerar_derivados (1) docstring dice que conserva las rutas pero las versiona y borra las antiguas: corregir; (2) las URL antiguas dan 404 justo tras regenerar (pestañas abiertas, caché pública de 60 s+SWR 300 s, og:image en redes): borrado diferido con periodo de gracia (purga posterior de archivos sin fila) y alternativa ante error en el <picture> de inicio; (3) capturar DecompressionBombError/UnidentifiedImageError por medio, registrar y continuar; evitar recodificar cuando no hay cambios. Tests"
