@@ -602,7 +602,7 @@ tickets:
   - id: TKT-067
     titulo: "MEDIUM (TKT-060 residual, AC-030 / ADR-DB-004 §1.5): cargar_semilla deja 342 eventos como 'desconocido' porque entran por contenido.services._auditar, catalogos.services._auditar, medios.services (catalogar) e inicio.services.actualizar_config_inicio sin actor_etiqueta. Añadir en apps/auditoria un contexto de proceso (contextvar, p. ej. auditar_como_sistema()) que registrar_evento use cuando no hay actor ni etiqueta, y envolver cargar_semilla en él; tests: semilla completa con 0 desconocido y sin efecto en peticiones HTTP concurrentes"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-060, TKT-058, AC-030, "ADR-DB-004"]
     depende_de: [TKT-060]
@@ -1082,7 +1082,7 @@ tickets:
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-010, TKT-018, "DEC-AUTO-928"]
     depende_de: [TKT-010, TKT-016]

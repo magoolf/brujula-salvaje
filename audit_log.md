@@ -539,3 +539,5 @@
 2026-10-11 | INTEGRACION | TKT-056 | PR #90 sincronizado con main @ a020a80, CI verde, integrado. DONE (desbloquea los tickets de frontend TKT-025, 047, 030, 042, 021) | PR #90
 2026-10-11 | ENTREGA | TKT-068 | PR #96 @ 4d62023, CI verde: usos del listado de medios por lote (299 -> 14 consultas con 48 medios; detalle 16 -> 13) | HANDOFF_ENVELOPE TKT-068
 2026-10-11 | DELEGACION | TKT-068, TKT-067 | QA ciclo 1/3 sobre PR #96; Developer TKT-067 contexto de auditoría 'sistema' (worktree aislado) | kanban.md
+2026-10-11 | ENTREGA | TKT-067 | PR #98 @ 539e233, CI verde: contexto auditar_como_sistema() con ContextVar y guarda por señales de petición (DEC-AUTO-1220/1221); semilla 0 'desconocido'. QA en cola por capacidad (máx. 3 agentes) | HANDOFF_ENVELOPE TKT-067
+2026-10-11 | DELEGACION | TKT-025 | Developer manejo de errores de carga de chunk (worktree aislado, app.config.ts) | kanban.md
