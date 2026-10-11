@@ -1298,7 +1298,7 @@ tickets:
   - id: TKT-OPS-009
     titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: BLOCKED_HUMAN
     owner: devops
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
