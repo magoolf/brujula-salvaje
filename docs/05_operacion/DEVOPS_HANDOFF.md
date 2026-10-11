@@ -16,6 +16,7 @@ Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-
 Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 de la imagen `brujula/proxy` (alpine 3.24.2); `pcre2=10.49-r0` fijado en el Dockerfile, sin tocar `.trivyignore` ni la base, 2026-10-01): ver §27.
 Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub: espejo `mirror.gcr.io` en el Engine y en BuildKit del runner + reintentos con backoff, sin credenciales nuevas; FROM y digests sin cambios, 2026-10-09): ver §34.
 Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios y libro tras pérdida total (RSK-OPS-027), copia y restauración sin tmpfs (RSK-OPS-029), simulacro AC-054 reproducible en local y en CI, post-restore que no arranca la app si falta un paso (DEC-AUTO-908), runbook con perfil ops y libro v2 (CHG-DB-003), precondición de tipos/dominios (OBS-QAOPS007-03), 2026-10-11): ver §35. **Runbook de restauración vigente: §35.6.**
+Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canales implícitos: cualquier `TRIVY_*`, configuración generada, escrituras a `.trivyignore`, gate que no puede dejar de fallar, `sha256sum -c` junto a la instalación, guardia de ejecución; QA-OPS006-04/05, OBS-C3-1..3, 2026-10-11): ver §36. **La lista blanca vigente es §19.14.2 + §36.3.**
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -2910,3 +2911,86 @@ Las ejecuciones locales 1.ª a 5.ª fallaron por defectos que se corrigieron ant
 
 ### 35.11 Próximo agente
 **Orquestador**: QA del PR (sugerido: ejecutar `simulacro-ac054.sh` en un proyecto efímero, revisar el artefacto del job `simulacro-ac054` y confirmar la interpretación de OBS-QAOPS007-03), registrar DEC-AUTO-1200 a 1207 y RSK-OPS-047 a 050, y cerrar RSK-OPS-027/029/030. Con QA PASS, AC-054 puede darse por cubierto para F9.
+
+## 36. TKT-OPS-009: política de trivy sobre canales implícitos (QA-OPS006-04/05, OBS-C3-1..3; RSK-OPS-001) (F7, soporte)
+
+### 36.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§36.8). Rama `tkt-ops-009-politica-trivy` desde `origin/main` (incluye TKT-OPS-008). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). **No se toca `.trivyignore`** ni sus 16 excepciones vigentes (decisión humana RSK-OPS-001, caducan el 2026-10-26).
+
+### 36.2 Objetivo y estado de cada sub-ítem en `main` (antes de este ticket)
+Objetivo: que nadie pueda relajar en silencio el escaneo de trivy por canales que trivy lee por su cuenta ni con un gate que no falla. El usuario aceptó el riesgo el 2026-09-28 hasta este ticket (`audit_log.md`, GATE_HUMANO TKT-OPS-006).
+
+| Sub-ítem | Estado en `main` (comprobado ejecutando la política anterior contra los controles nuevos) | Resolución |
+|---|---|---|
+| QA-OPS006-04 (MEDIUM): `TRIVY_*` en env/run/`*.sh` y `trivy.yaml`/`.trivyignore.yaml` generados | **ABIERTO**. `VAR_TRIVY` era una lista cerrada, así que pasaban `TRIVY_SERVER`, `TRIVY_OFFLINE_SCAN`, `TRIVY_LIST_ALL_PKGS`, `TRIVY_INSECURE` y `vars.TRIVY_*`. También pasaban `printf … > trivy.yaml` y un heredoc a `.trivyignore.yaml`, porque solo se miraban los ficheros del repositorio. Además, el propio `ci.yaml` exportaba `TRIVY_VERSION`/`TRIVY_SHA256` al entorno de trivy | DEC-AUTO-1260 + DEC-AUTO-1261 |
+| QA-OPS006-05 (LOW): excepción del control negativo analizada como shell y sin otras escrituras al fichero | **ABIERTO**. El generador y el `exit 1` se buscaban como subcadenas, así que valían también en un comentario, dentro de un `echo` o después del `if`. Pasaban `>>` y `: >` sobre `/tmp/trivyignore-caducado` | DEC-AUTO-1263 |
+| OBS-C3-1: sin escrituras a `.trivyignore` en ejecución | **ABIERTO**. Pasaban `>> .trivyignore`, `cp`, `git checkout -- .trivyignore`, `sed -i` en un `*.sh`, `--output .trivyignore` y `with: {path: .trivyignore}` | DEC-AUTO-1264 + guardia |
+| OBS-C3-2: gate sin `\|\| true`, `&` ni `continue-on-error` | **ABIERTO**. Pasaban `\|\| true`, `&`, `&&`, `\| tee`, `; true`, `set +e`, `trap 'exit 0'`, el gate dentro de `if false` o de una función, `!`, `continue-on-error` (paso o job), `if:` en el paso y `shell: bash {0}` | DEC-AUTO-1262 |
+| OBS-C3-3: `sha256sum -c` junto a la instalación | **ABIERTO**. La línea `tar … trivy` era una excepción literal sin contexto. Pasaba sin `sha256sum -c`, con él después de extraer, con `\|\| true` o sustituyendo el `.tgz` entre ambas líneas | DEC-AUTO-1265 |
+
+Evidencia "antes": se ejecutaron los 57 controles nuevos (53 negativos y 4 positivos) contra el `politica_trivy.py` de `origin/main` (54a1f0d). **51 de los 53 negativos pasaban sin detectarse.** Solo C08 (`TRIVY_SKIP_*` estaba en la lista antigua) y D08 (sin generador en el run) fallaban.
+
+### 36.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Se prohíbe el prefijo `TRIVY_` como palabra (`(?<![A-Za-z0-9_])TRIVY_`) en todo el código de los workflows y de los `*.sh`. Cubre claves de cualquier nivel, valores, `run:` sin comentarios y `$GITHUB_ENV`. Se prohíbe mencionar `trivy.yaml/.yml` o `.trivyignore.yaml/.yml` en `run:`/`*.sh` y en valores de `with:`/`env:`. Se prohíben el instalador `contrib/install.sh` y `get.trivy.dev` | `infra/ci/politica_trivy.py` | DEC-AUTO-1260 |
+| `TRIVY_VERSION`/`TRIVY_SHA256` pasan a `TRIVYCLI_VERSION`/`TRIVYCLI_SHA256`, y trivy deja de recibirlos. Solo pueden estar en el `env` del workflow, con valor literal `\d+.\d+.\d+` o de 64 hex. Asignarlos en un `run:` o redefinirlos en un paso es error | `.github/workflows/ci.yaml`, `politica_trivy.py` | DEC-AUTO-1260 |
+| **Guardia de ejecución** `/usr/bin/python3 infra/ci/trivy_guardia.py`. Es la primera línea de los runs del gate y del control negativo. Falla si: hay `TRIVY_*` en el entorno real; el directorio no es `$GITHUB_WORKSPACE`; existe `./trivy.yaml`, `.yml`, `.trivyignore.yaml` o `.yml` (también como enlace roto); `.trivyignore` no es un fichero normal, no está seguido o difiere de `$GITHUB_SHA`; `trivy` no resuelve a `/usr/local/bin/trivy`; o hay `BASH_ENV`, `ENV`, `BASH_FUNC_*`, `SHELLOPTS`, `BASHOPTS` o `LD_PRELOAD`. El intérprete va con ruta absoluta para que un `$GITHUB_PATH` manipulado no lo sustituya. Tiene controles propios en el job `infra` | `infra/ci/trivy_guardia.py`, `infra/ci/trivy_guardia_controles.py` (nuevos), `ci.yaml` | DEC-AUTO-1261 |
+| **Gate como esqueleto cerrado.** Un run/`*.sh` con gate o control negativo solo admite estas líneas lógicas: guardia, `mkdir -p reports`, `rc=0`, `for s in <palabras>; do`, `done`, `fi`, `echo "<texto>"`, `exit $rc` (como última línea) e invocaciones. La línea del gate no lleva nada delante y detrás solo admite `\|\| rc=1`, que exige un único `rc=0` antes y `exit $rc` al final. El resto de invocaciones tampoco admite nada delante ni detrás. Ni el paso ni el job del gate/control pueden tener `continue-on-error` (salvo `false`), el paso no puede tener `if:` y el shell (del paso, del job o del workflow) solo puede ser `bash` | `politica_trivy.py` | DEC-AUTO-1262 |
+| **Control negativo** analizado por líneas lógicas exactas, sin comentarios. El generador `sed` exacto aparece una sola vez y ANTES del `if trivy …; then`. La línea siguiente termina en `exit 1` (`echo "…"; exit 1`) y la siguiente es `fi`. `trivyignore-caducado` solo puede aparecer en el generador, en la comprobación `grep` exacta y en la invocación del control | `politica_trivy.py` | DEC-AUTO-1263 |
+| En un `run:`/`*.sh`, `.trivyignore` solo puede aparecer en el gate o en el generador, que solo lo lee. `--output`/`-o` queda restringido a `reports/…` o `/tmp/…` con extensión `.json`/`.txt` y sin `..` | `politica_trivy.py` | DEC-AUTO-1264 |
+| La extracción `tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy` solo es válida si las dos líneas lógicas anteriores son exactamente la descarga y `echo "${TRIVYCLI_SHA256}  /tmp/trivy.tgz" \| sha256sum -c -`. `/tmp/trivy.tgz` no puede aparecer en ninguna otra línea, y el workflow que instala debe definir `TRIVYCLI_*` en su `env` | `politica_trivy.py`, `ci.yaml` | DEC-AUTO-1265 |
+| Controles: B13 y B14 llevan ahora la guardia. Se añaden 53 negativos y 4 positivos: C01-C12, D01-D09, E01-E07, F01-F21 y H01-H08 | `infra/ci/politica_trivy_controles.sh` | — |
+
+La política se aplica a **todos** los workflows y a todos los `*.sh` del repositorio. `simulacro-ac054.yaml` no invoca trivy y pasa sin cambios.
+
+### 36.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1260**: prohibir todo el prefijo `TRIVY_` en lugar de ampliar la lista.
+  - Alternativa descartada: una lista más larga. Siempre quedaría incompleta, porque trivy vincula cada flag a `TRIVY_<FLAG>`.
+  - Riesgo: un nombre legítimo futuro con ese prefijo habrá que renombrarlo, como se hizo con `TRIVYCLI_*`.
+  - Reversible.
+- **DEC-AUTO-1261**: añadir una guardia de ejecución a la política estática.
+  - Alternativas descartadas: solo la política estática, que no ve nombres construidos en ejecución ni escrituras ofuscadas en `$GITHUB_ENV`; o `env -i` alrededor de trivy, que no es una invocación de la lista blanca y no protege `./trivy.yaml` ni `.trivyignore`.
+  - Riesgo: si el runner trajera alguna de las variables vigiladas, el gate fallaría de forma visible. El control G00 lo detecta antes, en el job `infra`.
+  - Reversible.
+- **DEC-AUTO-1262**: esqueleto cerrado (lista blanca de líneas) en vez de una lista negra de construcciones de shell, coherente con DEC-AUTO-915.
+  - Riesgo: cambiar el run del gate obliga a tocar la política, y eso queda en el diff.
+  - Reversible.
+- **DEC-AUTO-1263**: control negativo por líneas lógicas exactas y nombre del fichero confinado. Reversible.
+- **DEC-AUTO-1264**: `.trivyignore` confinado a dos líneas y `--output` a `reports/` y `/tmp/`. Reversible.
+- **DEC-AUTO-1265**: la instalación verificada es una tripleta de líneas contigua y exacta, con nombres `TRIVYCLI_*`. Reversible.
+
+### 36.5 Versiones, infraestructura, dependencias y variables
+- No cambia ninguna versión: trivy 0.74.0 (mismo sha256) y PyYAML 6.0.3 (venv efímero del job `infra`). La guardia usa el `/usr/bin/python3` del runner (solo biblioteca estándar) y `git`.
+- Variables del workflow renombradas: `TRIVY_VERSION` → `TRIVYCLI_VERSION` y `TRIVY_SHA256` → `TRIVYCLI_SHA256`, con los mismos valores. `.env.example` no cambia.
+
+### 36.6 Seguridad
+- No hay excepciones nuevas y `.trivyignore` no cambia (16 entradas, `exp:2026-10-26`).
+- gitleaks 8.30.1 sobre la rama: ver la evidencia del PR.
+
+### 36.7 Validaciones ejecutadas (2026-10-11, local: Windows 11, Git Bash, Python 3.11.9 + PyYAML 6.0.3)
+- `politica_trivy.sh .` sobre la rama: **OK** ("invocaciones: 3; gates: 1; excepciones: 16").
+- La política nueva sobre el `ci.yaml` de `main` sin cambios **falla** con 8 errores: `TRIVY_VERSION`/`TRIVY_SHA256` en `env` y en el `run:` de instalación, falta la guardia en los 2 runs y falta `TRIVYCLI_*`.
+- `politica_trivy_controles.sh`: **123/123** (los 66 anteriores, con B13 y B14 actualizados, más los 57 nuevos). Cada negativo falla por la regla que le toca (`::error::` comprobado).
+- `trivy_guardia_controles.py`: **16/16** en local. G07 y G08 usan enlaces simbólicos y solo se ejecutan en Linux, es decir, en el CI.
+- La política anterior (`origin/main`) frente a los controles nuevos deja sin detectar 51 negativos (§36.2).
+- `ruff check` y `ruff format --check` en `infra/ci/` (config de `backend/pyproject.toml`): OK.
+- `shellcheck 0.10.0` (contenedor `koalaman/shellcheck:v0.10.0`) en `politica_trivy_controles.sh` y `politica_trivy.sh`: 0 avisos.
+- `actionlint 1.7.7` (contenedor `rhysd/actionlint:1.7.7`) sobre `.github/workflows/`: 0 errores.
+
+### 36.8 CI del PR
+El enlace del run y el estado de los 5 checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE. El job `images` ejecuta la guardia de verdad delante del gate y del control negativo.
+
+### 36.9 Riesgos / pendientes
+- **RSK-OPS-051 (LOW, residual)**: el modelo de amenaza no cambia. Quien edita `ci.yaml` también puede editar la política o quitar el job. La barrera real es la protección de `main` (PR + 5 checks strict) y la revisión del diff. Tampoco se cubre un `if:` a nivel de job que omita `images` (hoy depende de `detect`).
+- **RSK-OPS-052 (LOW)**: la guardia confía en el `/usr/bin/python3` y el `git` del runner, y en que `/usr/local/bin/trivy` no se sustituya en otro paso. Esto último lo cubre la política estática: cualquier mención de `…/trivy` como argumento cuenta como invocación fuera de la lista blanca.
+- RSK-OPS-033 sigue igual: trivy invocado desde otro lenguaje fuera de `run:`/`*.sh` (Makefile, `.py`). La guardia mitiga los canales de entorno y de fichero, pero no un escaneo alternativo.
+
+### 36.10 Archivos modificados
+`infra/ci/politica_trivy.py`, `infra/ci/politica_trivy_controles.sh`, `infra/ci/trivy_guardia.py` (nuevo), `infra/ci/trivy_guardia_controles.py` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 36.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencias: reejecutar `politica_trivy_controles.sh` y `trivy_guardia_controles.py`, comprobar en el log del job `images` que aparece "guardia de trivy OK" delante del gate y del control negativo, e intentar evasiones nuevas.
+- Registrar DEC-AUTO-1260 a 1265 y RSK-OPS-051/052.
+- Cerrar QA-OPS006-04 y QA-OPS006-05 (riesgo aceptado hasta este ticket).
