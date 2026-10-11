@@ -123,8 +123,20 @@ class BdEfimera:
         eliminar_bd_efimera(nombre)
 
     def eliminar_todas(self) -> None:
-        for nombre in reversed(self.creadas):
-            eliminar_bd_efimera(nombre)
+        """Intenta eliminar TODAS las BDs aunque alguna falle o agote el plazo (OBS-QA061-01).
+
+        Así un fallo no deja huérfanas las demás; al final se falla con el diagnóstico agregado.
+        """
+        fallos: list[str] = []
+        for nombre in dict.fromkeys(reversed(self.creadas)):
+            try:
+                eliminar_bd_efimera(nombre)
+            except Exception as error:  # se agregan y se relanzan al final
+                fallos.append(f"{nombre}: {type(error).__name__}: {error}")
+        if fallos:
+            raise AssertionError(
+                f"No se pudieron eliminar {len(fallos)} BD efímera(s): " + " | ".join(fallos)
+            )
 
 
 @pytest.fixture
