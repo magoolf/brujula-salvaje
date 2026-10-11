@@ -6,6 +6,7 @@
 #   docker compose up -d --wait db                # solo PostgreSQL (INFRA-DB-000)
 #   docker compose up -d --build --wait           # stack completo (requiere backend/ y frontend/)
 #   docker compose --profile ops up -d --build    # + scheduler (comandos programados) + backup
+#   docker compose --profile restauracion run --rm reinstalar-volumenes ...   # solo restauración (§35.6)
 #   docker compose -f compose.yaml -f compose.debug.yaml up -d db   # BD en 127.0.0.1:55432
 #
 # Topología (Skill_devops §8):  navegador -> proxy(127.0.0.1:8080) -> frontend SSR / backend -> db
@@ -390,6 +391,42 @@ services:
     deploy:
       resources:
         limits: {cpus: "0.5", memory: 512m}
+
+  # ---------------------------------------------------------------------------
+  # Perfil "restauracion" (TKT-OPS-008, RSK-OPS-027, DEC-AUTO-1200): one-shot que devuelve a sus
+  # volúmenes, con propietario 10001, los medios y (con decisión humana) la copia del libro que
+  # restore-local.sh dejó verificados en el staging del volumen de copias. NUNCA arranca con "up":
+  # solo con "docker compose --profile restauracion run --rm reinstalar-volumenes ...".
+  # Root SIN DAC_OVERRIDE: CHOWN/FOWNER para fijar propietario y modo, y DAC_READ_SEARCH para leer el
+  # staging (uid 999, 0700) y verificar medios privados (0640). Sin red y con el rootfs de solo lectura.
+  # El script se monta desde el repo (no se hornea en la imagen de la BD).
+  # ---------------------------------------------------------------------------
+  reinstalar-volumenes:
+    profiles: ["restauracion"]
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
+    user: "0:0"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER", "DAC_READ_SEARCH"]
+    network_mode: none
+    restart: "no"
+    entrypoint: ["bash", "/ops/reinstalar-volumenes.sh"]
+    environment:
+      RESTORE_ENV: ${RESTORE_ENV:-}
+      RESTORE_STAGING_DIR: /backups/.restauracion
+      TZ: UTC
+    volumes:
+      - backups:/backups:ro
+      - media:/vol/media
+      - ops_libro:/vol/ops
+      - ./scripts/ops:/ops:ro
+    tmpfs: ["/tmp"]
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256m}
 
 networks:
   publica: {}
