@@ -362,7 +362,7 @@ tickets:
   - id: TKT-047
     titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-041, "Skill_UI_UX#47.2", "WCAG 1.4.3"]
     depende_de: []
@@ -370,7 +370,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py."]
-    actualizado: 2026-10-08
+    actualizado: 2026-10-11
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
     fase: F7
@@ -602,27 +602,27 @@ tickets:
   - id: TKT-067
     titulo: "MEDIUM (TKT-060 residual, AC-030 / ADR-DB-004 §1.5): cargar_semilla deja 342 eventos como 'desconocido' porque entran por contenido.services._auditar, catalogos.services._auditar, medios.services (catalogar) e inicio.services.actualizar_config_inicio sin actor_etiqueta. Añadir en apps/auditoria un contexto de proceso (contextvar, p. ej. auditar_como_sistema()) que registrar_evento use cuando no hay actor ni etiqueta, y envolver cargar_semilla en él; tests: semilla completa con 0 desconocido y sin efecto en peticiones HTTP concurrentes"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-060, TKT-058, AC-030, "ADR-DB-004"]
     depende_de: [TKT-060]
     archivos_permitidos: ["backend/apps/auditoria/**", "backend/apps/contenido/management/commands/cargar_semilla.py", "backend/apps/*/tests/test_tkt067*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1034 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Medición del Developer TKT-060 (CONFIG_INICIO 1 + CREAR 4 sistema; 342 desconocido). Se secuencia después de TKT-062 por solape en auditoria/services.py."]
-    actualizado: 2026-10-10
+    evidencia: ["DEC-AUTO-1034 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Medición del Developer TKT-060 (CONFIG_INICIO 1 + CREAR 4 sistema; 342 desconocido). Se secuencia después de TKT-062 por solape en auditoria/services.py.", "2026-10-11 PR #98 @ 539e233 (DEC-AUTO-1220/1221): semilla real main 342 desconocido -> rama 0; 10 LOGIN_FALLIDO HTTP concurrentes con la semilla quedan 'desconocido' (no suplantación de 'sistema'). QA_VERDICT PASS ciclo 1/3. Integrado @ 516cc82. DONE."]
+    actualizado: 2026-10-11
   - id: TKT-068
     titulo: "MEDIUM (TKT-062 riesgo, rendimiento): MedioPanelSerializer hace 2 consultas por medio (services.usos y _en_uso_publicado): el listado de 48 medios del panel hace ~96 consultas. Precalcular usos y en_uso_publicado del lote en consultas fijas (anotaciones/prefetch) y test con django_assert_num_queries constante con 1 y con 48 medios"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-062, TKT-022, MOD-011]
     depende_de: [TKT-062]
     archivos_permitidos: ["backend/apps/medios/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1035 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-062."]
-    actualizado: 2026-10-10
+    evidencia: ["DEC-AUTO-1035 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-062.", "2026-10-11 PR #96 @ 4d62023: listado de 48 medios 300 -> 15 consultas (medido por QA en main y rama), plano con 1 y 48; detalle 16 -> 13. QA_VERDICT PASS ciclo 1/3 (respuestas JSON idénticas a main 159/167 salvo volátiles; schemathesis Editor/Admin 0 fallos). Riesgos LOW: filtro en_uso no considera el hero (preexistente); caché por instancia. Integrado @ 804f1cd. DONE."]
+    actualizado: 2026-10-11
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -986,7 +986,7 @@ tickets:
   - id: TKT-030
     titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-020, TKT-016, TKT-021]
     depende_de: [TKT-010]
@@ -994,7 +994,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS."]
-    actualizado: 2026-10-01
+    actualizado: 2026-10-11
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
     fase: F7
@@ -1090,7 +1090,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10).", "Severidad elevada a MEDIUM por la QA de TKT-010 (DEC-AUTO-933): ocurre en la práctica, en 4 de 129 casos de la regresión pública en serie en Chromium. Con la rama de TKT-010 la página queda en blanco (solo el banner de conexión); en main se conservaban cabecera y pie. Condición de F9. TKT-OPS-016 (ya en main) reduce los 429 que lo provocan, pero un fallo transitorio de red sigue pudiendo causarlo."]
-    actualizado: 2026-10-01
+    actualizado: 2026-10-11
   - id: TKT-OPS-001
     titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
     fase: F7
@@ -1214,15 +1214,15 @@ tickets:
   - id: TKT-OPS-008
     titulo: "DevOps: reinstalación de medios (RSK-OPS-027); backup/restore sin tmpfs de 512 MiB (RSK-OPS-029); job CI del simulacro AC-054; post-restore no arranca la app si faltan pasos (DEC-AUTO-908); runbook: perfil ops, LIBRO_AUSENTE/avisos del libro v2 (CHG-DB-003); precondición de tipos/dominios (OBS-QAOPS007-03)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [REQ-054, AC-054]
     depende_de: [TKT-OPS-007, TKT-005]
     archivos_permitidos: ["scripts/ops/**", "infra/**", "compose*.yaml", ".github/workflows/**", "docs/05_operacion/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: []
-    actualizado: 2026-09-27
+    evidencia: ["2026-10-11 PR #97 (DEC-AUTO-1200..1207): reinstalar-volumenes, backup/restore en disco + streaming (RSK-OPS-029 OOM reproducido y corregido), workflow simulacro-ac054 no obligatorio, post-restore cerrado ante pasos faltantes, runbook §35.6, precondición de tipos/dominios (OBS-QAOPS007-03 confirmada por QA), manifiesto con área física (defecto MEDIUM desde TKT-017 corregido). Simulacro AC-054 SUPERADO local y CI (RTO 86-240 s). QA_VERDICT PASS ciclo 1/3 (14 tar maliciosos exit 5, fallo cerrado, sin claro ni claves en reposo). Riesgos LOW/INFO al Informe. Las copias anteriores no son verificables: hacer copia nueva. Integrado @ 462efdd. DONE."]
+    actualizado: 2026-10-11
   - id: TKT-F4-009
     titulo: "CHG-API-004: parámetros de ruta de las 8 rutas públicas declarados a nivel de ruta (coherencia con el panel y el hook de esquema) + regeneración del cliente del frontend"
     fase: F4

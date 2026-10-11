@@ -96,6 +96,7 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose --profile ops config --quiet
+          docker compose --profile ops --profile restauracion config --quiet
           docker compose -f compose.yaml -f compose.ci.yaml config --quiet
           docker compose -f compose.yaml -f compose.debug.yaml config --quiet
       # RSK-OPS-025 (TKT-OPS-006, DEC-AUTO-254): todo Dockerfile del repositorio está en el ecosistema
@@ -114,6 +115,12 @@ jobs:
       - name: "receta supercronic: controles (P0 + N1..N6)"
         timeout-minutes: 2
         run: bash infra/ci/supercronic_receta_controles.sh infra/ci/supercronic_receta.sh
+      # TKT-OPS-008 (DEC-AUTO-908, CHG-DB-003): post-restore-local.sh no arranca la aplicación si falta
+      # un paso o falla el libro (LIBRO_AUSENTE/CORRUPTO). 13 controles con un doble de docker (segundos).
+      # El simulacro AC-054 completo está en .github/workflows/simulacro-ac054.yaml (no obligatorio).
+      - name: "post-restore-local.sh: controles (DEC-AUTO-908, CHG-DB-003)"
+        timeout-minutes: 2
+        run: bash scripts/ops/post-restore-local_controles.sh
       - name: "receta supercronic idéntica en scheduler y backup"
         timeout-minutes: 2
         run: bash infra/ci/supercronic_receta.sh .
