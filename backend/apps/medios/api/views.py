@@ -20,7 +20,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import idempotencia
-from apps.core.actores import precargar_actores
 from apps.core.exceptions import NoEncontrado, ParametroInvalido
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import validar_parametros
@@ -34,6 +33,7 @@ from apps.medios.api.serializers import (
     ResultadoSubidaSerializer,
     SubidaMediosEntradaSerializer,
     UsoMedioSerializer,
+    precargar_panel,
 )
 from apps.medios.models import EstadoMedio, FormatoDerivado, MedioDerivado
 
@@ -156,8 +156,8 @@ class ListaMedios(_VistaMediosMixta):
         )
         paginador = PaginacionNumerada()
         pagina = paginador.paginate_queryset(qs, request, view=self)
-        # `subido_por` de toda la página en una sola consulta (ActorRef, TKT-062).
-        precargar_actores(pagina or [], "subido_por")
+        # `MedioPanelSerializer(many=True)` precarga la página entera (`subido_por` y usos) en un
+        # número fijo de consultas (TKT-062, TKT-068).
         return paginador.get_paginated_response(
             cast("list[Any]", MedioPanelSerializer(pagina, many=True).data)
         )
@@ -177,7 +177,7 @@ class ListaMedios(_VistaMediosMixta):
 
         def efecto() -> idempotencia.Resultado:
             resultados = services.subir_medios(actor.pk, archivos)
-            precargar_actores([r.medio for r in resultados if r.medio is not None], "subido_por")
+            precargar_panel([r.medio for r in resultados if r.medio is not None])
             cuerpo = ResultadoSubidaSerializer({"resultados": resultados}).data
             return idempotencia.Resultado(codigo_http=status.HTTP_200_OK, cuerpo=cuerpo)
 

@@ -88,7 +88,9 @@ export class PaginaItinerario {
       this.seo.establecer({
         titulo: it.titulo,
         descripcion: it.resumen,
-        imagen: it.portada ? { url: it.portada.src, alt: it.portada.alt } : undefined,
+        imagen: it.portada
+          ? { url: it.portada.src, alt: it.portada.alt, derivados: it.portada.derivados }
+          : undefined,
         tipoOg: 'article',
         datosEstructurados,
       });

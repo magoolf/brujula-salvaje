@@ -12,6 +12,7 @@ import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-c
 import { AccesoMosaico, ACCESOS_MOSAICO, esInicioVacio } from '../domain/inicio';
 import { InicioStore } from '../state/inicio.store';
 import { SIZES_IMAGEN_PRINCIPAL, planImagenPrincipal } from './imagen-principal';
+import { SIZES_TARJETA_REJILLA_INICIO, SIZES_TARJETA_TIPO_INICIO } from './sizes-tarjetas';
 
 /**
  * TKT-009 (QA ciclo 1/3, RULE-030): Colecciones ya existe (MOD-005) pero `ACCESOS_MOSAICO` vive en
@@ -54,6 +55,8 @@ export class PaginaInicio {
     planImagenPrincipal(this.store.inicio()?.hero?.imagen ?? null),
   );
   protected readonly sizesImagenPrincipal = SIZES_IMAGEN_PRINCIPAL;
+  protected readonly sizesTarjetaTipo = SIZES_TARJETA_TIPO_INICIO;
+  protected readonly sizesTarjetaRejilla = SIZES_TARJETA_REJILLA_INICIO;
 
   protected readonly vacio = computed(() => {
     const inicio = this.store.inicio();

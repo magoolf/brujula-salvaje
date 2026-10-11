@@ -93,7 +93,11 @@ export async function leerCls(page: Page): Promise<number | null> {
  * después de navegar, `<main>` puede seguir mostrando el esqueleto "Cargando destino…" (visto de
  * forma reproducible en este entorno). Se espera explícitamente el contenido real con un margen
  * mayor que el timeout por defecto, en vez de asumir que 5 s siempre alcanzan.
+ * Tras una carga completa (`page.goto`) la ficha del SSR es visible antes de hidratar (TKT-056: la
+ * hidratación espera al primer pintado), así que también se espera la hidratación para que los
+ * botones (Guardar, Compartir, galería) ya respondan al clic.
  */
 export async function esperarFichaDestino(page: Page): Promise<void> {
   await page.getByTestId('pagina-destino').waitFor({ state: 'visible', timeout: 15_000 });
+  await esperarHidratacion(page);
 }
