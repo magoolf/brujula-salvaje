@@ -302,7 +302,7 @@ tickets:
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-019, TKT-009, "RULE-030"]
     depende_de: []
@@ -362,14 +362,14 @@ tickets:
   - id: TKT-047
     titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-041, "Skill_UI_UX#47.2", "WCAG 1.4.3"]
     depende_de: []
     archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/e2e/inicio*.spec.ts", "frontend/e2e/contraste*.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py.", "2026-10-11 PR #100 @ c151e85 (DEC-AUTO-1240..1243): franja con overlay.scrim 78 %, peor caso blanca rótulo 5,09:1 y texto 8,79:1; prefers-contrast 15,62:1; LCP / sin regresión fuera del ruido; CLS 0. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py.", "2026-10-11 PR #100 @ c151e85 (DEC-AUTO-1240..1243): franja con overlay.scrim 78 %, peor caso blanca rótulo 5,09:1 y texto 8,79:1; prefers-contrast 15,62:1; LCP / sin regresión fuera del ruido; CLS 0. QA ciclo 1/3 despachada.", "2026-10-11 QA_VERDICT PASS ciclo 1/3 @ c151e85: medidor propio en 35 combinaciones (7 imágenes x 5 anchos): peor caso rótulo 5,09 y texto 8,79; la E2E detecta un scrim débil (mutación); zoom/reflow/text-spacing OK; axe 0; LCP / rama 2078 vs main 2087 (enchufado, n=6); CLS 0. OBS-01 MEDIUM preexistente (anillo de foco 1,3:1 sobre la franja) -> TKT-069. OBS-02..04 LOW -> Informe. Integrado @ d3e03a9. DONE."]
     actualizado: 2026-10-11
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
@@ -622,6 +622,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1035 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-062.", "2026-10-11 PR #96 @ 4d62023: listado de 48 medios 300 -> 15 consultas (medido por QA en main y rama), plano con 1 y 48; detalle 16 -> 13. QA_VERDICT PASS ciclo 1/3 (respuestas JSON idénticas a main 159/167 salvo volátiles; schemathesis Editor/Admin 0 fallos). Riesgos LOW: filtro en_uso no considera el hero (preexistente); caché por instancia. Integrado @ 804f1cd. DONE."]
+    actualizado: 2026-10-11
+  - id: TKT-069
+    titulo: "MEDIUM (QA TKT-047 OBS-01, preexistente; WCAG 2.4.7/1.4.11): el anillo de foco del CTA accent del hero (--bs-color-focus-ring lagoon-600) queda a ~1,3:1 sobre la franja oscura del hero y el de la búsqueda grande apenas se ve; tokens.json prescribe ring-inverse sobre fotografías con scrim. Todos los controles enfocables del hero con indicador >=3:1 (semilla e imagen blanca, 375/1280), sin cambiar el anillo fuera del hero; E2E por píxel solo Chromium"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [TKT-047, "WCAG 2.4.7", "WCAG 1.4.11", "Skill_UI_UX#47.2"]
+    depende_de: [TKT-047]
+    archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/src/app/shared/ui/campo-busqueda/**", "directiva appBoton en frontend/src/app/shared/ui/**", "frontend/src/styles/componentes.css", "frontend/e2e/inicio-foco-hero.spec.ts"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-996 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado (HIGH/MEDIUM antes de entregar). Paralelo con TKT-021 acotando shared/ui (campo-busqueda y appBoton reservados a este ticket)."]
     actualizado: 2026-10-11
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
@@ -986,14 +998,14 @@ tickets:
   - id: TKT-030
     titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-020, TKT-016, TKT-021]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/*/state/**", "frontend/src/app/features/*/ui/**", "frontend/src/app/core/http/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS.", "2026-10-11 PR #101 @ 11dc4d5: diagnóstico: el defecto ya no se reproduce en main (lo corrigió TKT-016, 2d8b667, resource({id}) + TransferState); A/B quitando el id reproduce la firma exacta. Solo añade E2E de regresión hidratacion-reutiliza-dom.spec.ts (9/9). QA ciclo 1/3 despachada."]
+    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS.", "2026-10-11 PR #101 @ 11dc4d5: diagnóstico: el defecto ya no se reproduce en main (lo corrigió TKT-016, 2d8b667, resource({id}) + TransferState); A/B quitando el id reproduce la firma exacta. Solo añade E2E de regresión hidratacion-reutiliza-dom.spec.ts (9/9). QA ciclo 1/3 despachada.", "2026-10-11 QA_VERDICT PASS ciclo 1/3 @ 11dc4d5: medición independiente en 20 rutas públicas (red normal y Slow 4G+CPU x4): 0 IMG retiradas, 0 API repetidas, 0 NG0; A/B confirma que la E2E detecta la regresión. F-QA030-01 LOW ([innerHTML] reasignado con HTML idéntico, sin efecto visual) y F-QA030-03 LOW (AC_TKT016_13 inestable) -> Informe sin ticket (DEC-AUTO-995: fuera del alcance de imágenes recreadas). Integrado @ bd68081. DONE."]
     actualizado: 2026-10-11
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
@@ -1010,7 +1022,7 @@ tickets:
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [REQ-052, TKT-018, TKT-016]
     depende_de: [TKT-016, TKT-020]
@@ -1286,14 +1298,14 @@ tickets:
   - id: TKT-OPS-009
     titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: devops
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 3/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["2026-10-11 PR #102 (DEC-AUTO-1260..1265): política de trivy sobre canales implícitos + guardia de ejecución; controles 123/123 y 18/18; actionlint 0 errores; 51/53 negativos nuevos no se detectaban en main. QA 3/3 FAIL solo por NOT_RUN de la búsqueda adversarial de evasiones (bloqueada por el clasificador de seguridad del modelo). DECISIÓN HUMANA 2026-10-11: integrar y anotar el riesgo (RSK-OPS-053: búsqueda de evasiones NOT_RUN; RSK-OPS-051/052 LOW). Integrado @ 4c49f91. DONE."]
     actualizado: 2026-10-11
   - id: TKT-OPS-010
     titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
