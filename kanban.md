@@ -542,15 +542,15 @@ tickets:
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-057, TKT-058, AC-030]
     depende_de: [TKT-057, TKT-058]
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/inicio/services.py", "backend/apps/auditoria/services.py", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #94 @ dd969a7: ActorRef común (core/actores.py) en todas las respuestas del panel, referencias reales en 4 consultas fijas, memoria de etiquetas por transacción (212 eventos = 1 SELECT), relectura de inicio dentro del atomic (DEC-AUTO-1170..1173). 23 tests (19 FAIL en main), pytest 1664. N+1 del listado de medios -> TKT-068. QA ciclo 1/3 despachada."]
-    actualizado: 2026-10-10
+    evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #94 @ dd969a7: ActorRef común (core/actores.py) en todas las respuestas del panel, referencias reales en 4 consultas fijas, memoria de etiquetas por transacción (212 eventos = 1 SELECT), relectura de inicio dentro del atomic (DEC-AUTO-1170..1173). 23 tests (19 FAIL en main), pytest 1664. N+1 del listado de medios -> TKT-068. QA ciclo 1/3 despachada.", "2026-10-11 QA_VERDICT PASS ciclo 1/3 @ dd969a7 (schemathesis Editor y Admin completos, 0 5xx; pytest 1674; E2E Chromium 10/10 + regresión panel 43/43). Riesgos LOW: p95 público inestable bajo carga; 1 SELECT por entidad con savepoint. PR #94 sincronizado @ 09854f8, CI verde, integrado. DONE."]
+    actualizado: 2026-10-11
   - id: TKT-063
     titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
@@ -1214,7 +1214,7 @@ tickets:
   - id: TKT-OPS-008
     titulo: "DevOps: reinstalación de medios (RSK-OPS-027); backup/restore sin tmpfs de 512 MiB (RSK-OPS-029); job CI del simulacro AC-054; post-restore no arranca la app si faltan pasos (DEC-AUTO-908); runbook: perfil ops, LIBRO_AUSENTE/avisos del libro v2 (CHG-DB-003); precondición de tipos/dominios (OBS-QAOPS007-03)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [REQ-054, AC-054]
     depende_de: [TKT-OPS-007, TKT-005]

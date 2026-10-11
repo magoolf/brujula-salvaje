@@ -529,3 +529,6 @@
 2026-10-11 | DELEGACION | TKT-063 | QA ciclo 1/3 sobre PR #95 | kanban.md
 2026-10-11 | ENTREGA | TKT-056 | Corrección c2 @ 3858696, CI verde: F-03 corregido (DEC-AUTO-1190/1191); medido enchufado sin regresión de TBT | HANDOFF_ENVELOPE TKT-056
 2026-10-11 | DELEGACION | TKT-056 | QA ciclo 3/3 (último, §0.7) sobre PR #90 @ 3858696, performance enchufado | kanban.md
+2026-10-11 | QA_PASS | TKT-062 | QA_VERDICT PASS ciclo 1/3 @ dd969a7 (reanudada desde checkpoint; schemathesis Admin repetido con login nuevo por caducidad de sesión de 30 min). Riesgos LOW/INFO al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-062
+2026-10-11 | INTEGRACION | TKT-062 | PR #94 sincronizado con main @ 09854f8, CI verde, integrado. DONE (desbloquea TKT-068) | PR #94
+2026-10-11 | DELEGACION | TKT-OPS-008 | DevOps simulacro AC-054 / restore de medios (worktree aislado, stack brujulaops008) | kanban.md
