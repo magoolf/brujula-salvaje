@@ -566,14 +566,14 @@ tickets:
   - id: TKT-064
     titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-043, TKT-004, "THREAT fuerza bruta", "THREAT replay TOTP"]
     depende_de: [TKT-043]
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043.", "2026-10-10 PR #93 @ 7b01dc7: premisa refutada en parte (flujos públicos ya serializados por advisory lock / FOR UPDATE; defecto latente); endurecimiento: cada función toma su bloqueo consultivo y exige transacción (DEC-AUTO-1160..1162). 9 tests (5 FAIL en main), pytest 1650. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 7b01dc7: refutación confirmada (main ya exacto por HTTP; defecto latente), bloqueo exacto en el 5.º intento sin oráculo, 1 éxito TOTP por vía, 0 deadlocks en estrés, schemathesis 567/0 5xx, E2E 13/13, seguridad 0. OBS-064-01..03 LOW/INFO -> Informe. Integración en curso (PR #93)."]
+    evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043.", "2026-10-10 PR #93 @ 7b01dc7: premisa refutada en parte (flujos públicos ya serializados por advisory lock / FOR UPDATE; defecto latente); endurecimiento: cada función toma su bloqueo consultivo y exige transacción (DEC-AUTO-1160..1162). 9 tests (5 FAIL en main), pytest 1650. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 7b01dc7: refutación confirmada (main ya exacto por HTTP; defecto latente), bloqueo exacto en el 5.º intento sin oráculo, 1 éxito TOTP por vía, 0 deadlocks en estrés, schemathesis 567/0 5xx, E2E 13/13, seguridad 0. OBS-064-01..03 LOW/INFO -> Informe. Integrado PR #93. DONE."]
     actualizado: 2026-10-10
   - id: TKT-065
     titulo: "MEDIUM (QA TKT-043 HALLAZGO-043-02, preexistente, RESOURCE-EXHAUSTION): el ámbito panel-subida (20/min) nunca se aplica a POST /api/v1/panel/medios: _VistaMediosMixta.initial (apps/medios/api/views.py:101-106) fija panel-escritura (120/min) y ListaMedios.post asigna throttle_scope_subida después de check_throttles. Fijar panel-subida en initial() para POST de subida; test HTTP que falle en main (30 POST -> 20 + 10x429)"
