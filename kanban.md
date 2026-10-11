@@ -1082,7 +1082,7 @@ tickets:
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-010, TKT-018, "DEC-AUTO-928"]
     depende_de: [TKT-010, TKT-016]
