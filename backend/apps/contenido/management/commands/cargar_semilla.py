@@ -70,8 +70,8 @@ ACTOR_ID: int = cast(int, None)
 # TKT-060 (DB_HANDOFF, ADR-DB-004 §1.5): los eventos que este comando registra DIRECTAMENTE
 # (páginas institucionales y primer alta de la configuración de inicio) llevan la etiqueta
 # 'sistema', no 'desconocido'. Los que registran los servicios del panel (crear_borrador,
-# publicar, crear_pais, catalogar, actualizar_config_inicio) no aceptan etiqueta y la siguen
-# resolviendo desde actor_id=None.
+# publicar, crear_pais, catalogar, actualizar_config_inicio) no aceptan etiqueta: la toman del
+# contexto `auditar_como_sistema()` que abre `handle` (TKT-067).
 ACTOR_ETIQUETA: str = auditoria_services.ETIQUETA_SISTEMA
 
 # Clique de arranque de RULE-006 (ver `_bootstrap_publicar`): 1 tipo + 1 destino por cada uno de
@@ -95,6 +95,13 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args: Any, **options: Any) -> None:
+        # TKT-067 (DEC-AUTO-1034): los eventos que auditan los servicios del panel sin actor ni
+        # etiqueta (crear_borrador, publicar, crear_pais, catalogar, actualizar_config_inicio)
+        # llevan 'sistema'. El contexto se limita a esta ejecución y se restaura aunque falle.
+        with auditoria_services.auditar_como_sistema():
+            self._cargar()
+
+    def _cargar(self) -> None:
         self._contador = {"creados": 0, "reutilizados": 0, "publicados": 0}
         self._nuevos: dict[str, set[str]] = {
             "TIPO": set(),
