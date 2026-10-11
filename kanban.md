@@ -1303,7 +1303,7 @@ tickets:
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
-    ciclo_qa: 2/3
+    ciclo_qa: 3/3
     ciclo_panico: 0/2
     evidencia: []
     actualizado: 2026-10-11
