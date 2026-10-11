@@ -470,14 +470,14 @@ tickets:
   - id: TKT-056
     titulo: "HIGH antes de F9 (TKT-048 riesgo residual): LCP móvil simulado > 2,5 s (inicio 3050 ms, ficha 3424 ms) dominado por el render delay del bundle JS (~1,6-2,0 s; inicial 463 kB / 123 kB transfer). Reducir/dividir el bundle inicial (lazy de rutas y dependencias, defer de hidratación no crítica, revisar polyfills y providers globales) y verificar si Lantern se infla en localhost (FCP observado tras DCL); objetivo LCP <= 2,5 s en Lighthouse móvil x5 en inicio y ficha sin regresión de CLS/INP"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-048, TKT-021, "Skill_UI_UX#47.2", "Skill_Frontend#27"]
     depende_de: [TKT-048]
     archivos_permitidos: ["frontend/src/app/**", "frontend/src/main*.ts", "frontend/src/server.ts", "frontend/angular.json", "frontend/e2e/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales).", "2026-10-10 PR #90 @ 305aaf3 (CI verde): menú móvil y visor de galería diferidos (-87 kB CDK), hidratación tras FCP, og:image JPEG 1200, sizes de tarjetas (DEC-AUTO-1110..1113). JS inicial 117,7 -> 101,6 kB transfer. LCP devtools: / 2348, ficha 2245 (≤2,5 s); Lantern localhost: / 3013->2811, ficha 3428->3068. Criterio de medición fijado por DEC-AUTO-1031. vitest 831, E2E Chromium 184/0. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales).", "2026-10-10 PR #90 @ 305aaf3 (CI verde): menú móvil y visor de galería diferidos (-87 kB CDK), hidratación tras FCP, og:image JPEG 1200, sizes de tarjetas (DEC-AUTO-1110..1113). JS inicial 117,7 -> 101,6 kB transfer. LCP devtools: / 2348, ficha 2245 (≤2,5 s); Lantern localhost: / 3013->2811, ficha 3428->3068. Criterio de medición fijado por DEC-AUTO-1031. vitest 831, E2E Chromium 184/0. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT FAIL ciclo 1/3 @ 305aaf3: LCP devtools / 2150 y ficha 2267 (PASS), bundle -13 %, a11y/seguridad/og:image PASS; F-01 MEDIUM: el panel (RenderMode.Client, <app-root> vacío) espera siempre 1 s al pintado -> +1 s en cada carga completa de /panel/**; F-02 LOW: primera apertura de menú/visor ~1,4 s en red lenta sin indicador (precargar en reposo). Devuelto al Developer (ciclo 2/3).", "2026-10-10 corrección c1 @ b4be612 (CI verde): sin espera al pintado cuando <app-root> viene vacío (panel ~160-250 ms) (DEC-AUTO-1115); precarga en reposo y en pointerdown/focus de menú y visor (~110-140 ms en Slow 4G) (1116). LCP devtools / 2328, ficha 2236. vitest 838, E2E Chromium 185+. QA ciclo 2/3 despachada.", "QA c2 FAIL (PR #90 @ b4be612): F-01 y F-02 corregidos; tests/e2e/a11y/seguridad PASS; performance NOT_RUN (equipo en batería 19%->11%, CPU degradada); F-03 MEDIUM confianza media: posible regresión TBT en / móvil (+692 ms mediana) por precarga del cajón dentro de FCP->TTI. Pendiente: re-medir con equipo enchufado y corregir F-03 (precarga solo en pointerdown/touchstart/focus o idle sin plazo tras load)."]
     actualizado: 2026-10-10
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
@@ -518,14 +518,14 @@ tickets:
   - id: TKT-060
     titulo: "LOW (TKT-058 riesgo, ADR-DB-004 §1.5): cargar_semilla registra los eventos de auditoría con actor_id=None y etiqueta 'desconocido'; DB_HANDOFF exige 'sistema' para tareas y semilla. Pasar actor_etiqueta=ETIQUETA_SISTEMA (y revisar otros comandos de gestión que auditan) con tests"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-058, TKT-007, AC-030, "ADR-DB-004"]
     depende_de: [TKT-058]
     archivos_permitidos: ["backend/apps/*/management/commands/**", "backend/apps/*/tests/test_tkt060*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 3e688f5: clasificación de comandos confirmada, semilla 5 sistema / 342 desconocido (TKT-067), idempotente, SCR-046 Chromium 4/4, seguridad 0. OBS-QA060-01 LOW (usuario 'sistema' no reservado) -> riesgo residual del Informe (sin ticket, decisión humana). Integrado PR #91. DONE."]
     actualizado: 2026-10-10
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
@@ -542,19 +542,19 @@ tickets:
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-057, TKT-058, AC-030]
     depende_de: [TKT-057, TKT-058]
     archivos_permitidos: ["backend/apps/contenido/api/**", "backend/apps/medios/api/**", "backend/apps/inicio/api/**", "backend/apps/inicio/services.py", "backend/apps/auditoria/services.py", "backend/apps/core/**", "backend/apps/*/tests/test_tkt062*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
+    evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #94 @ dd969a7: ActorRef común (core/actores.py) en todas las respuestas del panel, referencias reales en 4 consultas fijas, memoria de etiquetas por transacción (212 eventos = 1 SELECT), relectura de inicio dentro del atomic (DEC-AUTO-1170..1173). 23 tests (19 FAIL en main), pytest 1664. N+1 del listado de medios -> TKT-068. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-063
     titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-061, TKT-003, TKT-005]
     depende_de: [TKT-061]
@@ -566,26 +566,26 @@ tickets:
   - id: TKT-064
     titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
     fase: F7
-    estado: TODO
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-043, TKT-004, "THREAT fuerza bruta", "THREAT replay TOTP"]
     depende_de: [TKT-043]
     archivos_permitidos: ["backend/apps/cuentas/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043."]
+    evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043.", "2026-10-10 PR #93 @ 7b01dc7: premisa refutada en parte (flujos públicos ya serializados por advisory lock / FOR UPDATE; defecto latente); endurecimiento: cada función toma su bloqueo consultivo y exige transacción (DEC-AUTO-1160..1162). 9 tests (5 FAIL en main), pytest 1650. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 7b01dc7: refutación confirmada (main ya exacto por HTTP; defecto latente), bloqueo exacto en el 5.º intento sin oráculo, 1 éxito TOTP por vía, 0 deadlocks en estrés, schemathesis 567/0 5xx, E2E 13/13, seguridad 0. OBS-064-01..03 LOW/INFO -> Informe. Integrado PR #93. DONE."]
     actualizado: 2026-10-10
   - id: TKT-065
     titulo: "MEDIUM (QA TKT-043 HALLAZGO-043-02, preexistente, RESOURCE-EXHAUSTION): el ámbito panel-subida (20/min) nunca se aplica a POST /api/v1/panel/medios: _VistaMediosMixta.initial (apps/medios/api/views.py:101-106) fija panel-escritura (120/min) y ListaMedios.post asigna throttle_scope_subida después de check_throttles. Fijar panel-subida en initial() para POST de subida; test HTTP que falle en main (30 POST -> 20 + 10x429)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-043, TKT-022, "THREAT subida de archivos"]
     depende_de: [TKT-043]
     archivos_permitidos: ["backend/apps/medios/api/**", "backend/apps/medios/tests/test_tkt065*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 PR #92 @ 0e80078 (CI verde): ámbito por método antes de check_throttles, POST de subida = panel-subida (DEC-AUTO-1140/1141). 8 tests (6 FAIL en main), barrido de 122 operaciones sin otras discrepancias. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 PR #92 @ 0e80078 (CI verde): ámbito por método antes de check_throttles, POST de subida = panel-subida (DEC-AUTO-1140/1141). 8 tests (6 FAIL en main), barrido de 122 operaciones sin otras discrepancias. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 0e80078: 20+10x429 secuencial y concurrente (main 30 sin 429), la 21.ª subida no persiste nada, otras operaciones intactas, cuota por cuenta, panel-escritura ya no se consume, schemathesis 2125/0 5xx, E2E Chromium 10/10, seguridad 0. OBS-065-01/02/03 LOW/INFO -> Informe (sin ticket). Integrado PR #92 (CI relanzado tras cancelación del runner). DONE."]
     actualizado: 2026-10-10
   - id: TKT-066
     titulo: "LOW (QA TKT-043 OBS-043-01): en ráfagas concurrentes la denegación calcula wait() con la instantánea del historial previa al bloqueo y Retry-After puede salir menor que la espera real (8-30 s en vez de ~60 s con 10/min). Calcular la espera sobre el historial bloqueado (o duration - (now - marca más antigua) si len < cuota); test de concurrencia"
@@ -610,6 +610,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1034 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Medición del Developer TKT-060 (CONFIG_INICIO 1 + CREAR 4 sistema; 342 desconocido). Se secuencia después de TKT-062 por solape en auditoria/services.py."]
+    actualizado: 2026-10-10
+  - id: TKT-068
+    titulo: "MEDIUM (TKT-062 riesgo, rendimiento): MedioPanelSerializer hace 2 consultas por medio (services.usos y _en_uso_publicado): el listado de 48 medios del panel hace ~96 consultas. Precalcular usos y en_uso_publicado del lote en consultas fijas (anotaciones/prefetch) y test con django_assert_num_queries constante con 1 y con 48 medios"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-062, TKT-022, MOD-011]
+    depende_de: [TKT-062]
+    archivos_permitidos: ["backend/apps/medios/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1035 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-062."]
     actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

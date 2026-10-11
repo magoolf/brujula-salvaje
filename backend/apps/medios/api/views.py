@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from types import MappingProxyType
+from typing import Any, ClassVar, cast
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -99,16 +101,26 @@ class _VistaMedios(APIView):
 
 
 class _VistaMediosMixta(_VistaMedios):
+    """Vista con lecturas y escrituras: el ámbito de limitación (x-limite-tasa del contrato) se
+    decide por método ANTES de `super().initial()`, que es donde DRF ejecuta `check_throttles`
+    (TKT-065). Asignarlo dentro del handler llega tarde: la cuota ya se consumió en otro ámbito.
+    `ambitos_por_metodo` declara las excepciones a la regla lectura/escritura."""
+
+    ambitos_por_metodo: ClassVar[Mapping[str, str]] = MappingProxyType({})
+
     def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
-        self.throttle_scope = (
-            "panel-lectura" if request.method in SAFE_METHODS else "panel-escritura"
+        metodo = (request.method or "").upper()
+        self.throttle_scope = self.ambitos_por_metodo.get(metodo) or (
+            "panel-lectura" if metodo in SAFE_METHODS else "panel-escritura"
         )
         super().initial(request, *args, **kwargs)
 
 
 class ListaMedios(_VistaMediosMixta):
     tamano_pagina = 48
-    throttle_scope_subida = "panel-subida"
+    # Contrato: `POST /panel/medios` (panelSubirMedios) es `x-limite-tasa: panel-subida`
+    # (20/min por cuenta), no panel-escritura (TKT-065).
+    ambitos_por_metodo: ClassVar[Mapping[str, str]] = MappingProxyType({"POST": "panel-subida"})
     # `POST` (subida) es el único endpoint multipart del panel (contrato: `multipart/form-data`,
     # PARAMETRO_IDEMPOTENCY_KEY + `archivos`); el resto del panel es JSON-only por diseño
     # (`REST_FRAMEWORK["DEFAULT_PARSER_CLASSES"]` en config/settings/base.py, fuera de
@@ -155,7 +167,6 @@ class ListaMedios(_VistaMediosMixta):
         responses={200: ResultadoSubidaSerializer},
     )
     def post(self, request: Request) -> Response:
-        self.throttle_scope = self.throttle_scope_subida
         archivos = request.FILES.getlist("archivos")
         if not archivos or len(archivos) > MAXIMO_ARCHIVOS:
             raise ParametroInvalido(errors={"archivos": ["Sube entre 1 y 10 archivos."]})

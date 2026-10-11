@@ -23,6 +23,11 @@ Reglas clave:
   ambos caminos hacen el mismo trabajo de caché (lectura y escritura del contador por usuario),
   la misma consulta de la cuenta y la misma auditoría; la cuenta operativa solo añade el UPDATE de
   su contador.
+- Contadores y anti repetición atómicos (TKT-064): toda lectura-modificación-escritura del
+  contador de fallos en caché y de la anti repetición TOTP toma antes, en la propia función, un
+  bloqueo consultivo de la transacción (por usuario normalizado / por cuenta). Así son atómicas por
+  sí mismas y no dependen de que quien las llama ya tenga serializado el usuario (bloqueo del login)
+  o la fila de la cuenta (FOR UPDATE de los pasos MFA). Los bloqueos consultivos son reentrantes.
 - Toda acción se audita en la misma transacción (FEAT-046). Nunca se registran secretos.
 - Las contraseñas temporales se devuelven una sola vez y solo se guarda su hash (AC-106).
 """
@@ -76,6 +81,8 @@ _LOCK_CUENTAS_ADMIN = "cuentas_admin"
 # Espacio de claves (int4, int4) del bloqueo consultivo del login: no se solapa con el espacio
 # bigint de hashtext('cuentas_admin') ni con el de las tareas de ops (PostgreSQL los separa).
 _ESPACIO_BLOQUEO_LOGIN = "login"
+# Espacio (int4, int4) de la anti repetición TOTP por cuenta (TKT-064).
+_ESPACIO_BLOQUEO_TOTP = "totp"
 
 
 class Paso(StrEnum):
@@ -190,8 +197,32 @@ def _clave_fallos(usuario: str) -> str:
 
 
 def _leer_fallos(usuario: str) -> dict[str, Any]:
+    """Solo lectura. Para sumar un fallo se lee con _fallos_para_actualizar."""
     datos = cache.get(_clave_fallos(usuario))
     return dict(datos) if isinstance(datos, dict) else {"intentos": 0, "bloqueos": 0, "hasta": None}
+
+
+def _exigir_transaccion(operacion: str) -> None:
+    """Los bloqueos consultivos de transacción solo protegen dentro de una transacción: en
+    autocommit se liberarían al terminar la propia sentencia (error de programación)."""
+    if not connection.in_atomic_block:
+        raise RuntimeError(f"{operacion} exige una transacción (transaction.atomic)")
+
+
+def _bloqueo_consultivo(espacio: str, clave: str) -> None:
+    """pg_advisory_xact_lock (int4, int4) en `espacio` hasta el fin de la transacción."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))", [espacio, clave])
+
+
+def _fallos_para_actualizar(usuario: str) -> dict[str, Any]:
+    """Lee el contador de fallos de `usuario` para modificarlo (TKT-064): antes toma el bloqueo
+    consultivo del usuario normalizado (el mismo que serializa el login, reentrante), de modo que
+    lectura y _fallo_en_cache forman una sola operación atómica hasta el fin de la transacción.
+    Mismo trabajo exista o no la cuenta (F-03, CWE-204)."""
+    _exigir_transaccion("_fallos_para_actualizar")
+    _serializar_login(usuario)
+    return _leer_fallos(usuario)
 
 
 def _bloqueo_de(fallos: dict[str, Any], ahora: datetime) -> datetime | None:
@@ -202,8 +233,8 @@ def _bloqueo_de(fallos: dict[str, Any], ahora: datetime) -> datetime | None:
 
 
 def _fallo_en_cache(usuario: str, datos: dict[str, Any], ahora: datetime) -> datetime | None:
-    """Suma un fallo a `datos` (leídos con _leer_fallos) y lo guarda; devuelve el fin del bloqueo
-    si con él se bloquea."""
+    """Suma un fallo a `datos` (leídos con _fallos_para_actualizar en esta misma transacción) y lo
+    guarda; devuelve el fin del bloqueo si con él se bloquea."""
     hasta = datetime.fromisoformat(datos["hasta"]) if datos.get("hasta") else None
     if hasta is not None and ahora - hasta > REINICIO_PROGRESION:
         datos["bloqueos"] = 0
@@ -336,11 +367,7 @@ def _serializar_login(normalizado: str) -> None:
     cuenta (NV-01, TKT-040). Los intentos simultáneos sobre un mismo usuario esperan aquí de la
     misma forma tanto si la cuenta existe como si no: la contención (55P03 tras `lock_timeout`,
     o 40P01) ya no depende de que exista una fila de cuenta_staff que bloquear."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT pg_advisory_xact_lock(hashtext(%s), hashtext(%s))",
-            [_ESPACIO_BLOQUEO_LOGIN, huella_hmac(f"login|{normalizado}")],
-        )
+    _bloqueo_consultivo(_ESPACIO_BLOQUEO_LOGIN, huella_hmac(f"login|{normalizado}"))
 
 
 def _fallo_por_contencion(ip: str | None) -> None:
@@ -413,7 +440,7 @@ def _intento_login(normalizado: str, contrasena: str, ip: str | None) -> Resulta
                 # Mismo trabajo de caché que un usuario inexistente (F-03, CWE-204): el contador
                 # por usuario se lleva también para la cuenta operativa (solo decide el bloqueo
                 # cuando no hay cuenta operativa; aquí manda la fila).
-                _fallo_en_cache(normalizado, _leer_fallos(normalizado), ahora)
+                _fallo_en_cache(normalizado, _fallos_para_actualizar(normalizado), ahora)
     if exito is not None:
         return exito
     if bloqueo is not None:
@@ -426,7 +453,7 @@ def _fallo_sin_cuenta(
 ) -> datetime | None:
     """Usuario inexistente, no operativo o con la fila bloqueada: mismo coste (hash de referencia),
     contador en caché y auditoría."""
-    fallos = _leer_fallos(usuario)
+    fallos = _fallos_para_actualizar(usuario)
     bloqueo_vigente = _bloqueo_de(fallos, ahora)
     if bloqueo_vigente is not None:
         return bloqueo_vigente
@@ -473,7 +500,13 @@ def _clave_anti_repeticion(cuenta_id: int) -> str:
 
 
 def _totp_valido(cuenta: CuentaStaff, codigo: str) -> bool:
-    """TOTP correcto y no reutilizado (anti repetición dentro de la ventana)."""
+    """TOTP correcto y no reutilizado (anti repetición dentro de la ventana).
+
+    Atómico por sí mismo (TKT-064): la comprobación y el registro del último periodo usado se
+    hacen bajo un bloqueo consultivo de la cuenta hasta el fin de la transacción, de modo que un
+    mismo código enviado en paralelo solo se acepta una vez aunque quien llama no tenga la fila de
+    la cuenta bloqueada. Se conserva la regla: se rechaza todo periodo <= el último aceptado."""
+    _exigir_transaccion("_totp_valido")
     if not cuenta.secreto_mfa:
         return False
     try:
@@ -485,6 +518,7 @@ def _totp_valido(cuenta: CuentaStaff, codigo: str) -> bool:
     if periodo is None:
         return False
     clave = _clave_anti_repeticion(cuenta.pk)
+    _bloqueo_consultivo(_ESPACIO_BLOQUEO_TOTP, clave)
     ultimo = cache.get(clave)
     if isinstance(ultimo, int) and periodo <= ultimo:
         return False
