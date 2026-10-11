@@ -362,14 +362,14 @@ tickets:
   - id: TKT-047
     titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-041, "Skill_UI_UX#47.2", "WCAG 1.4.3"]
     depende_de: []
     archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/e2e/inicio*.spec.ts", "frontend/e2e/contraste*.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py."]
+    evidencia: ["DEC-AUTO-976. Método de medición: scratchpad 56bc59a0…/qa041/contraste.cjs + ratio.py.", "2026-10-11 PR #100 @ c151e85 (DEC-AUTO-1240..1243): franja con overlay.scrim 78 %, peor caso blanca rótulo 5,09:1 y texto 8,79:1; prefers-contrast 15,62:1; LCP / sin regresión fuera del ruido; CLS 0. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-11
   - id: TKT-048
     titulo: "HIGH antes de F9 (QA TKT-041 F-02): LCP de inicio 3,06 s y fichas de destino ~3,45 s (presupuesto 2,5 s; main ya >2,5 s). Derivados codificados con valores por defecto de Pillow (apps/medios/services.py:197, sin quality/speed): AVIF de 800 px 94-174 KB, a veces mayor que WebP/JPEG. Fijar parámetros (AVIF quality≈50-60 + speed, WebP≈75-80, JPEG≈80 progresivo), comando para regenerar derivados existentes, tests de tamaño; y en el frontend de la ficha preload/fetchpriority y sizes de la portada (ampliación de TKT-021 a fichas). Verificar LCP ≤2,5 s con Lighthouse móvil x5"
@@ -986,14 +986,14 @@ tickets:
   - id: TKT-030
     titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-020, TKT-016, TKT-021]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/*/state/**", "frontend/src/app/features/*/ui/**", "frontend/src/app/core/http/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS."]
+    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS.", "2026-10-11 PR #101 @ 11dc4d5: diagnóstico: el defecto ya no se reproduce en main (lo corrigió TKT-016, 2d8b667, resource({id}) + TransferState); A/B quitando el id reproduce la firma exacta. Solo añade E2E de regresión hidratacion-reutiliza-dom.spec.ts (9/9). QA ciclo 1/3 despachada."]
     actualizado: 2026-10-11
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
@@ -1082,14 +1082,14 @@ tickets:
   - id: TKT-025
     titulo: "MEDIUM, CONDICIÓN DE F9: manejar errores de navegación por carga de chunk diferido (ChunkLoadError / 'Failed to fetch dynamically imported module') con withNavigationErrorHandler en app.config.ts (p. ej. recarga completa una sola vez hacia la URL destino), para que un fallo transitorio de red/429 no deje la página en blanco sin el shell (riesgo introducido por la opción A de DEC-AUTO-928)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-010, TKT-018, "DEC-AUTO-928"]
     depende_de: [TKT-010, TKT-016]
     archivos_permitidos: ["frontend/src/app/app.config.ts", "frontend/src/app/app.config.spec.ts", "frontend/e2e/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10).", "Severidad elevada a MEDIUM por la QA de TKT-010 (DEC-AUTO-933): ocurre en la práctica, en 4 de 129 casos de la regresión pública en serie en Chromium. Con la rama de TKT-010 la página queda en blanco (solo el banner de conexión); en main se conservaban cabecera y pie. Condición de F9. TKT-OPS-016 (ya en main) reduce los 429 que lo provocan, pero un fallo transitorio de red sigue pudiendo causarlo."]
+    evidencia: ["Recomendado por el Developer de TKT-010. Depende de TKT-016 porque comparte app.config.ts (§0.10).", "Severidad elevada a MEDIUM por la QA de TKT-010 (DEC-AUTO-933): ocurre en la práctica, en 4 de 129 casos de la regresión pública en serie en Chromium. Con la rama de TKT-010 la página queda en blanco (solo el banner de conexión); en main se conservaban cabecera y pie. Condición de F9. TKT-OPS-016 (ya en main) reduce los 429 que lo provocan, pero un fallo transitorio de red sigue pudiendo causarlo.", "2026-10-11 PR #99 (DEC-AUTO-1230..1233): recarga única ante error de chunk con guarda anti-bucle, estado de error accesible, destinoMismoOrigen. QA c1 PASS @ 5e9217b; SEC-025-01/02 endurecidos por regla humana de seguridad; QA c2 PASS @ ec56d25 (0 salidas de origen en 16 rutas hostiles + 56 casos Node). INFO-025-03 (blob: del mismo origen) rechazado: no alcanzable y mismo origen. Integrado @ ec56d25. DONE."]
     actualizado: 2026-10-11
   - id: TKT-OPS-001
     titulo: "DevOps: init-volumes falla con volumen de medios poblado por la imagen (RSK-TKT001-01) y socket de control de gunicorn en FS de solo lectura + logs no JSON (RSK-TKT001-02)"
@@ -1286,7 +1286,7 @@ tickets:
   - id: TKT-OPS-009
     titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: devops
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
@@ -1294,7 +1294,7 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: []
-    actualizado: 2026-09-28
+    actualizado: 2026-10-11
   - id: TKT-OPS-010
     titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
     fase: F7
