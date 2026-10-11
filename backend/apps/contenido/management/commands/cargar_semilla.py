@@ -67,6 +67,12 @@ E = EstadoEditorial
 # NULL para cargas de semilla; `cast` evita `type: ignore` repetido en cada llamada sin cambiar
 # el valor real en tiempo de ejecución (que sigue siendo `None`).
 ACTOR_ID: int = cast(int, None)
+# TKT-060 (DB_HANDOFF, ADR-DB-004 §1.5): los eventos que este comando registra DIRECTAMENTE
+# (páginas institucionales y primer alta de la configuración de inicio) llevan la etiqueta
+# 'sistema', no 'desconocido'. Los que registran los servicios del panel (crear_borrador,
+# publicar, crear_pais, catalogar, actualizar_config_inicio) no aceptan etiqueta y la siguen
+# resolviendo desde actor_id=None.
+ACTOR_ETIQUETA: str = auditoria_services.ETIQUETA_SISTEMA
 
 # Clique de arranque de RULE-006 (ver `_bootstrap_publicar`): 1 tipo + 1 destino por cada uno de
 # los 4 pares, elegidos para desbloquear 4 tipos distintos a la vez.
@@ -718,6 +724,7 @@ class Command(BaseCommand):
                 auditoria_services.registrar_evento(
                     accion=AccionAuditoria.CREAR,
                     actor_id=ACTOR_ID,
+                    actor_etiqueta=ACTOR_ETIQUETA,
                     tipo_entidad=T.PAGINA,
                     entidad_id=contenido.pk,
                     entidad_titulo=contenido.titulo,
@@ -807,6 +814,7 @@ class Command(BaseCommand):
             auditoria_services.registrar_evento(
                 accion=AccionAuditoria.CONFIG_INICIO,
                 actor_id=ACTOR_ID,
+                actor_etiqueta=ACTOR_ETIQUETA,
                 tipo_entidad="CONFIG_INICIO",
                 entidad_id=ID_SINGLETON,
             )
