@@ -3,7 +3,8 @@
 - app_rw no tiene DELETE ni TRUNCATE sobre cuenta_staff (42501);
 - el trigger trg_cuenta_sin_borrado rechaza el borrado también para el propietario (23001);
 - el ORM tampoco borra (excepción de dominio o IntegrityError del trigger) y no deja efectos;
-- las migraciones cuentas.0002 y auditoria.0003 son reversibles.
+- las migraciones cuentas.0002 y auditoria.0003 son reversibles (BD efímera con teardown sin
+  DROP ... WITH (FORCE), que falla sin superusuario si el autovacuum está en la BD: TKT-061).
 """
 
 from __future__ import annotations
@@ -21,12 +22,7 @@ from apps.cuentas.models import (
     SesionPanel,
 )
 from apps.cuentas.sesiones import SessionStore
-from apps.ops.tests.test_ac_tkt003_migraciones import (
-    BD_MIGRACIONES,
-    _conectar,
-    _manage,
-    bd_vacia,  # noqa: F401 (fixture reutilizada)
-)
+from apps.ops.tests.test_ac_tkt003_migraciones import BD_MIGRACIONES, _conectar, _manage
 
 pytestmark = pytest.mark.django_db
 
@@ -112,7 +108,13 @@ def _estado_chg_db_002(bd: psycopg.Connection) -> tuple:
     return tuple(fila)
 
 
-def test_AC_TKT004_08_migraciones_chg_db_002_reversibles(bd_vacia):  # noqa: F811
+@pytest.fixture
+def bd_migraciones(bd_efimera):
+    """BD vacía BD_MIGRACIONES (la que usa _manage), eliminada al final sin forzar sesiones."""
+    bd_efimera(BD_MIGRACIONES)
+
+
+def test_AC_TKT004_08_migraciones_chg_db_002_reversibles(bd_migraciones):
     migrar = _manage("migrate")
     assert migrar.returncode == 0, migrar.stderr
     v12 = (1, 1, False, ["search_path=pg_catalog, app, pg_temp"])
