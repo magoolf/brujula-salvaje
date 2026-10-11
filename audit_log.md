@@ -559,3 +559,6 @@
 2026-10-11 | ENTREGA | TKT-047 | PR #100 @ c151e85, CI verde: contraste del hero independiente de la foto (DEC-AUTO-1240..1243) | HANDOFF_ENVELOPE TKT-047
 2026-10-11 | DELEGACION | TKT-030, TKT-047, TKT-OPS-009 | QA c1 de TKT-030 (PR #101) y TKT-047 (PR #100); DevOps TKT-OPS-009 política de trivy (worktree aislado) | kanban.md
 2026-10-11 | RIESGO | Proceso | El equipo estuvo en batería durante parte de la tarde (BatteryStatus=1): se pidió al usuario enchufarlo; las mediciones de rendimiento se marcan NOT_RUN si no hay alimentación | HANDOFF_ENVELOPE TKT-030
+2026-10-11 | QA_PASS | TKT-030 | QA_VERDICT PASS ciclo 1/3 @ 11dc4d5 (20 rutas, 0 imágenes recreadas). DEC-AUTO-995 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): F-QA030-01 (reasignación de [innerHTML] con HTML idéntico, sin imágenes ni efecto visual) se clasifica LOW fuera del alcance del ticket -> Informe de Entrega sin ticket; F-QA030-03 LOW inestable -> Informe | HANDOFF_ENVELOPE QA TKT-030
+2026-10-11 | INTEGRACION | TKT-030 | PR #101 sincronizado @ bd68081, CI verde, integrado. DONE | PR #101
+2026-10-11 | DELEGACION | TKT-021 | Developer LCP de listados (worktree aislado; criterio DEC-AUTO-1031; medir solo enchufado) | kanban.md
