@@ -2,7 +2,9 @@
 
 Se crea una BD nueva desde template1 (esquemas app/ext y privilegios de INFRA-DB-000 en modo
 prueba), se migra con app_migrator en un subproceso, se revierte app a app hasta cero, se
-comprueba que no queda ningún objeto y se vuelve a migrar. Al final la BD se elimina.
+comprueba que no queda ningún objeto y se vuelve a migrar. Al final la BD se elimina con la
+fixture bd_efimera de backend/conftest.py, sin DROP ... WITH (FORCE): con app_migrator (sin
+superusuario) FORCE falla si un autovacuum worker está en la BD (TKT-061, TKT-063).
 """
 
 from __future__ import annotations
@@ -77,20 +79,9 @@ def _objetos_app(bd: psycopg.Connection) -> dict[str, int]:
     return resultado
 
 
-@pytest.fixture
-def bd_vacia():
-    with _conectar(connection.settings_dict["NAME"]) as admin:
-        admin.execute(f"DROP DATABASE IF EXISTS {BD_MIGRACIONES} WITH (FORCE)")
-        admin.execute(f"CREATE DATABASE {BD_MIGRACIONES} TEMPLATE template1")
-    try:
-        yield
-    finally:
-        with _conectar(connection.settings_dict["NAME"]) as admin:
-            admin.execute(f"DROP DATABASE IF EXISTS {BD_MIGRACIONES} WITH (FORCE)")
-
-
 @pytest.mark.django_db
-def test_AC_TKT003_01_migrate_desde_cero_revertir_y_volver_a_migrar(bd_vacia):
+def test_AC_TKT003_01_migrate_desde_cero_revertir_y_volver_a_migrar(bd_efimera):
+    bd_efimera(BD_MIGRACIONES)
     migrar = _manage("migrate")
     assert migrar.returncode == 0, migrar.stderr
     with _conectar(BD_MIGRACIONES) as bd:
