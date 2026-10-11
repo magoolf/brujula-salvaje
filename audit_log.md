@@ -512,3 +512,4 @@
 2026-10-10 | QA_PASS | TKT-065 | QA_VERDICT PASS ciclo 1/3 @ 0e80078. OBS-065-01 (cuerpo analizado antes del 429), OBS-065-02 (banner sin espera), OBS-065-03 LOW/INFO -> riesgos residuales del Informe, sin ticket | HANDOFF_ENVELOPE QA TKT-065
 2026-10-10 | DELEGACION | TKT-062 | Developer ActorRef/referencias en el resto del panel (worktree aislado) | kanban.md
 2026-10-10 | QA_FAIL | TKT-056 | QA_VERDICT FAIL ciclo 1/3 @ 305aaf3: F-01 MEDIUM (regresión de +1 s en cargas completas del panel por la espera al pintado con CSR) y F-02 LOW (precarga de chunks de menú/visor). LCP público dentro de presupuesto. Devuelto al mismo Developer | HANDOFF_ENVELOPE QA TKT-056
+2026-10-10 | INTEGRACION | TKT-060 | PR #91 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-067) | PR #91
