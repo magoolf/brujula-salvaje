@@ -276,6 +276,23 @@ describe('ImagenResponsiva', () => {
       expect(IntersectionObserverEspia.instancias).toHaveLength(0);
     });
 
+    it('AC_TKT021_03: carga inmediata: eager, sin fetchpriority, sin observer y src/srcset de inmediato', async () => {
+      const fixture = await crear({
+        src: '/media/publico/a-640.webp',
+        alt: '',
+        ancho: 640,
+        alto: 480,
+        derivados: [{ url: '/media/publico/a-320.webp', ancho: 320 }],
+        cargaInmediata: true,
+      });
+      const img = (fixture.nativeElement as HTMLElement).querySelector('img') as HTMLImageElement;
+      expect(img.getAttribute('loading')).toBe('eager');
+      expect(img.hasAttribute('fetchpriority')).toBe(false);
+      expect(img.getAttribute('src')).toBe('/media/publico/a-640.webp');
+      expect(img.getAttribute('srcset')).toBe('/media/publico/a-320.webp 320w');
+      expect(IntersectionObserverEspia.instancias).toHaveLength(0);
+    });
+
     it('AC_TKT020_01: <picture> con <source type> AVIF y WebP y <img> JPEG del mismo ancho', async () => {
       const fixture = await crear({
         src: '/media/publico/derivados/h-400.avif',
@@ -432,6 +449,21 @@ describe('ImagenResponsiva', () => {
       });
       const imgDecorativa = (decorativa.nativeElement as HTMLElement).querySelector('img');
       expect(imgDecorativa?.hasAttribute('src')).toBe(false);
+    });
+
+    it('AC_TKT021_01: en el servidor la decorativa prioritaria o de carga inmediata ya lleva src', async () => {
+      for (const extra of [{ prioritaria: true }, { cargaInmediata: true }]) {
+        const fixture = await crear({
+          src: '/media/publico/derivados/h-400.avif',
+          alt: '',
+          ancho: 64,
+          alto: 64,
+          ...extra,
+        });
+        const img = (fixture.nativeElement as HTMLElement).querySelector('img');
+        expect(img?.getAttribute('src')).toBe('/media/publico/derivados/h-400.avif');
+        expect(img?.getAttribute('loading')).toBe('eager');
+      }
     });
   });
 });

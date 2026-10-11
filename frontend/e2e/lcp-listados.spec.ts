@@ -19,16 +19,21 @@ interface CasoListado {
   readonly prioritarias: number;
   /** En móvil (412 px) la primera imagen queda por encima del pliegue. */
   readonly visibleEnMovil: boolean;
+  /**
+   * `fetchpriority=high` (LCP también en móvil) o solo carga inmediata (`cargaInmediata`: en móvil
+   * queda bajo el pliegue y no debe competir con fuentes y CSS; el navegador la prioriza si se ve).
+   */
+  readonly altaPrioridad: boolean;
 }
 
 const LISTADOS: readonly CasoListado[] = [
   // En móvil los filtros van antes que la rejilla: el LCP es el h1; en escritorio, la 1.ª tarjeta.
-  { ruta: '/destinos', prioritarias: 1, visibleEnMovil: false },
-  { ruta: '/guias', prioritarias: 1, visibleEnMovil: true },
-  { ruta: '/itinerarios', prioritarias: 1, visibleEnMovil: true },
+  { ruta: '/destinos', prioritarias: 1, visibleEnMovil: false, altaPrioridad: false },
+  { ruta: '/guias', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
+  { ruta: '/itinerarios', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
   // Rejilla de meses: 2 columnas en móvil.
-  { ruta: '/cuando-ir', prioritarias: 2, visibleEnMovil: true },
-  { ruta: '/cuando-ir/7', prioritarias: 1, visibleEnMovil: true },
+  { ruta: '/cuando-ir', prioritarias: 2, visibleEnMovil: true, altaPrioridad: true },
+  { ruta: '/cuando-ir/7', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
 ];
 
 interface AtributosImagen {
@@ -57,7 +62,7 @@ test.describe('TKT-021 imagen LCP de los listados', () => {
     test.use({ javaScriptEnabled: false });
 
     for (const caso of LISTADOS) {
-      test(`AC_TKT021_01 ${caso.ruta}: la primera imagen visible llega del SSR priorizada y el resto sigue diferido`, async ({
+      test(`AC_TKT021_01 ${caso.ruta}: la primera imagen llega del SSR (eager) y el resto sigue diferido`, async ({
         page,
       }) => {
         const respuesta = await page.goto(caso.ruta);
@@ -68,7 +73,7 @@ test.describe('TKT-021 imagen LCP de los listados', () => {
         const prioritarias = imagenes.slice(0, caso.prioritarias);
         for (const img of prioritarias) {
           expect(img.loading).toBe('eager');
-          expect(img.fetchpriority).toBe('high');
+          expect(img.fetchpriority).toBe(caso.altaPrioridad ? 'high' : null);
           expect(img.src).toMatch(/^\/media\/publico\//);
           expect(img.srcset).toMatch(/ \d+w/);
           expect(img.sizes).not.toBeNull();
