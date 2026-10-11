@@ -34,37 +34,39 @@
         />
       </picture>
     }
-    <div class="scrim"></div>
-    <div class="bs-contenedor contenido-principal">
-      <p class="bs-overline overline-marca">{{ marca }}</p>
-      <h1 class="titular">{{ inicio.hero?.titular ?? 'Aventuras reales, contadas con honestidad' }}</h1>
-      <p class="subtitulo">
-        {{ inicio.hero?.subtitulo ?? 'Destinos, itinerarios y guías de aventura verificados por nuestro equipo editorial.' }}
-      </p>
-      <div class="cta">
-        <a routerLink="/destinos" appBoton variante="accent" tamano="lg" data-testid="inicio-cta-explorar">
-          Explorar destinos
-        </a>
-        <button
-          type="button"
-          appBoton
-          variante="ghost-inverse"
-          tamano="lg"
-          [cargando]="buscandoSorpresa()"
-          data-testid="inicio-cta-sorprendeme"
-          (click)="sorprenderme()"
-        >
-          Sorpréndeme
-        </button>
-      </div>
-      <div class="busqueda-principal">
-        <app-campo-busqueda
-          variante="grande"
-          idCampo="busqueda-inicio"
-          testId="inicio-busqueda"
-          [etiquetaOculta]="false"
-          [soloIcono]="false"
-        />
+    <!-- TKT-047: el texto va sobre una franja con el scrim del sistema (overlay.scrim), no sobre la foto. -->
+    <div class="franja-texto" data-testid="inicio-franja-texto">
+      <div class="bs-contenedor contenido-principal">
+        <p class="bs-overline overline-marca">{{ marca }}</p>
+        <h1 class="titular">{{ inicio.hero?.titular ?? 'Aventuras reales, contadas con honestidad' }}</h1>
+        <p class="subtitulo">
+          {{ inicio.hero?.subtitulo ?? 'Destinos, itinerarios y guías de aventura verificados por nuestro equipo editorial.' }}
+        </p>
+        <div class="cta">
+          <a routerLink="/destinos" appBoton variante="accent" tamano="lg" data-testid="inicio-cta-explorar">
+            Explorar destinos
+          </a>
+          <button
+            type="button"
+            appBoton
+            variante="ghost-inverse"
+            tamano="lg"
+            [cargando]="buscandoSorpresa()"
+            data-testid="inicio-cta-sorprendeme"
+            (click)="sorprenderme()"
+          >
+            Sorpréndeme
+          </button>
+        </div>
+        <div class="busqueda-principal">
+          <app-campo-busqueda
+            variante="grande"
+            idCampo="busqueda-inicio"
+            testId="inicio-busqueda"
+            [etiquetaOculta]="false"
+            [soloIcono]="false"
+          />
+        </div>
       </div>
     </div>
   </section>
