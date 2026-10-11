@@ -986,14 +986,14 @@ tickets:
   - id: TKT-030
     titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-020, TKT-016, TKT-021]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/src/app/features/*/state/**", "frontend/src/app/features/*/ui/**", "frontend/src/app/core/http/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS.", "2026-10-11 PR #101 @ 11dc4d5: diagnóstico: el defecto ya no se reproduce en main (lo corrigió TKT-016, 2d8b667, resource({id}) + TransferState); A/B quitando el id reproduce la firma exacta. Solo añade E2E de regresión hidratacion-reutiliza-dom.spec.ts (9/9). QA ciclo 1/3 despachada."]
+    evidencia: ["Abierto a partir de la QA de TKT-020. archivos_permitidos provisionales: primero diagnosticar; si la causa está en app.config.ts (proveedores de hidratación o caché de transferencia) coordinar con TKT-016/TKT-025, que comparten ese archivo. Ordenar con TKT-016 y TKT-021: diagnosticar este antes de optimizar LCP/CLS.", "2026-10-11 PR #101 @ 11dc4d5: diagnóstico: el defecto ya no se reproduce en main (lo corrigió TKT-016, 2d8b667, resource({id}) + TransferState); A/B quitando el id reproduce la firma exacta. Solo añade E2E de regresión hidratacion-reutiliza-dom.spec.ts (9/9). QA ciclo 1/3 despachada.", "2026-10-11 QA_VERDICT PASS ciclo 1/3 @ 11dc4d5: medición independiente en 20 rutas públicas (red normal y Slow 4G+CPU x4): 0 IMG retiradas, 0 API repetidas, 0 NG0; A/B confirma que la E2E detecta la regresión. F-QA030-01 LOW ([innerHTML] reasignado con HTML idéntico, sin efecto visual) y F-QA030-03 LOW (AC_TKT016_13 inestable) -> Informe sin ticket (DEC-AUTO-995: fuera del alcance de imágenes recreadas). Integrado @ bd68081. DONE."]
     actualizado: 2026-10-11
   - id: TKT-020
     titulo: "ImagenResponsiva: (F-2 MEDIUM, preexistente de TKT-002) src/srcset solo AVIF sin formato de respaldo -- en navegadores sin AVIF (WebKit de Playwright en Windows) (error)->alFallar() elimina el <img>: 0 imágenes de tarjeta en WebKit en todos los listados; usar <picture> con <source type=image/avif> + respaldo WebP/JPEG (los derivados ya existen por DEC-AUTO-044). (F-1 LOW, introducido por TKT-018) imágenes no prioritarias con alt informativo (galerías de destino/itinerario, miniaturas de créditos) salen sin src en SSR y nunca cargan sin JS ni para crawlers; emitir src en SSR o <noscript> para las no decorativas y corregir el comentario incorrecto del componente, sin reintroducir la ráfaga de TKT-018"
@@ -1010,7 +1010,7 @@ tickets:
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [REQ-052, TKT-018, TKT-016]
     depende_de: [TKT-016, TKT-020]
