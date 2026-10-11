@@ -25,6 +25,7 @@ from apps.auditoria.services import (
     ETIQUETA_SISTEMA,
     PREFIJO_SEUDONIMO,
     auditar_como_sistema,
+    etiqueta_de_actor,
     registrar_evento,
 )
 from apps.auditoria.tests.test_ac_tkt058_etiqueta_actor import _anonimizar_en_bd
@@ -33,7 +34,7 @@ from apps.cuentas.tests.conftest import IP, post
 PLAZO_S = 60
 
 
-class _Fallo(Exception):
+class _FalloError(Exception):
     pass
 
 
@@ -89,22 +90,30 @@ class TestPrecedencia:
         assert evento.actor_etiqueta == f"{PREFIJO_SEUDONIMO}{cuenta.pk}"
 
     def test_TKT067_actor_inexistente_sigue_desconocido_en_el_contexto(self) -> None:
-        """El contexto solo cubre la AUSENCIA de actor: un id sin cuenta no es 'sistema'."""
+        """El contexto solo cubre la AUSENCIA de actor: un id sin cuenta no es 'sistema' (la FK
+        impide insertarlo, así que se comprueba la resolución de la etiqueta)."""
         with auditar_como_sistema():
-            evento = registrar_evento(accion=AccionAuditoria.EDITAR, actor_id=987654321)
-        assert evento.actor_etiqueta == ETIQUETA_DESCONOCIDO
+            assert etiqueta_de_actor(987654321) == ETIQUETA_DESCONOCIDO
+            assert etiqueta_de_actor(None) == ETIQUETA_DESCONOCIDO
 
     def test_TKT067_se_restaura_aunque_haya_excepcion(self) -> None:
-        with pytest.raises(_Fallo), auditar_como_sistema():
-            assert _sin_actor().actor_etiqueta == ETIQUETA_SISTEMA
-            raise _Fallo
+        dentro: list[str] = []
+
+        def bloque_que_falla() -> None:
+            with auditar_como_sistema():
+                dentro.append(_sin_actor().actor_etiqueta)
+                raise _FalloError
+
+        with pytest.raises(_FalloError):
+            bloque_que_falla()
+        assert dentro == [ETIQUETA_SISTEMA]
         assert etiqueta_de_proceso() is None
         assert _sin_actor().actor_etiqueta == ETIQUETA_DESCONOCIDO
 
     def test_TKT067_bloques_anidados_restauran_el_valor_exterior(self) -> None:
         with auditar_como_sistema():
-            with pytest.raises(_Fallo), auditar_como_sistema():
-                raise _Fallo
+            with pytest.raises(_FalloError), auditar_como_sistema():
+                raise _FalloError
             assert etiqueta_de_proceso() == ETIQUETA_SISTEMA
         assert etiqueta_de_proceso() is None
 

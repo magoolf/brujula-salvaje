@@ -24,15 +24,13 @@ cuando no recibe ninguno de los dos.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar, Token
 from typing import Any
 
 from apps.core.actores import ETIQUETA_SISTEMA
 
-_ETIQUETA_PROCESO: ContextVar[str | None] = ContextVar(
-    "auditoria_etiqueta_proceso", default=None
-)
+_ETIQUETA_PROCESO: ContextVar[str | None] = ContextVar("auditoria_etiqueta_proceso", default=None)
 # Token de la neutralización abierta por la petición en curso (None fuera de una petición).
 _TOKEN_PETICION: ContextVar[Token[str | None] | None] = ContextVar(
     "auditoria_token_peticion", default=None
@@ -65,9 +63,7 @@ def al_terminar_peticion(**_kwargs: Any) -> None:
     if token is None:
         return
     _TOKEN_PETICION.set(None)
-    try:
+    # Token de otro contexto (servidor que emite las señales en contextos distintos, p. ej. ASGI)
+    # o ya usado: ese contexto se descarta con la petición; no hay nada que restaurar.
+    with suppress(ValueError, RuntimeError):
         _ETIQUETA_PROCESO.reset(token)
-    except (ValueError, RuntimeError):
-        # Token de otro contexto (servidor que emite las señales en contextos distintos, p. ej.
-        # ASGI) o ya usado: ese contexto se descarta con la petición; no hay nada que restaurar.
-        pass
