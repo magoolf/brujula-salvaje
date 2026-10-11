@@ -63,7 +63,7 @@ def _memoria(conexion: Any, using: str) -> _Memoria:
 
 
 def memoria_de_transaccion(espacio: str, using: str = DEFAULT_DB_ALIAS) -> dict[Any, Any] | None:
-    """Diccionario del `espacio` para el bloque atómico en curso, o None fuera de una transacción."""
+    """Diccionario del `espacio` en el bloque atómico en curso; None fuera de una transacción."""
     conexion = connections[using]
     if not conexion.in_atomic_block:
         return None
