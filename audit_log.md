@@ -518,3 +518,4 @@
 2026-10-10 | ENTREGA | TKT-062 | PR #94 @ dd969a7 (CI en curso al entregar): ActorRef y referencias reales en el panel (DEC-AUTO-1170..1173). N+1 del listado de medios -> TKT-068 MEDIUM (DEC-AUTO-1035, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-062
 2026-10-10 | DELEGACION | TKT-062 | QA ciclo 1/3 sobre PR #94 | kanban.md
 2026-10-10 | ENTREGA | TKT-056 | Corrección ciclo 1 @ b4be612, CI verde (DEC-AUTO-1115/1116). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-056
+2026-10-10 | INTEGRACION | TKT-065 | PR #92 sincronizado con main; job backend cancelado por el runner, relanzado, CI verde, integrado. DONE | PR #92
