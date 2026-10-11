@@ -527,3 +527,5 @@
 2026-10-11 | DELEGACION | TKT-062, TKT-063, TKT-056 | QA TKT-062 c1 (reanudación desde checkpoint); Developer TKT-063 (pytest completo, push, PR); Developer TKT-056 corrección c2 -> F-03 (ciclo QA 3/3 a continuación, medición con el equipo enchufado) | kanban.md
 2026-10-11 | ENTREGA | TKT-063 | PR #95 @ 3bd81d4, CI verde: pruebas de migraciones con bd_efimera sin FORCE; eliminar_todas tolerante (DEC-AUTO-1180..1182). Incidencia: el Developer mató todos los python.exe del equipo para cortar un pytest residual (contra la norma de no matar procesos por nombre); pudo afectar a la QA de TKT-062 en curso, que se verificará | HANDOFF_ENVELOPE TKT-063
 2026-10-11 | DELEGACION | TKT-063 | QA ciclo 1/3 sobre PR #95 | kanban.md
+2026-10-11 | ENTREGA | TKT-056 | Corrección c2 @ 3858696, CI verde: F-03 corregido (DEC-AUTO-1190/1191); medido enchufado sin regresión de TBT | HANDOFF_ENVELOPE TKT-056
+2026-10-11 | DELEGACION | TKT-056 | QA ciclo 3/3 (último, §0.7) sobre PR #90 @ 3858696, performance enchufado | kanban.md
