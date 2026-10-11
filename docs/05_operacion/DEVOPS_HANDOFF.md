@@ -15,6 +15,7 @@ Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-
 Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-016: la location de assets envía al SSR solo la ruta, sin query; ancla `\z`; sin `X-Forwarded-Host`/`X-Forwarded-Proto`; RSK-OPS-041 medido: 8 → 4 líneas, 2026-10-01): ver §25 y **ADR-OPS-001** (punto 7).
 Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 de la imagen `brujula/proxy` (alpine 3.24.2); `pcre2=10.49-r0` fijado en el Dockerfile, sin tocar `.trivyignore` ni la base, 2026-10-01): ver §27.
 Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub: espejo `mirror.gcr.io` en el Engine y en BuildKit del runner + reintentos con backoff, sin credenciales nuevas; FROM y digests sin cambios, 2026-10-09): ver §34.
+Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios y libro tras pérdida total (RSK-OPS-027), copia y restauración sin tmpfs (RSK-OPS-029), simulacro AC-054 reproducible en local y en CI, post-restore que no arranca la app si falta un paso (DEC-AUTO-908), runbook con perfil ops y libro v2 (CHG-DB-003), precondición de tipos/dominios (OBS-QAOPS007-03), 2026-10-11): ver §35. **Runbook de restauración vigente: §35.6.**
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -57,7 +58,8 @@ Dejar preparados, antes de F7, la matriz de interoperabilidad, el entorno Compos
 - **Copias**:
   - `scripts/ops/backup.sh`: pg_dump custom `--no-unlogged-table-data` con `app_backup` + manifiesto sha256 generado desde la BD + tar de medios + libro de anonimizaciones; cifrado con age (clave pública); sumas antes y después de cifrar; rotación de 30. Falla si la clave es el placeholder.
   - `scripts/ops/restore-local.sh`: simulacro AC-054, solo en local. Exige `--confirmar-entorno-local` y `RESTORE_ENV=local`.
-  - `scripts/ops/post-restore-local.sh` (TKT-OPS-007): pasos de aplicación posteriores a la restauración (migrate, comandos de ADR-DB-004 §4, arranque y `/health/ready`). Runbook completo en §18.9.
+  - `scripts/ops/post-restore-local.sh` (TKT-OPS-007, TKT-OPS-008): pasos de aplicación posteriores a la restauración (migrate, comandos de ADR-DB-004 §4, arranque y `/health/ready`). Runbook completo en §35.6.
+  - `scripts/ops/reinstalar-volumenes.sh` y servicio `reinstalar-volumenes` (perfil `restauracion`), `scripts/ops/simulacro-ac054.sh` y `.github/workflows/simulacro-ac054.yaml` (TKT-OPS-008): §35.
   - `infra/backup/crontab`: 01:30 UTC.
 - **Entorno**: `.env.example` documentado y `scripts/ops/init-env.sh`, que genera el `.env` local con valores aleatorios y nunca sobrescribe uno existente.
 - **CI**: `.github/workflows/ci.yaml` (§8.3).
@@ -1203,6 +1205,8 @@ Dos simulacros previos durante el desarrollo midieron 46 s y 57 s. El de 46 s to
 - Job de CI que ejecute el simulacro: `.github/workflows/**` está fuera de los `archivos_permitidos` de este ticket (§18.12).
 
 ### 18.9 Runbook de restauración (AC-054, simulacro mensual; ADR-DB-004 §4)
+
+> **SUSTITUIDO por §35.6 (TKT-OPS-008).** Se conserva como registro histórico. `LIBRO_RESTORE_DIR` ya no se admite y `MEDIA_RESTORE_DIR=/tmp/medios` usaba tmpfs (RSK-OPS-029).
 Solo en entornos locales o efímeros. Restaurar sobre datos reales, usar la clave age real o hacerlo en un entorno compartido es **Puerta Humana** (CLAUDE.md §0.5). Se ejecuta en bash desde la raíz del repo (en Windows, Git Bash con `MSYS_NO_PATHCONV=1` en las órdenes con `-v`).
 
 ```bash
@@ -2740,3 +2744,163 @@ Sin cambios en compose, redes, volúmenes ni `.env.example`. El runner de CI nec
 
 ### 34.10 Próximo agente
 **Orquestador**: revisión/QA del PR e integración sin editar contenido; después, sincronizar con `main` los PR bloqueados (#79, #75 y los de Dependabot) y relanzar su CI.
+
+## 35. TKT-OPS-008: restauración AC-054 reproducible (medios tras pérdida total, sin tmpfs, simulacro en CI, post-restore que no arranca la app si falta un paso, libro v2) (F7, condición de F9)
+
+### 35.1 Estado
+**COMPLETADO** en la rama `tkt-ops-008-restore-medios`. Sin despliegue, sin secretos reales (clave age **efímera** generada en cada simulacro) y sin costes (CLAUDE.md §0.5). El simulacro AC-054 **se superó en local** de extremo a extremo (§35.8). El resultado del job de CI se reporta en el HANDOFF_ENVELOPE.
+
+### 35.2 Objetivo y estado de cada sub-ítem en `main` (antes de este ticket)
+Se revisaron DEVOPS_HANDOFF §18, `audit_log.md`, `kanban.md` y `scripts/ops/` sobre `origin/main` (fb7210d). Ningún ticket posterior a TKT-OPS-007 (PR #16) tocó estos ítems, salvo RSK-OPS-030.
+
+| Sub-ítem | Estado en `main` | Resolución |
+|---|---|---|
+| RSK-OPS-027: reinstalar medios tras pérdida total del volumen | ABIERTO (§18.10) | Resuelto aquí: §35.3 (DEC-AUTO-1200) |
+| RSK-OPS-029: copia y restauración en el tmpfs de un contenedor de 512 MiB | ABIERTO; se había marcado **[INFERIDO]** | **Confirmado y medido** (OOM kill con 1,5 GiB de medios, §35.8) y resuelto aquí (DEC-AUTO-1201) |
+| Job de CI del simulacro AC-054 | ABIERTO (recomendación de §18.12) | Resuelto aquí: workflow `simulacro-ac054` (DEC-AUTO-1202) |
+| DEC-AUTO-908 (NV-QAOPS007-01): post-restore abría la app aunque faltaran pasos | ABIERTO: `post-restore-local.sh` arrancaba con `up -d --wait` y salía con exit 5 | Resuelto aquí: la app no se arranca salvo `--arrancar-incompleto` (DEC-AUTO-1205) |
+| Runbook: perfil ops, LIBRO_AUSENTE y avisos del libro v2 (CHG-DB-003) | ABIERTO: el runbook paraba `--profile ops` y no lo volvía a levantar; ni `--libro-vacio-confirmado` ni los avisos de ADR-DB-004 §4.4 estaban integrados | Resuelto aquí: §35.6 y `post-restore-local.sh` (DEC-AUTO-1203, DEC-AUTO-1206) |
+| OBS-QAOPS007-03: precondición de tipos/dominios | ABIERTO. El texto original de la observación **no se conserva** (ni en `audit_log.md` ni en el PR #16). Se interpreta por el código: la precondición de BD limpia solo contaba relaciones y funciones | Resuelto aquí según esa interpretación (DEC-AUTO-1204) |
+| RSK-OPS-030: los 6 comandos de ADR-DB-004 §4 no existían | **YA RESUELTO** por TKT-005: commits `1018f01` (purgar_ops, purgar_sesiones, reindexar_busqueda, verificar_busqueda) y `1b2cb0c` (anonimizar_cuentas, reaplicar_anonimizaciones, purgar_auditoria), merge `3e042e8` (QA PASS 2/3) | Verificado: los 6 se ejecutan en el simulacro con exit 0 y `post-restore-local.sh` termina con exit 0 |
+
+**Hallazgo nuevo, corregido aquí (DEC-AUTO-1207, MEDIUM)**: desde TKT-017 (`9fc89cf`, 2026-09-30), la BD guarda las rutas de los medios **sin el área física** (`derivados/<hash>-800.avif`). El área se resuelve por el estado: el original siempre en `privado/` y los derivados en `publico/` si el medio está DISPONIBLE, o en `privado/` si no. Pero el manifiesto de `backup.sh` seguía usando la ruta de la BD tal cual, así que con datos reales **`sha256sum -c` no encontraba ningún archivo** (1464 «No such file or directory» en el simulacro) y la verificación de AC-054 fallaba siempre. TKT-OPS-007 no lo detectó porque usó filas insertadas a mano con el prefijo. Las copias hechas con el `backup.sh` anterior tienen un manifiesto inservible para la verificación estricta.
+
+### 35.3 Cambios realizados
+
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| **Reinstalación de medios y libro** (RSK-OPS-027). Nuevo servicio one-shot `reinstalar-volumenes` con perfil `restauracion` (nunca arranca con `up`). Imagen `brujula/db`, root **sin** DAC_OVERRIDE: solo CHOWN y FOWNER (propietario y modo) y DAC_READ_SEARCH (leer el staging del uid 999 y verificar los medios privados 0640). `network_mode: none`, rootfs de solo lectura, 256 MiB. Monta `backups` en solo lectura, `media`, `ops_libro` y `./scripts/ops` en solo lectura. Modos: `--medios` (pérdida total: el volumen debe estar vacío, salvo `publico/` y `privado/` vacíos de init-volumes; si no, exit 3), `--verificar-medios` (volumen superviviente: solo verificación) y `--libro-copia` (instala la COPIA del libro con 0640 y 10001:10001 si **no** hay libro vivo; si lo hay, exit 3). Antes de extraer valida el tar: sha256 contra el staging, solo ficheros regulares y directorios, todo de 10001/10001, sin setuid/setgid/sticky, sin enlaces simbólicos ni duros, sin rutas absolutas ni `..` (si no, exit 5, antes de escribir nada). Extrae conservando propietario, modo y fecha y después ejecuta `sha256sum -c --strict` del manifiesto **en el volumen**. Si falla a mitad, devuelve los directorios raíz a 10001 | `scripts/ops/reinstalar-volumenes.sh` (nuevo), `compose.yaml` | DEC-AUTO-1200 |
+| `restore-local.sh`: nuevo modo `RESTORE_STAGING_DIR` (recomendado). Deja en un directorio vacío del volumen de copias `medios.tar` (en claro, verificado contra SHA256SUMS), `medios.tar.sha256`, el manifiesto, la copia del libro y `COPIA`. `MEDIA_RESTORE_DIR` se mantiene (solo verificación). Hay que definir exactamente una de las dos y debe ser una ruta absoluta. `LIBRO_RESTORE_DIR` **se retira** (exit 2 si se define): copiaba el libro como uid 999 con 0600 y la aplicación (10001) no podía leerlo (LIBRO_ILEGIBLE) | `scripts/ops/restore-local.sh` | DEC-AUTO-1200, DEC-AUTO-1206 |
+| **Sin tmpfs** (RSK-OPS-029). En `backup.sh` y `restore-local.sh`, el directorio de trabajo pasa de `/tmp` (tmpfs = memoria del cgroup) a **disco**, en el volumen de copias (`.trabajo-copia.*` / `.trabajo-restaurar.*`, 0700, uid 999, con limpieza al terminar y de los restos de una ejecución interrumpida). El tar de medios **nunca** existe en claro en la copia: `tar → tee → age`, con el sha256 en claro calculado por un `sha256sum` sobre una FIFO en segundo plano, esperado con `wait` y validado. En la restauración, `age -d → tee → staging` (o `tar -x`), con el mismo sha256 comparado con SHA256SUMS. El dump en claro se borra en cuanto se restaura. **Formato de copia sin cambios** (mismos nombres, mismo SHA256SUMS con la línea del tar): las copias antiguas siguen siendo restaurables | `scripts/ops/backup.sh`, `scripts/ops/restore-local.sh` | DEC-AUTO-1201 |
+| Precondición de BD limpia ampliada (OBS-QAOPS007-03). Además de relaciones y funciones, el esquema `app` debe tener 0 tipos (dominios, enums, rangos, compuestos sueltos; `typrelid = 0`), colaciones, operadores, familias de operadores, configuraciones y diccionarios de búsqueda de texto y conversiones. Si no, exit 4 sin tocar nada | `scripts/ops/restore-local.sh` | DEC-AUTO-1204 |
+| `post-restore-local.sh` (DEC-AUTO-908). (a) Si falta algún comando (`NO_DISPONIBLE`), la app **NO se arranca** (exit 5); `--arrancar-incompleto` la arranca y sigue saliendo con exit 5. (b) Un fallo de un paso: exit 1 sin arrancar nada. Si es LIBRO_AUSENTE, se muestran las dos salidas de ADR-DB-004 §4.4 (decisión humana): `reinstalar-volumenes --libro-copia` o `--libro-vacio-confirmado` (nueva opción, que se pasa a `reaplicar_anonimizaciones`). LIBRO_ILEGIBLE y LIBRO_CORRUPTO tienen su propio mensaje. (c) Avisos del libro v2 (`OMITIDA_ULTIMO_ADMIN`, `INCONSISTENTE`, `REACTIVADA_NO_REPRODUCIDA`, `OMITIDA_REACTIVADA`, `avisos_libro`, `LIBRO_AUSENTE_SOLO_BD`) destacados como AVISO en el resumen, sin cambiar el exit 0 del comando (ADR-DB-004 §4.4). (d) El arranque incluye el **perfil ops** (scheduler + backup) por defecto (`--sin-perfil-ops` para no incluirlo). (e) `up --no-build`: se arrancan las imágenes existentes | `scripts/ops/post-restore-local.sh` | DEC-AUTO-1205, DEC-AUTO-1203 |
+| Controles de `post-restore-local.sh` con un doble de `docker` (sin contenedores, segundos): 12 casos (C1 completo; C2/C3/C12 salvaguardas; C4 app en marcha; C5 falta un comando y no arranca; C6 `--arrancar-incompleto`; C7 LIBRO_AUSENTE se detiene antes de `anonimizar_cuentas`; C8 `--libro-vacio-confirmado`; C9 avisos; C10 `--sin-perfil-ops`; C11 LIBRO_CORRUPTO). En el job obligatorio `infra` y en el simulacro | `scripts/ops/post-restore-local_controles.sh` (nuevo), `.github/workflows/ci.yaml` | DEC-AUTO-1205 |
+| **Simulacro AC-054 de extremo a extremo** en un script reutilizable (local y CI): prepara una clave age efímera, el stack, la semilla real (`cargar_semilla`: 98 entidades, 1464 archivos de medios) y una línea de libro; hace la copia y la instantánea de referencia; provoca una **pérdida total** (volúmenes `db_data`, `media` y `ops_libro`) y recrea la BD con INFRA-DB-000. Ejecuta los pasos y controles de §35.6 y compara la BD (conteo + md5 del contenido de cada tabla, privilegios de relaciones/columnas/esquemas/por defecto/funciones/extensiones/BD, triggers y secuencias) y los volúmenes (propietario, modo, tipo y sha256 de cada entrada, más el libro). Termina con `/health/ready`, `/api/v1/publico/inicio`, SSR 200, un medio público servido por el proxy con su sha256, y el RTO. Salvaguardas: `RESTORE_ENV=local`, `COMPOSE_PROJECT_NAME` explícito distinto de `brujula` y `--confirmar-destruccion <proyecto>` | `scripts/ops/simulacro-ac054.sh` (nuevo) | DEC-AUTO-1202 |
+| Workflow **separado y NO obligatorio** `simulacro-ac054`: `pull_request` con filtro de rutas (scripts de copia y restauración, `infra/backup/**`, `infra/db/**`, `compose.yaml`, migraciones, `apps/ops`, libro y servicios de cuentas, el propio workflow), `schedule` mensual (día 3, 04:23 UTC; ADR-DB-004 §4 exige un simulacro mensual) y `workflow_dispatch` (p. ej. antes de F9). Mismo arranque que el job `images` (espejo, buildx con `buildkitd.toml`, reintentos). Publica la evidencia como artefacto (30 días) y termina siempre con `down -v`. En el job `infra` se añade `docker compose --profile ops --profile restauracion config --quiet` | `.github/workflows/simulacro-ac054.yaml` (nuevo), `.github/workflows/ci.yaml` | DEC-AUTO-1202 |
+| Manifiesto de medios con el área física (hallazgo §35.2): `'privado/' \|\| archivo_saneado_ruta` y, para los derivados, `publico/` o `privado/` según `medio.estado = 'DISPONIBLE'` | `scripts/ops/backup.sh` | DEC-AUTO-1207 |
+
+### 35.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA)
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1200 | Reinstalación con un one-shot de compose (`brujula/db`, root con CHOWN/FOWNER/DAC_READ_SEARCH, sin red) a partir de un staging en disco verificado. El tar se extrae conservando propietario y modo de la copia, tras validar su contenido. El libro solo con `--libro-copia` y nunca sobre un libro vivo | (a) Extraer como 999 y hacer `chown -R` después (pierde los modos 0644/0640 por el umask 077 del restore); (b) DAC_OVERRIDE (más privilegio del necesario); (c) instalar el libro automáticamente (ADR-DB-004 §4.4 a exige una decisión humana) | Mínimo privilegio y fidelidad exacta (propietario, modo y sha256 idénticos, comprobado) | LOW: el servicio corre como root con 3 capacidades durante segundos | Alta |
+| DEC-AUTO-1201 | Directorio de trabajo en el volumen de copias (disco) y tar de medios en streaming. Formato de copia sin cambios | (a) Ampliar la memoria del contenedor (no escala con ~5 GB de medios); (b) volumen dedicado de trabajo (más superficie sin beneficio); (c) dump también en streaming (pg_restore con `-L` necesita un archivo con offsets) | El tar es lo que crece. El dump (< 1 GB previsto) pasa por disco de forma transitoria | LOW: el dump en claro toca disco (0700, uid 999, borrado al terminar; antes estaba en RAM) | Alta |
+| DEC-AUTO-1202 | Simulacro en un workflow aparte, no obligatorio, con filtro de rutas, ejecución mensual y manual, y un único script para local y CI | (a) Paso dentro del job `images` (alargaría los 5 checks obligatorios unos 10-15 min); (b) solo manual (no detectaría regresiones en los PR que tocan la restauración) | No alarga el CI obligatorio y se ejecuta justo cuando cambia algo que puede romper la restauración; cumple el simulacro mensual de ADR-DB-004 | LOW: un PR que rompa la restauración sin tocar las rutas filtradas solo se detectaría en la ejecución mensual | Alta |
+| DEC-AUTO-1203 | `post-restore-local.sh` arranca también el perfil ops por defecto, con `up --no-build` | Arrancar solo la app (como antes) | El runbook para el perfil ops con `--profile ops down`; sin scheduler ni backup no había copias tras restaurar (RPO roto en silencio) | LOW: un entorno de desarrollo sin `BACKUP_AGE_RECIPIENT` deja un backup que fallará a las 01:30 (con log de error); se evita con `--sin-perfil-ops` | Alta |
+| DEC-AUTO-1204 | Se interpreta OBS-QAOPS007-03 como "la precondición de BD limpia no cuenta tipos ni dominios". Se amplía a todos los objetos con esquema que una restauración volvería a crear | Esperar al texto original (perdido) | Un dominio o un enum sobrante pasaba la precondición y hacía fallar la restauración a mitad (con rollback, pero sin diagnóstico claro). Comprobado con un dominio: ahora exit 4 | LOW: si la observación original pedía otra cosa, sigue abierta | Alta |
+| DEC-AUTO-1205 | DEC-AUTO-908 se concreta así: sin todos los pasos no hay arranque, salvo `--arrancar-incompleto`, que sigue saliendo con exit 5. Controles con un doble de docker en el job obligatorio `infra` (~1 s) | Solo documentarlo | Abrir el panel sin reaplicar anonimizaciones ni purgar sesiones expone datos (NV-QAOPS007-01) | Ninguno | Alta |
+| DEC-AUTO-1206 | Se retira `LIBRO_RESTORE_DIR` de `restore-local.sh` en favor de `reinstalar-volumenes --libro-copia` | Corregir los permisos dentro del contenedor backup (uid 999 no puede hacer `chown` a 10001) | El libro depositado era ilegible para la app (LIBRO_ILEGIBLE) | Ninguno (uso solo local; el runbook se actualiza) | Alta |
+| DEC-AUTO-1207 | El manifiesto se construye con el área física derivada del estado del medio | Cambiar el backend para guardar el área (fuera de `archivos_permitidos`; contradice TKT-017) | AC-054 era inverificable con datos reales | LOW (RSK-OPS-047): un `catalogar`/`retirar` entre el dump y el tar podría dejar un derivado en el área opuesta a la del manifiesto, y la verificación fallaría en modo fail-closed. La copia es a las 01:30 UTC, con el panel sin uso | Alta |
+
+### 35.5 Versiones, infraestructura, dependencias y variables
+- Sin cambios de versiones, imágenes, digests, lockfiles ni `.env.example`.
+- `compose.yaml`: nuevo servicio `reinstalar-volumenes` (perfil `restauracion`). Sin cambios en redes, puertos ni en el resto de servicios.
+- Variables del runbook (solo en la sesión del operador): `RESTORE_ENV=local`, `RESTORE_PGPASSWORD` (= `APP_MIGRATOR_PASSWORD` del `.env` local, por nombre), `RESTORE_STAGING_DIR=/backups/.restauracion`. Opcionales: `BACKUP_WORK_PARENT` y `RESTORE_WORK_PARENT` (por defecto, el volumen de copias). `LIBRO_RESTORE_DIR` ya no se admite.
+
+### 35.6 Runbook de restauración (AC-054, simulacro mensual; ADR-DB-004 §4) — sustituye a §18.9
+Solo en entornos locales o efímeros. Restaurar sobre datos reales, usar la clave age real o hacerlo en un entorno compartido es **Puerta Humana** (CLAUDE.md §0.5). Se ejecuta en bash desde la raíz del repo. En Windows, con el bash de Git y `MSYS_NO_PATHCONV=1` en las órdenes `docker` que llevan rutas (`-e X=/backups/...`, `-v`); `restore-local.sh` rechaza ahora una ruta no absoluta.
+
+**Simulacro automático (recomendado)**: `COMPOSE_PROJECT_NAME=<proyecto-efímero> RESTORE_ENV=local bash scripts/ops/simulacro-ac054.sh --confirmar-destruccion <proyecto-efímero> --evidencia <dir>`. Requiere las imágenes construidas (`docker compose --profile ops build`) y un `.env`. **Borra** los volúmenes de datos, medios y libro de ese proyecto.
+
+**Manual (incidente real en local)**:
+```bash
+# 0. Contexto
+export COMPOSE_PROJECT_NAME=brujula COMPOSE_ENV_FILES=.env RESTORE_ENV=local
+export RESTORE_PGPASSWORD="$(grep -E '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
+# Copia a restaurar: AAAAMMDD de /backups/diarias en el volumen <proyecto>_backups
+
+# 1. Panel cerrado: parar TODO (incluido el perfil ops) y recrear la BD vacía con INFRA-DB-000
+docker compose --profile ops down                       # SIN -v: conserva copias (y medios/libro si sobrevivieron)
+docker volume rm "${COMPOSE_PROJECT_NAME}_db_data"      # solo si la BD se perdió o en el simulacro
+docker compose run --rm init-volumes                    # recrea media/ops_libro si se perdieron (vacíos, 10001)
+docker compose up -d --wait db                          # NO levantar el stack: migrate crearía el esquema
+
+# 2. BD + staging verificado (clave privada por stdin, solo a un tmpfs del contenedor)
+docker compose --profile ops run --rm --no-deps -T -e RESTORE_ENV -e RESTORE_PGPASSWORD \
+  -e RESTORE_STAGING_DIR=/backups/.restauracion backup \
+  bash -c 'cat > /tmp/age.key; restore-local.sh --confirmar-entorno-local AAAAMMDD /tmp/age.key' < ~/.brujula/age-local.key
+#    exit 0 = BD restaurada en una transacción + staging verificado; 4 = BD no limpia (también tipos/dominios);
+#    3 = staging no vacío; 1 = fallo (la BD queda como la dejó INFRA-DB-000)
+
+# 3. Medios y libro a sus volúmenes
+docker compose --profile restauracion run --rm reinstalar-volumenes --confirmar-entorno-local --medios
+#    (si el volumen de medios SOBREVIVIÓ: --verificar-medios). exit 3 = volumen no vacío; 5 = tar no aceptable
+#    Libro perdido: es una DECISIÓN HUMANA (ADR-DB-004 §4.4): --libro-copia (no conoce los eventos posteriores a la copia)
+#    o, en el paso 4, --libro-vacio-confirmado (instalación sin eventos). Con libro vivo: no hacer nada (es más reciente).
+
+# 4. Pasos de aplicación + arranque (incluye el perfil ops) + /health/ready
+bash scripts/ops/post-restore-local.sh --confirmar-entorno-local [--libro-vacio-confirmado] [--sin-perfil-ops]
+#    exit 0 = restauración completa y app arriba. exit 1 = un paso falló (LIBRO_AUSENTE/ILEGIBLE/CORRUPTO
+#    con instrucciones): NADA arrancado. exit 5 = falta un comando: NADA arrancado (salvo --arrancar-incompleto)
+#    Revisar las líneas "AVISO" del resumen (OMITIDA_ULTIMO_ADMIN, INCONSISTENTE, REACTIVADA_NO_REPRODUCIDA...)
+#    y adjuntarlas a la evidencia: no detienen la restauración, pero exigen una acción del Administrador.
+
+# 5. Limpieza del staging (contiene medios y libro en claro)
+docker compose --profile ops run --rm --no-deps --entrypoint rm backup -rf /backups/.restauracion
+```
+
+### 35.7 Seguridad
+- Mínimo privilegio en la reinstalación: root solo con CHOWN, FOWNER y DAC_READ_SEARCH (sin DAC_OVERRIDE ni SETUID), sin red, rootfs de solo lectura, staging montado en solo lectura. La validación previa del tar impide plantar enlaces (ataques de *path traversal* vía symlink), setuid, propietarios ajenos y rutas `..`.
+- Clave age efímera en el simulacro: la privada viaja por stdin a un tmpfs del contenedor y se borra al terminar. Nunca se escribe en el repo ni en la evidencia.
+- El dump en claro pasa de RAM a disco (volumen de copias, 0700, uid 999) solo durante la copia o la restauración (DEC-AUTO-1201, riesgo LOW). El staging (medios y libro en claro) se borra en el paso 5 del runbook y al final del simulacro.
+- Sin secretos nuevos. El `.env` del CI sigue enmascarado (TKT-OPS-022).
+
+### 35.8 Validaciones ejecutadas (2026-10-11, local: Windows 11, Docker Engine 29.6.1, Compose v5.2.0)
+Proyecto `-p brujulaops008`, `APP_NET_PREFIX=10.231.208`, `PROXY_HOST_PORT=18208`, imágenes `*:0.0.0-dev-brujulaops008` construidas desde esta rama, `.env` generado con `init-env.sh` en el scratchpad (fuera del repo). No se tocaron otros proyectos (`brujulaqa056`, `brujulaqa063`, `brujuladev*`).
+
+**Simulacro AC-054 completo (`simulacro-ac054.sh`, 6.ª ejecución, exit 0, "SIMULACRO AC-054 SUPERADO")**:
+
+| Paso (T0 = desastre, 2026-10-11T16:52:56Z) | Resultado |
+|---|---|
+| [0] Preparación + semilla real | 98 entidades, 1464 archivos de medios (1335 derivados en `publico/`, 129 originales en `privado/`), 1 línea de libro |
+| [1] `backup.sh` | exit 0, `dump=0s medios=2s cifrado=0s total=2s`. Instantánea: 38 tablas, 322 líneas de BD, 2935 de volúmenes |
+| [2] Pérdida total (`db_data`, `media`, `ops_libro`) + INFRA-DB-000 | BD sana en 9 s |
+| [3a] Control: dominio en `app` | `restore-local.sh` exit 4 ("0 relaciones, 0 funciones, 2 tipos/dominios/otros objetos") |
+| [3] `restore-local.sh` (staging) | exit 0: TOC 463 entradas, 458 restauradas y 5 excluidas, en una transacción; privilegios por defecto 2 = copia; tar sha256 OK. **BD idéntica**: conteos, md5 del contenido de las 38 tablas, privilegios, triggers y secuencias (diff vacío, 322 líneas) |
+| [4] `reinstalar-volumenes --medios` | 1464 extraídos, propietario 10001:10001 y modos de la copia; manifiesto: 1464 verificados con `sha256sum -c --strict` en el volumen |
+| [5a] Control: post-restore SIN libro | exit 1 `LIBRO_AUSENTE`; `anonimizar_cuentas` no se ejecutó; ningún servicio arrancado |
+| [5] `--libro-copia` | libro instalado (0640 10001:10001, sha256 = copia) |
+| [5b] Controles de `reinstalar-volumenes` sobre volúmenes ya restaurados | `--medios` exit 3; `--libro-copia` exit 3; `--verificar-medios` exit 0 |
+| [6] `post-restore-local.sh` | exit 0: migrate "No migrations to apply" (3 s); los 6 comandos OK (`reaplicar_anonimizaciones` `inexistentes=1[900000001]`; `reindexar_busqueda` 56; `verificar_busqueda` `publicados=56 indexados=56 faltan=0 sobran=0`); arranque con el perfil ops + `/health/ready` 200 (28 s); "Sin avisos de la relectura del libro" |
+| [7] Verificación | **Volúmenes idénticos** (propietario, modo, tipo y sha256 de las 1464 entradas + libro; diff vacío); `/health/ready`, `/api/v1/publico/inicio` y SSR `/` 200 por el proxy; `/media/publico/derivados/003ee4d4…-1200.avif` servido con su sha256 |
+| **RTO medido** (desastre → `/health/ready` 200 por el proxy) | **118 s** (91 s sin los controles negativos). Objetivo ≤ 4 h. Simulacro completo: 850 s (la semilla tarda unos 12 min en este equipo) |
+
+Las ejecuciones 1.ª a 5.ª fallaron por defectos que se corrigieron antes de la 6.ª: cast `"char"` en la instantánea; reescritura de rutas del bash de Git en Windows (`-e X=/backups/...`), que ahora `restore-local.sh` rechaza con exit 2; **el manifiesto sin área física (hallazgo §35.2)**; `MSYS_NO_PATHCONV` global, que rompía `curl -o /dev/null`; y la salida del build implícito de `docker compose run` mezclada con la instantánea.
+
+**RSK-OPS-029, prueba de carga** (1,5 GiB incompresibles añadidos a `privado/`; límite del contenedor 512 MiB):
+
+| Prueba | Resultado |
+|---|---|
+| `backup.sh` de `origin/main` (tmpfs) | **exit 137 (OOM kill)** a los 11 s. Confirma el riesgo, antes [INFERIDO] |
+| `backup.sh` nuevo (disco + streaming) | exit 0 en 40 s (`medios=33s cifrado=7s`), `medios-….tar.age` de 1,78 GB. `memory.events`: `oom 0`, `oom_kill 0`. `memory.peak` = 512 MiB, que es caché de página de las escrituras a disco, reclaimable (`max` 9997 eventos de reclamación, sin OOM) |
+| `restore-local.sh` nuevo (staging) sobre BD limpia | exit 0 en 41 s (`descifrado=10s pg_restore=1s medios=30s`), `medios.tar` de 1,78 GB en el staging con su sha256 OK; `oom_kill 0` |
+
+**Validación del tar en `reinstalar-volumenes --medios`** (staging fabricado y volumen vacío): T1 enlace simbólico → exit 5; T2 propietario 999 → exit 5; T3 setuid → exit 5; T4 ruta `../escape/…` → exit 5; T5 enlace duro → exit 5; T6 válido → exit 0 (1 archivo, 10001:10001, manifiesto verificado). En los casos de exit 5 el script termina antes de tomar la propiedad o extraer nada.
+
+**Otras**:
+- `post-restore-local_controles.sh`: 12/12 OK. Prueba de mutación: con la regla DEC-AUTO-908 desactivada, C5 FALLA (los controles detectan la regresión).
+- shellcheck v0.10.0 (`koalaman/shellcheck:v0.10.0@sha256:2097951f…`) sobre `backup.sh`, `restore-local.sh`, `post-restore-local.sh`, `reinstalar-volumenes.sh`, `simulacro-ac054.sh` y `post-restore-local_controles.sh`: 0 hallazgos.
+- `docker compose --profile ops --profile restauracion config --quiet`: OK.
+
+**NOT_RUN**:
+- RTO con el volumen objetivo completo (~5 GB de medios y < 1 GB de BD). Se midió con la semilla real (24 MB) y la copia y restauración con 1,5 GiB; el escalado es lineal en E/S de disco, no en memoria.
+- Simulacro de una copia hecha con el `backup.sh` ANTERIOR: su manifiesto no tiene área física (§35.2) y su verificación estricta fallaría por diseño.
+- El escenario de libro v2 con cuentas reales (desactivar → reactivar → copia → restaurar → +31 días) es responsabilidad de QA y BD (CHG-DB-003, DB_HANDOFF `pruebas_obligatorias`). Aquí solo se integra en el runbook y en los controles de `post-restore-local.sh`.
+
+### 35.9 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Estado |
+|---|---|---|---|
+| RSK-OPS-027 | Pérdida total del volumen de medios sin reinstalación | MEDIUM | **CERRADO** (DEC-AUTO-1200; §35.8) |
+| RSK-OPS-029 | OOM de la copia o la restauración por el tmpfs de 512 MiB | MEDIUM | **CERRADO** (confirmado con exit 137 y corregido; §35.8) |
+| RSK-OPS-030 | Los 6 comandos de ADR-DB-004 §4 no existían | MEDIUM | **CERRADO** por TKT-005 (`1018f01`, `1b2cb0c`, merge `3e042e8`); verificado en el simulacro |
+| RSK-OPS-047 | (DEC-AUTO-1207) Un `catalogar`/`retirar` concurrente con la copia puede dejar un derivado en el área opuesta a la del manifiesto: la verificación falla en modo fail-closed (no hay pérdida de datos, el tar contiene el archivo) | LOW | ABIERTO (aceptable: copia a las 01:30 UTC) |
+| RSK-OPS-048 | `docker compose run` reconstruye la imagen (`pull_policy: build`) en cada paso de restauración. Con caché es inmediato, pero restaurar usa el árbol de trabajo actual, no necesariamente el de la copia | LOW | ABIERTO (para producción: imágenes por digest, Skill_devops §23.3) |
+| RSK-OPS-049 | Las copias hechas con el `backup.sh` anterior tienen un manifiesto sin área física | LOW | ABIERTO (solo local; hacer una copia nueva tras integrar este PR) |
+| RSK-OPS-050 | OBS-QAOPS007-03 interpretada sin su texto original (DEC-AUTO-1204) | LOW | Confirmar con QA |
+
+### 35.10 Archivos modificados
+`scripts/ops/backup.sh`, `scripts/ops/restore-local.sh`, `scripts/ops/post-restore-local.sh`, `scripts/ops/reinstalar-volumenes.sh` (nuevo), `scripts/ops/simulacro-ac054.sh` (nuevo), `scripts/ops/post-restore-local_controles.sh` (nuevo), `compose.yaml`, `.github/workflows/ci.yaml`, `.github/workflows/simulacro-ac054.yaml` (nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 35.11 Próximo agente
+**Orquestador**: QA del PR (sugerido: ejecutar `simulacro-ac054.sh` en un proyecto efímero, revisar el artefacto del job `simulacro-ac054` y confirmar la interpretación de OBS-QAOPS007-03), registrar DEC-AUTO-1200 a 1207 y RSK-OPS-047 a 050, y cerrar RSK-OPS-027/029/030. Con QA PASS, AC-054 puede darse por cubierto para F9.
