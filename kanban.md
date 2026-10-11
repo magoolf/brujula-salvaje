@@ -470,7 +470,7 @@ tickets:
   - id: TKT-056
     titulo: "HIGH antes de F9 (TKT-048 riesgo residual): LCP móvil simulado > 2,5 s (inicio 3050 ms, ficha 3424 ms) dominado por el render delay del bundle JS (~1,6-2,0 s; inicial 463 kB / 123 kB transfer). Reducir/dividir el bundle inicial (lazy de rutas y dependencias, defer de hidratación no crítica, revisar polyfills y providers globales) y verificar si Lantern se infla en localhost (FCP observado tras DCL); objetivo LCP <= 2,5 s en Lighthouse móvil x5 en inicio y ficha sin regresión de CLS/INP"
     fase: F7
-    estado: QA_FAIL
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-048, TKT-021, "Skill_UI_UX#47.2", "Skill_Frontend#27"]
     depende_de: [TKT-048]
