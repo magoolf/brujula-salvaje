@@ -541,3 +541,13 @@
 2026-10-11 | DELEGACION | TKT-068, TKT-067 | QA ciclo 1/3 sobre PR #96; Developer TKT-067 contexto de auditoría 'sistema' (worktree aislado) | kanban.md
 2026-10-11 | ENTREGA | TKT-067 | PR #98 @ 539e233, CI verde: contexto auditar_como_sistema() con ContextVar y guarda por señales de petición (DEC-AUTO-1220/1221); semilla 0 'desconocido'. QA en cola por capacidad (máx. 3 agentes) | HANDOFF_ENVELOPE TKT-067
 2026-10-11 | DELEGACION | TKT-025 | Developer manejo de errores de carga de chunk (worktree aislado, app.config.ts) | kanban.md
+2026-10-11 | QA_PASS | TKT-068 | QA_VERDICT PASS ciclo 1/3 @ 4d62023 (300 -> 15 consultas medidas en main y rama). LOW al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-068
+2026-10-11 | INTEGRACION | TKT-068 | PR #96 sincronizado @ 804f1cd, CI verde, integrado. DONE | PR #96
+2026-10-11 | QA_PASS | TKT-067 | QA_VERDICT PASS ciclo 1/3 @ 539e233 (sin suplantación de 'sistema' por peticiones HTTP concurrentes) | HANDOFF_ENVELOPE QA TKT-067
+2026-10-11 | INTEGRACION | TKT-067 | PR #98 sincronizado @ 516cc82, CI verde, integrado. DONE | PR #98
+2026-10-11 | ENTREGA | TKT-OPS-008 | PR #97 @ b6ff89e (DEC-AUTO-1200..1207). Hallazgo MEDIUM corregido en el propio PR: manifiesto de medios de backup.sh sin área física desde TKT-017 (verificación de AC-054 fallaba siempre con datos reales) | HANDOFF_ENVELOPE DevOps TKT-OPS-008
+2026-10-11 | QA_PASS | TKT-OPS-008 | QA_VERDICT PASS ciclo 1/3: simulacro AC-054 independiente SUPERADO, controles negativos y de seguridad OK; RSK-OPS-027/029/050 cerrados; RSK-OPS-047..049 LOW al Informe | HANDOFF_ENVELOPE QA TKT-OPS-008
+2026-10-11 | INTEGRACION | TKT-OPS-008 | PR #97 sincronizado @ 462efdd, 5 checks + simulacro-ac054 verdes, integrado. DONE (desbloquea TKT-OPS-009). Acción operativa: hacer una copia nueva tras integrar | PR #97
+2026-10-11 | ENTREGA | TKT-025 | PR #99 @ 5e9217b, CI verde (DEC-AUTO-1230..1232): recarga única ante error de chunk y estado de error accesible | HANDOFF_ENVELOPE TKT-025
+2026-10-11 | DELEGACION | TKT-025, TKT-047, TKT-030 | QA c1 de TKT-025 sobre PR #99; Developers TKT-047 (contraste del hero) y TKT-030 (hidratación) en worktrees aislados | kanban.md
+2026-10-11 | DECISION | TKT-030 | DEC-AUTO-994 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): archivos_permitidos de TKT-030 acotados para paralelismo §0.10: excluye features/inicio/**, e2e/inicio*.spec.ts, e2e/contraste*.ts (TKT-047) y app.config.ts (TKT-025); si la causa exige esos archivos, entrega PARTIAL y se encadena. TKT-025 limitado a un e2e propio (error-carga-chunk.spec.ts) | kanban.md
