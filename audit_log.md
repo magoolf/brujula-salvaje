@@ -507,3 +507,15 @@
 2026-10-10 | ENTREGA | TKT-060 | PR #91 @ 3e688f5, CI verde: comandos con etiqueta 'sistema' en llamadas directas. Residual MEDIUM (342 eventos de la semilla vía servicios) -> TKT-067 (DEC-AUTO-1034: contexto de proceso en auditoria en lugar de parámetro en 4 servicios; ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). El AC de TKT-060 se acota a los comandos | HANDOFF_ENVELOPE TKT-060
 2026-10-10 | DELEGACION | TKT-060, TKT-065 | QA ciclo 1/3 sobre PR #91 y PR #92 | kanban.md
 2026-10-10 | DECISION_HUMANA | Proceso | El usuario aprueba cerrar el alcance para terminar el proyecto: antes de la entrega solo se trabajan tickets HIGH/MEDIUM (y lo que exija F9). Los LOW/INFO pendientes (16: TKT-046, 053, 054, 055, 059, 066, CHG-API-007, TKT-038, 039, 036, TKT-OPS-030, 032, 023, TKT-026, 028, 029) pasan a BLOCKED_HUMAN como mejoras post-entrega y se listan en el Informe de Entrega. Los hallazgos LOW/INFO futuros de QA no abren ticket: se anotan como riesgo residual del ticket y en el Informe. Los hallazgos de seguridad siguen siendo como mínimo MEDIUM | mensaje del usuario
+2026-10-10 | QA_PASS | TKT-060 | QA_VERDICT PASS ciclo 1/3 @ 3e688f5. OBS-QA060-01 LOW (nombre de usuario 'sistema'/'desconocido' no reservado; requiere Administrador) -> riesgo residual del Informe de Entrega, sin ticket | HANDOFF_ENVELOPE QA TKT-060
+2026-10-10 | DELEGACION | TKT-064 | Developer contadores atómicos de login/TOTP (worktree aislado, apps/cuentas) | kanban.md
+2026-10-10 | QA_PASS | TKT-065 | QA_VERDICT PASS ciclo 1/3 @ 0e80078. OBS-065-01 (cuerpo analizado antes del 429), OBS-065-02 (banner sin espera), OBS-065-03 LOW/INFO -> riesgos residuales del Informe, sin ticket | HANDOFF_ENVELOPE QA TKT-065
+2026-10-10 | DELEGACION | TKT-062 | Developer ActorRef/referencias en el resto del panel (worktree aislado) | kanban.md
+2026-10-10 | QA_FAIL | TKT-056 | QA_VERDICT FAIL ciclo 1/3 @ 305aaf3: F-01 MEDIUM (regresión de +1 s en cargas completas del panel por la espera al pintado con CSR) y F-02 LOW (precarga de chunks de menú/visor). LCP público dentro de presupuesto. Devuelto al mismo Developer | HANDOFF_ENVELOPE QA TKT-056
+2026-10-10 | INTEGRACION | TKT-060 | PR #91 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-067) | PR #91
+2026-10-10 | ENTREGA | TKT-064 | PR #93 @ 7b01dc7: contadores de login y anti-replay TOTP autoprotegidos con bloqueo consultivo; el defecto era latente (DEC-AUTO-1160..1162) | HANDOFF_ENVELOPE TKT-064
+2026-10-10 | DELEGACION | TKT-064 | QA ciclo 1/3 sobre PR #93 | kanban.md
+2026-10-10 | ENTREGA | TKT-062 | PR #94 @ dd969a7 (CI en curso al entregar): ActorRef y referencias reales en el panel (DEC-AUTO-1170..1173). N+1 del listado de medios -> TKT-068 MEDIUM (DEC-AUTO-1035, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-062
+2026-10-10 | DELEGACION | TKT-062 | QA ciclo 1/3 sobre PR #94 | kanban.md
+2026-10-10 | ENTREGA | TKT-056 | Corrección ciclo 1 @ b4be612, CI verde (DEC-AUTO-1115/1116). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-056
+2026-10-10 | INTEGRACION | TKT-065 | PR #92 sincronizado con main; job backend cancelado por el runner, relanzado, CI verde, integrado. DONE | PR #92
