@@ -1,13 +1,12 @@
 /** Subconjunto de `Window` que usa `precargarEnReposo` (sustituible en pruebas). */
 export interface EntornoReposo {
-  requestIdleCallback?(callback: () => void, opciones?: { timeout: number }): unknown;
+  readonly document: { readonly readyState: DocumentReadyState };
+  addEventListener(tipo: 'load', callback: () => void, opciones?: { once: boolean }): void;
+  requestIdleCallback?(callback: () => void): unknown;
   setTimeout(callback: () => void, ms?: number): unknown;
 }
 
-/** Plazo máximo de `requestIdleCallback` (si el hilo nunca queda ocioso, se precarga igualmente). */
-export const PLAZO_REPOSO_MS = 3000;
-
-/** Espera de respaldo en navegadores sin `requestIdleCallback` (Safari). */
+/** Espera de respaldo tras `load` en navegadores sin `requestIdleCallback` (Safari). */
 export const RESPALDO_SIN_REPOSO_MS = 1500;
 
 /**
@@ -28,17 +27,26 @@ export function precargadorDe<T>(cargar: () => Promise<T>): () => Promise<T> {
 }
 
 /**
- * Ejecuta `precargar` cuando el hilo principal queda ocioso (o tras `PLAZO_REPOSO_MS`), fuera del
- * camino crítico de la carga: el chunk llega antes de que el usuario lo pida sin competir con el LCP
- * ni con la hidratación. Los errores de la precarga se ignoran (el clic volverá a intentarlo).
+ * Ejecuta `precargar` fuera del arranque (TKT-056, QA c2 F-03): espera al evento `load` y después
+ * a que el hilo principal quede ocioso, SIN plazo máximo (`requestIdleCallback` sin `timeout`), para
+ * que la descarga y evaluación del módulo no compitan con el LCP, la hidratación ni la ventana
+ * FCP→TTI. Si el hilo nunca queda ocioso no se precarga: la interacción (pointerdown/focus/clic)
+ * sigue cargándolo bajo demanda. Los errores de la precarga se ignoran (el clic volverá a intentarlo).
  */
 export function precargarEnReposo(entorno: EntornoReposo, precargar: () => Promise<unknown>): void {
   const ejecutar = () => {
     precargar().catch(() => undefined);
   };
-  if (typeof entorno.requestIdleCallback === 'function') {
-    entorno.requestIdleCallback(ejecutar, { timeout: PLAZO_REPOSO_MS });
+  const enReposo = () => {
+    if (typeof entorno.requestIdleCallback === 'function') {
+      entorno.requestIdleCallback(ejecutar);
+    } else {
+      entorno.setTimeout(ejecutar, RESPALDO_SIN_REPOSO_MS);
+    }
+  };
+  if (entorno.document.readyState === 'complete') {
+    enReposo();
   } else {
-    entorno.setTimeout(ejecutar, RESPALDO_SIN_REPOSO_MS);
+    entorno.addEventListener('load', enReposo, { once: true });
   }
 }
