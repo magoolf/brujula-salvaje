@@ -105,7 +105,10 @@ test.describe('TKT-025 error de carga de chunk diferido', () => {
     const titulo = estado.getByRole('heading', { level: 1, name: 'No pudimos cargar la página' });
     await expect(titulo).toBeVisible();
     await expect(titulo).toBeFocused();
-    await expect(estado.getByRole('link', { name: 'Reintentar' })).toHaveAttribute('href', DESTINO);
+    await expect(estado.getByRole('link', { name: 'Reintentar' })).toHaveAttribute(
+      'href',
+      new URL(DESTINO, page.url()).href,
+    );
     await expect(page).toHaveTitle('No pudimos cargar la página — Brújula Salvaje');
     await shellIntacto(page);
 

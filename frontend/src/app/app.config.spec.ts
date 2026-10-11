@@ -1,7 +1,13 @@
 import { Component, PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
-import { Router, Routes, provideRouter, withNavigationErrorHandler } from '@angular/router';
+import {
+  NavigationError,
+  Router,
+  Routes,
+  provideRouter,
+  withNavigationErrorHandler,
+} from '@angular/router';
 
 import {
   CLAVE_RECARGA_CHUNK,
@@ -10,6 +16,7 @@ import {
   TESTID_ERROR_CARGA,
   TITULO_ERROR_CARGA,
   VENTANA_ANTI_BUCLE_MS,
+  destinoMismoOrigen,
   esErrorCargaChunk,
   manejarErrorNavegacion,
   recargarUnaVez,
@@ -155,8 +162,53 @@ describe('TKT-025 recargarUnaVez', () => {
     expect(offline.assign).not.toHaveBeenCalled();
 
     const externo = entornoFalso();
-    expect(recargarUnaVez(externo.entorno, '//malicioso.example/x', 1000)).toBe('sin-guarda');
+    expect(recargarUnaVez(externo.entorno, '//malicioso.example/x', 1000)).toBe('url-no-valida');
     expect(externo.assign).not.toHaveBeenCalled();
+  });
+});
+
+/** Rutas hostiles: dot-segments que normalizan a `//host`, host vacío y barra invertida. */
+const BARRA_INVERTIDA = String.raw`/\evil.com`;
+const RUTAS_HOSTILES = ['/.//evil.com', '//', BARRA_INVERTIDA, '/%2e%2e//evil.com'];
+
+describe('TKT-025 SEC-025-01/02 destino de la recarga y del enlace «Reintentar»', () => {
+  it('SEC_025_01 nunca devuelve una URL de otro origen ni una ruta protocol-relative', () => {
+    for (const ruta of RUTAS_HOSTILES) {
+      const destino = destinoMismoOrigen(ruta, ORIGEN);
+      if (destino !== null) {
+        expect(destino.origin, ruta).toBe(ORIGEN);
+        expect(destino.href.startsWith(`${ORIGEN}/`), ruta).toBe(true);
+      }
+    }
+    // Dot-segments: se conserva en el propio origen como URL absoluta (no como `//evil.com`).
+    expect(destinoMismoOrigen('/.//evil.com', ORIGEN)?.href).toBe(`${ORIGEN}//evil.com`);
+    expect(destinoMismoOrigen('/%2e%2e//evil.com', ORIGEN)?.href).toBe(`${ORIGEN}//evil.com`);
+    // Barra invertida = barra: otro origen → rechazada.
+    expect(BARRA_INVERTIDA).toHaveLength(10);
+    expect(destinoMismoOrigen(BARRA_INVERTIDA, ORIGEN)).toBeNull();
+    expect(destinoMismoOrigen('https://evil.com/x', ORIGEN)).toBeNull();
+    expect(destinoMismoOrigen('/destinos?q=1#a', ORIGEN)?.href).toBe(`${ORIGEN}/destinos?q=1#a`);
+  });
+
+  it('SEC_025_02 una URL que no se puede analizar no lanza: no recarga', () => {
+    expect(destinoMismoOrigen('//', ORIGEN)).toBeNull();
+    const { entorno, assign, replace, almacen } = entornoFalso();
+    expect(() => recargarUnaVez(entorno, '//', 1000)).not.toThrow();
+    expect(recargarUnaVez(entorno, '//', 1000)).toBe('url-no-valida');
+    expect(assign).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(almacen.datos.size).toBe(0);
+  });
+
+  it('SEC_025_01 recargarUnaVez solo navega a URLs absolutas del propio origen', () => {
+    for (const ruta of RUTAS_HOSTILES) {
+      const { entorno, assign, replace } = entornoFalso();
+      recargarUnaVez(entorno, ruta, 1000);
+      for (const url of [...assign.mock.calls, ...replace.mock.calls].map(([u]) => u)) {
+        expect(new URL(url).origin, ruta).toBe(ORIGEN);
+        expect(url.startsWith(`${ORIGEN}/`), ruta).toBe(true);
+      }
+    }
   });
 });
 
@@ -225,13 +277,36 @@ describe('TKT-025 manejarErrorNavegacion (withNavigationErrorHandler)', () => {
     expect(h1?.textContent).toBe(TITULO_ERROR_CARGA);
     expect(document.activeElement).toBe(h1);
     const reintentar = estado?.querySelector('a');
-    expect(reintentar?.getAttribute('href')).toBe('/diferida');
+    expect(reintentar?.getAttribute('href')).toBe(`${ORIGEN}/diferida`);
     expect(reintentar?.hasAttribute('routerlink')).toBe(false);
     expect(TestBed.inject(Title).getTitle()).toBe(`${TITULO_ERROR_CARGA} — Brújula Salvaje`);
 
     // La siguiente navegación que termina bien retira el estado de error.
     await navegar(router, '/ok');
     expect(estadoError()).toBeNull();
+  });
+
+  it('SEC_025_01/02 con una URL destino no válida no recarga y «Reintentar» apunta a una URL segura', async () => {
+    const { entorno, assign, replace } = entornoFalso();
+    configurar(entorno);
+    const evento = new NavigationError(1, '//', ERROR_CHROMIUM);
+    TestBed.runInInjectionContext(() => manejarErrorNavegacion(evento));
+    expect(assign).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(estadoError()?.querySelector('a')?.getAttribute('href')).toBe('/');
+
+    const puntos = entornoFalso();
+    puntos.almacen.setItem(
+      CLAVE_RECARGA_CHUNK,
+      JSON.stringify({ url: `${ORIGEN}//evil.com`, instante: Date.now() }),
+    );
+    TestBed.resetTestingModule();
+    configurar(puntos.entorno);
+    TestBed.runInInjectionContext(() =>
+      manejarErrorNavegacion(new NavigationError(2, '/.//evil.com', ERROR_CHROMIUM)),
+    );
+    expect(puntos.assign).not.toHaveBeenCalled();
+    expect(estadoError()?.querySelector('a')?.getAttribute('href')).toBe(`${ORIGEN}//evil.com`);
   });
 
   it('AC_TKT025_04 otros errores de navegación no recargan ni muestran el estado de error', async () => {

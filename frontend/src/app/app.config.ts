@@ -105,7 +105,24 @@ export const ENTORNO_RECARGA = new InjectionToken<EntornoRecarga | null>('ENTORN
   factory: () => (isPlatformBrowser(inject(PLATFORM_ID)) ? inject(DOCUMENT).defaultView : null),
 });
 
-export type ResultadoRecarga = 'recargando' | 'sin-conexion' | 'ya-recargada' | 'sin-guarda';
+export type ResultadoRecarga =
+  'recargando' | 'sin-conexion' | 'ya-recargada' | 'sin-guarda' | 'url-no-valida';
+
+/**
+ * URL absoluta del destino, solo si es válida y del propio origen (QA TKT-025 SEC-025-01/02). Se
+ * devuelve `href` ABSOLUTO verificado, nunca `pathname`: una ruta con dot-segments
+ * (`/.//evil.com`, `/%2e%2e//evil.com`) se normaliza a un pathname `//evil.com`, que como enlace
+ * relativo sería protocol-relative hacia otro origen; como `http://origen//evil.com` sigue en el
+ * propio origen. `//` (host vacío) lanza y `/\evil.com` resuelve a otro origen: ambos → `null`.
+ */
+export function destinoMismoOrigen(urlDestino: string, origen: string): URL | null {
+  try {
+    const destino = new URL(urlDestino, origen);
+    return destino.origin === origen ? destino : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Recarga por completo hacia `urlDestino` (ruta interna del router, p. ej. `/destinos?q=1`) salvo
@@ -119,9 +136,9 @@ export function recargarUnaVez(
   ahora: number,
 ): ResultadoRecarga {
   if (!entorno.navigator.onLine) return 'sin-conexion';
-  const destino = new URL(urlDestino, entorno.location.origin);
   // El router solo produce rutas del propio origen; se comprueba igualmente antes de navegar.
-  if (destino.origin !== entorno.location.origin) return 'sin-guarda';
+  const destino = destinoMismoOrigen(urlDestino, entorno.location.origin);
+  if (destino === null) return 'url-no-valida';
   try {
     const almacen = entorno.sessionStorage;
     const previa = JSON.parse(almacen.getItem(CLAVE_RECARGA_CHUNK) ?? 'null') as {
@@ -140,7 +157,7 @@ export function recargarUnaVez(
   } catch {
     return 'sin-guarda';
   }
-  if (destino.href === new URL(entorno.location.href).href) {
+  if (destino.href === destinoMismoOrigen(entorno.location.href, entorno.location.origin)?.href) {
     entorno.location.replace(destino.href);
   } else {
     entorno.location.assign(destino.href);
@@ -155,7 +172,7 @@ export const TITULO_ERROR_CARGA = 'No pudimos cargar la página';
 export const TESTID_ERROR_CARGA = 'error-carga-ruta';
 
 /**
- * Estado de error accesible dentro del shell (fallo persistente). Se inserta al principio del
+ * Estado de error accesible dentro del shell (fallo persistente o URL destino no válida). Se inserta al principio del
  * contenido principal (o de la raíz, en el panel, que no tiene el `<main>` público) con el
  * Renderer y solo texto (nunca HTML); si la navegación fallida era la inicial, el outlet queda vacío
  * y este estado es lo único que se ve entre cabecera y pie. Sustituye a uno anterior y se retira en
@@ -220,11 +237,9 @@ export function manejarErrorNavegacion(evento: NavigationError): void {
   const entorno = inject(ENTORNO_RECARGA);
   if (entorno === null) return;
   const resultado = recargarUnaVez(entorno, evento.url, Date.now());
-  if (resultado === 'ya-recargada' || resultado === 'sin-guarda') {
-    // Ruta relativa al propio origen para el enlace «Reintentar» (sin esquema ni host).
-    const destino = new URL(evento.url, entorno.location.origin);
-    mostrarErrorCarga(destino.pathname + destino.search + destino.hash);
-  }
+  if (resultado === 'recargando' || resultado === 'sin-conexion') return;
+  // Enlace «Reintentar»: URL absoluta del propio origen ya verificada; si no la hay, Inicio.
+  mostrarErrorCarga(destinoMismoOrigen(evento.url, entorno.location.origin)?.href ?? '/');
 }
 
 /**
