@@ -478,7 +478,7 @@ tickets:
     ciclo_qa: 2/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1021 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Lighthouse: scratchpad 1af7dc66…/antes_sim, desp2_sim, desp_red.", "Incluye OBS-QA048-05: tarjetas de inicio piden el derivado de 800 px para cajas pequeñas (~170 KB de ahorro estimado) y og:image es el AVIF de 400 px (usar JPEG/WebP compatible con redes sociales).", "2026-10-10 PR #90 @ 305aaf3 (CI verde): menú móvil y visor de galería diferidos (-87 kB CDK), hidratación tras FCP, og:image JPEG 1200, sizes de tarjetas (DEC-AUTO-1110..1113). JS inicial 117,7 -> 101,6 kB transfer. LCP devtools: / 2348, ficha 2245 (≤2,5 s); Lantern localhost: / 3013->2811, ficha 3428->3068. Criterio de medición fijado por DEC-AUTO-1031. vitest 831, E2E Chromium 184/0. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT FAIL ciclo 1/3 @ 305aaf3: LCP devtools / 2150 y ficha 2267 (PASS), bundle -13 %, a11y/seguridad/og:image PASS; F-01 MEDIUM: el panel (RenderMode.Client, <app-root> vacío) espera siempre 1 s al pintado -> +1 s en cada carga completa de /panel/**; F-02 LOW: primera apertura de menú/visor ~1,4 s en red lenta sin indicador (precargar en reposo). Devuelto al Developer (ciclo 2/3).", "2026-10-10 corrección c1 @ b4be612 (CI verde): sin espera al pintado cuando <app-root> viene vacío (panel ~160-250 ms) (DEC-AUTO-1115); precarga en reposo y en pointerdown/focus de menú y visor (~110-140 ms en Slow 4G) (1116). LCP devtools / 2328, ficha 2236. vitest 838, E2E Chromium 185+. QA ciclo 2/3 despachada.", "QA c2 FAIL (PR #90 @ b4be612): F-01 y F-02 corregidos; tests/e2e/a11y/seguridad PASS; performance NOT_RUN (equipo en batería 19%->11%, CPU degradada); F-03 MEDIUM confianza media: posible regresión TBT en / móvil (+692 ms mediana) por precarga del cajón dentro de FCP->TTI. Pendiente: re-medir con equipo enchufado y corregir F-03 (precarga solo en pointerdown/touchstart/focus o idle sin plazo tras load)."]
-    actualizado: 2026-10-10
+    actualizado: 2026-10-11
   - id: TKT-057
     titulo: "MEDIUM (TKT-024 RSK-TKT024-01, incumple contrato): GET y PUT /api/v1/panel/inicio devuelven siempre referencias {medios: [], contenidos: []} (apps/inicio/api/serializers.py, ConfigInicioPanelSerializer.to_representation) y actualizado_por.etiqueta = '#<id>' en lugar del usuario, contra el esquema ConfigInicioPanel. Devolver las referencias reales de los destacados y la etiqueta del usuario; tests de contrato. El frontend (DEC-AUTO-1047) deja de hacer hasta 25 GET extra cuando las referencias vienen pobladas"
     fase: F7
@@ -554,15 +554,15 @@ tickets:
   - id: TKT-063
     titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-061, TKT-003, TKT-005]
     depende_de: [TKT-061]
     archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
-    actualizado: 2026-10-10
+    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061.", "2026-10-11 PR #95 @ 3bd81d4 (CI verde): bd_vacia y FORCE eliminados; eliminar_todas tolerante con diagnóstico agregado (DEC-AUTO-1180..1182). Estrés main agresivo 2/20 y ralentizado 20/20 fallos -> rama 40/40 y 40/40 OK. pytest 1672/4 skipped cov 97,68 %. QA ciclo 1/3 despachada."]
+    actualizado: 2026-10-11
   - id: TKT-064
     titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
     fase: F7
