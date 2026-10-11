@@ -36,6 +36,7 @@ from apps.contenido.api.panel_serializers import (
 )
 from apps.contenido.models import ClavePagina, TipoContenido
 from apps.core import idempotencia
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.exceptions import ErrorApi, NoEncontrado
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import errores_de_parametros, validar_parametros
@@ -525,6 +526,8 @@ class ListaRevisiones(_VistaPanelContenido):
 def _serializar_revisiones(pagina: Any) -> list[dict[str, Any]]:
     from apps.contenido.api.panel_serializers import RevisionResumenSerializer
 
+    # `services.listar_revisiones` ya trae la cuenta (select_related): sin consulta por revisión.
+    precargar_actores(pagina, "creado_por")
     datos = []
     for r in pagina:
         datos.append(
@@ -532,10 +535,7 @@ def _serializar_revisiones(pagina: Any) -> list[dict[str, Any]]:
                 "numero_revision": r.numero_revision,
                 "motivo": r.motivo,
                 "creado_en": r.creado_en,
-                "creado_por": {
-                    "id": r.creado_por_id,
-                    "etiqueta": f"#{r.creado_por_id}" if r.creado_por_id else "sistema",
-                },
+                "creado_por": actor_ref(r.creado_por),
             }
         )
     return list(RevisionResumenSerializer(datos, many=True).data)
@@ -549,14 +549,12 @@ class DetalleRevision(_VistaPanelContenido):
     )
     def get(self, request: Request, tipo: str, id: int, numero: int) -> Response:
         r = services.obtener_revision(_autorizar_ciclo(request, tipo, id), _id(id), numero)
+        precargar_actores([r], "creado_por")
         datos = {
             "numero_revision": r.numero_revision,
             "motivo": r.motivo,
             "creado_en": r.creado_en,
-            "creado_por": {
-                "id": r.creado_por_id,
-                "etiqueta": f"#{r.creado_por_id}" if r.creado_por_id else "sistema",
-            },
+            "creado_por": actor_ref(r.creado_por),
             "instantanea": r.instantanea,
         }
         return Response(RevisionDetalleSerializer(datos).data)

@@ -52,12 +52,26 @@ class ReglaNegocio(ErrorApi):
     codigo = "regla_negocio"
 
 
+# Atributo (no persistido) con los destacados leídos junto al singleton (TKT-062).
+_ATRIBUTO_DESTACADOS = "_destacados_panel"
+
+
 def obtener_config_inicio() -> ConfigInicio:
-    """Singleton con autor y medio del hero cargados (`selectors.config_inicio_panel`, TKT-057)."""
+    """Singleton con autor y medio del hero cargados (`selectors.config_inicio_panel`, TKT-057) y
+    sus destacados por sección (`selectors.destacados_panel`) leídos en la MISMA operación y
+    adjuntos (`destacados_de`): 3 consultas fijas."""
     config = selectors.config_inicio_panel()
     if config is None:
         raise NoEncontrado()
+    setattr(config, _ATRIBUTO_DESTACADOS, selectors.destacados_panel())
     return config
+
+
+def destacados_de(config: ConfigInicio) -> dict[str, list[Contenido]]:
+    """Destacados que `obtener_config_inicio` leyó junto a `config` (en el PUT, dentro de la
+    transacción que los escribe, OBS-QA057-01); si `config` no los trae, se leen ahora."""
+    adjuntos: dict[str, list[Contenido]] | None = getattr(config, _ATRIBUTO_DESTACADOS, None)
+    return adjuntos if adjuntos is not None else selectors.destacados_panel()
 
 
 def _validar_seccion(seccion: str, ids: list[int]) -> None:
@@ -125,9 +139,11 @@ def actualizar_config_inicio(actor_id: int, datos: dict[str, Any]) -> ConfigInic
             tipo_entidad="CONFIG_INICIO",
             entidad_id=ID_SINGLETON,
         )
-    # Relectura con las relaciones que pinta la respuesta (TKT-057): la fila bloqueada no las
-    # trae y serializarla dispararía una consulta por relación.
-    return obtener_config_inicio()
+        # Relectura con las relaciones que pinta la respuesta (TKT-057): la fila bloqueada no las
+        # trae y serializarla dispararía una consulta por relación. Dentro de la transacción y con
+        # la fila aún bloqueada (TKT-062, OBS-QA057-01): la respuesta refleja exactamente lo que
+        # este PUT escribió, nunca la escritura de otro PUT que se confirme justo después.
+        return obtener_config_inicio()
 
 
 def obtener_config_sitio() -> ConfigSitio:
