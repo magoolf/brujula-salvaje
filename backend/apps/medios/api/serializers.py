@@ -10,6 +10,7 @@ from django.core.validators import MaxLengthValidator, MinLengthValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
 from apps.core.esquema import id_contrato, url_http
 from apps.medios.models import EstadoMedio, FormatoDerivado, FormatoOrigen
@@ -187,6 +188,9 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
         from apps.medios import services
 
         medio = instance
+        # Criterio común de ActorRef (TKT-062). Los listados y la subida precargan las cuentas de
+        # toda la página en una consulta (`precargar_actores`); aquí no cuesta nada si ya están.
+        precargar_actores([medio], "subido_por")
         return {
             "id": medio.pk,
             "estado": medio.estado,
@@ -223,10 +227,7 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
             ],
             "numero_usos": len(services.usos(medio.pk)),
             "en_uso_publicado": services._en_uso_publicado(medio.pk),
-            "subido_por": {
-                "id": medio.subido_por_id,
-                "etiqueta": f"#{medio.subido_por_id}" if medio.subido_por_id else "sistema",
-            },
+            "subido_por": actor_ref(medio.subido_por),
             "subido_en": medio.subido_en,
             "actualizado_en": medio.actualizado_en,
             "pendientes_catalogacion": services._pendientes_catalogacion(
