@@ -554,15 +554,15 @@ tickets:
   - id: TKT-063
     titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-061, TKT-003, TKT-005]
     depende_de: [TKT-061]
     archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
-    actualizado: 2026-10-10
+    evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061.", "2026-10-11 PR #95 @ 3bd81d4 (CI verde): bd_vacia y FORCE eliminados; eliminar_todas tolerante con diagnóstico agregado (DEC-AUTO-1180..1182). Estrés main agresivo 2/20 y ralentizado 20/20 fallos -> rama 40/40 y 40/40 OK. pytest 1672/4 skipped cov 97,68 %. QA ciclo 1/3 despachada."]
+    actualizado: 2026-10-11
   - id: TKT-064
     titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
     fase: F7
