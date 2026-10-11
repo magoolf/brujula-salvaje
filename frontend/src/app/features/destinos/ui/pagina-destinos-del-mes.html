@@ -32,6 +32,7 @@
                 [ruta]="'/destinos/' + destino.slug"
                 [overline]="destino.pais.nombre"
                 [imagen]="destino.imagen"
+                [prioritaria]="$first"
               >
                 <app-medidor-dificultad [valor]="destino.dificultad" [compacto]="true" />
                 <span tarjeta-accion>

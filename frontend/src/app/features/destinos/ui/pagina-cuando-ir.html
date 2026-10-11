@@ -8,7 +8,7 @@
     <app-estado-cargando forma="tarjeta" [cantidad]="12" etiqueta="Cargando meses…" />
   } @else {
     <ol class="rejilla-meses">
-      @for (mes of store.meses(); track mes.mes) {
+      @for (mes of store.meses(); track mes.mes; let i = $index) {
         <li>
           <a [routerLink]="['/cuando-ir', mes.mes]" class="tarjeta-mes" [attr.aria-label]="mes.nombre + ': ' + mes.numeroDestinos + ' destinos'">
             @if (mes.destacado?.imagen; as imagen) {
@@ -19,7 +19,8 @@
                 [alto]="imagen.alto"
                 [derivados]="imagen.derivados"
                 relacion="4 / 3"
-                sizes="(min-width: 64rem) 16vw, 33vw"
+                sizes="(min-width: 80rem) 16vw, (min-width: 64rem) 25vw, (min-width: 48rem) 33vw, 50vw"
+                [prioritaria]="i < 2"
               />
             } @else {
               <div class="sin-imagen" aria-hidden="true">Sin destinos este mes</div>
