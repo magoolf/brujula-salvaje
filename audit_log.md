@@ -519,3 +519,6 @@
 2026-10-10 | DELEGACION | TKT-062 | QA ciclo 1/3 sobre PR #94 | kanban.md
 2026-10-10 | ENTREGA | TKT-056 | Corrección ciclo 1 @ b4be612, CI verde (DEC-AUTO-1115/1116). QA ciclo 2/3 despachada | HANDOFF_ENVELOPE TKT-056
 2026-10-10 | INTEGRACION | TKT-065 | PR #92 sincronizado con main; job backend cancelado por el runner, relanzado, CI verde, integrado. DONE | PR #92
+2026-10-10 | QA_PASS | TKT-064 | QA_VERDICT PASS ciclo 1/3 @ 7b01dc7; OBS-064-01..03 LOW/INFO -> Informe sin ticket. Integración por PR #93 en curso | HANDOFF_ENVELOPE QA TKT-064
+2026-10-10 | DELEGACION | TKT-063 | Developer migrar ops/contenido a bd_efimera (worktree aislado) | kanban.md
+2026-10-10 | INTEGRACION | TKT-064 | PR #93 sincronizado con main, CI verde, integrado. DONE | PR #93
