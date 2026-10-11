@@ -126,6 +126,8 @@
                 class="miniatura"
                 [attr.aria-label]="'Ver foto ' + (indice + 1) + ' en grande'"
                 data-testid="galeria-miniatura"
+                (pointerdown)="precargarVisor()"
+                (focus)="precargarVisor()"
                 (click)="abrirGaleria(indice)"
               >
                 <app-imagen-responsiva

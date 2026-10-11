@@ -35,6 +35,29 @@ describe('Seo (FEAT-027)', () => {
       .forEach((n) => n.remove());
   });
 
+  it('og:image usa el derivado JPEG de ~1200 px cuando se pasan los derivados (TKT-056)', () => {
+    const { seo, doc } = configurar(new Request('http://127.0.0.1:8080/destinos/patagonia'));
+    seo.establecer({
+      titulo: 'Patagonia',
+      imagen: {
+        url: '/media/publico/p-400.avif',
+        alt: 'Torres del Paine',
+        derivados: [
+          { url: '/media/publico/p-400.avif', ancho: 400 },
+          { url: '/media/publico/p-1200.avif', ancho: 1200 },
+          { url: '/media/publico/p-800.jpeg', ancho: 800 },
+          { url: '/media/publico/p-1200.jpeg', ancho: 1200 },
+        ],
+      },
+    });
+    expect(doc.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
+      'http://127.0.0.1:8080/media/publico/p-1200.jpeg',
+    );
+    expect(doc.head.querySelector('meta[property="og:image:alt"]')?.getAttribute('content')).toBe(
+      'Torres del Paine',
+    );
+  });
+
   it('fija title, description, canónica absoluta, Open Graph y JSON-LD con nonce', () => {
     const { seo, doc } = configurar(
       new Request('http://127.0.0.1:8080/destinos/patagonia?x=1'),
