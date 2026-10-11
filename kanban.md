@@ -542,7 +542,7 @@ tickets:
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-057, TKT-058, AC-030]
     depende_de: [TKT-057, TKT-058]
@@ -583,9 +583,9 @@ tickets:
     trazabilidad: [TKT-043, TKT-022, "THREAT subida de archivos"]
     depende_de: [TKT-043]
     archivos_permitidos: ["backend/apps/medios/api/**", "backend/apps/medios/tests/test_tkt065*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 PR #92 @ 0e80078 (CI verde): ámbito por método antes de check_throttles, POST de subida = panel-subida (DEC-AUTO-1140/1141). 8 tests (6 FAIL en main), barrido de 122 operaciones sin otras discrepancias. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 PR #92 @ 0e80078 (CI verde): ámbito por método antes de check_throttles, POST de subida = panel-subida (DEC-AUTO-1140/1141). 8 tests (6 FAIL en main), barrido de 122 operaciones sin otras discrepancias. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 0e80078: 20+10x429 secuencial y concurrente (main 30 sin 429), la 21.ª subida no persiste nada, otras operaciones intactas, cuota por cuenta, panel-escritura ya no se consume, schemathesis 2125/0 5xx, E2E Chromium 10/10, seguridad 0. OBS-065-01/02/03 LOW/INFO -> Informe (sin ticket). Integración tras PR #91."]
     actualizado: 2026-10-10
   - id: TKT-066
     titulo: "LOW (QA TKT-043 OBS-043-01): en ráfagas concurrentes la denegación calcula wait() con la instantánea del historial previa al bloqueo y Retry-After puede salir menor que la espera real (8-30 s en vez de ~60 s con 10/min). Calcular la espera sobre el historial bloqueado (o duration - (now - marca más antigua) si len < cuota); test de concurrencia"
