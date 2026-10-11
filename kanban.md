@@ -314,14 +314,14 @@ tickets:
   - id: TKT-043
     titulo: "MEDIUM (needs_validation, QA TKT-022 OBS-C2-04): LimitePorAmbito sobre DatabaseCache parece contar de forma no atómica bajo concurrencia: 912 GET/min a /api/v1/panel/medios/{id} con la misma cuenta en lotes de 12 concurrentes no producen ningún 429 de panel-lectura (600/min), en secuencia sí. Verificar con prueba de concurrencia y, si se confirma, hacer el conteo atómico (UPDATE ... RETURNING / incr atómico) para todos los ámbitos; comprobar que panel-login sigue exacto"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-022, "THREAT limitación de tasa"]
     depende_de: []
     archivos_permitidos: ["backend/apps/core/**", "backend/config/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/.", "2026-10-10 PR #89 @ d5f1338 (CI verde): defecto CONFIRMADO en main (843 permitidas con cuota 600/min; panel-login 13 sin 429). Conteo atómico en una sentencia (INSERT ... ON CONFLICT ... RETURNING), ventana deslizante exacta, purga en CTE (DEC-AUTO-1130..1133). Rama: 600 + 312x429, panel-login exacto; latencia p50 1,4 ms. 11 tests (6 FAIL en main), pytest 1629. Contadores no atómicos en cuentas -> TKT-064. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-969. Sonda de QA en scratchpad/qa022c2/res/.", "2026-10-10 PR #89 @ d5f1338 (CI verde): defecto CONFIRMADO en main (843 permitidas con cuota 600/min; panel-login 13 sin 429). Conteo atómico en una sentencia (INSERT ... ON CONFLICT ... RETURNING), ventana deslizante exacta, purga en CTE (DEC-AUTO-1130..1133). Rama: 600 + 312x429, panel-login exacto; latencia p50 1,4 ms. 11 tests (6 FAIL en main), pytest 1629. Contadores no atómicos en cuentas -> TKT-064. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ d5f1338: cuotas exactas en los 8 ámbitos por HTTP (main excede en todos), XFF no evade, 429 conforme, 48 hilos exactos, purga sin deadlocks, caché pickled intacta, inyección rechazada, seguridad 0. HALLAZGO-043-02 -> TKT-065; OBS-043-01 -> TKT-066. Evidencia: scratchpad 1af7dc66…/q043/. Integrado PR #89. DONE."]
     actualizado: 2026-10-08
   - id: TKT-044
     titulo: "MEDIUM (QA TKT-040 F-01, preexistente, THREAT-002): si falla la rotación de sesión tras cambio de contraseña o MFA, la clave anterior sigue válida y renovable hasta el máximo absoluto de 12 h. Si falla la INSERT de la clave nueva, borrar la fila anterior (no está bloqueada); si el borrado de la anterior choca con un bloqueo, invalidarla de forma fiable (UPDATE expire_date en el pasado con reintento/SKIP LOCKED o limpieza diferida). (F-02 LOW) rotar_sesion detecta mal el fallo de la INSERT (SessionBase.create asigna la clave antes de save: rama 'sesion_no_rotada' inalcanzable, logs engañosos) y el test AC_TKT040_04 lo oculta con un mock de create: probar con la INSERT real fallando. (F-03/F-04 LOW, CWE-204) diferencia de tiempo existente/inexistente (~10 ms sin contención; 5 s vs 0,23 s con la fila de cuenta bloqueada): igualar caminos en lo razonable"
@@ -350,15 +350,15 @@ tickets:
   - id: TKT-046
     titulo: "LOW (Developer TKT-023): E2E intermitente AC_TKT022_02 en firefox ('route.fulfill: Fetch response has been disposed' en panel-soporte.ts:313): el soporte de TKT-022 no desmonta la ruta del borde 429 al cerrar la página; aplicar afterEach con page.unrouteAll({behavior:'ignoreErrors'}) en panel-medios*/panel-selector* como ya hace panel-contenidos.spec.ts"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-022, TKT-023]
     depende_de: [TKT-023]
     archivos_permitidos: ["frontend/e2e/panel-soporte.ts", "frontend/e2e/panel-medios*.spec.ts", "frontend/e2e/panel-selector*.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-975."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-975.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-047
     titulo: "MEDIUM (QA TKT-041 F-01, corrección duradera): el contraste del texto del hero de inicio depende de la foto (editable desde el panel). Scrim más fuerte o localizado detrás del bloque de texto, color del rótulo .overline-marca y text-shadow, de modo que rótulo y subtítulo ≥4,5:1 y H1 ≥3:1 con cualquier imagen (probar con una imagen blanca y otra con nieve); E2E de contraste real por píxel que no dependa del 'incomplete' de axe"
     fase: F7
@@ -434,38 +434,38 @@ tickets:
   - id: TKT-053
     titulo: "LOW (QA TKT-016 OBS-01, preexistente): en URLs de paginación fuera de rango (la API devuelve 404 pagina_fuera_de_rango) el estado de error no se transfiere del SSR y la hidratación vuelve a pedir y pasa por el esqueleto: /itinerarios?pagina=9 CLS 0,9067, /glosario?pagina=2 0,1325, /destinos?pagina=2 pie desplazado 3277 px. Además /destinos?pagina=2 responde HTTP 200 con estado-error. Transferir/reutilizar el estado de error al hidratar (o renderizar el error de forma estable) y devolver el código HTTP adecuado en SSR; E2E de CLS en esas rutas en 3 motores"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-016, "Skill_UI_UX#47.2"]
     depende_de: [TKT-016]
     archivos_permitidos: ["frontend/src/app/features/*/state/**", "frontend/src/app/features/*/ui/**", "frontend/src/app/core/**", "frontend/src/server.ts", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-991. Mediciones: scratchpad 7e63c98e…/q16/c2_{pr,main}_oor.json."]
-    actualizado: 2026-10-09
+    evidencia: ["DEC-AUTO-991. Mediciones: scratchpad 7e63c98e…/q16/c2_{pr,main}_oor.json.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-054
     titulo: "LOW (QA TKT-023 c3 OBS-C3-01/03, preexistentes): (1) carrera entre el toggle nativo de <details class=mas-acciones> y el binding [open]=masAcciones(): si se pulsa Retirar/Eliminar antes del evento toggle, el menú queda abierto detrás del diálogo y el E2E AC_TKT023_10/11 (panel-contenidos.spec.ts:246) es intermitente (~1/12 en Chromium); cerrar el menú de forma imperativa y esperar en el E2E a que esté cerrado. (2) el E2E AC_TKT023_09 depende de slugs de la semilla con relaciones < 3: crear sus propios datos de prueba o restaurarlos"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-023, "WCAG 2.4.3"]
     depende_de: [TKT-023]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/e2e/panel-contenidos*.spec.ts", "frontend/e2e/panel-contenidos-soporte.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-992. Logs: scratchpad 7e63c98e…/c3_*.log."]
-    actualizado: 2026-10-09
+    evidencia: ["DEC-AUTO-992. Logs: scratchpad 7e63c98e…/c3_*.log.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-055
     titulo: "LOW (QA TKT-049 OBS-QA049-01, WCAG 1.4.12): con el override de espaciado de texto a 1280 px exactos la fila de la cabecera desborda 22 px y la página tiene 7 px de scroll horizontal; el botón de búsqueda queda parcialmente fuera de pantalla (operable con Enter). Mostrar la variante compacta hasta un breakpoint mayor o permitir que la búsqueda en línea ceda por debajo de 12rem / pase a botón; E2E con el override de text-spacing en Chromium 1024-1440"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-049, MOD-001, "WCAG 1.4.12"]
     depende_de: [TKT-049]
     archivos_permitidos: ["frontend/src/app/core/layout/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1020. Evidencia: scratchpad 1af7dc66…/probe049_rama.json y shots/rama_1280_textspacing.png."]
+    evidencia: ["DEC-AUTO-1020. Evidencia: scratchpad 1af7dc66…/probe049_rama.json y shots/rama_1280_textspacing.png.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
     actualizado: 2026-10-10
   - id: TKT-056
     titulo: "HIGH antes de F9 (TKT-048 riesgo residual): LCP móvil simulado > 2,5 s (inicio 3050 ms, ficha 3424 ms) dominado por el render delay del bundle JS (~1,6-2,0 s; inicial 463 kB / 123 kB transfer). Reducir/dividir el bundle inicial (lazy de rutas y dependencias, defer de hidratación no crítica, revisar polyfills y providers globales) y verificar si Lantern se infla en localhost (FCP observado tras DCL); objetivo LCP <= 2,5 s en Lighthouse móvil x5 en inicio y ficha sin regresión de CLS/INP"
@@ -506,38 +506,38 @@ tickets:
   - id: TKT-059
     titulo: "LOW (QA TKT-048 OBS-QA048-01..03): regenerar_derivados (1) docstring dice que conserva las rutas pero las versiona y borra las antiguas: corregir; (2) las URL antiguas dan 404 justo tras regenerar (pestañas abiertas, caché pública de 60 s+SWR 300 s, og:image en redes): borrado diferido con periodo de gracia (purga posterior de archivos sin fila) y alternativa ante error en el <picture> de inicio; (3) capturar DecompressionBombError/UnidentifiedImageError por medio, registrar y continuar; evitar recodificar cuando no hay cambios. Tests"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-048, DEC-AUTO-044, THREAT-007]
     depende_de: [TKT-048]
     archivos_permitidos: ["backend/apps/medios/**", "frontend/src/app/features/inicio/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1024 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q48/."]
+    evidencia: ["DEC-AUTO-1024 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q48/.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
     actualizado: 2026-10-10
   - id: TKT-060
     titulo: "LOW (TKT-058 riesgo, ADR-DB-004 §1.5): cargar_semilla registra los eventos de auditoría con actor_id=None y etiqueta 'desconocido'; DB_HANDOFF exige 'sistema' para tareas y semilla. Pasar actor_etiqueta=ETIQUETA_SISTEMA (y revisar otros comandos de gestión que auditan) con tests"
     fase: F7
-    estado: TODO
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-058, TKT-007, AC-030, "ADR-DB-004"]
     depende_de: [TKT-058]
     archivos_permitidos: ["backend/apps/*/management/commands/**", "backend/apps/*/tests/test_tkt060*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058."]
+    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada."]
     actualizado: 2026-10-10
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-004, TKT-057]
     depende_de: []
     archivos_permitidos: ["backend/apps/cuentas/tests/**", "backend/conftest.py"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1026 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057.", "2026-10-10 PR #88 @ c953047 (CI verde): causa = DROP DATABASE WITH (FORCE) por app_migrator choca con un autovacuum worker. Fixture bd_efimera en conftest sin FORCE, solo termina sesiones propias, plazo 60 s (DEC-AUTO-1100..1102). Original 3/30 fallos con autovacuum agresivo; corregida 50/50 y 20/20. R-1100-1 -> TKT-063. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ c953047: causa raíz reproducida (main 1/30 agresivo y 0/10 ralentizado; rama 40/40 y 30/30), no termina sesiones ajenas, plazo acotado, sin BD residuales, pytest 1622, seguridad 0. OBS-QA061-01 -> TKT-063. Integrado PR #88. DONE."]
     actualizado: 2026-10-10
   - id: TKT-062
     titulo: "MEDIUM (TKT-057 R-1080-2, contrato ActorRef/referencias): en el resto de respuestas del panel actualizado_por.etiqueta sigue siendo '#<id>' (contenido/api/panel_serializers.py, panel_views.py, medios subido_por, ContenidoResumenTableroSerializer de Tablero.recientes en inicio/api/serializers.py) y ContenidoPanelMeta.referencias viene vacío (panel_serializers.py ~879). Aplicar el criterio de TKT-057/TKT-058 (usuario, seudónimo si anonimizada, sistema sin actor) con helper común y referencias reales, sin N+1; tests de esquema. Incluye OBS-QA058-01: memorizar la etiqueta por actor dentro de una operación (cascadas de hasta 212 eventos hacen 1 SELECT por evento). Incluye OBS-QA057-01: actualizar_config_inicio relee fuera de la transacción (mover la relectura dentro del atomic con la fila bloqueada, +1 test)"
@@ -552,13 +552,13 @@ tickets:
     evidencia: ["DEC-AUTO-1027 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-057."]
     actualizado: 2026-10-10
   - id: TKT-063
-    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo"
+    titulo: "MEDIUM (TKT-061 R-1100-1, CI intermitente): backend/apps/ops/tests/test_ac_tkt003_migraciones.py y backend/apps/contenido/tests/test_ac_tkt005_06_chg_db_002.py siguen usando la fixture bd_vacia con DROP DATABASE WITH (FORCE), que falla con InsufficientPrivilege si un autovacuum worker está en la BD temporal. Migrarlas a la fixture bd_efimera de backend/conftest.py (TKT-061) y eliminar bd_vacia/FORCE; estrés con autovacuum agresivo. Incluye OBS-QA061-01: BdEfimera.eliminar_todas debe intentar eliminar todas las BD de la lista aunque una agote el plazo, y fallar al final con diagnóstico agregado"
     fase: F7
     estado: TODO
     owner: Skill_Developer
     trazabilidad: [TKT-061, TKT-003, TKT-005]
     depende_de: [TKT-061]
-    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*"]
+    archivos_permitidos: ["backend/apps/ops/tests/**", "backend/apps/contenido/tests/test_ac_tkt005_06*", "backend/conftest.py"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1029 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-061."]
@@ -575,18 +575,54 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-1030 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-043."]
     actualizado: 2026-10-10
+  - id: TKT-065
+    titulo: "MEDIUM (QA TKT-043 HALLAZGO-043-02, preexistente, RESOURCE-EXHAUSTION): el ámbito panel-subida (20/min) nunca se aplica a POST /api/v1/panel/medios: _VistaMediosMixta.initial (apps/medios/api/views.py:101-106) fija panel-escritura (120/min) y ListaMedios.post asigna throttle_scope_subida después de check_throttles. Fijar panel-subida en initial() para POST de subida; test HTTP que falle en main (30 POST -> 20 + 10x429)"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: Skill_Developer
+    trazabilidad: [TKT-043, TKT-022, "THREAT subida de archivos"]
+    depende_de: [TKT-043]
+    archivos_permitidos: ["backend/apps/medios/api/**", "backend/apps/medios/tests/test_tkt065*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1032 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 PR #92 @ 0e80078 (CI verde): ámbito por método antes de check_throttles, POST de subida = panel-subida (DEC-AUTO-1140/1141). 8 tests (6 FAIL en main), barrido de 122 operaciones sin otras discrepancias. QA ciclo 1/3 despachada."]
+    actualizado: 2026-10-10
+  - id: TKT-066
+    titulo: "LOW (QA TKT-043 OBS-043-01): en ráfagas concurrentes la denegación calcula wait() con la instantánea del historial previa al bloqueo y Retry-After puede salir menor que la espera real (8-30 s en vez de ~60 s con 10/min). Calcular la espera sobre el historial bloqueado (o duration - (now - marca más antigua) si len < cuota); test de concurrencia"
+    fase: F7
+    estado: BLOCKED_HUMAN
+    owner: Skill_Developer
+    trazabilidad: [TKT-043]
+    depende_de: [TKT-043]
+    archivos_permitidos: ["backend/apps/core/throttling.py", "backend/apps/core/tests/test_tkt066*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1033 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Evidencia: scratchpad 1af7dc66…/q043/res_rama.json, espera.log.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
+  - id: TKT-067
+    titulo: "MEDIUM (TKT-060 residual, AC-030 / ADR-DB-004 §1.5): cargar_semilla deja 342 eventos como 'desconocido' porque entran por contenido.services._auditar, catalogos.services._auditar, medios.services (catalogar) e inicio.services.actualizar_config_inicio sin actor_etiqueta. Añadir en apps/auditoria un contexto de proceso (contextvar, p. ej. auditar_como_sistema()) que registrar_evento use cuando no hay actor ni etiqueta, y envolver cargar_semilla en él; tests: semilla completa con 0 desconocido y sin efecto en peticiones HTTP concurrentes"
+    fase: F7
+    estado: TODO
+    owner: Skill_Developer
+    trazabilidad: [TKT-060, TKT-058, AC-030, "ADR-DB-004"]
+    depende_de: [TKT-060]
+    archivos_permitidos: ["backend/apps/auditoria/**", "backend/apps/contenido/management/commands/cargar_semilla.py", "backend/apps/*/tests/test_tkt067*"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1034 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Medición del Developer TKT-060 (CONFIG_INICIO 1 + CREAR 4 sistema; 342 desconocido). Se secuencia después de TKT-062 por solape en auditoria/services.py."]
+    actualizado: 2026-10-10
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: backend-contrato
     trazabilidad: [CHG-API-006, TKT-040]
     depende_de: [TKT-040]
     archivos_permitidos: ["docs/adr/**", "contracts/openapi.yaml"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040.", "F-05 QA TKT-040: un GET con contención responde 401 sesion_expirada sin borrar la cookie y la sesión sigue válida (el frontend enviará al login sin necesidad): documentarlo; riesgo residual de la rotación fallida es de hasta 12 h (máximo absoluto), no 30 min, hasta TKT-044.", "2026-10-09 (DEC-AUTO-984) incluye OBS-QA045-03: ColeccionActualizacion/creación admite terminos_ids por ContenidoComunCampos pero el servidor responde 400 desde TKT-045; excluirlo del esquema de colección. Si cambia el esquema, regenerar el cliente del frontend (npm run api:generate) en ticket de Developer.", "2026-10-09 (DEC-AUTO-993) incluye OBS-QA051-01: AnalisisPublicacion.entidad debe decir que en ACTUALIZAR_PUBLICACION solo contiene reglas multi-entidad para todo tipo (en un no destino siempre cumple); los requisitos de campos los dan la vista previa y el PUT (TKT-051, DEC-DEV-051-02)."]
-    actualizado: 2026-10-09
+    evidencia: ["OBS-01/OBS-02 QA CHG-API-006 ciclo 2; riesgos del handoff de TKT-040.", "F-05 QA TKT-040: un GET con contención responde 401 sesion_expirada sin borrar la cookie y la sesión sigue válida (el frontend enviará al login sin necesidad): documentarlo; riesgo residual de la rotación fallida es de hasta 12 h (máximo absoluto), no 30 min, hasta TKT-044.", "2026-10-09 (DEC-AUTO-984) incluye OBS-QA045-03: ColeccionActualizacion/creación admite terminos_ids por ContenidoComunCampos pero el servidor responde 400 desde TKT-045; excluirlo del esquema de colección. Si cambia el esquema, regenerar el cliente del frontend (npm run api:generate) en ticket de Developer.", "2026-10-09 (DEC-AUTO-993) incluye OBS-QA051-01: AnalisisPublicacion.entidad debe decir que en ACTUALIZAR_PUBLICACION solo contiene reglas multi-entidad para todo tipo (en un no destino siempre cumple); los requisitos de campos los dan la vista previa y el PUT (TKT-051, DEC-DEV-051-02).", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-040
     titulo: "MEDIUM (QA CHG-API-006 F-01, NV-01, INFO): (a) SessionMiddleware.process_response guarda la sesión fuera del EXCEPTION_HANDLER de DRF: ante 55P03/40P01/40001 o fila de sesion_panel borrada por una invalidación concurrente, SessionStore.save lanza UpdateError -> SessionInterrupted -> 400 validacion. Traducirlo a 409 conflicto_version (Problem Details, reintentable) o a 401 sesion_expirada si la fila ya no existe, en todas las escrituras del panel que renuevan la inactividad (incluida panelRenovarSesion), con pruebas de carrera; (b) NV-01 (CWE-204): en panelIniciarSesion un 409 por contención del FOR UPDATE de la cuenta delata que el usuario existe: respuesta uniforme con la de credenciales inválidas (o NOWAIT/SKIP con respuesta uniforme), con prueba; (c) declarar 409 en @extend_schema de las 8 vistas de CHG-API-006 para que el esquema generado coincida con el contrato"
     fase: F7
@@ -626,39 +662,39 @@ tickets:
   - id: TKT-038
     titulo: "LOW (OBS-01 QA TKT-035): el manejador global traduce cualquier 23503 a 409 conflicto_version y lo registra como WARNING sin traza, incluidas violaciones de FK por defectos de validación (no carreras). Registrar 23503 a nivel ERROR con exc_info y/o limitar la traducción a la comprobación diferida en COMMIT; (OBS-04 INFO) usar nombres de dominio en usos.tipo_entidad en lugar de db_table en mayúsculas; (OBS-02 QA TKT-037, INFO) la vista previa de contenidos acepta pais_id/categoria_id inexistentes sin marcarlos"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-035]
     depende_de: [TKT-035]
     archivos_permitidos: ["backend/apps/core/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-959."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-959.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-039
     titulo: "LOW (QA TKT-034): (S11) prueba propia de que la actualización de sesión persiste expire_date (caducidad deslizante); (INFO-1) corregir el docstring de apps/cuentas/sesiones.py ('cifrado y firmado' -> solo firmado); (INFO-2, defensa en profundidad) traducir a CreateError solo la violación de la PK de sesion_panel para evitar un bucle teórico de SessionStore.create() ante FK inexistente"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-034, THREAT-002]
     depende_de: [TKT-034]
     archivos_permitidos: ["backend/apps/cuentas/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-963."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-963.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-036
     titulo: "LOW (OBS-01 de la QA de TKT-022): .bs-boton (src/styles/componentes.css) anima background-color pero no color: al habilitar un botón primary aria-disabled, durante ~100 ms se ve texto blanco sobre crema (contraste ~1.2:1). Animar ambos de forma coherente (o no animar color de fondo al cambiar de estado) y respetar prefers-reduced-motion; prueba que verifique contraste estable tras habilitar"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-022, "Skill_UI_UX §47", "WCAG 1.4.3"]
     depende_de: []
     archivos_permitidos: ["frontend/src/styles/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-954."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-954.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-035
     titulo: "LOW (propuesta del Developer de TKT-033): traducir de forma global en backend/apps/core (manejador de excepciones de DRF) los OperationalError 55P03 lock_timeout y 40P01 deadlock_detected a 409 conflicto_version reintentable en todas las apps (hoy solo lo hace contenido), y revisar la carrera de DELETE de catálogos (pais_id, categoria_id) frente a altas de contenido"
     fase: F7
@@ -698,15 +734,15 @@ tickets:
   - id: TKT-OPS-030
     titulo: "LOW (QA TKT-OPS-027): (OBS-01) ruta_normalizada() de infra/ci/gate_cobertura.py solo quita '^' y '//': rutas escritas como regex ('/^api/v1/panel$', '(?P<s>panel)', barras escapadas) eluden prefijos_criticos en vistas no críticas; quitar también '$' y '\' y fallar si un archivo no crítico sirve una ruta regex que contenga 'panel', con controles negativos M4/M7. (OBS-02 INFO) comparar también [vistas_externas] con prefijos_criticos. (OBS-03 INFO) eliminar el comentario obsoleto '33 sintéticos + 6 reales' de ci.yaml"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: devops
     trazabilidad: [TKT-OPS-027, "Skill_Backend §8"]
     depende_de: [TKT-OPS-027]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-971. Mutaciones de la QA: scratchpad 56bc59a0…/q027/mut.py."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-971. Mutaciones de la QA: scratchpad 56bc59a0…/q027/mut.py.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-OPS-031
     titulo: "HIGH (CI rojo en todos los PR desde 2026-10-09): CVE-2026-78667 (Go stdlib net/http, DoS; corregida en Go 1.26.9/1.27.2) en /usr/local/bin/supercronic v0.2.49 (compilado con Go 1.26.6) de las imágenes scheduler y backup; no hay release corregida de supercronic. Compilar supercronic v0.2.49 desde el código fuente (tag verificado por commit SHA) en una etapa builder con Go >= 1.26.9 fijado por digest, binario estático, reproducible, sin cambiar el comportamiento; o actualizar a una release corregida si aparece. Sin entradas nuevas en .trivyignore"
     fase: F6
@@ -722,15 +758,15 @@ tickets:
   - id: TKT-OPS-032
     titulo: "LOW (QA TKT-OPS-031 OBS-01..03): (1) supercronic_receta.sh debe exigir invariantes dentro del bloque (GOFLAGS=-mod=readonly, GOTOOLCHAIN=local, sin GOSUMDB/GONOSUMDB/GOINSECURE/GOPRIVATE/GOPROXY=direct, presencia de go mod verify y de la comprobación commit==tag) con casos negativos; (2) /usr/local/bin/supercronic como destino una sola vez y solo con --from=supercronic; (3) el JSON de evidencia de trivy 'sin .trivyignore' sale filtrado por la autocarga de ./.trivyignore: generarlo sin filtrar, compatible con politica_trivy.py"
     fase: F6
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_devops
     trazabilidad: [TKT-OPS-031, "THREAT supply chain"]
     depende_de: [TKT-OPS-031]
     archivos_permitidos: ["infra/ci/**", ".github/workflows/**", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-982. Mutaciones M3-M7 de la QA (rc=0).", "2026-10-09 (DEC-AUTO-990) se añaden F-QA033-01 (fijar # syntax=docker/dockerfile:1@sha256 en los 5 Dockerfile y moby/buildkit por digest en setup-buildx-action) y F-QA033-02 (up --no-build tras el build con reintentos, también en el smoke; corregir DEVOPS_HANDOFF §34.4)."]
-    actualizado: 2026-10-09
+    evidencia: ["DEC-AUTO-982. Mutaciones M3-M7 de la QA (rc=0).", "2026-10-09 (DEC-AUTO-990) se añaden F-QA033-01 (fijar # syntax=docker/dockerfile:1@sha256 en los 5 Dockerfile y moby/buildkit por digest en setup-buildx-action) y F-QA033-02 (up --no-build tras el build con reintentos, también en el smoke; corregir DEVOPS_HANDOFF §34.4).", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-OPS-033
     titulo: "MEDIUM (CI frágil ante Docker Hub, 2026-10-09: 429 de límite anónimo y 504 en auth.docker.io tumban el job de infraestructura y bloquean todos los PR): reducir la dependencia de Docker Hub en CI sin credenciales nuevas: imágenes base y el frontend de sintaxis docker/dockerfile vía mirror.gcr.io u otro registro público con digest fijado, caché de capas/imágenes entre jobs, reintentos con backoff en build/pull; documentar. Si hiciera falta autenticarse en Docker Hub, es Puerta Humana (§0.5, secretos)"
     fase: F6
@@ -794,15 +830,15 @@ tickets:
   - id: TKT-OPS-023
     titulo: "LOW (CHG de TKT-022): las miniaturas del panel salen de /api/v1/panel/medios/{id}/archivo y consumen el limitador por_ip del borde (20 r/s, burst 60): con navegación rápida por la biblioteca aparecen 429 y 'Vista previa no disponible'. Dar a /api/v1/panel/medios/*/archivo (GET, autenticado) una zona limit_req propia y adecuada, sin debilitar /api ni la anti-evasión (ADR-OPS-001), con prueba de carga de una página de 48 miniaturas x 3 navegaciones rápidas sin 429"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: devops
     trazabilidad: [TKT-022, TKT-OPS-016, "ADR-OPS-001", SCR-039]
     depende_de: [TKT-022]
     archivos_permitidos: ["infra/proxy/**", "docs/adr/ADR-OPS-001.md", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-949.", "OBS-C2-01 QA TKT-022 c2: absorberLimiteBorde (frontend/e2e/panel-soporte.ts) identifica el 429 del borde solo por Retry-After=1 (el backend también lo emite); al corregir el limitador, que el proxy marque sus 429 (cabecera propia) y el helper se restrinja a ella o a /medios/*/archivo."]
-    actualizado: 2026-10-01
+    evidencia: ["DEC-AUTO-949.", "OBS-C2-01 QA TKT-022 c2: absorberLimiteBorde (frontend/e2e/panel-soporte.ts) identifica el 429 del borde solo por Retry-After=1 (el backend también lo emite); al corregir el limitador, que el proxy marque sus 429 (cabecera propia) y el helper se restrinja a ella o a /medios/*/archivo.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-OPS-022
     titulo: "LOW (QA de TKT-OPS-021, más retirada de excepciones): (0) retirar EXC-01 y EXC-02 de infra/ci/cobertura_umbrales.toml (TKT-032 ya integrado: catalogos/api/views.py e inicio/api/views.py al 100 %); (F-QA021-01) clasificar vistas y services sin depender del nombre de archivo (apps/*/api/*.py salvo serializers/urls/filtros, paquetes apps/*/services/*.py, o a partir del URLconf) para que vistas_*.py o endpoints.py no pasen en silencio; (F-QA021-02) validar 'registrada' frente a hoy (ventana real <= 45 días); (F-QA021-03) límite inferior para umbral_minimo de excepciones; (F-QA021-04) incluir como críticos los módulos de soporte de auth (cuentas/sesiones.py 76 %, permisos.py, autenticacion.py) y, si quedan por debajo, abrir ticket de Developer; (F-QA021-06) no recorrer .venv; (F-PRE-01) ::add-mask:: para DJANGO_SECRET_KEY, THROTTLE_HMAC_KEY, MFA_FERNET_KEY y DB_PASSWORD efímeros del CI; añadir coverage.json a .gitignore si el contrato de DevOps lo permite (si no, anotarlo)"
     fase: F7
@@ -890,15 +926,15 @@ tickets:
   - id: TKT-026
     titulo: "INFO, preexistentes en el SSR (QA TKT-OPS-016 F-3/F-4): (a) Range no satisfacible sobre un asset existente -> express.static lanza RangeNotSatisfiableError y frontend/src/server.ts responde 500 (error_ssr) en lugar de 416; (b) cuando DRF limita (429) la llamada del SSR a /api/v1/publico/destinos/<slug>, la ficha de un slug inexistente se sirve como 200 con página de error suave en vez de un código real (debería ser 503 con Retry-After, o el error que corresponda, nunca 200)"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-OPS-016, TKT-008]
     depende_de: [TKT-OPS-016]
     archivos_permitidos: ["frontend/src/server.ts", "frontend/src/server.spec.ts", "frontend/src/app/features/destinos/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Hallazgos F-3/F-4 de QA_VERDICT PASS de TKT-OPS-016. Revisar si (b) afecta también a las demás fichas SSR (itinerarios, guías, tipos, colecciones); si es así, ampliar archivos_permitidos por DEC-AUTO antes de tocar otras features."]
-    actualizado: 2026-10-01
+    evidencia: ["Hallazgos F-3/F-4 de QA_VERDICT PASS de TKT-OPS-016. Revisar si (b) afecta también a las demás fichas SSR (itinerarios, guías, tipos, colecciones); si es así, ampliar archivos_permitidos por DEC-AUTO antes de tocar otras features.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-027
     titulo: "LOW (QA TKT-010 FALLO-03, parte backend): la validación de 'siguiente' en el login del panel acepta segmentos de punto codificados (/panel/%2e%2e/destinos, /panel/%2E%2E/%2E%2E/destinos, /panel/.%2e/destinos) y devuelve redireccion fuera de /panel. Es mismo origen, sin redirección externa, pero incumple AC-115 y THREAT-017. Decodificar antes de validar, o rechazar %2e/%2f/%5c, y añadir pruebas con esas variantes"
     fase: F7
@@ -914,27 +950,27 @@ tickets:
   - id: TKT-028
     titulo: "LOW (QA TKT-010 OBS-08 y OBS-07): (a) /robots.txt responde con la página HTML 404 del SSR; servir un robots.txt real (permitir el sitio público, bloquear /panel/ y /api/, y enlazar el sitemap si existe) con tipo text/plain; (b) conservar Retry-After en core/http (normalizarError -> ErrorApi) para todas las features, de modo que features/panel/data/espera.ts deje de reconocer HttpErrorResponse por su forma"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-010, RULE-029, "Skill_Frontend#Regla09"]
     depende_de: [TKT-010]
     archivos_permitidos: ["frontend/public/robots.txt", "frontend/src/server.ts", "frontend/src/app/core/http/**", "frontend/src/app/features/panel/data/**", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno.", "OBS-03 de la QA de TKT-027: el frontend (destino-seguro.ts) acepta query/fragmento y segmentos no ASCII en siguiente y el backend los descarta (cae en /panel, se pierde el deep link con filtros). Decidir una sola regla (DEC-AUTO-942).", "DEC-AUTO-944: bajar a 2000 el límite de siguiente en frontend/src/app/core/auth/destino-seguro.ts para igualar LoginEntrada.siguiente.maxLength del contrato (OBS-04 de TKT-027/031): hoy un enlace con siguiente de 2001-2048 caracteres impide el login.", "QA TKT-031 (INFO, servidor más estricto, sin impacto): /panel/ACCESO aceptado en ambos lados (rutas sensibles a mayúsculas, sin bucle); diferencias en %2e (cliente rechaza, servidor decodifica), niveles de decodificación (1 frente a 5: /panel/%2561cceso), segmentos vacíos (/panel//x) y no ASCII. Incluir en la regla única."]
-    actualizado: 2026-10-01
+    evidencia: ["Abierto a partir de QA_VERDICT FAIL de TKT-010 (observaciones no bloqueantes). Coordinar con TKT-019 (mapa del sitio) para enlazar el sitemap si TKT-019 genera uno.", "OBS-03 de la QA de TKT-027: el frontend (destino-seguro.ts) acepta query/fragmento y segmentos no ASCII en siguiente y el backend los descarta (cae en /panel, se pierde el deep link con filtros). Decidir una sola regla (DEC-AUTO-942).", "DEC-AUTO-944: bajar a 2000 el límite de siguiente en frontend/src/app/core/auth/destino-seguro.ts para igualar LoginEntrada.siguiente.maxLength del contrato (OBS-04 de TKT-027/031): hoy un enlace con siguiente de 2001-2048 caracteres impide el login.", "QA TKT-031 (INFO, servidor más estricto, sin impacto): /panel/ACCESO aceptado en ambos lados (rutas sensibles a mayúsculas, sin bucle); diferencias en %2e (cliente rechaza, servidor decodifica), niveles de decodificación (1 frente a 5: /panel/%2561cceso), segmentos vacíos (/panel//x) y no ASCII. Incluir en la regla única.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-029
     titulo: "LOW (seguimiento de TKT-020): (a) features/institucional/ui/pagina-creditos.html no pasa [derivados] a <app-imagen-responsiva>, así que en navegadores sin AVIF /creditos sigue mostrando 24 textos alternativos; (b) los 8 mappers de las features descartan el campo formato (FormatoDerivado del contrato) de los derivados: pasarlo para que ImagenResponsiva deje de deducirlo por la extensión (DEC-AUTO-934); (c) versionar en frontend/e2e las E2E de los AC de TKT-020 (WebKit con imágenes de respaldo, Chromium descargando solo AVIF, HTML sin JS con src en imágenes informativas)"
     fase: F7
-    estado: TODO
+    estado: BLOCKED_HUMAN
     owner: Skill_Developer
     trazabilidad: [TKT-020, "DEC-AUTO-934"]
     depende_de: [TKT-020, TKT-010, TKT-016]
     archivos_permitidos: ["frontend/src/app/shared/ui/imagen-responsiva/**", "frontend/src/app/features/inicio/ui/pagina-inicio.html", "frontend/src/app/features/inicio/ui/pagina-inicio.ts", "frontend/src/app/features/*/data/**", "frontend/src/app/features/institucional/ui/pagina-creditos.html", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["Propuesto por el Developer de TKT-020. Depende de TKT-010 porque comparte frontend/e2e/** (§0.10).", "Ampliado por la QA de TKT-020 (DEC-AUTO-937): (d) F-QA020-01: formatoDeUrl debe quitar ?/# antes de aplicar la regex (shared/ui/imagen-responsiva); (e) F-QA020-05: la hero de Inicio (features/inicio/ui/pagina-inicio.html:21) es un <img> con un único AVIF de 400 px -> invisible en WebKit; usar <app-imagen-responsiva> con derivados. Depende también de TKT-016 por solaparse en features/inicio."]
-    actualizado: 2026-10-01
+    evidencia: ["Propuesto por el Developer de TKT-020. Depende de TKT-010 porque comparte frontend/e2e/** (§0.10).", "Ampliado por la QA de TKT-020 (DEC-AUTO-937): (d) F-QA020-01: formatoDeUrl debe quitar ?/# antes de aplicar la regex (shared/ui/imagen-responsiva); (e) F-QA020-05: la hero de Inicio (features/inicio/ui/pagina-inicio.html:21) es un <img> con un único AVIF de 400 px -> invisible en WebKit; usar <app-imagen-responsiva> con derivados. Depende también de TKT-016 por solaparse en features/inicio.", "2026-10-10 DIFERIDO a mejoras post-entrega por DECISIÓN HUMANA (solo HIGH/MEDIUM antes de la entrega); se lista en el Informe de Entrega."]
+    actualizado: 2026-10-10
   - id: TKT-030
     titulo: "MEDIUM, preexistente (QA TKT-020 F-QA020-04): tras la hidratación, el cliente elimina y recrea los subárboles renderizados por SSR que contienen imágenes (medido con MutationObserver: /destinos 24 IMG en DIV.resultados, ficha 13, itinerario 7, Inicio 24+1; igual en main, 3 motores, sin NG0500). Investigar la causa (p. ej. stores que vuelven a pedir los datos en cliente sin TransferState / withHttpTransferCache, o un @if/@for cuya identidad cambia) y hacer que la hidratación reutilice el DOM. Probable contribución a LCP (TKT-021) y CLS (TKT-016)"
     fase: F7
