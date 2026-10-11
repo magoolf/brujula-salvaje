@@ -126,13 +126,20 @@ perfiles=()
 echo "$(ts) [3/3] arranque de la aplicación${perfiles[*]:+ (+ perfil ops)} y /health/ready"
 t=$(date +%s)
 # --no-build: se arrancan las imágenes que ya existen; restaurar no reconstruye desde el árbol de trabajo
-"${DC[@]}" "${perfiles[@]}" up -d --wait --no-build
+"${DC[@]}" up -d --wait --no-build
 codigo="$("${DC[@]}" exec -T backend python -c "import urllib.request,urllib.error
 try:
     print(urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5).status)
 except urllib.error.HTTPError as e:
     print(e.code)" | tr -d '\r')"
 [[ "${codigo}" == 200 ]] || { echo "/health/ready respondió ${codigo}" >&2; exit 1; }
+if (( perfil_ops == 1 )); then
+  # scheduler y backup no tienen healthcheck (HEALTHCHECK NONE): sin --wait, que en algunas versiones de
+  # compose falla con "has no healthcheck configured"; se exige después que ambos estén en marcha.
+  "${DC[@]}" --profile ops up -d --no-build scheduler backup
+  ops_en_marcha="$("${DC[@]}" --profile ops ps --status running --services 2>/dev/null | grep -Ex 'scheduler|backup' | sort | tr '\n' ' ' || true)"
+  [[ "${ops_en_marcha}" == "backup scheduler " ]] || { echo "el perfil ops no quedó en marcha (en marcha: '${ops_en_marcha}')" >&2; exit 1; }
+fi
 RESUMEN+=("arranque${perfiles[*]:+ (+ perfil ops)} + /health/ready: 200 $(( $(date +%s) - t ))s")
 
 echo "$(ts) resumen (total $(( $(date +%s) - t_ini ))s):"

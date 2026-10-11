@@ -17,7 +17,11 @@ cat > "${TMPD}/bin/docker" <<'SHIM'
 printf '%s\n' "$*" >> "${SHIM_LOG}"
 args=" $* "
 case "${args}" in
-  *" ps "*) printf '%s' "${SHIM_EN_MARCHA:-}"; exit 0 ;;
+  *" ps "*)   # antes de cualquier "up": lo que diga el caso; después: todo en marcha (salvo SHIM_OPS_CAIDO)
+    if grep -q ' up ' "${SHIM_LOG}"; then
+      printf '%s\n' backend frontend proxy; [[ -n "${SHIM_OPS_CAIDO:-}" ]] || printf '%s\n' scheduler backup
+    else printf '%s' "${SHIM_EN_MARCHA:-}"; fi
+    exit 0 ;;
   *" run "*" migrate "*) echo "  No migrations to apply."; exit 0 ;;
   *" manage.py help --commands "*) printf '  %s\n' check migrate ${SHIM_COMANDOS}; exit 0 ;;
   *" manage.py "*)
@@ -55,7 +59,7 @@ caso() {
 }
 export RESTORE_ENV=local SHIM_COMANDOS="${TODOS}" SHIM_EN_MARCHA="" SHIM_FALLA=""
 
-caso "C1 completo: 6 comandos, arranque con perfil ops, exit 0" 0 '--profile ops up -d --wait' - 'Restauración completa' --confirmar-entorno-local
+caso "C1 completo: 6 comandos, app con --wait y perfil ops sin --wait, exit 0" 0 '--profile ops up -d --no-build scheduler backup' - 'Restauración completa' --confirmar-entorno-local
 caso "C2 sin --confirmar-entorno-local -> exit 2, nada se ejecuta" 2 - 'migrate|up ' - --otra-cosa
 RESTORE_ENV=prod caso "C3 RESTORE_ENV=prod -> exit 2" 2 - 'migrate|up ' - --confirmar-entorno-local
 SHIM_EN_MARCHA=$'backend\nproxy' caso "C4 aplicación en marcha -> exit 2, sin migrate" 2 - 'migrate' 'está en marcha' --confirmar-entorno-local
@@ -68,6 +72,7 @@ SHIM_DETALLE_reaplicar_anonimizaciones='desactivadas=0 anonimizadas=0 alineadas=
 caso "C10 --sin-perfil-ops arranca sin el perfil ops" 0 'compose up -d --wait' '--profile ops up' - --confirmar-entorno-local --sin-perfil-ops
 SHIM_FALLA=anonimizar_cuentas SHIM_ERROR=LIBRO_CORRUPTO caso "C11 LIBRO_CORRUPTO en anonimizar_cuentas -> exit 1 sin arrancar" 1 'anonimizar_cuentas' 'purgar_auditoria| up ' 'ilegible o corrupto' --confirmar-entorno-local
 caso "C12 opción desconocida -> exit 2" 2 - 'migrate' - --confirmar-entorno-local --forzar
+SHIM_OPS_CAIDO=1 caso "C13 el perfil ops no queda en marcha -> exit 1" 1 '--profile ops up -d --no-build scheduler backup' - 'perfil ops no quedó en marcha' --confirmar-entorno-local
 
 if (( fallos > 0 )); then echo "${fallos} control(es) FALLIDO(S)"; exit 1; fi
-echo "post-restore-local.sh: 12/12 controles OK"
+echo "post-restore-local.sh: 13/13 controles OK"
