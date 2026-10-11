@@ -562,3 +562,8 @@
 2026-10-11 | QA_PASS | TKT-030 | QA_VERDICT PASS ciclo 1/3 @ 11dc4d5 (20 rutas, 0 imágenes recreadas). DEC-AUTO-995 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): F-QA030-01 (reasignación de [innerHTML] con HTML idéntico, sin imágenes ni efecto visual) se clasifica LOW fuera del alcance del ticket -> Informe de Entrega sin ticket; F-QA030-03 LOW inestable -> Informe | HANDOFF_ENVELOPE QA TKT-030
 2026-10-11 | INTEGRACION | TKT-030 | PR #101 sincronizado @ bd68081, CI verde, integrado. DONE | PR #101
 2026-10-11 | DELEGACION | TKT-021 | Developer LCP de listados (worktree aislado; criterio DEC-AUTO-1031; medir solo enchufado) | kanban.md
+2026-10-11 | QA_PASS | TKT-047 | QA_VERDICT PASS ciclo 1/3 @ c151e85 (contraste del hero independiente de la foto; sin regresión de LCP/CLS) | HANDOFF_ENVELOPE QA TKT-047
+2026-10-11 | INTEGRACION | TKT-047 | PR #100 sincronizado @ d3e03a9, CI verde, integrado. DONE (desbloquea TKT-069 y TKT-042 en inicio) | PR #100
+2026-10-11 | NUEVO_TICKET | TKT-069 | DEC-AUTO-996: OBS-01 de QA TKT-047 (anillo de foco ~1,3:1 sobre la franja del hero, WCAG 2.4.7/1.4.11, preexistente) abierto como MEDIUM; Developer lanzado en worktree aislado. Total de tickets HIGH/MEDIUM antes de la entrega: 13 | HANDOFF_ENVELOPE QA TKT-047
+2026-10-11 | ENTREGA | TKT-OPS-009 | PR #102 @ 53f48fe, CI verde (DEC-AUTO-1260..1265): política de trivy sobre canales implícitos + guardia de ejecución; 51/53 negativos nuevos no se detectaban en main. .trivyignore sin cambios | HANDOFF_ENVELOPE DevOps TKT-OPS-009
+2026-10-11 | DELEGACION | TKT-OPS-009 | QA ciclo 1/3 sobre PR #102 (con intento de evasiones nuevas) | kanban.md
