@@ -515,3 +515,5 @@
 2026-10-10 | INTEGRACION | TKT-060 | PR #91 sincronizado con main, CI verde, integrado. DONE (desbloquea TKT-067) | PR #91
 2026-10-10 | ENTREGA | TKT-064 | PR #93 @ 7b01dc7: contadores de login y anti-replay TOTP autoprotegidos con bloqueo consultivo; el defecto era latente (DEC-AUTO-1160..1162) | HANDOFF_ENVELOPE TKT-064
 2026-10-10 | DELEGACION | TKT-064 | QA ciclo 1/3 sobre PR #93 | kanban.md
+2026-10-10 | ENTREGA | TKT-062 | PR #94 @ dd969a7 (CI en curso al entregar): ActorRef y referencias reales en el panel (DEC-AUTO-1170..1173). N+1 del listado de medios -> TKT-068 MEDIUM (DEC-AUTO-1035, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible) | HANDOFF_ENVELOPE TKT-062
+2026-10-10 | DELEGACION | TKT-062 | QA ciclo 1/3 sobre PR #94 | kanban.md
