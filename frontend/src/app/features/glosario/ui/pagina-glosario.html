@@ -20,7 +20,12 @@
           @for (letra of alfabeto; track letra) {
             <li>
               @if (letrasDisponibles().has(letra)) {
-                <a [href]="'#letra-' + letra">{{ letra }}</a>
+                <a
+                  [href]="hrefAncla('letra-' + letra)"
+                  data-testid="glosario-indice-letra"
+                  (click)="irAAncla($event, 'letra-' + letra)"
+                  >{{ letra }}</a
+                >
               } @else {
                 <span aria-hidden="true">{{ letra }}</span>
               }
@@ -30,7 +35,7 @@
       </nav>
 
       @for (grupo of grupos(); track grupo.letra) {
-        <section [id]="'letra-' + grupo.letra" [attr.aria-labelledby]="'titulo-' + grupo.letra">
+        <section class="grupo" [id]="'letra-' + grupo.letra" [attr.aria-labelledby]="'titulo-' + grupo.letra">
           <h2 [id]="'titulo-' + grupo.letra">{{ grupo.letra }}</h2>
           <dl>
             @for (termino of grupo.terminos; track termino.slug) {
