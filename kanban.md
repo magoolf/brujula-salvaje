@@ -1298,14 +1298,14 @@ tickets:
   - id: TKT-OPS-009
     titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
     fase: F7
-    estado: BLOCKED_HUMAN
+    estado: DONE
     owner: devops
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
     ciclo_qa: 3/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["2026-10-11 PR #102 (DEC-AUTO-1260..1265): política de trivy sobre canales implícitos + guardia de ejecución; controles 123/123 y 18/18; actionlint 0 errores; 51/53 negativos nuevos no se detectaban en main. QA 3/3 FAIL solo por NOT_RUN de la búsqueda adversarial de evasiones (bloqueada por el clasificador de seguridad del modelo). DECISIÓN HUMANA 2026-10-11: integrar y anotar el riesgo (RSK-OPS-053: búsqueda de evasiones NOT_RUN; RSK-OPS-051/052 LOW). Integrado @ 4c49f91. DONE."]
     actualizado: 2026-10-11
   - id: TKT-OPS-010
     titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"
