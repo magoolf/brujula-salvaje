@@ -535,3 +535,7 @@
 2026-10-11 | QA_PASS | TKT-063 | QA_VERDICT PASS ciclo 1/3 @ 3bd81d4 (main reproduce el defecto 40/40; rama 40/40 OK). INFO de entorno al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-063
 2026-10-11 | INTEGRACION | TKT-063 | PR #95 sincronizado con main @ 5c9c638, CI verde, integrado. DONE | PR #95
 2026-10-11 | DELEGACION | TKT-068 | Developer N+1 del listado de medios (worktree aislado, apps/medios) | kanban.md
+2026-10-11 | QA_PASS | TKT-056 | QA_VERDICT PASS ciclo 3/3 @ 3858696: LCP móvil ≤ 2,5 s en / y ficha, F-03 resuelto, sin regresión. LOW de fragilidad E2E al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-056
+2026-10-11 | INTEGRACION | TKT-056 | PR #90 sincronizado con main @ a020a80, CI verde, integrado. DONE (desbloquea los tickets de frontend TKT-025, 047, 030, 042, 021) | PR #90
+2026-10-11 | ENTREGA | TKT-068 | PR #96 @ 4d62023, CI verde: usos del listado de medios por lote (299 -> 14 consultas con 48 medios; detalle 16 -> 13) | HANDOFF_ENVELOPE TKT-068
+2026-10-11 | DELEGACION | TKT-068, TKT-067 | QA ciclo 1/3 sobre PR #96; Developer TKT-067 contexto de auditoría 'sistema' (worktree aislado) | kanban.md
