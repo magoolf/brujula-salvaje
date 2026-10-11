@@ -42,6 +42,28 @@ test.describe('TKT-056 carga diferida y tamaños de imagen', () => {
   test.describe('móvil (412 px, DPR 1,75, perfil de Lighthouse)', () => {
     test.use({ viewport: { width: 412, height: 823 }, deviceScaleFactor: 1.75 });
 
+    for (const caso of [
+      { ruta: '/', testId: 'cabecera-boton-menu', dialogo: 'menu-movil' },
+      { ruta: FICHA, testId: 'galeria-miniatura', dialogo: 'visor-galeria' },
+    ]) {
+      test(`AC_TKT056_04 ${caso.dialogo}: su módulo se precarga en reposo tras hidratar (abrir no descarga JS; QA F-02)`, async ({
+        page,
+      }) => {
+        await page.goto(caso.ruta);
+        await esperarHidratacion(page);
+        // requestIdleCallback con plazo máximo de 3 s: tras él la precarga ya se pidió.
+        await page.waitForTimeout(3500);
+        await page.waitForLoadState('networkidle');
+        const scripts: string[] = [];
+        page.on('request', (r) => {
+          if (r.resourceType() === 'script') scripts.push(r.url());
+        });
+        await page.getByTestId(caso.testId).first().click();
+        await expect(page.getByTestId(caso.dialogo)).toBeVisible();
+        expect(scripts).toEqual([]);
+      });
+    }
+
     test('AC_TKT056_03 las tarjetas de tipo de Inicio piden el derivado de 400 px, no el de 800', async ({
       page,
     }) => {

@@ -2,10 +2,14 @@ import {
   ENTRADA_FCP,
   ESPERA_MAXIMA_PINTADO_MS,
   EntornoPintado,
+  SELECTOR_RAIZ,
   trasPrimerPintado,
+  traeContenidoSsr,
 } from './tras-primer-pintado';
 
 interface OpcionesEntorno {
+  /** Hijos de <app-root>: 0 = ruta solo cliente; `null` = sin <app-root>. Por defecto 3 (SSR). */
+  hijosRaiz?: number | null;
   oculta?: boolean;
   fcpPrevio?: boolean;
   sinObservador?: boolean;
@@ -33,7 +37,14 @@ function entornoManual(opciones: OpcionesEntorno = {}) {
     }
   }
   const entorno: EntornoPintado = {
-    document: { visibilityState: opciones.oculta ? 'hidden' : 'visible' },
+    document: {
+      visibilityState: opciones.oculta ? 'hidden' : 'visible',
+      querySelector: (selector) => {
+        expect(selector).toBe(SELECTOR_RAIZ);
+        const hijos = opciones.hijosRaiz === undefined ? 3 : opciones.hijosRaiz;
+        return hijos === null ? null : { childElementCount: hijos };
+      },
+    },
     performance: { getEntriesByName: (n) => entradas.filter((e) => e === n) },
     PerformanceObserver: opciones.sinObservador ? undefined : ObservadorFalso,
     setTimeout: (cb, ms) => temporizadores.push({ cb, ms }),
@@ -87,6 +98,8 @@ describe('trasPrimerPintado (TKT-056)', () => {
   });
 
   it.each<[string, OpcionesEntorno]>([
+    ['la ruta es solo cliente (<app-root> vacío, p. ej. /panel/**; QA F-01)', { hijosRaiz: 0 }],
+    ['no hay <app-root>', { hijosRaiz: null }],
     ['el FCP ya ocurrió', { fcpPrevio: true }],
     ['la pestaña está oculta', { oculta: true }],
     ['no hay PerformanceObserver', { sinObservador: true }],
@@ -97,6 +110,20 @@ describe('trasPrimerPintado (TKT-056)', () => {
     expect(temporizadores.map((t) => t.ms)).toEqual([0]);
     temporizadores[0].cb();
     expect(await estado(promesa)).toBe('resuelta');
+  });
+
+  it('traeContenidoSsr distingue el HTML del SSR de una raíz vacía (DOM real)', () => {
+    const raiz = document.createElement('app-root');
+    document.body.appendChild(raiz);
+    try {
+      expect(traeContenidoSsr(document)).toBe(false);
+      raiz.textContent = 'solo texto';
+      expect(traeContenidoSsr(document)).toBe(false);
+      raiz.appendChild(document.createElement('app-shell-publico'));
+      expect(traeContenidoSsr(document)).toBe(true);
+    } finally {
+      raiz.remove();
+    }
   });
 
   it('funciona con la ventana real del entorno de pruebas', async () => {

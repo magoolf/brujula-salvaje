@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -9,6 +10,7 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
+import { precargadorDe, precargarEnReposo } from '../../arranque/precarga-en-reposo';
 import { CampoBusqueda } from '../../../shared/ui/campo-busqueda/campo-busqueda';
 import { Enlace } from '../../../shared/ui/enlace/enlace';
 import { Icono } from '../../../shared/ui/icono/icono';
@@ -94,6 +96,8 @@ import { NAVEGACION_PRINCIPAL } from '../navegacion';
             class="boton-icono"
             aria-haspopup="dialog"
             data-testid="cabecera-boton-menu"
+            (pointerdown)="precargarMenu()"
+            (focus)="precargarMenu()"
             (click)="abrirMenu()"
           >
             <app-icono nombre="menu" [tamano]="24" />
@@ -215,13 +219,29 @@ export class CabeceraSitio {
   protected readonly busquedaAbierta = this._busquedaAbierta.asReadonly();
 
   private abriendoMenu = false;
+  private readonly cargarMenu = precargadorDe(() => import('../menu-movil/abrir-menu-movil'));
+
+  constructor() {
+    // QA TKT-056 F-02: el módulo del cajón se precarga en reposo tras hidratar, solo si el botón
+    // Menú está visible (< xl); además al tocar o enfocar el botón (`precargarMenu`).
+    const ventana = inject(DOCUMENT).defaultView;
+    afterNextRender(() => {
+      if (ventana !== null && this.botonMenu().nativeElement.offsetParent !== null) {
+        precargarEnReposo(ventana, this.cargarMenu);
+      }
+    });
+  }
+
+  protected precargarMenu(): void {
+    this.cargarMenu().catch(() => undefined);
+  }
 
   /** Abre el cajón; un segundo clic mientras se carga su módulo no abre otro. */
   protected async abrirMenu(): Promise<void> {
     if (this.abriendoMenu) return;
     this.abriendoMenu = true;
     try {
-      const { abrirMenuMovil } = await import('../menu-movil/abrir-menu-movil');
+      const { abrirMenuMovil } = await this.cargarMenu();
       abrirMenuMovil(this.injector, this.botonMenu().nativeElement);
     } finally {
       this.abriendoMenu = false;

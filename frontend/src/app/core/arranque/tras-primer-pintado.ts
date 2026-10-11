@@ -1,12 +1,27 @@
 /** Subconjunto del navegador que usa `trasPrimerPintado` (sustituible en pruebas). */
 export interface EntornoPintado {
-  readonly document: { readonly visibilityState: DocumentVisibilityState };
+  readonly document: {
+    readonly visibilityState: DocumentVisibilityState;
+    querySelector(selector: string): { readonly childElementCount: number } | null;
+  };
   readonly performance: { getEntriesByName(nombre: string): readonly unknown[] };
   readonly PerformanceObserver?: new (callback: () => void) => {
     observe(opciones: { type: string; buffered?: boolean }): void;
     disconnect(): void;
   };
   setTimeout(callback: () => void, ms?: number): unknown;
+}
+
+/** Selector de la raíz de la aplicación (src/index.html). */
+export const SELECTOR_RAIZ = 'app-root';
+
+/**
+ * `true` si el documento trae HTML del SSR que pintar: la raíz tiene elementos hijos. Las rutas
+ * solo cliente (`/panel/**`, RenderMode.Client) llegan con `<app-root>` vacío: no hay nada que
+ * pintar antes de arrancar y esperar el FCP solo retrasaría la aplicación (QA TKT-056 F-01).
+ */
+export function traeContenidoSsr(documento: EntornoPintado['document']): boolean {
+  return (documento.querySelector(SELECTOR_RAIZ)?.childElementCount ?? 0) > 0;
 }
 
 /** Nombre de la entrada de Paint Timing del primer pintado con contenido. */
@@ -20,7 +35,7 @@ export const ESPERA_MAXIMA_PINTADO_MS = 1000;
 
 /**
  * TKT-056: resuelve cuando el documento ya tuvo su primer pintado con contenido (FCP), en la tarea
- * siguiente; o como mucho a los `esperaMaximaMs`.
+ * siguiente; o como mucho a los `esperaMaximaMs`. Sin HTML del SSR (rutas solo cliente) no espera.
  *
  * Por qué: si el JavaScript está disponible al terminar de analizar el HTML (visitante recurrente
  * con caché, red rápida), los módulos se ejecutan antes del primer fotograma y la hidratación ocupaba
@@ -45,6 +60,7 @@ export function trasPrimerPintado(
     };
     const Observador = entorno.PerformanceObserver;
     if (
+      !traeContenidoSsr(entorno.document) ||
       entorno.document.visibilityState === 'hidden' ||
       Observador === undefined ||
       entorno.performance.getEntriesByName(ENTRADA_FCP).length > 0

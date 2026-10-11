@@ -1,6 +1,8 @@
-import { Component, Injector, computed, effect, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Component, Injector, afterNextRender, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { precargadorDe, precargarEnReposo } from '../../../core/arranque/precarga-en-reposo';
 import { Compartir } from '../../../core/layout/compartir';
 import { estaGuardado } from '../../../core/layout/guardados/elemento-guardado.model';
 import { GuardadosStore } from '../../../core/layout/guardados/guardados.store';
@@ -99,6 +101,14 @@ export class PaginaDestino {
   });
 
   constructor() {
+    // QA TKT-056 F-02: el visor se precarga en reposo tras hidratar si la ficha tiene galería, y al
+    // tocar o enfocar una miniatura (`precargarVisor`).
+    const ventana = inject(DOCUMENT).defaultView;
+    afterNextRender(() => {
+      if (ventana !== null && (this.store.destino()?.galeria.length ?? 0) > 0) {
+        precargarEnReposo(ventana, this.cargarVisor);
+      }
+    });
     // FEAT-027/CON-007: los metadatos se recalculan cada vez que llega un destino nuevo (incluida
     // la navegación entre fichas vía "Sigue explorando", que reutiliza este mismo componente).
     effect(() => {
@@ -165,6 +175,7 @@ export class PaginaDestino {
   }
 
   private abriendoGaleria = false;
+  private readonly cargarVisor = precargadorDe(() => import('./visor-galeria'));
 
   /** Abre el visor (cargado bajo demanda, TKT-056); un segundo clic durante la carga no abre otro. */
   protected async abrirGaleria(indice: number): Promise<void> {
@@ -172,7 +183,7 @@ export class PaginaDestino {
     if (destino === null || destino.galeria.length === 0 || this.abriendoGaleria) return;
     this.abriendoGaleria = true;
     try {
-      const { abrirVisorGaleria } = await import('./visor-galeria');
+      const { abrirVisorGaleria } = await this.cargarVisor();
       abrirVisorGaleria(this.injector, {
         imagenes: destino.galeria,
         indiceInicial: indice,
@@ -181,6 +192,10 @@ export class PaginaDestino {
     } finally {
       this.abriendoGaleria = false;
     }
+  }
+
+  protected precargarVisor(): void {
+    this.cargarVisor().catch(() => undefined);
   }
 
   protected esMesRecomendado(mes: number): boolean {
