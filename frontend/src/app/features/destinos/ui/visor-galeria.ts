@@ -1,5 +1,5 @@
-import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { Component, computed, inject, signal } from '@angular/core';
+import { DIALOG_DATA, Dialog, DialogRef } from '@angular/cdk/dialog';
+import { Component, Injector, computed, inject, signal } from '@angular/core';
 
 import { Boton } from '../../../shared/ui/boton/boton';
 import { Icono } from '../../../shared/ui/icono/icono';
@@ -131,4 +131,20 @@ export class VisorGaleria {
   protected cerrar(): void {
     this.dialogo.close();
   }
+}
+
+/**
+ * Abre el visor (TKT-056): la ficha lo importa bajo demanda al pulsar una miniatura, para que CDK
+ * Dialog y el visor no formen parte de los módulos que la ficha descarga al cargarse.
+ */
+export function abrirVisorGaleria(
+  injector: Injector,
+  datos: DatosVisorGaleria,
+): DialogRef<unknown, VisorGaleria> {
+  return injector.get(Dialog).open(VisorGaleria, {
+    data: datos,
+    backdropClass: 'bs-fondo-dialogo',
+    panelClass: 'bs-panel-dialogo-completo',
+    autoFocus: 'first-tabbable',
+  });
 }
