@@ -14,6 +14,7 @@ from collections.abc import Iterable
 
 from django.db import connection
 
+from apps.auditoria.contexto import auditar_como_sistema, etiqueta_de_proceso
 from apps.auditoria.models import (
     ACCIONES_CON_IP,
     AccionAuditoria,
@@ -34,6 +35,7 @@ __all__ = [
     "ETIQUETA_DESCONOCIDO",
     "ETIQUETA_SISTEMA",
     "PREFIJO_SEUDONIMO",
+    "auditar_como_sistema",
     "etiqueta_de_actor",
     "purgar_eventos_caducados",
     "registrar_evento",
@@ -85,10 +87,18 @@ def registrar_evento(
 ) -> EventoAuditoria:
     """Inserta un evento. La IP del cliente se trunca y solo se guarda si la acción lo admite.
 
-    Sin `actor_etiqueta` explícita, la etiqueta se resuelve desde la cuenta del actor
-    (`etiqueta_de_actor`), con el mismo criterio que los eventos de cuentas (TKT-058, AC-030).
+    Precedencia de la etiqueta (AC-030, ADR-DB-004 §1.5):
+    1. `actor_etiqueta` explícita;
+    2. sin actor, la etiqueta del proceso en curso (`auditar_como_sistema()`, TKT-067): 'sistema'
+       en la carga semilla y tareas que auditan por servicios del panel sin etiqueta;
+    3. la resuelta desde la cuenta del actor (`etiqueta_de_actor`, TKT-058), que sigue dando
+       'desconocido' sin actor fuera de ese contexto o con una cuenta inexistente.
     """
-    etiqueta = actor_etiqueta or etiqueta_de_actor(actor_id)
+    etiqueta = (
+        actor_etiqueta
+        or (etiqueta_de_proceso() if actor_id is None else None)
+        or etiqueta_de_actor(actor_id)
+    )
     campos = sorted(set(campos_cambiados)) if campos_cambiados is not None else None
     return EventoAuditoria.objects.create(
         actor_id=actor_id,
