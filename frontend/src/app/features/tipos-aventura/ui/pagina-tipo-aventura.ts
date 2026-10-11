@@ -76,7 +76,9 @@ export class PaginaTipoAventura {
       this.seo.establecer({
         titulo: tipo.titulo,
         descripcion: tipo.resumen,
-        imagen: tipo.portada ? { url: tipo.portada.src, alt: tipo.portada.alt } : undefined,
+        imagen: tipo.portada
+          ? { url: tipo.portada.src, alt: tipo.portada.alt, derivados: tipo.portada.derivados }
+          : undefined,
         tipoOg: 'article',
         datosEstructurados,
       });

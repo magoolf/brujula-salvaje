@@ -63,19 +63,59 @@ describe('CabeceraSitio (GI-01)', () => {
     fixture.nativeElement.remove();
   });
 
-  it('botón Menú abre el cajón modal (CDK Dialog) con retorno del foco', async () => {
+  it('botón Menú abre el cajón modal (CDK Dialog, cargado bajo demanda) con retorno del foco', async () => {
     const { raiz, fixture } = await crear();
     const abrir = vi.spyOn(TestBed.inject(Dialog), 'open');
-    (raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement).click();
+    const boton = raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement;
+    boton.click();
+    // Doble clic mientras se carga el módulo del cajón: un único diálogo (TKT-056).
+    boton.click();
+    await vi.waitFor(() => expect(abrir).toHaveBeenCalled());
+    expect(abrir).toHaveBeenCalledTimes(1);
     expect(abrir).toHaveBeenCalledWith(
       MenuMovil,
       expect.objectContaining({
         ariaLabelledBy: 'menu-movil-titulo',
-        restoreFocus: raiz.querySelector('[data-testid="cabecera-boton-menu"]'),
+        autoFocus: 'first-tabbable',
+        restoreFocus: boton,
       }),
     );
     TestBed.inject(Dialog).closeAll();
+
+    // Ya cargado, un nuevo clic vuelve a abrirlo.
+    boton.click();
+    await vi.waitFor(() => expect(abrir).toHaveBeenCalledTimes(2));
+    TestBed.inject(Dialog).closeAll();
     fixture.nativeElement.remove();
+  });
+
+  it('QA TKT-056 F-02: con el botón Menú visible precarga el cajón en reposo; tocar/enfocar también', async () => {
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
+    Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
+      configurable: true,
+      get: () => document.body,
+    });
+    const reposo = vi.fn();
+    (window as unknown as { requestIdleCallback: unknown }).requestIdleCallback = reposo;
+    try {
+      const { raiz, fixture } = await crear();
+      expect(reposo).toHaveBeenCalledTimes(1);
+      // El callback de reposo precarga sin abrir nada.
+      const abrir = vi.spyOn(TestBed.inject(Dialog), 'open');
+      (reposo.mock.calls[0][0] as () => void)();
+      const boton = raiz.querySelector('[data-testid="cabecera-boton-menu"]') as HTMLButtonElement;
+      boton.dispatchEvent(new Event('pointerdown'));
+      boton.dispatchEvent(new FocusEvent('focus'));
+      expect(abrir).not.toHaveBeenCalled();
+      boton.click();
+      await vi.waitFor(() => expect(abrir).toHaveBeenCalledTimes(1));
+      TestBed.inject(Dialog).closeAll();
+      fixture.nativeElement.remove();
+    } finally {
+      delete (window as unknown as { requestIdleCallback?: unknown }).requestIdleCallback;
+      if (original) Object.defineProperty(HTMLElement.prototype, 'offsetParent', original);
+      else delete (HTMLElement.prototype as unknown as { offsetParent?: unknown }).offsetParent;
+    }
   });
 });
 
