@@ -6,6 +6,8 @@
 
 ## 1. Estado en una línea
 
+2026-10-11 (reanudación tras apagado del equipo): 90/119 DONE. En curso: QA TKT-062 c1 reanudada desde scratchpad 1af7dc66…/q062/checkpoint.md (stack brujulaqa062); Developer TKT-063 (worktree agent-a45ce50f99b1857a2, 2 commits sin push: falta pytest completo, push, PR, CI); Developer TKT-056 corrección de F-03 (worktree agent-a7b2580217a631456, PR #90) y luego QA c3/3 con el equipo ENCHUFADO. Siguientes MEDIUM: TKT-068 (tras 062), TKT-067, TKT-042, TKT-047, TKT-030, TKT-021, TKT-025, TKT-OPS-008/009. Luego F9/F10.
+
 2026-10-10 (noche): DONE hoy TKT-049, 048, 052, 024 (panel completo), 058, 057. 86/113 cerrados. En curso (worktrees .claude/worktrees/agent-*): Developer TKT-061 (teardown de test de migraciones de cuentas, stack brujulaci061), TKT-056 HIGH (bundle JS/LCP, bloquea F9, stack brujuladev056, checkpoint PROGRESO_TKT056.md) y TKT-043 (limitador atómico, stacks brujulaci043/brujuladev043). Desbloqueados: TKT-060, TKT-062. Siguientes TODO: TKT-062, 060, 055 (tras 056), 059, 038/039, 042, 047, 053, 054, CHG-API-007, OPS-023/030/032, 025/026/028/029/030/021/036, OPS-008/009, Dependabot #54-#57/#73/#74/#78. Luego F9/F10.
 
 2026-10-10 (tarde): DONE hoy TKT-049 (#82), TKT-048 (#84), TKT-052 (#83). 83/110 cerrados. En curso (worktrees aislados .claude/worktrees/agent-*): Developer TKT-024 ciclo 2/3 (PR #85; FALLO-01 secreto temporal, FALLO-02 foco de pestañas, OBS-PERF-01; evidencia QA en scratchpad 1af7dc66…/q024), Developer TKT-057 (backend /panel/inicio, stack brujulaci057), Developer TKT-058 (auditoría actor_etiqueta, stack brujulaci058). Nuevos TODO: TKT-055, TKT-056 HIGH (bundle JS/LCP, bloquea F9), TKT-059. Si hay corte: reanudar cada Developer desde su último commit/PR. Resto de TODO igual que abajo.
