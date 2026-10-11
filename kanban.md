@@ -523,9 +523,9 @@ tickets:
     trazabilidad: [TKT-058, TKT-007, AC-030, "ADR-DB-004"]
     depende_de: [TKT-058]
     archivos_permitidos: ["backend/apps/*/management/commands/**", "backend/apps/*/tests/test_tkt060*"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada."]
+    evidencia: ["DEC-AUTO-1025 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible). Informe del Developer TKT-058.", "2026-10-10 PR #91 @ 3e688f5 (CI verde): cargar_semilla pasa ETIQUETA_SISTEMA en sus 2 llamadas directas; resto de comandos ya cumplían o no auditan. 11 tests (2 FAIL en main). Residual: 342 eventos de la semilla entran por servicios sin etiqueta -> TKT-067 (DEC-AUTO-1034); el alcance de TKT-060 se acota a los comandos. QA ciclo 1/3 despachada.", "2026-10-10 QA_VERDICT PASS ciclo 1/3 @ 3e688f5: clasificación de comandos confirmada, semilla 5 sistema / 342 desconocido (TKT-067), idempotente, SCR-046 Chromium 4/4, seguridad 0. OBS-QA060-01 LOW (usuario 'sistema' no reservado) -> riesgo residual del Informe (sin ticket, decisión humana). Integración en curso (PR #91)."]
     actualizado: 2026-10-10
   - id: TKT-061
     titulo: "MEDIUM (TKT-057 R-1080-1, CI intermitente): test_AC_TKT004_08_migraciones_chg_db_002_reversibles (apps/cuentas/tests/test_ac_tkt004_08_chg_db_002.py) falla a veces en el teardown en CI con psycopg InsufficientPrivilege (permission denied to terminate process): puede tumbar cualquier PR. Hacer el teardown robusto sin privilegios de superusuario (no terminar backends ajenos; cerrar conexiones propias) y estable en CI y local"
@@ -566,7 +566,7 @@ tickets:
   - id: TKT-064
     titulo: "MEDIUM (TKT-043 riesgo, seguridad): en apps/cuentas/services.py los contadores de intentos fallidos de login, el bloqueo de usuarios inexistentes (~193-218) y el anti-replay TOTP (~488-491) usan cache.get + cache.set no atómicos: intentos concurrentes pierden actualizaciones y el bloqueo por usuario puede requerir más intentos de los configurados, y un código TOTP podría reutilizarse en paralelo. Hacerlos atómicos (reutilizando el primitivo de TKT-043 en apps/core o con bloqueo de fila), con pruebas de concurrencia que fallen en main"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-043, TKT-004, "THREAT fuerza bruta", "THREAT replay TOTP"]
     depende_de: [TKT-043]
