@@ -83,6 +83,10 @@ import { EnlaceValor } from './enlace-valor';
 import { MediosContenido } from './medios-contenido';
 import { ModeloFormulario } from './modelo-formulario';
 import { PaginaNoEncontradaPanel } from './pagina-no-encontrada-panel';
+import { BordeReserva, ReservaDesplazamiento, bordeFijado } from './reserva-desplazamiento';
+
+/** Desde xl (80 rem) la StatusBar va en su propia columna y no tapa el formulario. */
+const MEDIA_XL = '(min-width: 80rem)';
 
 /** Espera tras salir de un campo antes de recalcular los requisitos (y mínimo entre cálculos). */
 const ESPERA_REQUISITOS_MS = 1500;
@@ -179,6 +183,7 @@ export class EditorContenido {
    * botón deja de poder recibir el foco, así que el diálogo lo devuelve aquí al cerrarse (WCAG 2.4.3).
    */
   protected readonly resumenMasAcciones = viewChild<ElementRef<HTMLElement>>('resumenMasAcciones');
+  private readonly barraEstado = viewChild<ElementRef<HTMLElement>>('barraEstado');
   /** Slug editado a mano: deja de proponerse desde el título (RULE-008). */
   private slugManual = false;
   private resolverSalida: ((salir: boolean) => void) | null = null;
@@ -304,6 +309,17 @@ export class EditorContenido {
   protected readonly buscarTerminos = (q: string) => this.store.buscar(['TERMINO'], q, null, true);
 
   constructor() {
+    // TKT-070 (WCAG 2.4.11): la StatusBar es sticky (inferior < lg, superior lg-xl): reserva su altura
+    // en ese borde para que el foco y los saltos a campos no queden debajo. ≥ xl va en su columna.
+    const reserva = inject(ReservaDesplazamiento);
+    effect((alLimpiar) => {
+      const barra = this.barraEstado()?.nativeElement;
+      if (barra === undefined) return;
+      const ventana = this.documento.defaultView;
+      const borde = (): BordeReserva | null =>
+        ventana?.matchMedia?.(MEDIA_XL).matches === true ? null : bordeFijado(barra);
+      alLimpiar(reserva.observar('estado-editor', barra, borde));
+    });
     // Carga inicial del formulario: el borrador en memoria (vista previa o sesión expirada) o el del
     // servidor / vacío. Solo una vez por instancia: después, los valores son del usuario.
     effect(() => {
