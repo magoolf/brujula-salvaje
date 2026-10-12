@@ -72,23 +72,29 @@ async function focoVisible(page: Page): Promise<Comprobacion> {
       e === null
         ? 'null'
         : `${e.tagName}${e.id ? '#' + e.id : ''}${(e as HTMLElement).dataset?.['testid'] ? '[' + (e as HTMLElement).dataset['testid'] + ']' : ''}${typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : ''}`;
-    // Controles visualmente ocultos (p. ej. checkbox nativo bajo uno personalizado): se mide el
-    // primer antecesor con tamaño real.
-    let medido: HTMLElement = activo;
-    while (medido.parentElement !== null) {
-      const r = medido.getBoundingClientRect();
-      if (r.width >= 4 && r.height >= 4) break;
-      medido = medido.parentElement;
-    }
-    const r = medido.getBoundingClientRect();
+    const r = activo.getBoundingClientRect();
     const barra = document.querySelector('[data-testid="panel-barra-superior"]')!.getBoundingClientRect();
+    // Franja libre: bajo la barra superior y, si la StatusBar está pegada abajo (< lg), sobre ella.
+    const estado = document.querySelector<HTMLElement>('[data-testid="editor-barra-estado"]');
+    const rEstado = estado?.getBoundingClientRect();
+    const estadoAbajo =
+      estado !== null && rEstado !== undefined && getComputedStyle(estado).bottom !== 'auto' && rEstado.bottom >= innerHeight - 1;
+    const limiteAbajo = estadoAbajo ? rEstado.top : innerHeight;
+    const descripcion = `${describir(activo)} top=${Math.round(r.top)} bottom=${Math.round(r.bottom)} barra.bottom=${Math.round(barra.bottom)} libreHasta=${Math.round(limiteAbajo)}`;
+    // Destino sin área (p. ej. el contenedor vacío de una lista): basta con que su posición caiga en
+    // la franja libre (no hay píxeles que elementFromPoint pueda encontrar).
+    if (r.width < 4 || r.height < 4) {
+      const dentro = r.top >= barra.bottom && r.bottom <= limiteAbajo;
+      return { visible: dentro, descripcion: `${descripcion} (sin área)` };
+    }
     const margen = Math.min(8, r.width / 4, r.height / 4);
     const izquierda = Math.max(r.left + margen, 0);
     const derecha = Math.min(r.right - margen, innerWidth - 1);
     const arriba = r.top + margen;
-    // Un control más alto que el viewport no cabe entero: se exige su parte superior y su centro visible.
-    const cabe = r.height <= innerHeight - barra.bottom;
-    const abajo = cabe ? r.bottom - margen : Math.min(r.bottom, innerHeight) - margen;
+    // Un control más alto que la franja libre no cabe entero: se exige su parte superior (esquinas)
+    // y el centro de la parte visible.
+    const cabe = r.height <= limiteAbajo - barra.bottom;
+    const abajo = cabe ? r.bottom - margen : Math.min(r.bottom, limiteAbajo) - margen;
     const puntos: [number, number][] = [
       [(izquierda + derecha) / 2, (arriba + abajo) / 2],
       [izquierda, arriba],
@@ -101,13 +107,10 @@ async function focoVisible(page: Page): Promise<Comprobacion> {
       const encima = y < 0 || y >= innerHeight ? null : document.elementFromPoint(x, y);
       const propio =
         encima !== null &&
-        (medido.contains(encima) || activo.contains(encima) || (encima.closest('label') as HTMLLabelElement | null)?.control === activo);
+        (activo.contains(encima) || (encima.closest('label') as HTMLLabelElement | null)?.control === activo);
       if (!propio) tapados.push(`(${Math.round(x)},${Math.round(y)})→${describir(encima)}`);
     }
-    return {
-      visible: tapados.length === 0,
-      descripcion: `${describir(activo)} top=${Math.round(r.top)} bottom=${Math.round(r.bottom)} barra.bottom=${Math.round(barra.bottom)} ${tapados.join(' ')}`,
-    };
+    return { visible: tapados.length === 0, descripcion: `${descripcion} ${tapados.join(' ')}` };
   });
 }
 
