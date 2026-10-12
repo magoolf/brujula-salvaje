@@ -302,15 +302,15 @@ tickets:
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-019, TKT-009, "RULE-030"]
     depende_de: []
     archivos_permitidos: ["frontend/src/app/features/glosario/**", "frontend/src/app/features/destinos/ui/**", "frontend/src/app/features/**/ui/*.html", "frontend/src/app/app.config.ts", "frontend/src/app/core/layout/foco-ruta.ts", "frontend/e2e/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-968. QA TKT-019: via-ferrata desde el mapa queda en scrollY 0 (término en top=2019px); carga directa sí desplaza.", "Causa probable aportada por el Developer de TKT-019: core/layout/foco-ruta.ts (FocoRuta) pone el foco en el h1 y sube el scroll en cada NavigationEnd, anulando el desplazamiento a fragmentos; solución de referencia: irASeccion() de features/mapa-del-sitio. Añadir core/layout/foco-ruta.ts a archivos permitidos."]
-    actualizado: 2026-10-08
+    evidencia: ["DEC-AUTO-968. QA TKT-019: via-ferrata desde el mapa queda en scrollY 0 (término en top=2019px); carga directa sí desplaza.", "Causa probable aportada por el Developer de TKT-019: core/layout/foco-ruta.ts (FocoRuta) pone el foco en el h1 y sube el scroll en cada NavigationEnd, anulando el desplazamiento a fragmentos; solución de referencia: irASeccion() de features/mapa-del-sitio. Añadir core/layout/foco-ruta.ts a archivos permitidos.", "2026-10-11 PR #105 (DEC-AUTO-1290..1294). QA_VERDICT PASS ciclo 1/3 @ 79cd966: E2E nueva 6/8 en rojo contra main por la causa correcta y 8/8 en la rama; suite Chromium 217/0; hashes maliciosos sin efecto; FocoRuta sin regresión (mejora el foco por secciones del editor). OBS-QA042-01 MEDIUM preexistente (foco oculto bajo la cabecera sticky del panel) -> TKT-070. Mapa de destinos (href relativo) -> PR #104 de TKT-021 (DEC-AUTO-999). Integrado @ db9a893. DONE."]
+    actualizado: 2026-10-11
   - id: TKT-043
     titulo: "MEDIUM (needs_validation, QA TKT-022 OBS-C2-04): LimitePorAmbito sobre DatabaseCache parece contar de forma no atómica bajo concurrencia: 912 GET/min a /api/v1/panel/medios/{id} con la misma cuenta en lotes de 12 concurrentes no producen ningún 429 de panel-lectura (600/min), en secuencia sí. Verificar con prueba de concurrencia y, si se confirma, hacer el conteo atómico (UPDATE ... RETURNING / incr atómico) para todos los ámbitos; comprobar que panel-login sigue exacto"
     fase: F7
@@ -634,6 +634,18 @@ tickets:
     ciclo_qa: 0/3
     ciclo_panico: 0/2
     evidencia: ["DEC-AUTO-996 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado (HIGH/MEDIUM antes de entregar). Paralelo con TKT-021 acotando shared/ui (campo-busqueda y appBoton reservados a este ticket).", "2026-10-11 PR #103 (DEC-AUTO-1280/1281). QA_VERDICT PASS ciclo 1/3 @ 77a3412: 4 controles del hero >=3,79:1 (adyacente) en 5 fondos x 5 anchos; main 1,15-1,95; la E2E detecta la regresión; fuera del hero sin cambios; prefers-contrast y forced-colors OK; 2.4.11 sin oclusión en flujos naturales; axe 0; CLS 0. LCP / 2805 rama vs 2818 main con el host cargado (sin regresión; a re-medir en F9). Integrado @ 5ce4525. DONE."]
+    actualizado: 2026-10-11
+  - id: TKT-070
+    titulo: "MEDIUM (QA TKT-042 OBS-QA042-01, preexistente; WCAG 2.4.11): en el editor del panel el destino de un ancla (campo desde el resumen de errores, título de sección tras editor-nav-*) queda tapado por la cabecera sticky HEADER.barra; falta scroll-margin/scroll-padding en el panel y el block:start del Router/FocoRuta prevalece sobre irACampo center. Destinos y controles enfocados visibles a 375 y 1280 px; E2E solo Chromium"
+    fase: F7
+    estado: IN_PROGRESS
+    owner: Skill_Developer
+    trazabilidad: [TKT-042, "WCAG 2.4.11", SCR-041]
+    depende_de: [TKT-042]
+    archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/core/layout/foco-ruta.ts", "frontend/src/app/core/layout/foco-ruta.spec.ts", "frontend/e2e/panel-foco-no-oculto.spec.ts"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1000 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado. Developer lanzado en worktree aislado; arranca tras integrar TKT-042."]
     actualizado: 2026-10-11
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

@@ -578,3 +578,6 @@
 2026-10-11 | QA_PASS | TKT-069 | QA_VERDICT PASS ciclo 1/3 @ 77a3412. LOW/INFO al Informe sin ticket. Observación: LCP de / medido 2,8 s en rama y main con el equipo cargado por otros stacks (TKT-056 midió 2,1 s): re-medir en F9 con el equipo libre | HANDOFF_ENVELOPE QA TKT-069
 2026-10-11 | INTEGRACION | TKT-069 | PR #103 sincronizado @ 5ce4525, CI verde, integrado. DONE | PR #103
 2026-10-11 | ENTREGA | TKT-042 | PR #105 @ 79cd966, CI verde (DEC-AUTO-1290..1294): índice del glosario con href completo y salto sin Router; FocoRuta espera al destino del fragmento. Pendiente en archivo excluido (destinos/ui/pagina-mapa-destinos.html:27) -> DEC-AUTO-999: se añade al PR #104 de TKT-021 (dueño de destinos/**). QA ciclo 1/3 despachada | HANDOFF_ENVELOPE TKT-042
+2026-10-11 | QA_PASS | TKT-042 | QA_VERDICT PASS ciclo 1/3 @ 79cd966 (rojo en main verificado). INFO al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-042
+2026-10-11 | INTEGRACION | TKT-042 | PR #105 sincronizado @ db9a893, CI verde, integrado. DONE | PR #105
+2026-10-11 | NUEVO_TICKET | TKT-070 | DEC-AUTO-1000: OBS-QA042-01 (foco oculto bajo la cabecera sticky del editor del panel, WCAG 2.4.11, preexistente) abierto como MEDIUM; Developer lanzado. Total HIGH/MEDIUM antes de la entrega: 14 | HANDOFF_ENVELOPE QA TKT-042
