@@ -8,21 +8,12 @@
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#1F5C45" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link
-      rel="preload"
-      href="/fonts/source-sans-3-latin-wght-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <!-- TKT-016 (QA F-02): fuente de títulos precargada para que el intercambio no desplace. -->
-    <link
-      rel="preload"
-      href="/fonts/bricolage-grotesque-latin-wght-normal.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <!--
+      TKT-021 (DEC-AUTO-1273): sin preload de fuentes. Sus 72 KB competían por el ancho de banda con
+      la imagen LCP y el JS inicial (Slow 4G). El intercambio no desplaza el contenido porque los
+      respaldos "Bricolage Fallback" y "Source Sans Fallback" (styles/fonts.css) llevan métricas
+      ajustadas: CLS 0 en Lighthouse y E2E cls-hidratacion en verde en todas sus pasadas.
+    -->
   </head>
   <body>
     <app-root></app-root>
