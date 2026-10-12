@@ -590,3 +590,4 @@
 - 2026-10-12 | NUEVO_TICKET | TKT-071 | MEDIUM, depende de TKT-021; total 15
 - 2026-10-12 | DELEGACION | TKT-021 | QA F8 sobre PR #104 (ciclo 1/3)
 - 2026-10-12 | DELEGACION | TKT-071 | Developer (análisis desde la rama de #104; backend solo)
+- 2026-10-12 | PAUSA | Orquestador | el usuario apaga el portátil; QA TKT-021 y Developer TKT-071 detenidos con orden de guardar (push WIP); plan actualizado en docs/PLAN_CONTINUACION.md §1

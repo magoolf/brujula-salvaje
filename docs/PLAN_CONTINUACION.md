@@ -2,9 +2,11 @@
 
 > Documento vivo del Orquestador (DEC-AUTO-901). Se actualiza en cada integración para que, ante un corte por
 > límite de uso, cualquier sesión pueda retomar sin rehacer trabajo. Fuente de verdad del estado: `kanban.md`
-> y `audit_log.md`. Última actualización: 2026-10-09 (cierre del día, pausa pedida por el usuario).
+> y `audit_log.md`. Última actualización: 2026-10-12 (pausa pedida por el usuario; apaga el portátil).
 
 ## 1. Estado en una línea
+
+2026-10-12 (PAUSA pedida por el usuario; reanudar con 'continuar'): 13 de 15 HIGH/MEDIUM cerrados (hoy DONE TKT-042 #105, TKT-070 #106). main @ origin al día. Faltan 2: (1) TKT-021 READY_FOR_VALIDATION, PR #104 @ ca8dbd5 CI verde; QA ciclo 1/3 interrumpida por la pausa -> RELANZAR QA DESDE CERO (prompt: AC de 6 rutas ≤ 2,5 s devtools n=5 alternado + no regresión en / y ficha; /colecciones informativa, va a TKT-071 por DEC-AUTO-1001; CLS 0 cls-hidratacion + inicio-foco-hero; mapa-salto-lista y anclas-fragmentos; stack brujulaqa021; solo Chromium; equipo enchufado). (2) TKT-071 IN_PROGRESS (residual /colecciones 2984 ms, imagen de semilla 87 KB AVIF 800w; backend medios/seed): Developer interrumpido -> reanudar desde la rama tkt-071-peso-imagen-colecciones si se subió (git ls-remote origin tkt-071*) o desde cero partiendo de origin/tkt-021-lcp-listados; DEC-AUTO 1310-1319; stack brujuladev071. Al iniciar: docker ps -a --filter name=brujula y bajar brujulaqa021/brujuladev071 si quedaron; git worktree list y limpiar worktrees de QA. Tras ambos DONE: refrescar este plan, F9 (release+SBOM+trivy, auditoría de seguridad completa en sesión principal, re-medir LCP con el equipo libre, backup nuevo tras TKT-OPS-008; producción = Puerta Humana) y F10 (INFORME_ENTREGA con RSK-OPS-053, OBS-QA070-01, INFO-QA070-02/03 y los 16 LOW diferidos). Estimación dada al usuario: ≈12 h.
 
 2026-10-11 (orden para cerrar los 12 HIGH/MEDIUM, máx. 3 agentes): backend -> TKT-067 al liberarse un hueco; TKT-068 tras integrar TKT-062. DevOps -> TKT-OPS-008 y luego TKT-OPS-009 (comparten .github/workflows y docs/05_operacion). Frontend (todos solapan con frontend/src/app/** de TKT-056, esperan su DONE) -> TKT-025 (app.config) y TKT-047 (inicio) primero, luego TKT-030 (hidratación), TKT-042 y por último TKT-021 (LCP de listados, re-medir tras 056/030). Luego F9/F10.
 
