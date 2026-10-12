@@ -626,7 +626,7 @@ tickets:
   - id: TKT-069
     titulo: "MEDIUM (QA TKT-047 OBS-01, preexistente; WCAG 2.4.7/1.4.11): el anillo de foco del CTA accent del hero (--bs-color-focus-ring lagoon-600) queda a ~1,3:1 sobre la franja oscura del hero y el de la búsqueda grande apenas se ve; tokens.json prescribe ring-inverse sobre fotografías con scrim. Todos los controles enfocables del hero con indicador >=3:1 (semilla e imagen blanca, 375/1280), sin cambiar el anillo fuera del hero; E2E por píxel solo Chromium"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-047, "WCAG 2.4.7", "WCAG 1.4.11", "Skill_UI_UX#47.2"]
     depende_de: [TKT-047]
