@@ -11,7 +11,7 @@ import { CargaPanelStore } from './carga-panel.store';
 import { DetalleMedioStore } from './detalle-medio.store';
 import { SelectorMediosStore } from './selector-medios.store';
 import { SesionPanelStore } from './sesion-panel.store';
-import { SubidaMediosStore } from './subida-medios.store';
+import { ESPERA_LIMITE_MS, REINTENTOS_LIMITE, SubidaMediosStore } from './subida-medios.store';
 import { SesionPanel } from '../domain/modelos';
 
 function medio(parcial: Partial<Medio> = {}): Medio {
@@ -240,6 +240,51 @@ describe('SubidaMediosStore (FLOW-013)', () => {
     expect(store.archivoFallido()).toBeNull();
     expect(await store.reintentar()).toBeNull();
     expect(envios.length).toBe(4);
+  });
+
+  it('AC_TKT072_11 un 429 a mitad de lote espera y reintenta el mismo archivo con su clave', async () => {
+    vi.useFakeTimers();
+    try {
+      const repo = repoMedios();
+      const claves: string[] = [];
+      let limitado = 2;
+      repo.subir.mockImplementation((archivos: File[], clave: string): Observable<readonly ResultadoArchivo[]> => {
+        claves.push(clave);
+        if (archivos[0].name === 'b.png' && limitado-- > 0) return throwError(() => http(429, { code: 'limite_tasa' }));
+        return of([resultado(archivos[0].name, claves.length)]);
+      });
+      const store = crear(repo);
+      const pendiente = store.seleccionar([archivo('a.png'), archivo('b.png')]);
+      await vi.waitFor(() => expect(store.esperandoLimite()).toBe(true));
+      expect(store.errorEnvio()).toBeNull();
+      await vi.advanceTimersByTimeAsync(ESPERA_LIMITE_MS);
+      await vi.advanceTimersByTimeAsync(ESPERA_LIMITE_MS);
+      expect(await pendiente).toBeNull();
+      expect(store.esperandoLimite()).toBe(false);
+      expect(claves.length).toBe(4);
+      expect(new Set(claves.slice(1)).size).toBe(1); // b.png siempre con la misma clave
+      expect(store.resumen()).toBe('2 aceptadas');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('AC_TKT072_11 si el límite persiste tras los reintentos, se informa y se puede reintentar', async () => {
+    vi.useFakeTimers();
+    try {
+      const repo = repoMedios();
+      repo.subir.mockImplementation(() => throwError(() => http(429, { code: 'limite_tasa' })));
+      const store = crear(repo);
+      const pendiente = store.seleccionar([archivo('a.png')]);
+      for (let i = 0; i < REINTENTOS_LIMITE; i++) await vi.advanceTimersByTimeAsync(ESPERA_LIMITE_MS);
+      const error = await pendiente;
+      expect(error?.categoria).toBe('limite_tasa');
+      expect(repo.subir).toHaveBeenCalledTimes(REINTENTOS_LIMITE + 1);
+      expect(store.archivoFallido()).toBe('a.png');
+      expect(store.puedeReintentar()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AC_TKT072_06 progreso sin total conocido: cuenta solo los archivos ya enviados', async () => {

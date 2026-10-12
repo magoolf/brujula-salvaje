@@ -132,7 +132,9 @@ test.describe('Panel · medios (TKT-022)', () => {
     page,
   }) => {
     test.setTimeout(240_000);
-    await entrarComoEditor(page);
+    // Cuenta propia: el límite `panel-subida` (20/min) es por cuenta y estas 10 peticiones no deben
+    // agotar el cupo de la cuenta compartida que usan los demás casos.
+    await entrarPorApi(page, crearCuenta());
     await irA(page, '/panel/medios');
     await page.getByTestId('medios-subir').click();
     const peticiones: { archivos: number; clave: string }[] = [];

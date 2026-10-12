@@ -15,6 +15,21 @@ import {
   validarArchivo,
 } from '../domain/medios';
 
+/**
+ * TKT-072: la subida tiene un límite propio de 20 peticiones/min por cuenta (`x-limite-tasa:
+ * panel-subida`). Con un archivo por petición, dos lotes seguidos de fotos pequeñas pueden rozarlo:
+ * ante un 429 a mitad de lote se espera y se reintenta ese archivo (misma clave) hasta
+ * `REINTENTOS_LIMITE` veces antes de mostrar el error. El 429 lo responde el limitador antes de la
+ * vista, sin efectos, así que reintentar es seguro. La ventana del limitador es de 60 s.
+ */
+export const ESPERA_LIMITE_MS = 15_000;
+export const REINTENTOS_LIMITE = 4;
+
+/** Espera entre reintentos por límite de tasa (sustituible en las pruebas con temporizadores falsos). */
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolver) => setTimeout(resolver, ms));
+}
+
 /** Bytes enviados del lote: los archivos ya subidos más la fracción del que está en curso. */
 interface Progreso {
   readonly cargados: number;
@@ -68,6 +83,7 @@ export class SubidaMediosStore {
   private readonly _errorSeleccion = signal<string | null>(null);
   private readonly _errorEnvio = signal<ErrorApi | null>(null);
   private readonly _archivoFallido = signal<string | null>(null);
+  private readonly _esperandoLimite = signal(false);
   /** Lote pendiente de completar o de reintento. */
   private pendiente: Lote | null = null;
 
@@ -78,6 +94,8 @@ export class SubidaMediosStore {
   readonly errorEnvio = this._errorEnvio.asReadonly();
   /** Nombre del archivo cuyo envío falló (el error de `errorEnvio` es de ese archivo). */
   readonly archivoFallido = this._archivoFallido.asReadonly();
+  /** En pausa por el límite de subidas por minuto: se reanuda sola (ver `ESPERA_LIMITE_MS`). */
+  readonly esperandoLimite = this._esperandoLimite.asReadonly();
   readonly porcentaje = computed(() => {
     const progreso = this._progreso();
     return progreso === null ? 0 : porcentaje(progreso.cargados, progreso.total);
@@ -163,15 +181,22 @@ export class SubidaMediosStore {
         this._posicion.set({ actual: indice + 1, total: lote.archivos.length });
         this._progreso.set({ cargados: previos, total: totalBytes });
         let remotos: readonly ResultadoArchivo[] = [];
-        const error = await ejecutar(
-          defer(() =>
-            this.repo.subir([archivo], lote.claves[indice], (cargados, total) => {
-              const fraccion = total !== null && total > 0 ? Math.min(1, cargados / total) : 0;
-              this._progreso.set({ cargados: previos + fraccion * tamanos[indice], total: totalBytes });
-            }),
-          ),
-          (resultados) => (remotos = resultados),
-        );
+        let error: ErrorApi | null = null;
+        for (let intento = 0; ; intento++) {
+          error = await ejecutar(
+            defer(() =>
+              this.repo.subir([archivo], lote.claves[indice], (cargados, total) => {
+                const fraccion = total !== null && total > 0 ? Math.min(1, cargados / total) : 0;
+                this._progreso.set({ cargados: previos + fraccion * tamanos[indice], total: totalBytes });
+              }),
+            ),
+            (resultados) => (remotos = resultados),
+          );
+          if (error?.categoria !== 'limite_tasa' || intento >= REINTENTOS_LIMITE) break;
+          this._esperandoLimite.set(true);
+          await esperar(ESPERA_LIMITE_MS);
+          this._esperandoLimite.set(false);
+        }
         if (error !== null) {
           this._errorEnvio.set(error);
           this._archivoFallido.set(archivo.name);
@@ -187,6 +212,7 @@ export class SubidaMediosStore {
       this._subiendo.set(false);
       this._progreso.set(null);
       this._posicion.set(null);
+      this._esperandoLimite.set(false);
     }
   }
 }

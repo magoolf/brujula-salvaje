@@ -256,7 +256,8 @@ export class SubidaMedios {
   protected readonly etiquetaProgreso = computed(() => {
     const posicion = this.store.posicion();
     const prefijo = posicion !== null && posicion.total > 1 ? `Subiendo ${posicion.actual} de ${posicion.total}…` : 'Subiendo…';
-    return `${prefijo} ${this.store.porcentaje()} %`;
+    const pausa = this.store.esperandoLimite() ? ' En pausa por el límite de subidas por minuto; se reanuda sola.' : '';
+    return `${prefijo} ${this.store.porcentaje()} %${pausa}`;
   });
 
   protected abrirSelector(): void {
