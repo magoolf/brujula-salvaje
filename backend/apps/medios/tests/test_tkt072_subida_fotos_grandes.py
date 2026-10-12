@@ -20,6 +20,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
+from apps.contenido.tests.fabricas import crear_cuenta
 from apps.medios import services
 from apps.medios.models import FormatoDerivado
 
@@ -259,3 +260,36 @@ def test_AC_TKT072_06_el_avif_se_codifica_con_esos_hilos(monkeypatch: pytest.Mon
     assert recibidos["AVIF"]["max_threads"] == 2
     assert "max_threads" not in recibidos["WEBP"]
     assert "max_threads" not in recibidos["JPEG"]
+
+
+@pytest.mark.django_db
+def test_AC_TKT072_10_regenerar_un_medio_mas_ancho_que_la_cota(
+    settings: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """ADR-medios-002: un medio subido antes de la cota (derivado al ancho original) pierde al
+    regenerarse los derivados más anchos que ella (fila y archivo, al confirmar) y conserva el
+    resto.
+    Se simula con la cota bajada a 1200 y una foto de 1500 px subida sin cota."""
+    settings.MEDIA_ROOT = str(tmp_path)
+    actor = crear_cuenta("editora.tkt072").pk
+    monkeypatch.setattr(services, "ANCHO_MAXIMO_DERIVADO", 10**6)  # como antes de TKT-072
+    archivo = SimpleUploadedFile("ancha.jpg", _foto_con_metadatos(1500, 1000), "image/jpeg")
+    medio = services.subir_medios(actor, [archivo])[0].medio
+    assert medio is not None
+    assert medio.derivados.filter(ancho_px=1500).count() >= 1
+    anchas = list(medio.derivados.filter(ancho_px__gt=1200))
+    monkeypatch.setattr(services, "ANCHO_MAXIMO_DERIVADO", 1200)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        resultado = services.regenerar_derivados(medio.pk)
+
+    assert resultado.eliminados == len(anchas)
+    assert resultado.creados == 0
+    assert sorted(set(medio.derivados.values_list("ancho_px", flat=True))) == [400, 800, 1200]
+    for derivado in anchas:
+        assert not (tmp_path / services.RAIZ_PRIVADA / derivado.ruta).exists()
+    for derivado in medio.derivados.all():
+        assert (tmp_path / services.RAIZ_PRIVADA / derivado.ruta).is_file()

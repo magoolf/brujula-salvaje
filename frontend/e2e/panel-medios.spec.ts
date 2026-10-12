@@ -91,12 +91,13 @@ test.describe('Panel · medios (TKT-022)', () => {
 
     await irA(page, '/panel/medios');
     await page.getByTestId('medios-subir').click();
-    // TKT-072: un archivo por petición; se recogen las respuestas de todas.
+    // TKT-072: un archivo por petición; se recogen los nombres de los archivos de cada multipart
+    // (de la petición, síncrono: leer el cuerpo de la respuesta tras navegar falla).
     const enviados: string[] = [];
-    page.on('response', async (r) => {
-      if (!r.url().endsWith('/api/v1/panel/medios') || r.request().method() !== 'POST') return;
-      const cuerpo = (await r.json()) as { resultados: { nombre_archivo: string }[] };
-      enviados.push(...cuerpo.resultados.map((x) => x.nombre_archivo));
+    page.on('request', (r) => {
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.method() !== 'POST') return;
+      const cuerpo = r.postDataBuffer()?.toString('latin1') ?? '';
+      enviados.push(...[...cuerpo.matchAll(/name="archivos"; filename="([^"]+)"/g)].map((m) => m[1]));
     });
     await page.getByTestId('subida-archivos').setInputFiles([
       gif('animada.gif'),
