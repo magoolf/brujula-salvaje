@@ -542,8 +542,8 @@ jobs:
       # TKT-OPS-035 (NV-QA034-03, DEC-AUTO-1340/1341/1342): nginx guarda el cuerpo de una subida a
       # /api/v1/panel/medios (105m) ANTES de que Django autentique. En el tmpfs /tmp contaba contra los
       # 256m del proxy: 3 subidas anónimas de 104 MB lo mataban por OOM (toda la web caída). Comprueba:
-      # (a) /var/cache/nginx/cuerpos (client_body_temp_path) no es tmpfs y /tmp tiene tope (size=);
-      # (b) 2 subidas anónimas de 100 MB retenidas a falta de 1 KB NO ocupan memoria compartida (shmem
+      # (a) client_body_temp_path y proxy_temp_path en /var/cache/nginx/temporal (volumen, no tmpfs) y
+      # /tmp con tope (size=); (b) 2 subidas anónimas de 100 MB retenidas a falta de 1 KB NO ocupan memoria compartida (shmem
       # del cgroup del proxy < 32 MB; en tmpfs serían ~200 MB); (c) la 3.ª simultánea desde la misma IP
       # recibe 429 limite_tasa problem+json sin leer el cuerpo (limit_conn subidas_ip 2); (d) las 2
       # retenidas terminan con la respuesta de Django (403 sin sesión) y el proxy sigue sano.
@@ -551,13 +551,15 @@ jobs:
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
           sleep 5
-          docker compose exec -T proxy sh -c 'nginx -T 2>/dev/null' | grep '^  client_body_temp_path /var/cache/nginx/cuerpos;' \
-            || { echo "::error::client_body_temp_path no apunta a /var/cache/nginx/cuerpos"; exit 1; }
+          docker compose exec -T proxy sh -c 'nginx -T 2>/dev/null' > /tmp/nginx-T.txt
+          for d in "client_body_temp_path /var/cache/nginx/temporal/cuerpos;" "proxy_temp_path       /var/cache/nginx/temporal/respuestas;"; do
+            grep -F "  $d" /tmp/nginx-T.txt || { echo "::error::falta '$d' en nginx.conf"; exit 1; }
+          done
           montajes="$(docker compose exec -T proxy cat /proc/mounts)"
-          echo "$montajes" | awk '$2=="/var/cache/nginx/cuerpos"{print "cuerpos:",$3; f=1} END{exit !f}' \
-            || { echo "::error::/var/cache/nginx/cuerpos no es un volumen montado"; exit 1; }
-          if echo "$montajes" | awk '$2=="/var/cache/nginx/cuerpos" && $3=="tmpfs"{f=1} END{exit !f}'; then
-            echo "::error::los cuerpos de petición vuelven a estar en tmpfs (memoria del contenedor)"; exit 1
+          echo "$montajes" | awk '$2=="/var/cache/nginx/temporal"{print "temporal:",$3; f=1} END{exit !f}' \
+            || { echo "::error::/var/cache/nginx/temporal no es un volumen montado"; exit 1; }
+          if echo "$montajes" | awk '$2=="/var/cache/nginx/temporal" && $3=="tmpfs"{f=1} END{exit !f}'; then
+            echo "::error::los temporales de nginx vuelven a estar en tmpfs (memoria del contenedor)"; exit 1
           fi
           echo "$montajes" | awk '$2=="/tmp" && $3=="tmpfs" && $4 ~ /size=/{f=1} END{exit !f}' \
             || { echo "::error::el tmpfs /tmp del proxy no tiene size="; exit 1; }

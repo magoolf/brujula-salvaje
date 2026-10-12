@@ -312,12 +312,13 @@ services:
       - "127.0.0.1:${PROXY_HOST_PORT:-8080}:8080"
     volumes:
       - media:/srv/media:ro
-      # Cuerpos de petición en disco, no en el tmpfs (TKT-OPS-035, DEC-AUTO-1340): un cuerpo en /tmp
-      # cuenta contra los 256m del contenedor y 3 subidas anónimas de 104 MB lo mataban por OOM.
-      - proxy_cuerpos:/var/cache/nginx/cuerpos
-    # size=64m (DEC-AUTO-1342): /tmp ya solo guarda el pid y proxy_temp (respuestas grandes del
-    # upstream); con tope, llenarlo hace fallar esa respuesta en vez de agotar la memoria.
-    tmpfs: ["/tmp:uid=101,gid=101,mode=0755,size=64m"]
+      # Temporales de nginx (cuerpos de petición y respuestas del upstream) en disco, no en el tmpfs
+      # (TKT-OPS-035, DEC-AUTO-1340/1342): /tmp cuenta contra los 256m del contenedor y 3 subidas
+      # anónimas de 104 MB lo mataban por OOM.
+      - proxy_temporal:/var/cache/nginx/temporal
+    # size=16m (DEC-AUTO-1342): /tmp ya solo guarda el pid; el tope impide que vuelva a usarse como
+    # almacén sin límite dentro de la memoria del contenedor.
+    tmpfs: ["/tmp:uid=101,gid=101,mode=0755,size=16m"]
     networks:
       publica: {}
       app:
@@ -451,4 +452,4 @@ volumes:
   media: {}
   ops_libro: {}
   backups: {}
-  proxy_cuerpos: {}                     # temporal del proxy: cuerpos de petición (TKT-OPS-035)
+  proxy_temporal: {}                    # temporales de nginx: cuerpos y respuestas (TKT-OPS-035)
