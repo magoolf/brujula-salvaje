@@ -38,6 +38,17 @@ El AVIF de cada derivado lleva un presupuesto de bytes por píxel: `PRESUPUESTO_
 ## Consecuencias
 - [MEDIDO] La imagen LCP de `/colecciones` pasa de 87 305 a 58 634 bytes en AVIF 800w (−33 %), dentro del presupuesto de tarjeta (≤ 60 KB).
 - [MEDIDO] Las portadas de las cuatro colecciones quedan en ≤ 60 KB.
+- [MEDIDO] Lighthouse 12.6.1 móvil, `--throttling-method=devtools`, mediana de 5, con la semilla regenerada sin presupuesto (antes) y con `regenerar_derivados` (después; 60 derivados AVIF actualizados de 1335, segunda ejecución sin cambios):
+
+  | Ruta | LCP antes | LCP después |
+  |---|---|---|
+  | `/colecciones` | 2993 ms | **2336 ms** |
+  | `/` | 2061 ms | 2087 ms |
+  | `/destinos/everest-campo-base` | 2462 ms | 2458 ms |
+  | `/destinos` | 1873 ms | 1860 ms |
+  | `/guias` | 2306 ms | 2308 ms |
+
+  CLS 0 en todas. Las demás rutas no cambian (sus imágenes LCP no superan el presupuesto).
 - [MEDIDO] En la semilla a 800 px el presupuesto afecta a 17 de 129 fotos, que bajan a q48 o q44. El total de AVIF de 800 px baja un 6 %. Ningún derivado pesa más.
 - [MEDIDO] La subida tarda algo más en las fotos afectadas: 1-2 codificaciones AVIF extra por ancho, de unos 0,1 s cada una a 800 px (ADR-DB-005, subida síncrona).
 - [MEDIDO] La codificación de las fotos afectadas tarda más: en el contenedor del backend, la peor foto de la semilla pasa de 4,4 s a 11,2 s (todos los anchos y formatos), y el total de la semilla de 286 s a 353 s (+23 %).
