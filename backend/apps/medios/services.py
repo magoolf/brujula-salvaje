@@ -78,6 +78,22 @@ CALIDADES_REINTENTO: dict[str, tuple[int, ...]] = {
     FormatoDerivado.WEBP: (70, 62),
     FormatoDerivado.AVIF: (44, 36),
 }
+# TKT-071 (REQ-052, ADR-medios-001): presupuesto de peso por píxel del AVIF, el formato que eligen
+# todos los navegadores actuales en el `<picture>`. Con calidad fija el peso depende del contenido:
+# las fotos con mucho detalle fino (follaje, roca, agua rizada) pesan hasta el doble que la mediana
+# de la semilla (0,10 B/px a 800 px) y, siendo imagen LCP, superan los 2,5 s en móvil (la de la
+# primera colección pesaba 85-87 KB a 800 px frente a 50-56 KB de las demás rutas). Si el AVIF a la
+# calidad base supera el presupuesto se recodifica con `CALIDADES_PRESUPUESTO` hasta caber; la
+# última es el suelo y se conserva aunque no quepa (nunca se baja de ahí para no perder nitidez
+# visible). En esas imágenes el propio detalle enmascara la pérdida (enmascaramiento por textura);
+# las de detalle normal (≈ 87 % de la semilla) no cambian. El WebP es solo respaldo de navegadores
+# sin AVIF y no lleva presupuesto.
+PRESUPUESTO_BYTES_POR_PIXEL: dict[str, float] = {
+    FormatoDerivado.AVIF: 0.15,
+}
+CALIDADES_PRESUPUESTO: dict[str, tuple[int, ...]] = {
+    FormatoDerivado.AVIF: (48, 44),
+}
 
 
 @dataclass(frozen=True)
@@ -252,10 +268,42 @@ def _codificar(imagen: Image.Image, formato: str, calidad: int | None = None) ->
     return buffer.getvalue()
 
 
+def _ajustar_a_presupuesto(
+    redimensionada: Image.Image, formato: str, contenido: bytes
+) -> tuple[bytes, int]:
+    """TKT-071: si `contenido` supera `PRESUPUESTO_BYTES_POR_PIXEL` del formato, lo recodifica con
+    `CALIDADES_PRESUPUESTO` hasta caber; la última calidad es el suelo y su resultado se conserva
+    aunque no quepa. Devuelve el contenido y la calidad con la que quedó codificado."""
+    calidad: int = PARAMETROS_CODIFICACION[formato]["quality"]
+    por_pixel = PRESUPUESTO_BYTES_POR_PIXEL.get(formato)
+    if por_pixel is None:
+        return contenido, calidad
+    presupuesto = int(por_pixel * redimensionada.width * redimensionada.height)
+    if len(contenido) <= presupuesto:
+        return contenido, calidad
+    peso_inicial = len(contenido)
+    for calidad in CALIDADES_PRESUPUESTO.get(formato, ()):
+        contenido = _codificar(redimensionada, formato, calidad)
+        if len(contenido) <= presupuesto:
+            break
+    logger.info(
+        "derivado_ajustado_a_presupuesto",
+        formato=str(formato),
+        ancho=redimensionada.width,
+        peso_inicial=peso_inicial,
+        peso=len(contenido),
+        presupuesto=presupuesto,
+        calidad=calidad,
+    )
+    return contenido, calidad
+
+
 def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> dict[str, bytes]:
     """Codifica un ancho en los tres formatos garantizando AVIF ≤ WebP ≤ JPEG en bytes entre los
     que se sirven (TKT-048): un formato eficiente que pesa más que el anterior servido se reintenta
-    con `CALIDADES_REINTENTO` y, si sigue pesando más, se descarta."""
+    con `CALIDADES_REINTENTO` y, si sigue pesando más, se descarta. Antes, el formato con
+    presupuesto por píxel (TKT-071) se ajusta a él (`_ajustar_a_presupuesto`); los reintentos por
+    orden de pesos solo usan calidades inferiores a la que ya resultó."""
     resultado: dict[str, bytes] = {}
     techo: int | None = None  # peso del último formato servido (el menos eficiente hasta aquí)
     for formato in ORDEN_CODIFICACION:
@@ -269,8 +317,10 @@ def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> di
             logger.warning("derivado_omitido", formato=str(formato), ancho=redimensionada.width)
             no_soportados.add(formato)
             continue
+        contenido, calidad_actual = _ajustar_a_presupuesto(redimensionada, formato, contenido)
         if techo is not None and len(contenido) > techo:
-            for calidad in CALIDADES_REINTENTO.get(formato, ()):
+            reintentos = [q for q in CALIDADES_REINTENTO.get(formato, ()) if q < calidad_actual]
+            for calidad in reintentos:
                 contenido = _codificar(redimensionada, formato, calidad)
                 if len(contenido) <= techo:
                     break
