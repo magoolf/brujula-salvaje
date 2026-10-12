@@ -137,24 +137,28 @@ test.describe('Panel · medios (TKT-022)', () => {
     await entrarPorApi(page, crearCuenta());
     await irA(page, '/panel/medios');
     await page.getByTestId('medios-subir').click();
-    const peticiones: { archivos: number; clave: string }[] = [];
-    const estados: number[] = [];
-    page.on('request', (r) => {
-      if (!r.url().endsWith('/api/v1/panel/medios') || r.method() !== 'POST') return;
-      const cuerpo = r.postDataBuffer()?.toString('latin1') ?? '';
-      peticiones.push({ archivos: cuerpo.split('name="archivos"').length - 1, clave: r.headers()['idempotency-key'] });
-    });
+    // Por cada POST: estado, clave y nº de resultados (= archivos enviados). La página no navega,
+    // así que los cuerpos siguen disponibles al final.
+    const respuestas: Promise<{ estado: number; clave: string; archivos: number }>[] = [];
     page.on('response', (r) => {
-      if (r.url().endsWith('/api/v1/panel/medios') && r.request().method() === 'POST') estados.push(r.status());
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.request().method() !== 'POST') return;
+      respuestas.push(
+        r.json().then((cuerpo: { resultados: unknown[] }) => ({
+          estado: r.status(),
+          clave: r.request().headers()['idempotency-key'],
+          archivos: cuerpo.resultados.length,
+        })),
+      );
     });
     const lote = Array.from({ length: 10 }, (_, i) => pngValido(`lote10-${i}-e2e.png`, 2400, 1800));
     await page.getByTestId('subida-archivos').setInputFiles(lote);
     await expect(page.getByTestId('subida-progreso-etiqueta')).toContainText(/Subiendo \d+ de 10…/);
     await expect(page.getByTestId('subida-resumen')).toHaveText('10 aceptadas', { timeout: 200_000 });
+    const peticiones = await Promise.all(respuestas);
     expect(peticiones.length).toBe(10);
-    expect(peticiones.every((p) => p.archivos === 1)).toBe(true);
+    expect(peticiones.map((p) => p.archivos)).toEqual(Array(10).fill(1));
+    expect(peticiones.map((p) => p.estado)).toEqual(Array(10).fill(200));
     expect(new Set(peticiones.map((p) => p.clave)).size).toBe(10);
-    expect(estados).toEqual(Array(10).fill(200));
     await expect(page.getByTestId('subida-resultados').locator('li[data-resultado="ACEPTADO"]')).toHaveCount(10);
     await axeSinGraves(page);
   });
