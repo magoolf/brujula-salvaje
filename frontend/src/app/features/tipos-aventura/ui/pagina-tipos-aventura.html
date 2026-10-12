@@ -25,6 +25,7 @@
               [titulo]="tipo.titulo"
               [ruta]="'/tipos-de-aventura/' + tipo.slug"
               [imagen]="tipo.imagen"
+              [prioritaria]="$first"
               testId="tarjeta-tipo"
             >
               <app-medidor-dificultad [valor]="tipo.nivelExigencia" [compacto]="true" />

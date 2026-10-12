@@ -34,6 +34,8 @@ const LISTADOS: readonly CasoListado[] = [
   // Rejilla de meses: 2 columnas en móvil.
   { ruta: '/cuando-ir', prioritarias: 2, visibleEnMovil: true, altaPrioridad: true },
   { ruta: '/cuando-ir/7', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
+  { ruta: '/tipos-de-aventura', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
+  { ruta: '/colecciones', prioritarias: 1, visibleEnMovil: true, altaPrioridad: true },
 ];
 
 interface AtributosImagen {
