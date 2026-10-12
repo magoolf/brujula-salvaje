@@ -49,7 +49,16 @@
  * ink.300 y ≈ 8,8:1 para sand.50, HANDOFF_UI_UX Contraste_Calculado). Por encima, un degradado al
  * mismo scrim suaviza el borde sin tapar el resto de la foto. Solo pintura: no cambia el layout.
  */
+/*
+ * TKT-069 (WCAG 2.4.7 / 1.4.11): los anillos de foco de la franja (CTA, búsqueda grande y su fila con
+ * :focus-within) quedan sobre el scrim oscuro, donde focus.ring (lagoon-600) da ~1,3:1. Se redefine
+ * la variable SOLO dentro de la franja con focus.ring-inverse (sunset-300, tokens.json: «sobre
+ * bg.inverse y sobre fotografías con scrim»): ≈4,6:1 con foto blanca, más con fotos oscuras. Los
+ * componentes la heredan sin cambios propios; fuera del hero el anillo sigue siendo focus.ring.
+ */
 .franja-texto {
+  --bs-color-focus-ring: var(--bs-color-focus-ring-inverse);
+
   position: relative;
   background: var(--bs-color-overlay-scrim);
 }
