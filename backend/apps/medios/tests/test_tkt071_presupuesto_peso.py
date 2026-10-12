@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import secrets
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import connection
+from django.test import Client
 from PIL import Image
 
 from apps.contenido.tests.fabricas import crear_cuenta
@@ -244,3 +246,69 @@ def test_AC_TKT071_06_subida_y_regeneracion_codifican_fuera_de_la_transaccion(
     # variar, ya documentado en TKT-048; aquí solo importa dónde se codifica.)
     assert resultado.omitido is False
     assert medio.derivados.filter(formato=AVIF, ancho_px=800).exists()
+
+
+# ---------------------------------------------------------------------------
+# F-QA071-01 (DEC-AUTO-1315): por el panel, `POST /api/v1/panel/medios` ejecuta el efecto dentro de
+# `idempotencia.ejecutar` (`transaction.atomic`), con o sin Idempotency-Key. La vista prepara
+# (valida, resanea y codifica) ANTES, fuera de toda transacción.
+# ---------------------------------------------------------------------------
+def _archivos_en(raiz: Path) -> set[str]:
+    return {str(p.relative_to(raiz)) for p in raiz.rglob("*") if p.is_file()}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("con_clave", [False, True], ids=["sin_clave", "con_clave"])
+def test_AC_TKT071_07_post_del_panel_codifica_fuera_de_la_transaccion(
+    media_temporal: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cliente_editora: Client,
+    con_clave: bool,
+) -> None:
+    dentro = _vigilar_codificacion(monkeypatch)
+    extra = {"HTTP_IDEMPOTENCY_KEY": str(uuid.uuid4())} if con_clave else {}
+
+    def subir() -> Any:
+        archivo = io.BytesIO(fotografias.foto_para(CLAVE_DETALLE_NORMAL).leer())
+        archivo.name = "foto.jpg"
+        return cliente_editora.post("/api/v1/panel/medios", {"archivos": archivo}, **extra)
+
+    respuesta = subir()
+
+    assert respuesta.status_code == 200, respuesta.content
+    assert respuesta.json()["resultados"][0]["resultado"] == "ACEPTADO"
+    assert dentro == [False]
+    assert Medio.objects.count() == 1
+    archivos = _archivos_en(media_temporal)
+    assert archivos
+
+    # Repetición: con la misma clave se reproduce la respuesta guardada; sin clave, el archivo ya
+    # existe (DUPLICADO) y no se codifica. Ninguna de las dos escribe filas ni archivos nuevos.
+    repetida = subir()
+
+    assert repetida.status_code == 200, repetida.content
+    if con_clave:
+        # Respuesta reproducida (jsonb no conserva el orden ni el formato exacto de cada campo).
+        original, reproducido = respuesta.json()["resultados"][0], repetida.json()["resultados"][0]
+        assert reproducido["resultado"] == "ACEPTADO"
+        assert reproducido["medio"]["id"] == original["medio"]["id"]
+    else:
+        assert repetida.json()["resultados"][0]["resultado"] == "DUPLICADO"
+    assert Medio.objects.count() == 1
+    assert _archivos_en(media_temporal) == archivos
+    assert all(valor is False for valor in dentro)
+
+
+@pytest.mark.django_db
+def test_AC_TKT071_07_preparar_no_escribe_en_disco_ni_en_bd(media_temporal: Path) -> None:
+    archivo = SimpleUploadedFile(
+        "foto.jpg", fotografias.foto_para(CLAVE_DETALLE_NORMAL).leer(), content_type="image/jpeg"
+    )
+    rechazado = SimpleUploadedFile("nota.txt", b"no es una imagen", content_type="text/plain")
+
+    preparadas = services.preparar_subida([archivo, rechazado])
+
+    assert [p.resultado is None for p in preparadas] == [True, False]
+    assert preparadas[0].codificacion is not None and preparadas[0].codificacion.derivados
+    assert _archivos_en(media_temporal) == set()
+    assert Medio.objects.count() == 0

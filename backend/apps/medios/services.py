@@ -539,45 +539,113 @@ def _medio_por_huella(huella: str) -> Medio | None:
     return Medio.objects.filter(huella_sha256=huella).first()
 
 
-def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
-    resultados: list[ResultadoArchivo] = []
+@dataclass(frozen=True)
+class SubidaPreparada:
+    """Un archivo de la subida tras la fase sin BD (`preparar_subida`). Si `resultado` ya está
+    decidido (RECHAZADO, o DUPLICADO detectado al preparar) no hay nada que persistir; si no,
+    lleva el original saneado y los derivados ya codificados, solo en memoria (nada en disco)."""
+
+    nombre_archivo: str
+    resultado: ResultadoArchivo | None = None
+    huella: str = ""
+    formato_origen: str = ""
+    ancho_px: int = 0
+    alto_px: int = 0
+    peso_bytes: int = 0
+    saneado: bytes = b""
+    sha256_saneado: str = ""
+    extension: str = ""
+    codificacion: Codificacion | None = None
+
+
+def preparar_subida(archivos: list[UploadedFile]) -> list[SubidaPreparada]:
+    """Fase 1 de la subida (TKT-071, DEC-AUTO-1315): validación por contenido, resaneado y
+    codificación de los derivados (segundos de CPU por foto, más con el presupuesto por píxel),
+    sin transacción abierta y sin escribir en disco. Se llama FUERA de toda transacción (la vista
+    la llama antes de `idempotencia.ejecutar`): dentro, la conexión quedaría ociosa todo ese tiempo
+    y el rol app_rw tiene `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000), así que
+    PostgreSQL cortaba la conexión a mitad de la subida de una foto grande con mucho detalle.
+
+    Solo lee la BD para no codificar un archivo que ya existe (DUPLICADO); `persistir_subida` lo
+    vuelve a comprobar dentro de su transacción. Al no escribir nada, repetir la petición (misma
+    Idempotency-Key) o descartarla no deja archivos ni filas."""
+    preparadas: list[SubidaPreparada] = []
     for archivo in archivos:
         nombre = archivo.name or "archivo"
         contenido = archivo.read()
         try:
             formato, imagen = _validar_formato_y_tamano(contenido)
         except _RechazadoError as exc:
-            resultados.append(
-                ResultadoArchivo(
+            preparadas.append(
+                SubidaPreparada(
                     nombre_archivo=nombre,
-                    resultado="RECHAZADO",
-                    motivo={"code": exc.code, "detalle": exc.detalle},
+                    resultado=ResultadoArchivo(
+                        nombre_archivo=nombre,
+                        resultado="RECHAZADO",
+                        motivo={"code": exc.code, "detalle": exc.detalle},
+                    ),
                 )
             )
             continue
-
         huella = _sha256(contenido)
         existente = _medio_por_huella(huella)
         if existente is not None:
-            resultados.append(
-                ResultadoArchivo(
-                    nombre_archivo=nombre, resultado="DUPLICADO", medio_existente_id=existente.pk
+            preparadas.append(
+                SubidaPreparada(
+                    nombre_archivo=nombre,
+                    resultado=ResultadoArchivo(
+                        nombre_archivo=nombre,
+                        resultado="DUPLICADO",
+                        medio_existente_id=existente.pk,
+                    ),
                 )
             )
             continue
-
-        # TKT-071 (DEC-AUTO-1314): el resaneado y la codificación de los derivados (segundos de CPU
-        # por foto, más con el presupuesto por píxel) se hacen ANTES de abrir la transacción. Dentro
-        # de ella la conexión quedaría ociosa todo ese tiempo y el rol app_rw tiene
-        # `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000): una foto grande con mucho
-        # detalle podía hacer que PostgreSQL cortara la conexión a mitad de la subida.
         saneado, sha_saneado, extension = _resanear(imagen)
-        codificacion = _codificar_derivados(imagen)
+        preparadas.append(
+            SubidaPreparada(
+                nombre_archivo=nombre,
+                huella=huella,
+                formato_origen=_FORMATOS_ORIGEN_PIL[formato],
+                ancho_px=imagen.width,
+                alto_px=imagen.height,
+                peso_bytes=len(contenido),
+                saneado=saneado,
+                sha256_saneado=sha_saneado,
+                extension=extension,
+                codificacion=_codificar_derivados(imagen),
+            )
+        )
+        imagen.close()
+    return preparadas
+
+
+def persistir_subida(actor_id: int, preparadas: list[SubidaPreparada]) -> list[ResultadoArchivo]:
+    """Fase 2 de la subida (TKT-071): solo escrituras rápidas (filas y archivos ya codificados);
+    puede ir dentro de una transacción exterior (`idempotencia.ejecutar`)."""
+    resultados: list[ResultadoArchivo] = []
+    for p in preparadas:
+        if p.resultado is not None:
+            resultados.append(p.resultado)
+            continue
+        if p.codificacion is None:  # pragma: no cover - invariante de `preparar_subida`
+            raise ValueError("Subida preparada sin derivados")
+        existente = _medio_por_huella(p.huella)
+        if existente is not None:
+            # Otro archivo de esta misma subida, u otra petición, lo creó después de preparar.
+            resultados.append(
+                ResultadoArchivo(
+                    nombre_archivo=p.nombre_archivo,
+                    resultado="DUPLICADO",
+                    medio_existente_id=existente.pk,
+                )
+            )
+            continue
         with transaction.atomic():
             # El original saneado nunca se sirve (THREAT-023, ADR-API-002 §8): siempre vive en
             # `privado/`, en todo estado del medio (no lo mueve `_mover_derivados`, que solo
             # actúa sobre `MedioDerivado`).
-            ruta_relativa = f"originales/{huella}.{extension}"
+            ruta_relativa = f"originales/{p.huella}.{p.extension}"
             try:
                 # Savepoint propio (TKT-012): si otra petición concurrente insertó la misma
                 # huella entre la comprobación de arriba y este INSERT, el IntegrityError solo
@@ -587,26 +655,26 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                 with transaction.atomic():
                     medio = Medio.objects.create(
                         archivo_saneado_ruta=ruta_relativa,
-                        formato_origen=_FORMATOS_ORIGEN_PIL[formato],
-                        ancho_px=imagen.width,
-                        alto_px=imagen.height,
-                        peso_bytes=len(contenido),
-                        huella_sha256=huella,
-                        sha256_saneado=sha_saneado,
+                        formato_origen=p.formato_origen,
+                        ancho_px=p.ancho_px,
+                        alto_px=p.alto_px,
+                        peso_bytes=p.peso_bytes,
+                        huella_sha256=p.huella,
+                        sha256_saneado=p.sha256_saneado,
                         subido_por_id=actor_id,
                     )
             except IntegrityError:
-                existente = _medio_por_huella(huella)
+                existente = _medio_por_huella(p.huella)
                 resultados.append(
                     ResultadoArchivo(
-                        nombre_archivo=nombre,
+                        nombre_archivo=p.nombre_archivo,
                         resultado="DUPLICADO",
                         medio_existente_id=existente.pk if existente else None,
                     )
                 )
                 continue
-            _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, saneado)
-            derivados = _generar_derivados(codificacion, huella)
+            _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, p.saneado)
+            derivados = _generar_derivados(p.codificacion, p.huella)
             # `bulk_create` inserta `char(64)` por una expresión UNNEST que Postgres/psycopg
             # castea a `char[]` (longitud 1 por omisión) y trunca cada huella a un carácter: se
             # crea cada derivado por separado, como ya hace `apps.contenido.tests.publicos`.
@@ -614,9 +682,16 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                 derivado.medio = medio
                 derivado.save()
         resultados.append(
-            ResultadoArchivo(nombre_archivo=nombre, resultado="ACEPTADO", medio=medio)
+            ResultadoArchivo(nombre_archivo=p.nombre_archivo, resultado="ACEPTADO", medio=medio)
         )
     return resultados
+
+
+def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
+    """Subida completa: `preparar_subida` (sin transacción) + `persistir_subida`. Para llamadas
+    fuera de una transacción (`cargar_semilla`); la vista del panel llama a las dos fases por
+    separado para codificar antes de `idempotencia.ejecutar`."""
+    return persistir_subida(actor_id, preparar_subida(archivos))
 
 
 def obtener(medio_id: int) -> Medio:

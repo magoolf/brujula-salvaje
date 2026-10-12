@@ -174,9 +174,15 @@ class ListaMedios(_VistaMediosMixta):
         if not archivos or len(archivos) > MAXIMO_ARCHIVOS:
             raise ParametroInvalido(errors={"archivos": ["Sube entre 1 y 10 archivos."]})
         actor = cuenta_de(request)
+        # TKT-071 (DEC-AUTO-1315): validación, resaneado y codificación (segundos de CPU por foto)
+        # ANTES de `idempotencia.ejecutar`, que abre la transacción: dentro, la conexión de app_rw
+        # quedaba ociosa más de `idle_in_transaction_session_timeout` (30 s) con fotos grandes y
+        # detalladas y PostgreSQL la cortaba (500). La preparación no escribe nada: una repetición
+        # con la misma Idempotency-Key solo reproduce la respuesta guardada.
+        preparadas = services.preparar_subida(archivos)
 
         def efecto() -> idempotencia.Resultado:
-            resultados = services.subir_medios(actor.pk, archivos)
+            resultados = services.persistir_subida(actor.pk, preparadas)
             precargar_panel([r.medio for r in resultados if r.medio is not None])
             cuerpo = ResultadoSubidaSerializer({"resultados": resultados}).data
             return idempotencia.Resultado(codigo_http=status.HTTP_200_OK, cuerpo=cuerpo)
