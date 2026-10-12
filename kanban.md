@@ -647,6 +647,18 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["QA PASS ciclo 1/3 (OBS-QA070-01 LOW, INFO-QA070-02/03 al Informe); integrado PR #106 @ e8bf97c", "PR #106 HEAD 20af29f, CI 5/5 verde CLEAN; vitest 875 PASS (cob 90.11%); E2E panel-foco-no-oculto antes 4 fail / después 4 pass (375,1280); suite E2E Chromium 227 pass 6 skip; DEC-AUTO-1300..1303 (ReservaDesplazamiento dinámica, StatusBar reserva borde, foco-ruta.ts sin cambios, destinos sin área)", "DEC-AUTO-1000 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado. Developer lanzado en worktree aislado; arranca tras integrar TKT-042."]
     actualizado: 2026-10-11
+  - id: TKT-071
+    titulo: "MEDIUM (residual TKT-021, REQ-052): LCP móvil de /colecciones 2984 ms > 2,5 s porque la imagen de la 1.ª colección de la semilla pesa 87 KB en AVIF 800w (resto 50-56 KB). Corregir en origen (derivados en backend y/o recodificación del activo de semilla) sin degradar nitidez percibida; medir con Lighthouse devtools n=5"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: Skill_Developer
+    trazabilidad: [REQ-052, TKT-021, TKT-048]
+    depende_de: [TKT-021]
+    archivos_permitidos: ["backend/apps/medios/**", "backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**", "docs/adr/ADR-medios-*.md"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #108 @ e8eb72b CI verde; /colecciones 2993->2336 ms devtools n=5; DEC-AUTO-1310..1314", "DEC-AUTO-1001 (ORIGEN: EXPANSIÓN_AUTÓNOMA): se separa el residual de /colecciones de TKT-021 y se revierte la exclusión de backend de DEC-AUTO-998 solo para este ticket. Alternativas: aceptar con riesgo (descartada: incumple REQ-052), bloquear TKT-021 (descartada: 6/7 rutas ya cumplen). Riesgo bajo; reversible"]
+    actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
@@ -1034,15 +1046,15 @@ tickets:
   - id: TKT-021
     titulo: "LCP móvil de las páginas de listado 3.1-3.7 s (Lighthouse móvil, throttling simulado) frente a REQ-052 (≤ 2,5 s): preexistente, medido igual en main antes de TKT-018, sin ticket que lo cubra (TKT-016 solo cubre CLS). Investigar la causa (imagen LCP, bundle, TTFB de SSR, fuentes) y corregir o acotar"
     fase: F7
-    estado: IN_PROGRESS
+    estado: QA_FAIL
     owner: Skill_Developer
     trazabilidad: [REQ-052, TKT-018, TKT-016]
     depende_de: [TKT-016, TKT-020]
     archivos_permitidos: ["frontend/angular.json", "frontend/src/app/features/destinos/**", "frontend/src/app/features/guias/**", "frontend/src/app/features/itinerarios/**", "frontend/src/app/shared/ui/**"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build.", "QA de TKT-010 (OBS-08): LCP de laboratorio > 2.5 s también en Inicio en main (2.65-2.80 s móvil), CLS de /destinos en Lighthouse móvil de 0.67 a 0.95 y /acerca-de con CLS 1.12 en Chromium (pie desplazado), todo preexistente. Incluir Inicio y /acerca-de en la investigación; coordinar con TKT-016 (CLS).", "QA de TKT-020: F-QA020-03, en WebKit la ficha y el itinerario descargan el JPEG del src SSR del LCP además del WebP del <source> (1 petición extra). Y F-QA020-04 (TKT-030, recreación del DOM en la hidratación) probablemente influye en LCP y CLS.", "DEC-AUTO-938: incluye el residual de LCP simulado de Inicio de TKT-010 (~150 ms, solo en Lighthouse con throttling simulado; tiempos observados iguales a main). Causa medida por el Developer de TKT-010: con ≥3 chunks diferidos, @angular/build 22.2 (rolldown con main como única entrada) separa el framework (~90 kB gzip) en un chunk aparte junto a un main pequeño. Investigar en la configuración del build (angular.json, budgets/optimization, variables de build del Dockerfile o la versión de @angular/build); NG_BUILD_OPTIMIZE_CHUNKS=false empeora (5 ficheros).", "QA TKT-010 c2: en /destinos el LCP simulado empeora ~150 ms con paridad en el observado (misma causa que DEC-AUTO-938).", "QA TKT-010 c3: LCP simulado de /destinos y /acerca-de ~150-300 ms peor que main con paridad observada (mismo mecanismo de DEC-AUTO-938)."]
-    actualizado: 2026-10-01
+    evidencia: ["QA c1/3 FAIL de procedimiento: rendimiento NOT_RUN (equipo con batería); resto PASS (E2E Chromium 248/248, CLS 0, axe, SAST). DEC-AUTO-1002: repetir solo LCP enchufado (c2/3), sin ciclo de Developer", "PR #104 HEAD ca8dbd5 CI verde; Lighthouse devtools n=5 alternado: /guias 2281, /itinerarios 2300, /cuando-ir 1803, /cuando-ir/7 2346, /tipos-de-aventura 2085, /destinos 2146 ms; / y ficha sin regresión; CLS 0 en 90 ejecuciones; /colecciones 2984 ms residual (imagen semilla 87 KB AVIF 800w) -> TKT-071 por DEC-AUTO-1001; DEC-AUTO-1270..1274 (preload solo Source Sans; salto mapa TKT-042)", "Abierto a partir de QA_VERDICT PASS de TKT-018 (riesgo 2). Depende de TKT-016 y TKT-020 por solape de archivos. archivos_permitidos provisionales: ampliar por DEC-AUTO si la causa está en core/ o en la configuración de build.", "QA de TKT-010 (OBS-08): LCP de laboratorio > 2.5 s también en Inicio en main (2.65-2.80 s móvil), CLS de /destinos en Lighthouse móvil de 0.67 a 0.95 y /acerca-de con CLS 1.12 en Chromium (pie desplazado), todo preexistente. Incluir Inicio y /acerca-de en la investigación; coordinar con TKT-016 (CLS).", "QA de TKT-020: F-QA020-03, en WebKit la ficha y el itinerario descargan el JPEG del src SSR del LCP además del WebP del <source> (1 petición extra). Y F-QA020-04 (TKT-030, recreación del DOM en la hidratación) probablemente influye en LCP y CLS.", "DEC-AUTO-938: incluye el residual de LCP simulado de Inicio de TKT-010 (~150 ms, solo en Lighthouse con throttling simulado; tiempos observados iguales a main). Causa medida por el Developer de TKT-010: con ≥3 chunks diferidos, @angular/build 22.2 (rolldown con main como única entrada) separa el framework (~90 kB gzip) en un chunk aparte junto a un main pequeño. Investigar en la configuración del build (angular.json, budgets/optimization, variables de build del Dockerfile o la versión de @angular/build); NG_BUILD_OPTIMIZE_CHUNKS=false empeora (5 ficheros).", "QA TKT-010 c2: en /destinos el LCP simulado empeora ~150 ms con paridad en el observado (misma causa que DEC-AUTO-938).", "QA TKT-010 c3: LCP simulado de /destinos y /acerca-de ~150-300 ms peor que main con paridad observada (mismo mecanismo de DEC-AUTO-938)."]
+    actualizado: 2026-10-12
   - id: TKT-009
     titulo: "Frontend público 2: itinerarios, guías, tipos de aventura, colecciones, glosario, búsqueda, institucional/legal, créditos"
     fase: F7
