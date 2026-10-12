@@ -593,8 +593,11 @@ jobs:
           time.sleep(2)
           durante = shmem()
           print(f"shmem del proxy: antes {antes >> 20} MB, con 2 x 100 MB retenidos {durante >> 20} MB")
-          tercera = abrir(MB); tercera.sendall(b"\0" * 1024)
-          st, h, cuerpo = leer(tercera)
+          tercera = abrir(MB); tercera.sendall(b"\0" * 1024); tercera.settimeout(15)
+          try:  # sin limit_conn, nginx esperaría el resto del cuerpo: sin respuesta en 15 s = fallo
+              st, h, cuerpo = leer(tercera)
+          except socket.timeout:
+              st, h, cuerpo = None, {}, b"{}"
           print("3.a subida simultánea:", st, h.get("content-type"))
           for s in retenidas: s.sendall(b"\0" * 1024)
           finales = [leer(s)[0] for s in retenidas]
