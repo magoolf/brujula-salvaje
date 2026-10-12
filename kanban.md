@@ -650,14 +650,14 @@ tickets:
   - id: TKT-071
     titulo: "MEDIUM (residual TKT-021, REQ-052): LCP móvil de /colecciones 2984 ms > 2,5 s porque la imagen de la 1.ª colección de la semilla pesa 87 KB en AVIF 800w (resto 50-56 KB). Corregir en origen (derivados en backend y/o recodificación del activo de semilla) sin degradar nitidez percibida; medir con Lighthouse devtools n=5"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [REQ-052, TKT-021, TKT-048]
     depende_de: [TKT-021]
     archivos_permitidos: ["backend/apps/medios/**", "backend/seed/**", "backend/apps/contenido/management/**", "backend/apps/contenido/tests/**", "docs/adr/ADR-medios-*.md"]
-    ciclo_qa: 1/3
+    ciclo_qa: 2/3
     ciclo_panico: 0/2
-    evidencia: ["Corrección c2: PR #108 @ 862cdee CI verde, DEC-AUTO-1315 (preparar fuera de la transacción)", "QA c1/3 FAIL: F-QA071-01 HIGH (subida por el panel sigue codificando dentro de transaction.atomic de idempotencia.ejecutar -> 500 por idle-in-transaction con fotos 7,7 MP; regresión). AC1/AC2 NOT_RUN (batería)", "PR #108 @ e8eb72b CI verde; /colecciones 2993->2336 ms devtools n=5; DEC-AUTO-1310..1314", "DEC-AUTO-1001 (ORIGEN: EXPANSIÓN_AUTÓNOMA): se separa el residual de /colecciones de TKT-021 y se revierte la exclusión de backend de DEC-AUTO-998 solo para este ticket. Alternativas: aceptar con riesgo (descartada: incumple REQ-052), bloquear TKT-021 (descartada: 6/7 rutas ya cumplen). Riesgo bajo; reversible"]
+    evidencia: ["QA c2/3 PASS; PR #108 @ a6d3f05 CI verde, integrado. DONE", "Corrección c2: PR #108 @ 862cdee CI verde, DEC-AUTO-1315 (preparar fuera de la transacción)", "QA c1/3 FAIL: F-QA071-01 HIGH (subida por el panel sigue codificando dentro de transaction.atomic de idempotencia.ejecutar -> 500 por idle-in-transaction con fotos 7,7 MP; regresión). AC1/AC2 NOT_RUN (batería)", "PR #108 @ e8eb72b CI verde; /colecciones 2993->2336 ms devtools n=5; DEC-AUTO-1310..1314", "DEC-AUTO-1001 (ORIGEN: EXPANSIÓN_AUTÓNOMA): se separa el residual de /colecciones de TKT-021 y se revierte la exclusión de backend de DEC-AUTO-998 solo para este ticket. Alternativas: aceptar con riesgo (descartada: incumple REQ-052), bloquear TKT-021 (descartada: 6/7 rutas ya cumplen). Riesgo bajo; reversible"]
     actualizado: 2026-10-12
   - id: TKT-072
     titulo: "MEDIUM (OBS-QA071-01, previo): _resanear tarda ~400 s con una foto de 4800x3600 (17 MP) en el contenedor y gunicorn mata el worker a los 120 s; el panel admite fotos ≤ 40 MP/10 MB. Hacer que la subida de fotos de cámara dentro de los límites admitidos termine bien y en tiempo razonable (o rechazarla con error claro antes de procesar)"
@@ -666,10 +666,22 @@ tickets:
     owner: Skill_Developer
     trazabilidad: [THREAT-medios, TKT-071, TKT-048]
     depende_de: [TKT-071]
-    archivos_permitidos: ["backend/apps/medios/**", "docs/adr/ADR-medios-*.md"]
+    archivos_permitidos: ["backend/apps/medios/**", "docs/adr/ADR-medios-*.md", "frontend/src/app/features/panel/state/subida-medios.store*.ts", "frontend/src/app/features/panel/data/panel-medios.repositorio*.ts", "frontend/src/app/features/panel/ui/subida-medios*.ts", "frontend/e2e/**/*medios*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1003: abierto desde QA TKT-071 c1; mismo código que TKT-071, se encadena tras su DONE"]
+    evidencia: ["DEC-AUTO-1005: alcance ampliado con OBS-QA071-03 (lote de 10 fotos > 120 s) y OBS-QA071-04", "Código inicial en origin/tkt-072-subida-fotos-grandes (DEC-AUTO-1320..1322: copia en C sin putdata, tope 2560 px, liberar memoria)", "DEC-AUTO-1003: abierto desde QA TKT-071 c1; mismo código que TKT-071, se encadena tras su DONE"]
+    actualizado: 2026-10-12
+  - id: TKT-OPS-034
+    titulo: "MEDIUM (OBS-QA071-02/03): el proxy responde 413 carga_demasiado_grande en vez de 503 servicio_no_disponible cuando el upstream agota el tiempo con un cuerpo > 2 MB (la location /_errores_proxy/503 hereda client_max_body_size 2m)"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: Skill_devops
+    trazabilidad: [TKT-071, TKT-072]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["PR #109 @ ad97607 CI verde; DEC-AUTO-1330..1332, DEC-AUTO-1006", "DEC-AUTO-1005"]
     actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
