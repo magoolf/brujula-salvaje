@@ -78,6 +78,22 @@ CALIDADES_REINTENTO: dict[str, tuple[int, ...]] = {
     FormatoDerivado.WEBP: (70, 62),
     FormatoDerivado.AVIF: (44, 36),
 }
+# TKT-071 (REQ-052, ADR-medios-001): presupuesto de peso por píxel del AVIF, el formato que eligen
+# todos los navegadores actuales en el `<picture>`. Con calidad fija el peso depende del contenido:
+# las fotos con mucho detalle fino (follaje, roca, agua rizada) pesan hasta el doble que la mediana
+# de la semilla (0,10 B/px a 800 px) y, siendo imagen LCP, superan los 2,5 s en móvil (la de la
+# primera colección pesaba 85-87 KB a 800 px frente a 50-56 KB de las demás rutas). Si el AVIF a la
+# calidad base supera el presupuesto se recodifica con `CALIDADES_PRESUPUESTO` hasta caber; la
+# última es el suelo y se conserva aunque no quepa (nunca se baja de ahí para no perder nitidez
+# visible). En esas imágenes el propio detalle enmascara la pérdida (enmascaramiento por textura);
+# las de detalle normal (≈ 87 % de la semilla) no cambian. El WebP es solo respaldo de navegadores
+# sin AVIF y no lleva presupuesto.
+PRESUPUESTO_BYTES_POR_PIXEL: dict[str, float] = {
+    FormatoDerivado.AVIF: 0.15,
+}
+CALIDADES_PRESUPUESTO: dict[str, tuple[int, ...]] = {
+    FormatoDerivado.AVIF: (48, 44),
+}
 
 
 @dataclass(frozen=True)
@@ -252,10 +268,42 @@ def _codificar(imagen: Image.Image, formato: str, calidad: int | None = None) ->
     return buffer.getvalue()
 
 
+def _ajustar_a_presupuesto(
+    redimensionada: Image.Image, formato: str, contenido: bytes
+) -> tuple[bytes, int]:
+    """TKT-071: si `contenido` supera `PRESUPUESTO_BYTES_POR_PIXEL` del formato, lo recodifica con
+    `CALIDADES_PRESUPUESTO` hasta caber; la última calidad es el suelo y su resultado se conserva
+    aunque no quepa. Devuelve el contenido y la calidad con la que quedó codificado."""
+    calidad: int = PARAMETROS_CODIFICACION[formato]["quality"]
+    por_pixel = PRESUPUESTO_BYTES_POR_PIXEL.get(formato)
+    if por_pixel is None:
+        return contenido, calidad
+    presupuesto = int(por_pixel * redimensionada.width * redimensionada.height)
+    if len(contenido) <= presupuesto:
+        return contenido, calidad
+    peso_inicial = len(contenido)
+    for calidad in CALIDADES_PRESUPUESTO.get(formato, ()):
+        contenido = _codificar(redimensionada, formato, calidad)
+        if len(contenido) <= presupuesto:
+            break
+    logger.info(
+        "derivado_ajustado_a_presupuesto",
+        formato=str(formato),
+        ancho=redimensionada.width,
+        peso_inicial=peso_inicial,
+        peso=len(contenido),
+        presupuesto=presupuesto,
+        calidad=calidad,
+    )
+    return contenido, calidad
+
+
 def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> dict[str, bytes]:
     """Codifica un ancho en los tres formatos garantizando AVIF ≤ WebP ≤ JPEG en bytes entre los
     que se sirven (TKT-048): un formato eficiente que pesa más que el anterior servido se reintenta
-    con `CALIDADES_REINTENTO` y, si sigue pesando más, se descarta."""
+    con `CALIDADES_REINTENTO` y, si sigue pesando más, se descarta. Antes, el formato con
+    presupuesto por píxel (TKT-071) se ajusta a él (`_ajustar_a_presupuesto`); los reintentos por
+    orden de pesos solo usan calidades inferiores a la que ya resultó."""
     resultado: dict[str, bytes] = {}
     techo: int | None = None  # peso del último formato servido (el menos eficiente hasta aquí)
     for formato in ORDEN_CODIFICACION:
@@ -269,8 +317,10 @@ def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> di
             logger.warning("derivado_omitido", formato=str(formato), ancho=redimensionada.width)
             no_soportados.add(formato)
             continue
+        contenido, calidad_actual = _ajustar_a_presupuesto(redimensionada, formato, contenido)
         if techo is not None and len(contenido) > techo:
-            for calidad in CALIDADES_REINTENTO.get(formato, ()):
+            reintentos = [q for q in CALIDADES_REINTENTO.get(formato, ()) if q < calidad_actual]
+            for calidad in reintentos:
                 contenido = _codificar(redimensionada, formato, calidad)
                 if len(contenido) <= techo:
                     break
@@ -317,9 +367,9 @@ def _ruta_derivado(huella: str, ancho: int, formato: str, version: str = "") -> 
     return f"derivados/{huella}-{ancho}{sufijo}.{str(formato).lower()}"
 
 
-def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
+def _generar_derivados(codificacion: Codificacion, huella: str) -> list[MedioDerivado]:
     derivados: list[MedioDerivado] = []
-    for codificado in _codificar_derivados(imagen).derivados:
+    for codificado in codificacion.derivados:
         # Recién generado: el medio dueño siempre está en PENDIENTE_METADATOS (DEC-AUTO-110,
         # ningún medio nace DISPONIBLE), así que el derivado empieza en `privado/`;
         # `catalogar()` lo mueve a `publico/` si y cuando el medio pasa a DISPONIBLE.
@@ -367,18 +417,27 @@ def regenerar_derivados(medio_id: int) -> ResultadoRegeneracion:
     - Bloquea la fila del medio (`select_for_update`) para no cruzarse con `catalogar()`/
       `retirar()`, que mueven los archivos entre áreas."""
     resultado = ResultadoRegeneracion()
+    # TKT-071 (DEC-AUTO-1314): se codifica ANTES de abrir la transacción y de bloquear la fila,
+    # para no dejar la conexión ociosa dentro de ella durante segundos de CPU (`app_rw` tiene
+    # `idle_in_transaction_session_timeout = 30s`). El original saneado no cambia nunca: su ruta
+    # sale de la huella del archivo subido (`originales/<huella>.<ext>`), inmutable.
+    ruta_original = (
+        Medio.objects.filter(pk=medio_id).values_list("archivo_saneado_ruta", flat=True).first()
+    )
+    if ruta_original is None:
+        raise NoEncontrado()
+    original = _ruta_absoluta(RAIZ_PRIVADA, ruta_original)
+    if not original.exists():
+        logger.warning("regenerar_original_no_encontrado", medio_id=medio_id)
+        resultado.omitido = True
+        return resultado
+    with Image.open(original) as imagen:
+        imagen.load()
+        codificacion = _codificar_derivados(imagen)
     with transaction.atomic():
         medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
-        if medio is None:
+        if medio is None:  # pragma: no cover - carrera: borrado entre la lectura y el bloqueo
             raise NoEncontrado()
-        original = _ruta_absoluta(RAIZ_PRIVADA, medio.archivo_saneado_ruta)
-        if not original.exists():
-            logger.warning("regenerar_original_no_encontrado", medio_id=medio.pk)
-            resultado.omitido = True
-            return resultado
-        with Image.open(original) as imagen:
-            imagen.load()
-            codificacion = _codificar_derivados(imagen)
         area = RAIZ_PUBLICA if medio.estado == EstadoMedio.DISPONIBLE else RAIZ_PRIVADA
         existentes = {(d.formato, d.ancho_px): d for d in medio.derivados.all()}
         nuevos = {(c.formato, c.ancho): c for c in codificacion.derivados}
@@ -480,39 +539,113 @@ def _medio_por_huella(huella: str) -> Medio | None:
     return Medio.objects.filter(huella_sha256=huella).first()
 
 
-def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
-    resultados: list[ResultadoArchivo] = []
+@dataclass(frozen=True)
+class SubidaPreparada:
+    """Un archivo de la subida tras la fase sin BD (`preparar_subida`). Si `resultado` ya está
+    decidido (RECHAZADO, o DUPLICADO detectado al preparar) no hay nada que persistir; si no,
+    lleva el original saneado y los derivados ya codificados, solo en memoria (nada en disco)."""
+
+    nombre_archivo: str
+    resultado: ResultadoArchivo | None = None
+    huella: str = ""
+    formato_origen: str = ""
+    ancho_px: int = 0
+    alto_px: int = 0
+    peso_bytes: int = 0
+    saneado: bytes = b""
+    sha256_saneado: str = ""
+    extension: str = ""
+    codificacion: Codificacion | None = None
+
+
+def preparar_subida(archivos: list[UploadedFile]) -> list[SubidaPreparada]:
+    """Fase 1 de la subida (TKT-071, DEC-AUTO-1315): validación por contenido, resaneado y
+    codificación de los derivados (segundos de CPU por foto, más con el presupuesto por píxel),
+    sin transacción abierta y sin escribir en disco. Se llama FUERA de toda transacción (la vista
+    la llama antes de `idempotencia.ejecutar`): dentro, la conexión quedaría ociosa todo ese tiempo
+    y el rol app_rw tiene `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000), así que
+    PostgreSQL cortaba la conexión a mitad de la subida de una foto grande con mucho detalle.
+
+    Solo lee la BD para no codificar un archivo que ya existe (DUPLICADO); `persistir_subida` lo
+    vuelve a comprobar dentro de su transacción. Al no escribir nada, repetir la petición (misma
+    Idempotency-Key) o descartarla no deja archivos ni filas."""
+    preparadas: list[SubidaPreparada] = []
     for archivo in archivos:
         nombre = archivo.name or "archivo"
         contenido = archivo.read()
         try:
             formato, imagen = _validar_formato_y_tamano(contenido)
         except _RechazadoError as exc:
-            resultados.append(
-                ResultadoArchivo(
+            preparadas.append(
+                SubidaPreparada(
                     nombre_archivo=nombre,
-                    resultado="RECHAZADO",
-                    motivo={"code": exc.code, "detalle": exc.detalle},
+                    resultado=ResultadoArchivo(
+                        nombre_archivo=nombre,
+                        resultado="RECHAZADO",
+                        motivo={"code": exc.code, "detalle": exc.detalle},
+                    ),
                 )
             )
             continue
-
         huella = _sha256(contenido)
         existente = _medio_por_huella(huella)
         if existente is not None:
-            resultados.append(
-                ResultadoArchivo(
-                    nombre_archivo=nombre, resultado="DUPLICADO", medio_existente_id=existente.pk
+            preparadas.append(
+                SubidaPreparada(
+                    nombre_archivo=nombre,
+                    resultado=ResultadoArchivo(
+                        nombre_archivo=nombre,
+                        resultado="DUPLICADO",
+                        medio_existente_id=existente.pk,
+                    ),
                 )
             )
             continue
+        saneado, sha_saneado, extension = _resanear(imagen)
+        preparadas.append(
+            SubidaPreparada(
+                nombre_archivo=nombre,
+                huella=huella,
+                formato_origen=_FORMATOS_ORIGEN_PIL[formato],
+                ancho_px=imagen.width,
+                alto_px=imagen.height,
+                peso_bytes=len(contenido),
+                saneado=saneado,
+                sha256_saneado=sha_saneado,
+                extension=extension,
+                codificacion=_codificar_derivados(imagen),
+            )
+        )
+        imagen.close()
+    return preparadas
 
+
+def persistir_subida(actor_id: int, preparadas: list[SubidaPreparada]) -> list[ResultadoArchivo]:
+    """Fase 2 de la subida (TKT-071): solo escrituras rápidas (filas y archivos ya codificados);
+    puede ir dentro de una transacción exterior (`idempotencia.ejecutar`)."""
+    resultados: list[ResultadoArchivo] = []
+    for p in preparadas:
+        if p.resultado is not None:
+            resultados.append(p.resultado)
+            continue
+        if p.codificacion is None:  # pragma: no cover - invariante de `preparar_subida`
+            raise ValueError("Subida preparada sin derivados")
+        existente = _medio_por_huella(p.huella)
+        if existente is not None:
+            # Otro archivo de esta misma subida, u otra petición, lo creó después de preparar.
+            resultados.append(
+                ResultadoArchivo(
+                    nombre_archivo=p.nombre_archivo,
+                    resultado="DUPLICADO",
+                    medio_existente_id=existente.pk,
+                )
+            )
+            continue
         with transaction.atomic():
-            saneado, sha_saneado, extension = _resanear(imagen)
             # El original saneado nunca se sirve (THREAT-023, ADR-API-002 §8): siempre vive en
             # `privado/`, en todo estado del medio (no lo mueve `_mover_derivados`, que solo
             # actúa sobre `MedioDerivado`).
-            ruta_relativa = f"originales/{huella}.{extension}"
+            ruta_relativa = f"originales/{p.huella}.{p.extension}"
             try:
                 # Savepoint propio (TKT-012): si otra petición concurrente insertó la misma
                 # huella entre la comprobación de arriba y este INSERT, el IntegrityError solo
@@ -522,26 +655,26 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                 with transaction.atomic():
                     medio = Medio.objects.create(
                         archivo_saneado_ruta=ruta_relativa,
-                        formato_origen=_FORMATOS_ORIGEN_PIL[formato],
-                        ancho_px=imagen.width,
-                        alto_px=imagen.height,
-                        peso_bytes=len(contenido),
-                        huella_sha256=huella,
-                        sha256_saneado=sha_saneado,
+                        formato_origen=p.formato_origen,
+                        ancho_px=p.ancho_px,
+                        alto_px=p.alto_px,
+                        peso_bytes=p.peso_bytes,
+                        huella_sha256=p.huella,
+                        sha256_saneado=p.sha256_saneado,
                         subido_por_id=actor_id,
                     )
             except IntegrityError:
-                existente = _medio_por_huella(huella)
+                existente = _medio_por_huella(p.huella)
                 resultados.append(
                     ResultadoArchivo(
-                        nombre_archivo=nombre,
+                        nombre_archivo=p.nombre_archivo,
                         resultado="DUPLICADO",
                         medio_existente_id=existente.pk if existente else None,
                     )
                 )
                 continue
-            _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, saneado)
-            derivados = _generar_derivados(imagen, huella)
+            _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, p.saneado)
+            derivados = _generar_derivados(p.codificacion, p.huella)
             # `bulk_create` inserta `char(64)` por una expresión UNNEST que Postgres/psycopg
             # castea a `char[]` (longitud 1 por omisión) y trunca cada huella a un carácter: se
             # crea cada derivado por separado, como ya hace `apps.contenido.tests.publicos`.
@@ -549,9 +682,16 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                 derivado.medio = medio
                 derivado.save()
         resultados.append(
-            ResultadoArchivo(nombre_archivo=nombre, resultado="ACEPTADO", medio=medio)
+            ResultadoArchivo(nombre_archivo=p.nombre_archivo, resultado="ACEPTADO", medio=medio)
         )
     return resultados
+
+
+def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoArchivo]:
+    """Subida completa: `preparar_subida` (sin transacción) + `persistir_subida`. Para llamadas
+    fuera de una transacción (`cargar_semilla`); la vista del panel llama a las dos fases por
+    separado para codificar antes de `idempotencia.ejecutar`."""
+    return persistir_subida(actor_id, preparar_subida(archivos))
 
 
 def obtener(medio_id: int) -> Medio:
