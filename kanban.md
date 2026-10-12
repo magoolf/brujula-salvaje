@@ -662,7 +662,7 @@ tickets:
   - id: TKT-072
     titulo: "MEDIUM (OBS-QA071-01, previo): _resanear tarda ~400 s con una foto de 4800x3600 (17 MP) en el contenedor y gunicorn mata el worker a los 120 s; el panel admite fotos ≤ 40 MP/10 MB. Hacer que la subida de fotos de cámara dentro de los límites admitidos termine bien y en tiempo razonable (o rechazarla con error claro antes de procesar)"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [THREAT-medios, TKT-071, TKT-048]
     depende_de: [TKT-071]
