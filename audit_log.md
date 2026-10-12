@@ -599,3 +599,4 @@
 - 2026-10-12 | DELEGACION | TKT-021 | QA c2/3 solo bloque de rendimiento (AC1/AC2), equipo enchufado, trading_* detenidos. TKT-071 QA se lanza después para no contaminar las mediciones
 - 2026-10-12 | QA_PASS | TKT-021 | ciclo 2/3 (solo rendimiento, DEC-AUTO-1002) @ ca8dbd5, enchufado, benchmarkIndex 3295-4366, 90/90 válidas: /guias 2239, /itinerarios 2243, /cuando-ir 1739, /cuando-ir/7 2286, /tipos 2089, /destinos 1838 ms (main 4636/4674/4564/5865/4710/1867); / 1964 vs 2098, ficha 2162 vs 2399; CLS 0. OBS-QA021-01 descartada. OBS-QA021-02 LOW preexistente (target-size del mapa) al Informe sin ticket
 - 2026-10-12 | DELEGACION | TKT-071 | QA F8 sobre PR #108 @ e8eb72b (ciclo 1/3)
+- 2026-10-12 | INTEGRACION | TKT-021 | PR #104 sincronizado @ 7261637, CI 5/5 verde, integrado. DONE (14 de 15)
