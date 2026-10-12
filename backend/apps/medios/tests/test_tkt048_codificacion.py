@@ -147,6 +147,9 @@ def test_AC_TKT048_02_formato_que_no_cabe_ni_con_reintentos_se_descarta(
 def test_AC_TKT048_02_reintento_con_menor_calidad_cuando_el_primero_no_cabe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Solo el reintento por orden de pesos: el presupuesto por píxel (TKT-071) tiene su propia
+    # prueba en test_tkt071_presupuesto_peso.py.
+    monkeypatch.setattr(services, "PRESUPUESTO_BYTES_POR_PIXEL", {})
     reales = services._codificar
     calidades: list[int | None] = []
 
