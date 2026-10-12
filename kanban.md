@@ -638,14 +638,14 @@ tickets:
   - id: TKT-070
     titulo: "MEDIUM (QA TKT-042 OBS-QA042-01, preexistente; WCAG 2.4.11): en el editor del panel el destino de un ancla (campo desde el resumen de errores, título de sección tras editor-nav-*) queda tapado por la cabecera sticky HEADER.barra; falta scroll-margin/scroll-padding en el panel y el block:start del Router/FocoRuta prevalece sobre irACampo center. Destinos y controles enfocados visibles a 375 y 1280 px; E2E solo Chromium"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-042, "WCAG 2.4.11", SCR-041]
     depende_de: [TKT-042]
     archivos_permitidos: ["frontend/src/app/features/panel/**", "frontend/src/app/core/layout/foco-ruta.ts", "frontend/src/app/core/layout/foco-ruta.spec.ts", "frontend/e2e/panel-foco-no-oculto.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1000 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado. Developer lanzado en worktree aislado; arranca tras integrar TKT-042."]
+    evidencia: ["PR #106 HEAD 20af29f, CI 5/5 verde CLEAN; vitest 875 PASS (cob 90.11%); E2E panel-foco-no-oculto antes 4 fail / después 4 pass (375,1280); suite E2E Chromium 227 pass 6 skip; DEC-AUTO-1300..1303 (ReservaDesplazamiento dinámica, StatusBar reserva borde, foco-ruta.ts sin cambios, destinos sin área)", "DEC-AUTO-1000 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado. Developer lanzado en worktree aislado; arranca tras integrar TKT-042."]
     actualizado: 2026-10-11
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"

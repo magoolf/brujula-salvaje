@@ -581,3 +581,5 @@
 2026-10-11 | QA_PASS | TKT-042 | QA_VERDICT PASS ciclo 1/3 @ 79cd966 (rojo en main verificado). INFO al Informe sin ticket | HANDOFF_ENVELOPE QA TKT-042
 2026-10-11 | INTEGRACION | TKT-042 | PR #105 sincronizado @ db9a893, CI verde, integrado. DONE | PR #105
 2026-10-11 | NUEVO_TICKET | TKT-070 | DEC-AUTO-1000: OBS-QA042-01 (foco oculto bajo la cabecera sticky del editor del panel, WCAG 2.4.11, preexistente) abierto como MEDIUM; Developer lanzado. Total HIGH/MEDIUM antes de la entrega: 14 | HANDOFF_ENVELOPE QA TKT-042
+- 2026-10-11 | ENTREGA | TKT-070 | Developer READY_FOR_VALIDATION, PR #106 @ 20af29f, CI verde; DEC-AUTO-1300..1303 (ORIGEN: EXPANSIÓN_AUTÓNOMA); riesgo BAJO div#campo-fuentes sin indicador de foco (preexistente). NOT_RUN: Firefox/WebKit (decisión humana), E2E selector medios (E2E_SELECTOR_URL)
+- 2026-10-11 | DELEGACION | TKT-070 | QA F8 sobre PR #106 (ciclo 1/3)
