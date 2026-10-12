@@ -591,3 +591,6 @@
 - 2026-10-12 | DELEGACION | TKT-021 | QA F8 sobre PR #104 (ciclo 1/3)
 - 2026-10-12 | DELEGACION | TKT-071 | Developer (análisis desde la rama de #104; backend solo)
 - 2026-10-12 | PAUSA | Orquestador | el usuario apaga el portátil; QA TKT-021 y Developer TKT-071 detenidos con orden de guardar (push WIP); plan actualizado en docs/PLAN_CONTINUACION.md §1
+- 2026-10-12 | REANUDACION | Orquestador | verificado: main @ origin al día; PR #104 @ ca8dbd5 CI verde; rama tkt-071 con commit WIP 51631c5 (presupuesto de peso por píxel AVIF + ADR-medios-001; falta pytest completo, mypy, Lighthouse). Bajados stacks huérfanos brujulaqa021/021m, brujuladev071b/071t; quitados worktrees QA main021/rama021
+- 2026-10-12 | DELEGACION | TKT-021 | QA F8 relanzada desde cero sobre PR #104 @ ca8dbd5 (ciclo 1/3)
+- 2026-10-12 | DELEGACION | TKT-071 | Developer reanudado desde 51631c5 (worktree agent-ac2e5a2b930864fac)
