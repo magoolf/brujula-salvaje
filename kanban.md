@@ -674,14 +674,14 @@ tickets:
   - id: TKT-OPS-034
     titulo: "MEDIUM (OBS-QA071-02/03): el proxy responde 413 carga_demasiado_grande en vez de 503 servicio_no_disponible cuando el upstream agota el tiempo con un cuerpo > 2 MB (la location /_errores_proxy/503 hereda client_max_body_size 2m)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_devops
     trazabilidad: [TKT-071, TKT-072]
     depende_de: []
     archivos_permitidos: ["infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1005"]
+    evidencia: ["PR #109 @ ad97607 CI verde; DEC-AUTO-1330..1332, DEC-AUTO-1006", "DEC-AUTO-1005"]
     actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
