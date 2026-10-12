@@ -21,6 +21,8 @@ USER root
 # freetype, fontconfig, libx11...), entre ellos tiff 4.7.1-r0 con CVE-2026-4775 (HIGH). Se elimina
 # con sus dependencias huérfanas en lugar de fijar tiff. libexpat (CVE-2026-93990, antes fijada a
 # 2.8.5-r0) solo la usaba fontconfig: sale con ellas y deja de fijarse. El build falla si alguno vuelve.
+# /var/cache/nginx/cuerpos (TKT-OPS-035, DEC-AUTO-1340): cuerpos de petición en disco. Ahí se monta el
+# volumen "proxy_cuerpos"; al estar vacío, Docker copia el directorio con su propietario (101) y modo 0700.
 RUN apk add --no-cache "pcre2=10.49-r0" \
  && apk del --no-cache --no-network nginx-module-image-filter \
  && apk info -e "pcre2=10.49-r0" \
@@ -29,7 +31,8 @@ RUN apk add --no-cache "pcre2=10.49-r0" \
     done \
  && rm -f /etc/nginx/conf.d/default.conf \
  && rm -rf /docker-entrypoint.d/* \
- && mkdir -p /etc/nginx/snippets /srv/media
+ && mkdir -p /etc/nginx/snippets /srv/media \
+ && install -d -o 101 -g 101 -m 0700 /var/cache/nginx/cuerpos
 COPY --chown=root:root --chmod=0444 nginx.conf /etc/nginx/nginx.conf
 COPY --chown=root:root --chmod=0444 snippets/*.conf /etc/nginx/snippets/
 USER 101
