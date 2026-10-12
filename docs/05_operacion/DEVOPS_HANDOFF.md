@@ -17,6 +17,7 @@ Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 d
 Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub: espejo `mirror.gcr.io` en el Engine y en BuildKit del runner + reintentos con backoff, sin credenciales nuevas; FROM y digests sin cambios, 2026-10-09): ver §34.
 Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios y libro tras pérdida total (RSK-OPS-027), copia y restauración sin tmpfs (RSK-OPS-029), simulacro AC-054 reproducible en local y en CI, post-restore que no arranca la app si falta un paso (DEC-AUTO-908), runbook con perfil ops y libro v2 (CHG-DB-003), precondición de tipos/dominios (OBS-QAOPS007-03), 2026-10-11): ver §35. **Runbook de restauración vigente: §35.6.**
 Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canales implícitos: cualquier `TRIVY_*`, configuración generada, escrituras a `.trivyignore`, gate que no puede dejar de fallar, `sha256sum -c` junto a la instalación, guardia de ejecución; QA-OPS006-04/05, OBS-C3-1..3, 2026-10-11): ver §36. **La lista blanca vigente es §19.14.2 + §36.3.**
+Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -2994,3 +2995,90 @@ El enlace del run y el estado de los 5 checks obligatorios están en la descripc
 - Lanzar la QA del PR. Sugerencias: reejecutar `politica_trivy_controles.sh` y `trivy_guardia_controles.py`, comprobar en el log del job `images` que aparece "guardia de trivy OK" delante del gate y del control negativo, e intentar evasiones nuevas.
 - Registrar DEC-AUTO-1260 a 1265 y RSK-OPS-051/052.
 - Cerrar QA-OPS006-04 y QA-OPS006-05 (riesgo aceptado hasta este ticket).
+
+## 37. TKT-OPS-034: errores del proxy sobre subidas > 2 MB a `/api/v1/panel/medios` (OBS-QA071-02/03) (F7, MEDIUM)
+
+### 37.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§37.8). Rama `tkt-ops-034-error-proxy-subida` desde `origin/main` (74b6d91). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 37.2 Objetivo y causa
+Síntoma (QA de TKT-071): un `POST /api/v1/panel/medios` con un cuerpo > 2 MB cuyo upstream expira (WORKER TIMEOUT de gunicorn, 120 s) llega al cliente como **413** en lugar de **503 `servicio_no_disponible`**; el log del proxy muestra `"ruta":"/_errores_proxy/503","estado":413`.
+
+Causa: `error_page 502 503 504 =503 /_errores_proxy/503` hace una **redirección interna**. En ella nginx vuelve a ejecutar la fase de búsqueda de location y compara el `Content-Length` de la petición (ya leída entera, `proxy_request_buffering on`) con el `client_max_body_size` de la location de DESTINO. Las locations `/_errores_proxy/*` heredaban los `2m` del servidor (`client_max_body_size 2m`), así que la petición de 3 MB se rechazaba con 413 dentro de la propia página de error. Como `recursive_error_pages` está desactivado, ese 413 sale con la **página HTML por defecto de nginx** (`text/html`, sin Problem Details), y además con el `Retry-After: 5` de la location 503.
+
+Alcance comprobado (antes del cambio, imagen de `origin/main`):
+
+| Caso | Antes |
+|---|---|
+| medios, multipart 3 MB, upstream cierra la conexión (= WORKER TIMEOUT de gunicorn, 502) | **413 text/html** (log: `/_errores_proxy/503` → 413) |
+| medios, `Transfer-Encoding: chunked` 3 MB, upstream cierra (502) | **413 text/html** (nginx fija `Content-Length` tras leer un cuerpo chunked) |
+| medios, multipart 3 MB, upstream colgado → `proxy_read_timeout` 120 s (504) | **413 text/html** tras 120,06 s |
+| medios, 3 MB, **429 del limitador de borde** (`por_ip` saturada) | **413 text/html** (log: `/_errores_proxy/429` → 413) |
+| medios, cuerpo pequeño, upstream cierra | 503 problem+json (correcto) |
+| medios, `Content-Length` > 105 MB | 413 problem+json (correcto: nginx descarta el cuerpo y no vuelve a comprobarlo) |
+| cualquier otra ruta con cuerpo > 2 MB | 413 problem+json (correcto: se rechaza antes de leer el cuerpo) |
+
+Solo `location = /api/v1/panel/medios` admite cuerpos > 2 MB, así que es la única ruta afectada. Dentro de ella, los errores que el proxy redirige después de leer el cuerpo son 502/503/504 → 503 y 429. 400/403/404/405/413 no se dan ahí con un cuerpo ya leído, pero se corrigen igual por homogeneidad.
+
+### 37.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| `client_max_body_size 0;` en las **7** locations internas `/_errores_proxy/{429,400,403,404,405,413,503}`. Comentario junto a los `error_page` del servidor que lo explica y exige lo mismo en toda location nueva de `/_errores_proxy/*` | `infra/proxy/nginx.conf` | DEC-AUTO-1330 |
+| Comentario en `location = /api/v1/panel/medios` sobre la relación `proxy_read_timeout`/`proxy_send_timeout` 120s ↔ `GUNICORN_TIMEOUT` 120 (sin cambiar valores) | `infra/proxy/nginx.conf` | DEC-AUTO-1331 |
+| Regresión en el paso de CI existente "smoke: errores del proxy como Problem Details": (a) chequeo estático de que todas las locations `/_errores_proxy/*` (≥ 7) llevan `client_max_body_size 0`; (b) ráfaga de 200 `POST /` por keep-alive para saturar `por_ip` y subida de 3 MB a medios → exige **429 `limite_tasa` application/problem+json** con `X-Content-Type-Options`, `Content-Security-Policy`, `X-Trace-Id`, `Cache-Control` y `Retry-After`; después `sleep 5` para que el paso siguiente no herede la zona saturada | `.github/workflows/ci.yaml` | DEC-AUTO-1332 |
+
+Por qué no se relaja el límite de 2 MB: las locations `/_errores_proxy/*` son `internal`. nginx comprueba `internal` ANTES que `client_max_body_size`, así que una petición externa a esas rutas recibe 404 sin llegar a leer el cuerpo (verificado: `POST` de 3 MB a `/_errores_proxy/{503,413,429,400}` → 404 problem+json). Además solo hacen `return`, sin leer cuerpo. El límite de 2 MB del servidor y los 105 MB de medios no cambian.
+
+### 37.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1330**: `client_max_body_size 0` en las locations internas de error, en las 7 y no solo en la 503.
+  - Alternativas descartadas: (1) `105m` (igual al de medios): acopla dos valores que habría que mantener a la par sin ninguna ventaja, porque estas locations no leen cuerpo; (2) solo en `/_errores_proxy/503`: el 429 también estaba afectado y una location nueva repetiría el fallo; (3) `error_page` propio en la location de medios: sigue siendo una redirección interna a una location con 2m; (4) `recursive_error_pages on`: el 413 de la página de error saldría como 413 Problem Details, que sigue siendo el estado equivocado.
+  - Riesgo: nulo para el límite público (locations `internal`).
+  - Reversible (quitar la línea).
+- **DEC-AUTO-1331**: no cambiar `proxy_read_timeout 120s` / `proxy_send_timeout 120s` de medios. Están bien: igualan `--timeout ${GUNICORN_TIMEOUT:-120}` (`infra/docker/backend.Dockerfile`). El reloj de gunicorn empieza al aceptar la conexión, antes de recibir el cuerpo; el de `proxy_read_timeout`, después de enviarlo. Así que normalmente gunicorn mata antes al worker (502) y, si nginx expira primero, 504. Ambos salen como 503. Subir el de nginx no aporta nada (el worker ya habría muerto). Bajarlo cortaría subidas legítimas que gunicorn aún procesa. Queda documentado que deben moverse juntos (RSK-OPS-054).
+- **DEC-AUTO-1332**: la regresión del CI usa el 429 del borde, no un 503 real. Provocar el 503 en CI exige parar el backend (sin IP fija: al volver podría cambiar de IP, y nginx resuelve `backend` solo al arrancar, lo que rompería los pasos siguientes) o esperar 120 s. El 429 recorre el MISMO mecanismo: redirección interna con un cuerpo > 2 MB hacia `/_errores_proxy/*`. Antes daba 413 text/html. El 503 real se verificó en local con un upstream de prueba (§37.7). El chequeo estático cubre todas las locations, incluidas las futuras. Reversible.
+
+### 37.5 Versiones, infraestructura, dependencias y variables
+Sin cambios de versión, imagen base, digest, dependencias ni variables (`.env.example` no cambia). `pcre2=10.49-r0` sigue fijado.
+
+### 37.6 Seguridad
+- El límite de cuerpo público no cambia (2 MB servidor, 105 MB medios).
+- Las respuestas corregidas vuelven a llevar las cabeceras de `snippets/security-headers-error.conf`.
+- Desaparece una respuesta `text/html` por defecto de nginx que no cumplía el contrato (`components.responses`, Problem Details).
+
+### 37.7 Validaciones ejecutadas (2026-10-12, local: Windows 11, Docker Desktop)
+Montaje: red `ops034net` + upstream de prueba (`python` de la imagen `brujula/backend` ya local; script en el scratchpad, alias `backend` y `frontend`) que lee la petición completa y, según la cabecera `X-Prueba`, cierra la conexión sin responder (= WORKER TIMEOUT de gunicorn → 502), no responde nunca (→ `proxy_read_timeout` → 504) o responde 200. Proxy publicado en `127.0.0.1:18034`. No se tocó `brujulalocal` ni el puerto 8080. No se levantó el stack completo, por austeridad de memoria: había otro stack de Developer activo.
+
+| Caso | Antes (`brujula/proxy:ops034-antes`, `origin/main`) | Después (`brujula/proxy:ops034-despues`) |
+|---|---|---|
+| medios multipart 3 MB, upstream cierra (502) | 413 text/html | **503 application/problem+json** `servicio_no_disponible`, `Retry-After: 5`, `X-Trace-Id`, `Cache-Control: no-store`, `X-Content-Type-Options`, CSP, `Referrer-Policy`, `X-Frame-Options` |
+| medios chunked 3 MB, upstream cierra | 413 text/html | **503 problem+json** (mismas cabeceras) |
+| medios multipart 3 MB, upstream colgado (504 a los 120 s) | 413 text/html, 120,06 s | **503 problem+json** `servicio_no_disponible` a los 120,12 s, `Retry-After: 5`, `X-Trace-Id`, `Cache-Control: no-store` |
+| medios 3 MB con `por_ip` saturada (429) | 413 text/html | **429 problem+json** `limite_tasa`, `Retry-After: 1` |
+| medios cuerpo pequeño, upstream cierra | 503 problem+json | 503 problem+json |
+| medios 3 MB, upstream OK | — | 200 (la subida sigue funcionando) |
+| `/api/v1/panel/x` 3 MB (Content-Length y chunked) | 413 problem+json | 413 problem+json (límite de 2 MB intacto) |
+| medios `Content-Length: 120000000` | 413 problem+json | 413 problem+json (límite de 105 MB intacto) |
+| `POST` externo de 3 MB a `/_errores_proxy/{503,413,429,400}` | — | 404 problem+json (`internal`, inalcanzables) |
+
+- `nginx -t` en la imagen nueva: **OK**.
+- Réplica local del smoke de CI de errores del proxy (404 ×2, 403, 400 por URI larga y 405 ×3 con `Allow`), con las 6 cabeceras de seguridad: **0 fallos**.
+- Paso de CI nuevo, extraído tal cual del `ci.yaml` y ejecutado en local: **OK** con la configuración nueva ("rafaga {403: 63, 429: 137} -> subida 3 MB: 429 application/problem+json"). Con el `nginx.conf` de `origin/main`, el chequeo estático **falla** y lista las 7 locations. La parte dinámica contra la imagen antigua da 413 text/html (caso 429 de la tabla).
+- `docker compose config --quiet` (proyecto `brujulaops034`, `.env` efímero de `init-env.sh` en el scratchpad): base, `--profile ops`, `--profile ops --profile restauracion` y `-f compose.yaml -f compose.ci.yaml`: **OK**.
+- `actionlint 1.7.7` (contenedor) sobre `.github/workflows/`: 0 errores.
+- `politica_trivy.sh`: NOT_RUN en local (el `python3` de Git Bash es el alias de Microsoft Store). Lo ejecuta el job `infra` del CI. El cambio no toca trivy.
+
+### 37.8 CI del PR
+El enlace del run y el estado de los checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE.
+
+### 37.9 Riesgos / pendientes
+- **RSK-OPS-054 (LOW)**: `proxy_read_timeout`/`proxy_send_timeout` de medios (120s) y `GUNICORN_TIMEOUT` (120) son valores acoplados en dos archivos. Si solo se sube `GUNICORN_TIMEOUT`, el proxy dará 503 mientras el worker sigue procesando, y la subida podría completarse sin que el cliente lo sepa. Documentado en el comentario de `nginx.conf`. No hay control automático.
+- No se reprodujo con el stack completo y el gunicorn real (NOT_RUN, por austeridad de memoria). El upstream de prueba reproduce las dos formas de fallo que ve nginx: conexión cerrada sin respuesta (= worker matado por gunicorn) y ninguna respuesta hasta `proxy_read_timeout`.
+
+### 37.10 Archivos modificados
+`infra/proxy/nginx.conf`, `.github/workflows/ci.yaml` (paso de smoke existente del proxy), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 37.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir la reproducción de OBS-QA071-02/03 con el stack completo (subida > 2 MB con `GUNICORN_TIMEOUT` bajo o backend parado) y esperar 503 problem+json.
+- Registrar DEC-AUTO-1330 a 1332 y RSK-OPS-054.
+- Cerrar OBS-QA071-02/03.
