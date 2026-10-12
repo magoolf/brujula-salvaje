@@ -521,6 +521,35 @@ jobs:
           PY
           sleep 5
           test "$(curl -s -o /dev/null -w '%{http_code}' "$B/health/ready")" = 200
+          # TKT-OPS-034 (OBS-QA071-02/03, DEC-AUTO-1330/1332): un error del proxy sobre una subida > 2 MB a
+          # /api/v1/panel/medios (105m) salía como 413 text/html: la redirección interna de error_page
+          # volvía a aplicar los 2m del servidor en /_errores_proxy/*. (a) Toda location /_errores_proxy/*
+          # declara client_max_body_size 0. (b) 429 del borde sobre una subida de 3 MB (mismo mecanismo
+          # que el 503 por WORKER TIMEOUT, sin parar el backend): debe ser 429 limite_tasa problem+json.
+          python3 - infra/proxy/nginx.conf <<'PY'
+          import re, sys
+          bloques = re.findall(r"location = (/_errores_proxy/\S+) \{(.*?)\n    \}", open(sys.argv[1], encoding="utf-8").read(), re.S)
+          sin = [r for r, b in bloques if not re.search(r"^\s*client_max_body_size 0;", b, re.M)]
+          print("locations /_errores_proxy/*:", [r for r, _ in bloques])
+          if len(bloques) < 7 or sin:
+              print(f"::error::/_errores_proxy/* sin client_max_body_size 0: {sin}"); sys.exit(1)
+          PY
+          python3 - "$B" <<'PY'
+          import http.client, json, sys, urllib.parse
+          u = urllib.parse.urlsplit(sys.argv[1])
+          c = http.client.HTTPConnection(u.hostname, u.port, timeout=30)
+          cuenta = {}
+          for _ in range(200):  # satura por_ip (20 r/s + burst 60) con POST / (403 del proxy, sin upstream)
+              c.request("POST", "/", body=b""); r = c.getresponse(); r.read(); cuenta[r.status] = cuenta.get(r.status, 0) + 1
+          c.request("POST", "/api/v1/panel/medios", body=b"\0" * 3_000_000, headers={"Content-Type": "application/octet-stream"})
+          r = c.getresponse(); cuerpo = r.read()
+          print("rafaga", cuenta, "-> subida 3 MB:", r.status, r.getheader("Content-Type"))
+          if r.status != 429 or r.getheader("Content-Type") != "application/problem+json" or json.loads(cuerpo)["code"] != "limite_tasa":
+              print("::error::error del proxy sobre subida > 2 MB sin su Problem Details (regresión TKT-OPS-034)"); sys.exit(1)
+          for h in ("X-Content-Type-Options", "Content-Security-Policy", "X-Trace-Id", "Cache-Control", "Retry-After"):
+              if not r.getheader(h): print(f"::error::falta {h} en el 429 de la subida"); sys.exit(1)
+          PY
+          sleep 5
       # TKT-OPS-018 (condición de F9; ADR-OPS-001, RSK-OPS-040, TKT-OPS-019, DEC-AUTO-932): la zona
       # "estaticos" y la defensa anti-evasión dependen de NG_ALLOWED_HOSTS y de que Angular valide el
       # Host ANTES de renderizar; una regresión pasaría en silencio (el proxy convierte también un 404
