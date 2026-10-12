@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.db import connection
 from PIL import Image
 
 from apps.contenido.tests.fabricas import crear_cuenta
@@ -202,3 +203,44 @@ def test_AC_TKT071_05_regenerar_aplica_el_presupuesto_con_ruta_versionada(
     salida = io.StringIO()
     call_command("regenerar_derivados", "--medio", str(medio.pk), stdout=salida)
     assert "creados: 0, actualizados: 0" in salida.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# DEC-AUTO-1314: la codificación (segundos de CPU, más con el presupuesto) se hace FUERA de la
+# transacción. Dentro, la conexión quedaba ociosa y el rol app_rw tiene
+# `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000): PostgreSQL cortaba la conexión a mitad
+# de la subida de una foto grande con mucho detalle (reproducido con `cargar_semilla`).
+# Con `transaction=True` no hay transacción envolvente de la prueba: `in_atomic_block` es la real.
+# ---------------------------------------------------------------------------
+def _vigilar_codificacion(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+    reales = services._codificar_derivados
+    dentro: list[bool] = []
+
+    def codificar(imagen: Image.Image) -> services.Codificacion:
+        dentro.append(connection.in_atomic_block)
+        return reales(imagen)
+
+    monkeypatch.setattr(services, "_codificar_derivados", codificar)
+    return dentro
+
+
+@pytest.mark.django_db(transaction=True)
+def test_AC_TKT071_06_subida_y_regeneracion_codifican_fuera_de_la_transaccion(
+    media_temporal: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    actor = crear_cuenta("editora.tkt071.tx").pk
+    dentro = _vigilar_codificacion(monkeypatch)
+    archivo = SimpleUploadedFile(
+        "foto.jpg", fotografias.foto_para(CLAVE_DETALLE_NORMAL).leer(), content_type="image/jpeg"
+    )
+    medio = services.subir_medios(actor, [archivo])[0].medio
+    assert isinstance(medio, Medio)
+    assert medio.derivados.filter(formato=AVIF, ancho_px=800).exists()
+
+    resultado = services.regenerar_derivados(medio.pk)
+
+    assert dentro == [False, False]
+    # (La regeneración parte del original saneado y la subida del archivo subido: los bytes pueden
+    # variar, ya documentado en TKT-048; aquí solo importa dónde se codifica.)
+    assert resultado.omitido is False
+    assert medio.derivados.filter(formato=AVIF, ancho_px=800).exists()

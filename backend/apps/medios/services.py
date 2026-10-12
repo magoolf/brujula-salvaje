@@ -367,9 +367,9 @@ def _ruta_derivado(huella: str, ancho: int, formato: str, version: str = "") -> 
     return f"derivados/{huella}-{ancho}{sufijo}.{str(formato).lower()}"
 
 
-def _generar_derivados(imagen: Image.Image, huella: str) -> list[MedioDerivado]:
+def _generar_derivados(codificacion: Codificacion, huella: str) -> list[MedioDerivado]:
     derivados: list[MedioDerivado] = []
-    for codificado in _codificar_derivados(imagen).derivados:
+    for codificado in codificacion.derivados:
         # Recién generado: el medio dueño siempre está en PENDIENTE_METADATOS (DEC-AUTO-110,
         # ningún medio nace DISPONIBLE), así que el derivado empieza en `privado/`;
         # `catalogar()` lo mueve a `publico/` si y cuando el medio pasa a DISPONIBLE.
@@ -417,18 +417,27 @@ def regenerar_derivados(medio_id: int) -> ResultadoRegeneracion:
     - Bloquea la fila del medio (`select_for_update`) para no cruzarse con `catalogar()`/
       `retirar()`, que mueven los archivos entre áreas."""
     resultado = ResultadoRegeneracion()
+    # TKT-071 (DEC-AUTO-1314): se codifica ANTES de abrir la transacción y de bloquear la fila,
+    # para no dejar la conexión ociosa dentro de ella durante segundos de CPU (`app_rw` tiene
+    # `idle_in_transaction_session_timeout = 30s`). El original saneado no cambia nunca: su ruta
+    # sale de la huella del archivo subido (`originales/<huella>.<ext>`), inmutable.
+    ruta_original = (
+        Medio.objects.filter(pk=medio_id).values_list("archivo_saneado_ruta", flat=True).first()
+    )
+    if ruta_original is None:
+        raise NoEncontrado()
+    original = _ruta_absoluta(RAIZ_PRIVADA, ruta_original)
+    if not original.exists():
+        logger.warning("regenerar_original_no_encontrado", medio_id=medio_id)
+        resultado.omitido = True
+        return resultado
+    with Image.open(original) as imagen:
+        imagen.load()
+        codificacion = _codificar_derivados(imagen)
     with transaction.atomic():
         medio = Medio.objects.select_for_update().filter(pk=medio_id).first()
-        if medio is None:
+        if medio is None:  # pragma: no cover - carrera: borrado entre la lectura y el bloqueo
             raise NoEncontrado()
-        original = _ruta_absoluta(RAIZ_PRIVADA, medio.archivo_saneado_ruta)
-        if not original.exists():
-            logger.warning("regenerar_original_no_encontrado", medio_id=medio.pk)
-            resultado.omitido = True
-            return resultado
-        with Image.open(original) as imagen:
-            imagen.load()
-            codificacion = _codificar_derivados(imagen)
         area = RAIZ_PUBLICA if medio.estado == EstadoMedio.DISPONIBLE else RAIZ_PRIVADA
         existentes = {(d.formato, d.ancho_px): d for d in medio.derivados.all()}
         nuevos = {(c.formato, c.ancho): c for c in codificacion.derivados}
@@ -557,8 +566,14 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
             )
             continue
 
+        # TKT-071 (DEC-AUTO-1314): el resaneado y la codificación de los derivados (segundos de CPU
+        # por foto, más con el presupuesto por píxel) se hacen ANTES de abrir la transacción. Dentro
+        # de ella la conexión quedaría ociosa todo ese tiempo y el rol app_rw tiene
+        # `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000): una foto grande con mucho
+        # detalle podía hacer que PostgreSQL cortara la conexión a mitad de la subida.
+        saneado, sha_saneado, extension = _resanear(imagen)
+        codificacion = _codificar_derivados(imagen)
         with transaction.atomic():
-            saneado, sha_saneado, extension = _resanear(imagen)
             # El original saneado nunca se sirve (THREAT-023, ADR-API-002 §8): siempre vive en
             # `privado/`, en todo estado del medio (no lo mueve `_mover_derivados`, que solo
             # actúa sobre `MedioDerivado`).
@@ -591,7 +606,7 @@ def subir_medios(actor_id: int, archivos: list[UploadedFile]) -> list[ResultadoA
                 )
                 continue
             _guardar_bytes(RAIZ_PRIVADA, ruta_relativa, saneado)
-            derivados = _generar_derivados(imagen, huella)
+            derivados = _generar_derivados(codificacion, huella)
             # `bulk_create` inserta `char(64)` por una expresión UNNEST que Postgres/psycopg
             # castea a `char[]` (longitud 1 por omisión) y trunca cada huella a un carácter: se
             # crea cada derivado por separado, como ya hace `apps.contenido.tests.publicos`.

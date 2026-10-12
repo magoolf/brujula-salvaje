@@ -6,7 +6,7 @@
 | Fecha | 2026-10-12 |
 | Ticket | TKT-071 (MEDIUM, residual de TKT-021) |
 | Autor | Skill_Developer |
-| Trazabilidad | REQ-052 (LCP ≤ 2,5 s), TKT-021, TKT-048 (parámetros explícitos y `regenerar_derivados`), DEC-AUTO-1001; PERFORMANCE_SPEC de HANDOFF_UI_UX (imagen LCP ≤ 200 KB, tarjeta ≤ 60 KB); DEC-AUTO-1310..1313 |
+| Trazabilidad | REQ-052 (LCP ≤ 2,5 s), TKT-021, TKT-048 (parámetros explícitos y `regenerar_derivados`), DEC-AUTO-1001; PERFORMANCE_SPEC de HANDOFF_UI_UX (imagen LCP ≤ 200 KB, tarjeta ≤ 60 KB); DEC-AUTO-1310..1314 |
 | Archivos | `backend/apps/medios/services.py`, `backend/apps/medios/tests/test_tkt071_presupuesto_peso.py`, `backend/apps/medios/tests/test_tkt048_codificacion.py` |
 
 ## Contexto
@@ -23,6 +23,7 @@ El AVIF de cada derivado lleva un presupuesto de bytes por píxel: `PRESUPUESTO_
 - Se aplica a todas las imágenes y anchos por igual. Las de detalle normal (unas 112 de 129 a 800 px) no cambian ni un byte.
 - El suelo, 44, es la misma calidad que TKT-048 ya aceptaba como primer reintento. No se pierde más nitidez de la que ya se admitía.
 - El WebP (respaldo de navegadores sin AVIF) y el JPEG (respaldo universal) no llevan presupuesto.
+- La codificación de los derivados (y el resaneado) se hace **fuera de la transacción**, tanto en la subida (`subir_medios`) como en `regenerar_derivados` (DEC-AUTO-1314). Ver Consecuencias.
 - Despliegue: los medios existentes se actualizan con `python manage.py regenerar_derivados` (TKT-048). Ese comando escribe cada derivado cuyo contenido cambia en una ruta nueva versionada (`<huella>-<ancho>-<sha12>.avif`), porque `/media/publico/**` es `immutable`, y borra el archivo antiguo al confirmar. Es idempotente.
 
 ## Alternativas
@@ -39,5 +40,7 @@ El AVIF de cada derivado lleva un presupuesto de bytes por píxel: `PRESUPUESTO_
 - [MEDIDO] Las portadas de las cuatro colecciones quedan en ≤ 60 KB.
 - [MEDIDO] En la semilla a 800 px el presupuesto afecta a 17 de 129 fotos, que bajan a q48 o q44. El total de AVIF de 800 px baja un 6 %. Ningún derivado pesa más.
 - [MEDIDO] La subida tarda algo más en las fotos afectadas: 1-2 codificaciones AVIF extra por ancho, de unos 0,1 s cada una a 800 px (ADR-DB-005, subida síncrona).
+- [MEDIDO] La codificación de las fotos afectadas tarda más: en el contenedor del backend, la peor foto de la semilla pasa de 4,4 s a 11,2 s (todos los anchos y formatos), y el total de la semilla de 286 s a 353 s (+23 %).
+- [MEDIDO] Antes, la subida codificaba dentro de la transacción, después del `INSERT` del medio. La conexión quedaba ociosa todo ese tiempo, y el rol `app_rw` tiene `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000). Con el presupuesto, `cargar_semilla` como `app_rw` falló en local con `terminating connection due to idle-in-transaction timeout`. El riesgo ya existía para fotos grandes (2000 px) y el presupuesto lo agravaba. Por eso la codificación pasa a hacerse antes de abrir la transacción (DEC-AUTO-1314). Prueba: `test_AC_TKT071_06_subida_y_regeneracion_codifican_fuera_de_la_transaccion`, que falla sin el cambio.
 - La nitidez baja ligeramente en las texturas de las fotos afectadas a q44. Se ve en una comparación 1:1 lado a lado, pero no a tamaño de tarjeta en móvil.
 - Riesgo: las imágenes afectadas que sean imagen principal de una ficha a 1200-2000 px también bajan de calidad. Se acepta porque ya es la calidad de reintento de TKT-048. Si QA o los editores lo ven, se puede subir el suelo a 48 o el presupuesto a 0,16 B/px. Ambos cambios son reversibles con `regenerar_derivados`.
