@@ -17,9 +17,10 @@ test.describe('TKT-042 salto a la lista del mapa', () => {
       page,
     }) => {
       await page.goto(RUTA);
-      const salto = page.locator('a.salto');
+      const salto = page.getByRole('link', { name: 'Ir a la lista de destinos' });
       await expect(salto).toHaveAttribute('href', `${RUTA}#lista-destinos-mapa`);
-      await salto.click();
+      await salto.focus();
+      await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp(`${RUTA}#lista-destinos-mapa$`));
       await expect(page.locator('#lista-destinos-mapa')).toBeInViewport();
     });
@@ -30,9 +31,10 @@ test.describe('TKT-042 salto a la lista del mapa', () => {
   }) => {
     await page.goto(`${RUTA}?origen=prueba`);
     await esperarHidratacion(page);
-    const salto = page.locator('a.salto');
+    const salto = page.getByRole('link', { name: 'Ir a la lista de destinos' });
     await expect(salto).toHaveAttribute('href', `${RUTA}?origen=prueba#lista-destinos-mapa`);
-    await salto.click();
+    await salto.focus();
+    await page.keyboard.press('Enter');
     await expect(page).toHaveURL(new RegExp(`${RUTA}\\?origen=prueba#lista-destinos-mapa$`));
     await expect(page.locator('#lista-destinos-mapa')).toBeInViewport();
   });
