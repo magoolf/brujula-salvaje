@@ -585,3 +585,8 @@
 - 2026-10-11 | DELEGACION | TKT-070 | QA F8 sobre PR #106 (ciclo 1/3)
 - 2026-10-11 | QA_PASS | TKT-070 | ciclo 1/3; vitest 875/875, E2E ticket 4/4 (rojo en main confirmado), suite Chromium 227 pass/6 skip, axe 0 serious/critical, CLS 0, semgrep/gitleaks 0; restauración al salir del panel verificada. Observaciones al Informe sin ticket: OBS-QA070-01 LOW (solape 1-6 px borde superior del foco con StatusBar entre 1024-1279 px), INFO-QA070-02 (OfflineBanner vs reserva inferior, needs_validation), INFO-QA070-03 (entorno: regenerar_derivados tras semilla; CLS flaky con 3 workers). NOT_RUN: Firefox/WebKit (decisión humana), panel-selector-medios (E2E_SELECTOR_URL), Lighthouse (N/A ruta autenticada)
 - 2026-10-11 | INTEGRACION | TKT-070 | PR #106 @ e8bf97c merge en main, CI 5/5 verde; TKT-070 DONE (13 de 14)
+- 2026-10-12 | ENTREGA | TKT-021 | PR #104 @ ca8dbd5 CI verde; 6/7 listados ≤ 2,5 s (devtools n=5), /colecciones 2984 ms; preload solo Source Sans (CLS 0); salto mapa TKT-042 corregido; DEC-AUTO-1270..1274 (ORIGEN: EXPANSIÓN_AUTÓNOMA)
+- 2026-10-12 | DECISION | TKT-021/TKT-071 | DEC-AUTO-1001 (ORIGEN: EXPANSIÓN_AUTÓNOMA): residual /colecciones a ticket nuevo TKT-071 (backend derivados/activo semilla); TKT-021 se valida con AC de 6 rutas + no regresión. Reversible
+- 2026-10-12 | NUEVO_TICKET | TKT-071 | MEDIUM, depende de TKT-021; total 15
+- 2026-10-12 | DELEGACION | TKT-021 | QA F8 sobre PR #104 (ciclo 1/3)
+- 2026-10-12 | DELEGACION | TKT-071 | Developer (análisis desde la rama de #104; backend solo)
