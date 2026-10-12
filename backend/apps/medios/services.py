@@ -51,6 +51,15 @@ _FORMATOS_ORIGEN_PIL = {
     "WEBP": FormatoOrigen.WEBP,
 }
 ANCHOS_DERIVADOS = (400, 800, 1200, 1600, 2000)
+# TKT-072 (DEC-AUTO-1321, ADR-medios-002): el derivado mayor es el ancho original acotado a este
+# valor. Antes se codificaba siempre el ancho original en los tres formatos: con una foto de cámara
+# (4000-7700 px) ese derivado era el 65-85 % del tiempo de codificación y dejaba la subida por
+# encima del timeout de gunicorn (120 s); además el `srcset` lo ofrecía y una pantalla grande de
+# DPR alto lo descargaba (varios MB). El diseño pide anchos hasta 1920 (HANDOFF_UI_UX,
+# ASM-UX-001); 2560 deja margen para un hero a pantalla completa en DPR alto.
+ANCHO_MAXIMO_DERIVADO = 2560
+# Nivel zlib del PNG del original saneado (solo imágenes con alfa); 6 es el valor por omisión.
+PNG_NIVEL_COMPRESION_SANEADO = 6
 
 # TKT-048 (QA TKT-041 F-02, Skill_UI_UX §47.2: LCP ≤ 2,5 s; PERFORMANCE_SPEC: imagen LCP ≤ 200 KB
 # en móvil): parámetros de codificación EXPLÍCITOS. Antes se guardaba con los valores por defecto
@@ -243,15 +252,35 @@ def _rechazo(code: str, detalle: str) -> _RechazadoError:
     return _RechazadoError(code, detalle)
 
 
-def _resanear(imagen: Image.Image) -> tuple[bytes, str, str]:
-    """Recodifica sin EXIF/XMP/IPTC (THREAT-007): un `Image.new` a partir de los píxeles
-    descarta cualquier metadato del archivo original. Devuelve (contenido, sha256, extensión)."""
+def _imagen_sin_metadatos(imagen: Image.Image) -> Image.Image:
+    """Copia de los píxeles de `imagen` en una imagen NUEVA (`Image.new`), sin `info` ni EXIF/XMP/
+    IPTC/ICC del archivo de origen (THREAT-007). RGB y RGBA se conservan; el resto de modos pasa a
+    RGB.
+
+    TKT-072 (OBS-QA071-01): antes se copiaba con `putdata(get_flattened_data())`, que materializa
+    una tupla de Python por píxel (17 M tuplas para una foto de 17 MP, varios GiB): con el límite
+    de 1 GiB del contenedor del backend la copia tardaba ~400 s y gunicorn mataba el worker a los
+    120 s. `paste` copia el búfer de píxeles en C, con el mismo resultado píxel a píxel y sin
+    objetos de Python."""
     modo = "RGB" if imagen.mode not in ("RGB", "RGBA") else imagen.mode
+    origen = imagen if imagen.mode == modo else imagen.convert(modo)
     limpia = Image.new(modo, imagen.size)
-    limpia.putdata(imagen.convert(modo).get_flattened_data())
+    limpia.paste(origen, (0, 0))
+    if origen is not imagen:
+        origen.close()
+    return limpia
+
+
+def _resanear(limpia: Image.Image) -> tuple[bytes, str, str]:
+    """Codifica el original saneado a partir de `limpia` (salida de `_imagen_sin_metadatos`, sin
+    metadatos): JPEG q92 si es RGB, PNG si lleva alfa. Devuelve (contenido, sha256, extensión)."""
     salida = io.BytesIO()
-    extension = "jpg" if modo == "RGB" else "png"
-    limpia.save(salida, format="JPEG" if modo == "RGB" else "PNG", quality=92)
+    if limpia.mode == "RGB":
+        limpia.save(salida, format="JPEG", quality=92)
+        extension = "jpg"
+    else:
+        limpia.save(salida, format="PNG", compress_level=PNG_NIVEL_COMPRESION_SANEADO)
+        extension = "png"
     contenido = salida.getvalue()
     return contenido, _sha256(contenido), extension
 
@@ -338,23 +367,36 @@ def _codificar_ancho(redimensionada: Image.Image, no_soportados: set[str]) -> di
     return resultado
 
 
+def anchos_derivados(ancho_original: int) -> list[int]:
+    """Anchos de los derivados de una imagen de `ancho_original` px: los de `ANCHOS_DERIVADOS` que
+    no lo superan más el mayor posible, que es el propio ancho original acotado a
+    `ANCHO_MAXIMO_DERIVADO` (TKT-072, DEC-AUTO-1321)."""
+    mayor = min(ancho_original, ANCHO_MAXIMO_DERIVADO)
+    return sorted({a for a in ANCHOS_DERIVADOS if a <= mayor} | {mayor})
+
+
 def _codificar_derivados(imagen: Image.Image) -> Codificacion:
-    """Derivados responsivos de `imagen` (anchos de `ANCHOS_DERIVADOS` que no superan el original,
-    más el ancho original), sin metadatos (THREAT-007)."""
+    """Derivados responsivos de `imagen` (`anchos_derivados`), sin metadatos (THREAT-007)."""
     derivados: list[DerivadoCodificado] = []
     no_soportados: set[str] = set()
     ancho_original, alto_original = imagen.size
-    anchos = sorted({a for a in ANCHOS_DERIVADOS if a <= ancho_original} | {ancho_original})
-    base = imagen.convert("RGB")
-    # `convert`/`resize` copian `info`: se vacía para que ningún codificador pueda reutilizar
-    # EXIF/XMP/ICC del archivo de origen (AVIF y WebP leen `icc_profile`/`exif` de `info`).
-    base.info = {}
-    for ancho in anchos:
-        alto = round(alto_original * (ancho / ancho_original))
-        redimensionada = base.resize((ancho, alto), Image.Resampling.LANCZOS)
-        redimensionada.info = {}
-        for formato, contenido in _codificar_ancho(redimensionada, no_soportados).items():
-            derivados.append(DerivadoCodificado(formato, ancho, alto, contenido))
+    # TKT-072: sin copia si ya es RGB (con 40 MP, cada copia son 160 MB de los 1 GiB del
+    # contenedor). `imagen` no se modifica: el `info` se vacía en cada redimensionada.
+    base = imagen if imagen.mode == "RGB" else imagen.convert("RGB")
+    try:
+        for ancho in anchos_derivados(ancho_original):
+            alto = round(alto_original * (ancho / ancho_original))
+            redimensionada = base.resize((ancho, alto), Image.Resampling.LANCZOS)
+            # `convert`/`resize` copian `info`: se vacía para que ningún codificador pueda
+            # reutilizar EXIF/XMP/ICC del archivo de origen (AVIF y WebP leen `icc_profile`/`exif`
+            # de `info`).
+            redimensionada.info = {}
+            for formato, contenido in _codificar_ancho(redimensionada, no_soportados).items():
+                derivados.append(DerivadoCodificado(formato, ancho, alto, contenido))
+            redimensionada.close()
+    finally:
+        if base is not imagen:
+            base.close()
     return Codificacion(derivados=derivados, no_soportados=frozenset(no_soportados))
 
 
@@ -590,6 +632,7 @@ def preparar_subida(archivos: list[UploadedFile]) -> list[SubidaPreparada]:
         huella = _sha256(contenido)
         existente = _medio_por_huella(huella)
         if existente is not None:
+            imagen.close()
             preparadas.append(
                 SubidaPreparada(
                     nombre_archivo=nombre,
@@ -601,22 +644,30 @@ def preparar_subida(archivos: list[UploadedFile]) -> list[SubidaPreparada]:
                 )
             )
             continue
-        saneado, sha_saneado, extension = _resanear(imagen)
+        ancho_px, alto_px = imagen.size
+        # TKT-072: los derivados salen de la copia sin metadatos (mismos píxeles) y el decodificado
+        # original se libera en cuanto se copia: con 40 MP cada imagen RGB ocupa 160 MB.
+        limpia = _imagen_sin_metadatos(imagen)
+        imagen.close()
+        try:
+            saneado, sha_saneado, extension = _resanear(limpia)
+            codificacion = _codificar_derivados(limpia)
+        finally:
+            limpia.close()
         preparadas.append(
             SubidaPreparada(
                 nombre_archivo=nombre,
                 huella=huella,
                 formato_origen=_FORMATOS_ORIGEN_PIL[formato],
-                ancho_px=imagen.width,
-                alto_px=imagen.height,
+                ancho_px=ancho_px,
+                alto_px=alto_px,
                 peso_bytes=len(contenido),
                 saneado=saneado,
                 sha256_saneado=sha_saneado,
                 extension=extension,
-                codificacion=_codificar_derivados(imagen),
+                codificacion=codificacion,
             )
         )
-        imagen.close()
     return preparadas
 
 
