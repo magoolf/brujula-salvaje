@@ -302,7 +302,7 @@ tickets:
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-019, TKT-009, "RULE-030"]
     depende_de: []
@@ -626,14 +626,14 @@ tickets:
   - id: TKT-069
     titulo: "MEDIUM (QA TKT-047 OBS-01, preexistente; WCAG 2.4.7/1.4.11): el anillo de foco del CTA accent del hero (--bs-color-focus-ring lagoon-600) queda a ~1,3:1 sobre la franja oscura del hero y el de la búsqueda grande apenas se ve; tokens.json prescribe ring-inverse sobre fotografías con scrim. Todos los controles enfocables del hero con indicador >=3:1 (semilla e imagen blanca, 375/1280), sin cambiar el anillo fuera del hero; E2E por píxel solo Chromium"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_Developer
     trazabilidad: [TKT-047, "WCAG 2.4.7", "WCAG 1.4.11", "Skill_UI_UX#47.2"]
     depende_de: [TKT-047]
     archivos_permitidos: ["frontend/src/app/features/inicio/**", "frontend/src/app/shared/ui/campo-busqueda/**", "directiva appBoton en frontend/src/app/shared/ui/**", "frontend/src/styles/componentes.css", "frontend/e2e/inicio-foco-hero.spec.ts"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-996 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado (HIGH/MEDIUM antes de entregar). Paralelo con TKT-021 acotando shared/ui (campo-busqueda y appBoton reservados a este ticket)."]
+    evidencia: ["DEC-AUTO-996 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): abierto como MEDIUM por la regla humana de alcance cerrado (HIGH/MEDIUM antes de entregar). Paralelo con TKT-021 acotando shared/ui (campo-busqueda y appBoton reservados a este ticket).", "2026-10-11 PR #103 (DEC-AUTO-1280/1281). QA_VERDICT PASS ciclo 1/3 @ 77a3412: 4 controles del hero >=3,79:1 (adyacente) en 5 fondos x 5 anchos; main 1,15-1,95; la E2E detecta la regresión; fuera del hero sin cambios; prefers-contrast y forced-colors OK; 2.4.11 sin oclusión en flujos naturales; axe 0; CLS 0. LCP / 2805 rama vs 2818 main con el host cargado (sin regresión; a re-medir en F9). Integrado @ 5ce4525. DONE."]
     actualizado: 2026-10-11
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
