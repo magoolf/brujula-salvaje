@@ -6,8 +6,8 @@
 | Fecha | 2026-10-12 |
 | Ticket | TKT-071 (MEDIUM, residual de TKT-021) |
 | Autor | Skill_Developer |
-| Trazabilidad | REQ-052 (LCP ≤ 2,5 s), TKT-021, TKT-048 (parámetros explícitos y `regenerar_derivados`), DEC-AUTO-1001; PERFORMANCE_SPEC de HANDOFF_UI_UX (imagen LCP ≤ 200 KB, tarjeta ≤ 60 KB); DEC-AUTO-1310..1314 |
-| Archivos | `backend/apps/medios/services.py`, `backend/apps/medios/tests/test_tkt071_presupuesto_peso.py`, `backend/apps/medios/tests/test_tkt048_codificacion.py` |
+| Trazabilidad | REQ-052 (LCP ≤ 2,5 s), TKT-021, TKT-048 (parámetros explícitos y `regenerar_derivados`), DEC-AUTO-1001; PERFORMANCE_SPEC de HANDOFF_UI_UX (imagen LCP ≤ 200 KB, tarjeta ≤ 60 KB); DEC-AUTO-1310..1315; QA TKT-071 ciclo 1 (F-QA071-01, F-QA071-02) |
+| Archivos | `backend/apps/medios/services.py`, `backend/apps/medios/api/views.py`, `backend/apps/medios/tests/test_tkt071_presupuesto_peso.py`, `backend/apps/medios/tests/test_tkt048_codificacion.py` |
 
 ## Contexto
 - [MEDIDO] Tras TKT-021, el LCP móvil de `/colecciones` era de 2984 ms (Lighthouse devtools, Slow 4G, CPU x4). Seis de las siete rutas de listado ya cumplían.
@@ -23,7 +23,10 @@ El AVIF de cada derivado lleva un presupuesto de bytes por píxel: `PRESUPUESTO_
 - Se aplica a todas las imágenes y anchos por igual. Las de detalle normal (unas 112 de 129 a 800 px) no cambian ni un byte.
 - El suelo, 44, es la misma calidad que TKT-048 ya aceptaba como primer reintento. No se pierde más nitidez de la que ya se admitía.
 - El WebP (respaldo de navegadores sin AVIF) y el JPEG (respaldo universal) no llevan presupuesto.
-- La codificación de los derivados (y el resaneado) se hace **fuera de la transacción**, tanto en la subida (`subir_medios`) como en `regenerar_derivados` (DEC-AUTO-1314). Ver Consecuencias.
+- La validación, el resaneado y la codificación de los derivados se hacen **fuera de toda transacción**. Ver Consecuencias.
+  - Subida: `subir_medios` se divide en dos fases (DEC-AUTO-1315). `preparar_subida` valida, resanea y codifica solo en memoria: no escribe en disco ni en la BD (solo lee para detectar un DUPLICADO y no codificarlo). `persistir_subida` crea las filas y escribe los archivos ya codificados.
+  - Panel: la vista `POST /api/v1/panel/medios` llama a `preparar_subida` **antes** de `idempotencia.ejecutar`, que abre la transacción con o sin `Idempotency-Key`. Dentro del efecto solo va `persistir_subida`. `subir_medios` (las dos fases seguidas) queda para llamadas sin transacción exterior (`cargar_semilla`).
+  - Regeneración: `regenerar_derivados` codifica antes de abrir la transacción y de bloquear la fila (DEC-AUTO-1314).
 - Despliegue: los medios existentes se actualizan con `python manage.py regenerar_derivados` (TKT-048). Ese comando escribe cada derivado cuyo contenido cambia en una ruta nueva versionada (`<huella>-<ancho>-<sha12>.avif`), porque `/media/publico/**` es `immutable`, y borra el archivo antiguo al confirmar. Es idempotente.
 
 ## Alternativas
@@ -53,5 +56,9 @@ El AVIF de cada derivado lleva un presupuesto de bytes por píxel: `PRESUPUESTO_
 - [MEDIDO] La subida tarda algo más en las fotos afectadas: 1-2 codificaciones AVIF extra por ancho, de unos 0,1 s cada una a 800 px (ADR-DB-005, subida síncrona).
 - [MEDIDO] La codificación de las fotos afectadas tarda más: en el contenedor del backend, la peor foto de la semilla pasa de 4,4 s a 11,2 s (todos los anchos y formatos), y el total de la semilla de 286 s a 353 s (+23 %).
 - [MEDIDO] Antes, la subida codificaba dentro de la transacción, después del `INSERT` del medio. La conexión quedaba ociosa todo ese tiempo, y el rol `app_rw` tiene `idle_in_transaction_session_timeout = 30s` (INFRA-DB-000). Con el presupuesto, `cargar_semilla` como `app_rw` falló en local con `terminating connection due to idle-in-transaction timeout`. El riesgo ya existía para fotos grandes (2000 px) y el presupuesto lo agravaba. Por eso la codificación pasa a hacerse antes de abrir la transacción (DEC-AUTO-1314). Prueba: `test_AC_TKT071_06_subida_y_regeneracion_codifican_fuera_de_la_transaccion`, que falla sin el cambio.
+- [MEDIDO] Corrección de QA (F-QA071-01, HIGH). DEC-AUTO-1314 solo movía la codificación dentro de `subir_medios`. La vista del panel la ejecuta dentro de `idempotencia.ejecutar` (`transaction.atomic`), así que por el panel seguía dentro de la transacción exterior. Una foto detallada de 3200×2400 respondía 500 por `idle_in_transaction_session_timeout`. Esta versión del ADR afirmaba por error que la subida del panel quedaba protegida. Se corrige con las dos fases de DEC-AUTO-1315. Prueba: `test_AC_TKT071_07_post_del_panel_codifica_fuera_de_la_transaccion` (HTTP real, `transaction=True`, con y sin `Idempotency-Key`), que falla sin el cambio de la vista.
+- Idempotencia: la preparación no escribe nada, así que una repetición con la misma `Idempotency-Key` no deja filas ni archivos nuevos. Solo reproduce la respuesta guardada (lo comprueba la misma prueba). Como contrapartida, la repetición vuelve a validar y codificar (CPU) antes de saber que es una repetición. Se acepta porque las repeticiones son raras (reintentos de red) y el efecto no se duplica. Sin clave, un archivo ya subido se detecta como DUPLICADO antes de codificar.
+- Memoria: la preparación guarda en memoria los derivados codificados de todos los archivos de la petición (máximo 10) hasta persistirlos. Antes se persistían uno a uno.
+- Riesgo residual (F-QA071-02, LOW, previo a este ticket): si la transacción revierte después de escribir los archivos (p. ej. falla el `UPDATE` de `idempotencia_peticion`), quedan archivos huérfanos en `privado/`. No hay filas que apunten a ellos. No se corrige aquí: Django no ofrece un gancho de rollback, y escribir tras el commit podría dejar filas sin archivo, que es peor. La ventana se reduce, porque ahora tras escribir solo quedan `INSERT`s rápidos y el `UPDATE` de idempotencia.
 - La nitidez baja ligeramente en las texturas de las fotos afectadas a q44. Se ve en una comparación 1:1 lado a lado, pero no a tamaño de tarjeta en móvil.
 - Riesgo: las imágenes afectadas que sean imagen principal de una ficha a 1200-2000 px también bajan de calidad. Se acepta porque ya es la calidad de reintento de TKT-048. Si QA o los editores lo ven, se puede subir el suelo a 48 o el presupuesto a 0,16 B/px. Ambos cambios son reversibles con `regenerar_derivados`.
