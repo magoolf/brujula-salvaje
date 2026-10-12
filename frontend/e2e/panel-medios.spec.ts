@@ -91,7 +91,13 @@ test.describe('Panel · medios (TKT-022)', () => {
 
     await irA(page, '/panel/medios');
     await page.getByTestId('medios-subir').click();
-    const envio = page.waitForResponse((r) => r.url().endsWith('/api/v1/panel/medios') && r.request().method() === 'POST');
+    // TKT-072: un archivo por petición; se recogen las respuestas de todas.
+    const enviados: string[] = [];
+    page.on('response', async (r) => {
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.request().method() !== 'POST') return;
+      const cuerpo = (await r.json()) as { resultados: { nombre_archivo: string }[] };
+      enviados.push(...cuerpo.resultados.map((x) => x.nombre_archivo));
+    });
     await page.getByTestId('subida-archivos').setInputFiles([
       gif('animada.gif'),
       archivoGrande('enorme.jpg'),
@@ -101,14 +107,10 @@ test.describe('Panel · medios (TKT-022)', () => {
       pngSoloCabecera('rota.png', 1600, 1000),
       { ...repetido, name: 'otra-vez.png' },
     ]);
-    const respuesta = await envio;
-    // La validación previa no envía los dos primeros (formato y tamaño).
-    const enviados = ((await respuesta.json()) as { resultados: { nombre_archivo: string }[] }).resultados;
-    expect(enviados.map((r) => r.nombre_archivo).sort()).toEqual(
-      ['disfrazada.png', 'gigante.png', 'otra-vez.png', 'pequena.png', 'rota.png'].sort(),
-    );
-
     await expect(page.getByTestId('subida-resumen')).toHaveText('0 aceptadas, 6 rechazadas, 1 duplicada');
+    // La validación previa no envía los dos primeros (formato y tamaño); el resto, uno por petición.
+    await expect.poll(() => [...enviados].sort()).toEqual(['disfrazada.png', 'gigante.png', 'otra-vez.png', 'pequena.png', 'rota.png'].sort());
+
     const porNombre = (nombre: string) => page.getByTestId('subida-resultados').locator('li', { hasText: nombre });
     await expect(porNombre('animada.gif')).toHaveAttribute('data-motivo', 'formato_no_permitido');
     await expect(porNombre('enorme.jpg')).toHaveAttribute('data-motivo', 'tamano_excedido');
@@ -123,6 +125,35 @@ test.describe('Panel · medios (TKT-022)', () => {
     await duplicada.getByTestId('subida-usar-existente').click();
     await expect(page).toHaveURL(new RegExp(`/panel/medios/${existente.id}$`));
     await expect(page.getByTestId('pagina-medio')).toBeVisible();
+  });
+
+  test('AC_TKT072_09 lote de 10: una petición por archivo, en secuencia, «Subiendo n de 10» y 10 aceptadas', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await entrarComoEditor(page);
+    await irA(page, '/panel/medios');
+    await page.getByTestId('medios-subir').click();
+    const peticiones: { archivos: number; clave: string }[] = [];
+    const estados: number[] = [];
+    page.on('request', (r) => {
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.method() !== 'POST') return;
+      const cuerpo = r.postDataBuffer()?.toString('latin1') ?? '';
+      peticiones.push({ archivos: cuerpo.split('name="archivos"').length - 1, clave: r.headers()['idempotency-key'] });
+    });
+    page.on('response', (r) => {
+      if (r.url().endsWith('/api/v1/panel/medios') && r.request().method() === 'POST') estados.push(r.status());
+    });
+    const lote = Array.from({ length: 10 }, (_, i) => pngValido(`lote10-${i}-e2e.png`, 2400, 1800));
+    await page.getByTestId('subida-archivos').setInputFiles(lote);
+    await expect(page.getByTestId('subida-progreso-etiqueta')).toContainText(/Subiendo \d+ de 10…/);
+    await expect(page.getByTestId('subida-resumen')).toHaveText('10 aceptadas', { timeout: 200_000 });
+    expect(peticiones.length).toBe(10);
+    expect(peticiones.every((p) => p.archivos === 1)).toBe(true);
+    expect(new Set(peticiones.map((p) => p.clave)).size).toBe(10);
+    expect(estados).toEqual(Array(10).fill(200));
+    await expect(page.getByTestId('subida-resultados').locator('li[data-resultado="ACEPTADO"]')).toHaveCount(10);
+    await axeSinGraves(page);
   });
 
   test('AC_TKT022_01 más de 10 archivos: se rechaza la selección completa sin subir ninguno', async ({ page }) => {

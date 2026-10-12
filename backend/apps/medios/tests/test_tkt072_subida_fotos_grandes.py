@@ -11,7 +11,9 @@ cámara). Ahora la copia sin metadatos se hace en C (`paste`) y el derivado mayo
 from __future__ import annotations
 
 import io
+import os
 import time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -195,3 +197,65 @@ def test_AC_TKT072_05_png_con_alfa_conserva_alfa_sin_metadatos() -> None:
         assert leida.mode == "RGBA"
         assert leida.tobytes() == rgba.tobytes()
         assert not leida.getexif()
+
+
+def _cpu_del_proceso() -> int:
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
+@pytest.mark.parametrize(
+    ("contenido", "cuota"),
+    [
+        ("150000 100000\n", 2),  # cuota de 1,5 CPU (compose.yaml del backend) -> techo 2
+        ("100000 100000\n", 1),
+        ("50000 100000\n", 1),
+        ("max 100000\n", None),  # sin cuota: las CPU del proceso
+        ("basura\n", None),
+    ],
+)
+def test_AC_TKT072_06_hilos_del_codificador_segun_la_cuota_de_cpu(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contenido: str, cuota: int | None
+) -> None:
+    """DEC-AUTO-1323: con los hilos por omisión de Pillow (las CPU del host) bajo una cuota de
+    1,5 CPU cada AVIF tardaba el doble."""
+    cpu_max = tmp_path / "cpu.max"
+    cpu_max.write_text(contenido)
+    monkeypatch.setattr(services, "RUTA_CPU_MAX_CGROUP", cpu_max)
+    services.hilos_codificador.cache_clear()
+    try:
+        hilos = services.hilos_codificador()
+    finally:
+        services.hilos_codificador.cache_clear()
+    disponibles = _cpu_del_proceso()
+    assert hilos == (disponibles if cuota is None else min(cuota, disponibles))
+
+
+def test_AC_TKT072_06_sin_cgroup_usa_las_cpu_del_proceso(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(services, "RUTA_CPU_MAX_CGROUP", tmp_path / "no-existe")
+    services.hilos_codificador.cache_clear()
+    try:
+        assert services.hilos_codificador() == _cpu_del_proceso()
+    finally:
+        services.hilos_codificador.cache_clear()
+
+
+def test_AC_TKT072_06_el_avif_se_codifica_con_esos_hilos(monkeypatch: pytest.MonkeyPatch) -> None:
+    recibidos: dict[str, dict[str, Any]] = {}
+    original = Image.Image.save
+
+    def espia(self: Image.Image, fp: Any, format: str | None = None, **params: Any) -> None:
+        recibidos[str(format)] = params
+        original(self, fp, format=format, **params)
+
+    monkeypatch.setattr(Image.Image, "save", espia)
+    monkeypatch.setattr(services, "hilos_codificador", lambda: 2)
+    imagen = Image.effect_noise((64, 48), 40).convert("RGB")
+    for formato in (AVIF, WEBP, JPEG):
+        services._codificar(imagen, formato)
+    assert recibidos["AVIF"]["max_threads"] == 2
+    assert "max_threads" not in recibidos["WEBP"]
+    assert "max_threads" not in recibidos["JPEG"]

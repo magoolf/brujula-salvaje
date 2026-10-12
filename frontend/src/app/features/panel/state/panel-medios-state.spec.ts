@@ -164,6 +164,98 @@ describe('SubidaMediosStore (FLOW-013)', () => {
     expect(await store.reintentar()).toBeNull();
     expect(intentos).toBe(2);
   });
+
+  function resultado(nombre: string, id: number): ResultadoArchivo {
+    return {
+      nombreArchivo: nombre,
+      resultado: 'ACEPTADO',
+      medio: medio({ id, estado: 'PENDIENTE_METADATOS' }),
+      medioExistenteId: null,
+      motivo: null,
+      local: false,
+    };
+  }
+
+  it('AC_TKT072_06 un archivo por petición, en secuencia, con su propia clave y progreso del lote', async () => {
+    const repo = repoMedios();
+    const envios: { nombres: string[]; clave: string; respuesta: Subject<readonly ResultadoArchivo[]> }[] = [];
+    repo.subir.mockImplementation((archivos: File[], clave: string, alProgresar: (c: number, t: number | null) => void) => {
+      const respuesta = new Subject<readonly ResultadoArchivo[]>();
+      envios.push({ nombres: archivos.map((a) => a.name), clave, respuesta });
+      alProgresar(50, 100);
+      return respuesta;
+    });
+    const store = crear(repo);
+    const pendiente = store.seleccionar([archivo('a.png', 'image/png', 100), archivo('x.gif', 'image/gif'), archivo('b.png', 'image/png', 300)]);
+    // Solo se envía el primero: el segundo espera a que responda (secuencial).
+    expect(envios.map((e) => e.nombres)).toEqual([['a.png']]);
+    expect(store.posicion()).toEqual({ actual: 1, total: 2 });
+    expect(store.porcentaje()).toBe(13); // 50 de 400 bytes
+    envios[0].respuesta.next([resultado('a.png', 1)]);
+    envios[0].respuesta.complete();
+    await vi.waitFor(() => expect(envios.length).toBe(2));
+    // El resultado del primero ya se ve mientras sube el segundo.
+    expect(store.resultados().map((r) => r.nombreArchivo)).toEqual(['x.gif', 'a.png']);
+    expect(envios[1].nombres).toEqual(['b.png']);
+    expect(envios[1].clave).not.toBe(envios[0].clave);
+    expect(store.posicion()).toEqual({ actual: 2, total: 2 });
+    expect(store.porcentaje()).toBe(63); // 100 + 150 de 400 bytes
+    envios[1].respuesta.next([resultado('b.png', 2)]);
+    envios[1].respuesta.complete();
+    expect(await pendiente).toBeNull();
+    expect(store.subiendo()).toBe(false);
+    expect(store.posicion()).toBeNull();
+    expect(store.resumen()).toBe('2 aceptadas, 1 rechazada');
+    expect(store.aceptados().map((m) => m.id)).toEqual([1, 2]);
+  });
+
+  it('AC_TKT072_07 si falla un archivo se conservan los anteriores y «Reintentar» sigue desde él con su clave', async () => {
+    const repo = repoMedios();
+    const envios: { nombre: string; clave: string }[] = [];
+    let fallar = true;
+    repo.subir.mockImplementation((archivos: File[], clave: string): Observable<readonly ResultadoArchivo[]> => {
+      const nombre = archivos[0].name;
+      envios.push({ nombre, clave });
+      if (nombre === 'b.png' && fallar) {
+        fallar = false;
+        return throwError(() => http(502));
+      }
+      return of([resultado(nombre, envios.length)]);
+    });
+    const store = crear(repo);
+    const error = await store.seleccionar([archivo('a.png'), archivo('b.png'), archivo('c.png')]);
+    expect(error).not.toBeNull();
+    expect(store.archivoFallido()).toBe('b.png');
+    expect(store.puedeReintentar()).toBe(true);
+    expect(store.resultados().map((r) => r.nombreArchivo)).toEqual(['a.png']);
+    expect(store.aceptados().length).toBe(1);
+    expect(envios.map((e) => e.nombre)).toEqual(['a.png', 'b.png']);
+
+    expect(await store.reintentar()).toBeNull();
+    expect(envios.map((e) => e.nombre)).toEqual(['a.png', 'b.png', 'b.png', 'c.png']);
+    expect(envios[2].clave).toBe(envios[1].clave); // ALT-017: misma clave para el mismo archivo
+    expect(store.archivoFallido()).toBeNull();
+    expect(store.resultados().map((r) => r.nombreArchivo)).toEqual(['a.png', 'b.png', 'c.png']);
+    store.cerrarResultados();
+    expect(store.archivoFallido()).toBeNull();
+    expect(await store.reintentar()).toBeNull();
+    expect(envios.length).toBe(4);
+  });
+
+  it('AC_TKT072_06 progreso sin total conocido: cuenta solo los archivos ya enviados', async () => {
+    const repo = repoMedios();
+    const respuesta = new Subject<readonly ResultadoArchivo[]>();
+    repo.subir.mockImplementation((_a: File[], _c: string, alProgresar: (c: number, t: number | null) => void) => {
+      alProgresar(10, null);
+      return respuesta;
+    });
+    const store = crear(repo);
+    const pendiente = store.seleccionar([archivo('a.png')]);
+    expect(store.porcentaje()).toBe(0);
+    respuesta.next([]);
+    respuesta.complete();
+    expect(await pendiente).toBeNull();
+  });
 });
 
 describe('BibliotecaMediosStore (SCR-039)', () => {

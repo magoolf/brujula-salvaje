@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import os
 import shutil
 from dataclasses import dataclass
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 from typing import Any
 
@@ -285,6 +286,28 @@ def _resanear(limpia: Image.Image) -> tuple[bytes, str, str]:
     return contenido, _sha256(contenido), extension
 
 
+RUTA_CPU_MAX_CGROUP = Path("/sys/fs/cgroup/cpu.max")
+
+
+@cache
+def hilos_codificador() -> int:
+    """Hilos del codificador AVIF (TKT-072, DEC-AUTO-1323): las CPU que el proceso puede usar de
+    verdad. Pillow usa por omisión `len(sched_getaffinity)`, las CPU del HOST (20 en este equipo),
+    pero el contenedor del backend tiene una cuota de 1,5 CPU (cgroup v2 `cpu.max`): con 20 hilos
+    el planificador lo estrangula y cada AVIF tarda el doble que con 2 (medido: 3,6 s frente a
+    1,7 s un AVIF de 2000 px), con el mismo resultado byte a byte. Se usa el techo de la cuota,
+    acotado por la afinidad; sin cuota (o fuera de Linux), la afinidad."""
+    disponibles = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else 0
+    disponibles = disponibles or os.cpu_count() or 1
+    try:
+        cuota, periodo = RUTA_CPU_MAX_CGROUP.read_text().split()[:2]
+        if cuota != "max":
+            return max(1, min(disponibles, math.ceil(int(cuota) / int(periodo))))
+    except (OSError, ValueError):
+        pass
+    return disponibles
+
+
 def _codificar(imagen: Image.Image, formato: str, calidad: int | None = None) -> bytes:
     """Codifica `imagen` en `formato` con los parámetros de `PARAMETROS_CODIFICACION` (y, si se
     indica, otra `quality`). Puede lanzar OSError/ValueError/KeyError si el formato no tiene
@@ -292,6 +315,8 @@ def _codificar(imagen: Image.Image, formato: str, calidad: int | None = None) ->
     parametros = dict(PARAMETROS_CODIFICACION[formato])
     if calidad is not None:
         parametros["quality"] = calidad
+    if formato == FormatoDerivado.AVIF:
+        parametros["max_threads"] = hilos_codificador()
     buffer = io.BytesIO()
     imagen.save(buffer, format=str(formato), **parametros)
     return buffer.getvalue()
