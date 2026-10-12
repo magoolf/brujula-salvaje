@@ -24,7 +24,7 @@
   </div>
 
   <a routerLink="/destinos" data-testid="mapa-ver-listado">Ver como listado con filtros</a>
-  <a class="salto" href="#lista-destinos-mapa">Ir a la lista de destinos</a>
+  <a class="salto" [routerLink]="[]" queryParamsHandling="preserve" fragment="lista-destinos-mapa">Ir a la lista de destinos</a>
 
   @if (store.error(); as error) {
     <app-banner variante="info" titulo="El mapa no está disponible en este momento" testId="mapa-error">

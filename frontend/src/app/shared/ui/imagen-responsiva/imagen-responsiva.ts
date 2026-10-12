@@ -180,7 +180,7 @@ export function elegirSrcRespaldo(
  * (p. ej. en tarjetas cuyo título ya nombra el contenido).
  *
  * Cuándo se emiten `src`/`srcset` (TKT-018 + TKT-020 F-1):
- * - prioritaria (LCP): siempre, en SSR y en cliente, sin diferir;
+ * - prioritaria (LCP) o de carga inmediata (TKT-021): siempre, en SSR y en cliente, sin diferir;
  * - informativa (`alt` no vacío: galerías, miniaturas de créditos): siempre, también en el HTML del
  *   SSR, para que cargue sin JavaScript y la vean los rastreadores; el escalonado lo hace el
  *   `loading="lazy"` nativo;
@@ -209,7 +209,7 @@ export function elegirSrcRespaldo(
             [alt]="alt()"
             [attr.width]="ancho()"
             [attr.height]="alto()"
-            [attr.loading]="prioritaria() ? 'eager' : 'lazy'"
+            [attr.loading]="inmediata() ? 'eager' : 'lazy'"
             [attr.fetchpriority]="prioritaria() ? 'high' : null"
             decoding="async"
             [attr.sizes]="mostrar() && srcsetRespaldo() ? sizes() : null"
@@ -263,6 +263,13 @@ export class ImagenResponsiva {
   /** Atributo sizes por plantilla (PERFORMANCE_SPEC.Sizes_Recomendados). */
   readonly sizes = input('100vw');
   readonly prioritaria = input(false);
+  /**
+   * TKT-021: carga inmediata SIN prioridad alta (eager y `src` ya en el SSR, sin `fetchpriority`).
+   * Para la primera imagen de un listado que en escritorio es el LCP pero en móvil queda bajo el
+   * pliegue (p. ej. /destinos, con los filtros antes de la rejilla): el navegador la sube de
+   * prioridad solo si al maquetar está en el viewport, sin competir con fuentes y CSS cuando no lo está.
+   */
+  readonly cargaInmediata = input(false);
   /** Relación de aspecto CSS (p. ej. `var(--bs-aspect-card)` o `4 / 3`); por defecto ancho/alto. */
   readonly relacion = input<string | null>(null);
   readonly testId = input('imagen-responsiva');
@@ -293,14 +300,16 @@ export class ImagenResponsiva {
    * arrancara ocultando, la hidratación quitaría el `src` ya emitido (petición cancelada y parpadeo).
    */
   private readonly _cercaDelViewport = signal(false);
+  /** Prioritaria o de carga inmediata: eager y sin esperar al IntersectionObserver. */
+  protected readonly inmediata = computed(() => this.prioritaria() || this.cargaInmediata());
   protected readonly mostrar = computed(
-    () => this.prioritaria() || this.alt().trim() !== '' || this._cercaDelViewport(),
+    () => this.inmediata() || this.alt().trim() !== '' || this._cercaDelViewport(),
   );
 
   constructor() {
     afterNextRender(
       () => {
-        if (!this.esNavegador || this.prioritaria()) return;
+        if (!this.esNavegador || this.inmediata()) return;
         if (typeof IntersectionObserver === 'undefined') {
           // Sin soporte (o entorno de pruebas sin polyfill): degrada al comportamiento previo,
           // carga inmediata confiando solo en el `loading="lazy"` nativo del <img>.

@@ -50,6 +50,7 @@
               [ruta]="'/itinerarios/' + itinerario.slug"
               [overline]="itinerario.destino.nombre"
               [imagen]="itinerario.imagen"
+              [prioritaria]="$first"
               testId="tarjeta-itinerario"
             >
               <app-medidor-dificultad [valor]="itinerario.dificultad" [compacto]="true" />

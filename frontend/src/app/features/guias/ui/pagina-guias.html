@@ -18,7 +18,7 @@
         </div>
       </app-estado-vacio>
     } @else {
-      @for (categoria of p.resultados; track categoria.slug) {
+      @for (categoria of p.resultados; track categoria.slug; let primeraCategoria = $first) {
         <section class="categoria" [attr.aria-labelledby]="'categoria-' + categoria.slug" data-testid="guias-categoria">
           <h2 [id]="'categoria-' + categoria.slug">{{ categoria.nombre }}</h2>
           <p class="descripcion">{{ categoria.descripcion }}</p>
@@ -31,6 +31,7 @@
                   [overline]="categoria.nombre"
                   [imagen]="guia.imagen"
                   [nivelTitulo]="3"
+                  [prioritaria]="primeraCategoria && $first"
                   testId="tarjeta-guia"
                 >
                   <p>{{ guia.resumen }}</p>

@@ -36,6 +36,7 @@ export const SIZES_TARJETA =
           [derivados]="img.derivados ?? []"
           [sizes]="sizes()"
           [prioritaria]="prioritaria()"
+          [cargaInmediata]="cargaInmediata()"
           relacion="var(--bs-aspect-card)"
         />
       }
@@ -153,6 +154,8 @@ export class TarjetaContenido {
   readonly imagen = input<ImagenTarjeta | null>(null);
   readonly sizes = input(SIZES_TARJETA);
   readonly prioritaria = input(false);
+  /** Ver `ImagenResponsiva.cargaInmediata` (TKT-021). */
+  readonly cargaInmediata = input(false);
   /** Nivel del encabezado del título según la jerarquía de la página (sin saltos). */
   readonly nivelTitulo = input<2 | 3 | 4>(3);
   readonly testId = input('tarjeta-contenido');
