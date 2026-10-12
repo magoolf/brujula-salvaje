@@ -302,7 +302,7 @@ tickets:
   - id: TKT-042
     titulo: "MEDIUM, preexistentes (QA TKT-019 OBS-01/OBS-02): (a) enlaces internos de ancla con href='#x' se resuelven contra <base href=/> y llevan a /#x (Inicio): índice de letras de pagina-glosario.html:23 y probablemente destinos/ui/pagina-mapa-destinos.html:27; buscar y corregir todos los href='#...' de las features (routerLink + fragment), salvo el skip link global que funciona; (b) la navegación en cliente a /glosario#termino no desplaza al término (anchorScrolling actúa antes de que lleguen los datos): desplazar tras cargar, afecta a los enlaces [fragment] desde guías, tipos, itinerarios y el mapa del sitio; E2E que verifiquen pathname y desplazamiento en 3 motores"
     fase: F7
-    estado: TODO
+    estado: IN_PROGRESS
     owner: Skill_Developer
     trazabilidad: [TKT-019, TKT-009, "RULE-030"]
     depende_de: []
@@ -626,7 +626,7 @@ tickets:
   - id: TKT-069
     titulo: "MEDIUM (QA TKT-047 OBS-01, preexistente; WCAG 2.4.7/1.4.11): el anillo de foco del CTA accent del hero (--bs-color-focus-ring lagoon-600) queda a ~1,3:1 sobre la franja oscura del hero y el de la búsqueda grande apenas se ve; tokens.json prescribe ring-inverse sobre fotografías con scrim. Todos los controles enfocables del hero con indicador >=3:1 (semilla e imagen blanca, 375/1280), sin cambiar el anillo fuera del hero; E2E por píxel solo Chromium"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [TKT-047, "WCAG 2.4.7", "WCAG 1.4.11", "Skill_UI_UX#47.2"]
     depende_de: [TKT-047]
@@ -1298,14 +1298,14 @@ tickets:
   - id: TKT-OPS-009
     titulo: "DevOps: política de trivy también sobre canales implícitos: prohibir TRIVY_* en env/run/*.sh y trivy.yaml|.trivyignore.yaml generados (QA-OPS006-04); excepción del control negativo analizada como shell y sin otras escrituras al fichero (QA-OPS006-05); sin escrituras a .trivyignore en ejecución (OBS-C3-1); gate sin '|| true', '&' ni continue-on-error (OBS-C3-2); sha256sum -c junto a la instalación (OBS-C3-3)"
     fase: F7
-    estado: BLOCKED_HUMAN
+    estado: DONE
     owner: devops
     trazabilidad: [RSK-OPS-001, QA-OPS006-04, QA-OPS006-05]
     depende_de: [TKT-OPS-006]
     archivos_permitidos: [".github/workflows/**", "infra/ci/**", "docs/05_operacion/**"]
     ciclo_qa: 3/3
     ciclo_panico: 0/2
-    evidencia: []
+    evidencia: ["2026-10-11 PR #102 (DEC-AUTO-1260..1265): política de trivy sobre canales implícitos + guardia de ejecución; controles 123/123 y 18/18; actionlint 0 errores; 51/53 negativos nuevos no se detectaban en main. QA 3/3 FAIL solo por NOT_RUN de la búsqueda adversarial de evasiones (bloqueada por el clasificador de seguridad del modelo). DECISIÓN HUMANA 2026-10-11: integrar y anotar el riesgo (RSK-OPS-053: búsqueda de evasiones NOT_RUN; RSK-OPS-051/052 LOW). Integrado @ 4c49f91. DONE."]
     actualizado: 2026-10-11
   - id: TKT-OPS-010
     titulo: "DevOps: relajar el gate de contrato oasdiff a --fail-on ERR (decisión humana 2026-09-29, ver audit_log.md); los 608 hallazgos WARNING de fidelidad de formato/patrón/límites dejan de bloquear el CI, los 69 ERROR (posibles rupturas de compatibilidad: max/min-items, one-of-added, min-length/max añadidos, propiedad opcional, tipo de body cambiado) siguen bloqueando. Desbloquea TKT-006"

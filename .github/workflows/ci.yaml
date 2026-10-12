@@ -31,8 +31,9 @@ env:
   UV_VERSION: "0.12.19"
   GITLEAKS_VERSION: "8.30.1"
   GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
-  TRIVY_VERSION: "0.74.0"
-  TRIVY_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+  # TKT-OPS-009 (QA-OPS006-04): sin prefijo TRIVY_, que trivy lee como configuración.
+  TRIVYCLI_VERSION: "0.74.0"
+  TRIVYCLI_SHA256: "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
   SYFT_VERSION: "1.51.0"
   SYFT_SHA256: "2a2e837a2c8d59ec9af5472ee22d3b04ee463c4e44476ecf993fd1e5ab6ebc7f"
   COSIGN_VERSION: "3.1.3"
@@ -137,6 +138,10 @@ jobs:
       - name: "política de trivy: controles (una línea, multilínea, comentarios, YAML, trivy-action)"
         timeout-minutes: 5
         run: bash infra/ci/politica_trivy_controles.sh infra/ci/politica_trivy.sh
+      # TKT-OPS-009 (DEC-AUTO-1261): controles de la guardia de ejecución que precede a cada gate.
+      - name: "guardia de trivy: controles (variables de entorno, configuración generada, .trivyignore)"
+        timeout-minutes: 2
+        run: python3 infra/ci/trivy_guardia_controles.py infra/ci/trivy_guardia.py
       - name: "política de trivy y de .trivyignore (formato, caducidad, sin vías paralelas)"
         timeout-minutes: 5
         run: bash infra/ci/politica_trivy.sh .
@@ -364,10 +369,11 @@ jobs:
       - name: build imágenes (sin push)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: bash infra/ci/reintentar.sh 3 20 -- docker compose --profile ops build --pull
+      # OBS-C3-3: la política solo admite la extracción de trivy justo tras la descarga y "sha256sum -c".
       - name: herramientas (trivy, syft) con sha256
         run: |
-          curl -fsSLo /tmp/trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          echo "${TRIVY_SHA256}  /tmp/trivy.tgz" | sha256sum -c -
+          curl -fsSLo /tmp/trivy.tgz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVYCLI_VERSION}/trivy_${TRIVYCLI_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVYCLI_SHA256}  /tmp/trivy.tgz" | sha256sum -c -
           tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy
           curl -fsSLo /tmp/syft.tgz "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
           echo "${SYFT_SHA256}  /tmp/syft.tgz" | sha256sum -c -
@@ -378,9 +384,13 @@ jobs:
       # comodines, --ignore-policy y la supresión por paquete.
       # La POLÍTICA de .trivyignore y sus controles se ejecutan en el job "infra" (siempre, fail-fast;
       # TKT-OPS-006 ciclo 2, DEC-AUTO-256).
+      # TKT-OPS-009 (OBS-C3-2, DEC-AUTO-1262): este run es un ESQUELETO cerrado para la política (sin
+      # "|| true", "&", "set +e", continue-on-error ni if:). La guardia (DEC-AUTO-1261) comprueba en
+      # ejecución: sin TRIVY_* en el entorno, sin ./trivy.yaml y .trivyignore igual al del commit.
       - name: image scan (trivy CRITICAL/HIGH = fail; excepciones solo en .trivyignore con aprobación humana)
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: |
+          /usr/bin/python3 infra/ci/trivy_guardia.py
           mkdir -p reports
           rc=0
           # Objetivo SIEMPRE "brujula/…" entre comillas dobles: la política (lista blanca, DEC-AUTO-258)
@@ -399,6 +409,9 @@ jobs:
         run: |
           # Única excepción de la política (DEC-AUTO-258): --ignorefile /tmp/trivyignore-caducado solo
           # como condición de "if …; then … exit 1" y con este mismo generador sed en este run.
+          # TKT-OPS-009 (QA-OPS006-05, DEC-AUTO-1263): forma verificada por líneas lógicas exactas y el
+          # fichero no aparece en ninguna otra línea de ningún run/*.sh.
+          /usr/bin/python3 infra/ci/trivy_guardia.py
           sed -E 's/exp:[0-9]{4}-[0-9]{2}-[0-9]{2}/exp:2000-01-01/' .trivyignore > /tmp/trivyignore-caducado
           if ! grep -qE '^(CVE|GHSA)-' /tmp/trivyignore-caducado; then echo "sin excepciones: control no aplicable"; exit 0; fi
           # backend (excepciones Debian comunes) y db (además libxml2, 2.ª decisión humana)
