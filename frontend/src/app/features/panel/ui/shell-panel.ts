@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  afterNextRender,
   computed,
   inject,
   signal,
@@ -21,6 +22,7 @@ import { ExpiracionSesionStore } from '../state/expiracion-sesion.store';
 import { SesionPanelStore } from '../state/sesion-panel.store';
 import { AvisoExpiracion } from './aviso-expiracion';
 import { EnlacesPanel } from './enlaces-panel';
+import { ReservaDesplazamiento } from './reserva-desplazamiento';
 
 /** Destino de «Saltar a la navegación». */
 export const ID_NAVEGACION_PANEL = 'panel-navegacion';
@@ -47,7 +49,7 @@ const MEDIA_LG = '(min-width: 64rem)';
         >Saltar a la navegación</a
       >
     </div>
-    <header class="barra" data-testid="panel-barra-superior">
+    <header #barra class="barra" data-testid="panel-barra-superior">
       <button
         #botonMenu
         type="button"
@@ -281,8 +283,8 @@ const MEDIA_LG = '(min-width: 64rem)';
       .navegacion {
         display: block;
         position: sticky;
-        top: var(--bs-size-panel-topbar);
-        min-height: calc(100dvh - var(--bs-size-panel-topbar));
+        top: var(--panel-alto-barra, var(--bs-size-panel-topbar));
+        min-height: calc(100dvh - var(--panel-alto-barra, var(--bs-size-panel-topbar)));
         border-bottom: 0;
         border-inline-end: var(--bs-border-width-hairline) solid var(--bs-color-border-subtle);
       }
@@ -306,6 +308,7 @@ export class ShellPanel {
   protected readonly menuAbierto = signal(false);
   private readonly cajon = viewChild.required<ElementRef<HTMLDialogElement>>('cajon');
   private readonly botonMenu = viewChild.required<ElementRef<HTMLButtonElement>>('botonMenu');
+  private readonly barra = viewChild.required<ElementRef<HTMLElement>>('barra');
   protected readonly cerrando = signal(false);
   protected readonly errorCierre = signal<string | null>(null);
   protected readonly nombreVisible = computed(() => this.sesion.sesion()?.nombreVisible ?? '');
@@ -334,6 +337,14 @@ export class ShellPanel {
       consulta.addEventListener('change', alCambiar);
       inject(DestroyRef).onDestroy(() => consulta.removeEventListener('change', alCambiar));
     }
+    // TKT-070 (WCAG 2.4.11): la barra superior sticky reserva su altura real arriba, para que las
+    // anclas, los saltos a campos y el foco al tabular no queden debajo de ella.
+    const reserva = inject(ReservaDesplazamiento);
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const cancelar = reserva.observar('barra', this.barra().nativeElement, () => 'arriba');
+      destroyRef.onDestroy(cancelar);
+    });
   }
 
   /** Abre el cajón modal (< lg) y lleva el foco al primer enlace. */

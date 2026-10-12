@@ -307,10 +307,11 @@
   color: var(--bs-color-status-warning-fg);
 }
 
-/* lg-xl: StatusBar fija superior */
+/* lg-xl: StatusBar fija superior, pegada bajo la barra del panel (TKT-070: no se esconde debajo;
+   su altura se reserva como scroll-padding-top, ver ReservaDesplazamiento) */
 @media (min-width: 64rem) {
   .barra-estado {
-    top: var(--bs-space-2);
+    top: var(--panel-alto-barra, var(--bs-size-panel-topbar));
     bottom: auto;
   }
   .columnas {
@@ -330,11 +331,11 @@
   .barra-estado {
     grid-row: auto;
     position: sticky;
-    top: var(--bs-space-4);
+    top: calc(var(--panel-alto-barra, var(--bs-size-panel-topbar)) + var(--bs-space-4));
   }
   .nav-secciones {
     position: sticky;
-    top: var(--bs-space-4);
+    top: calc(var(--panel-alto-barra, var(--bs-size-panel-topbar)) + var(--bs-space-4));
   }
   .nav-secciones .lista-secciones {
     display: grid;
