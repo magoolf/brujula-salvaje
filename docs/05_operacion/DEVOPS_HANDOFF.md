@@ -3396,3 +3396,88 @@ Sin cambios. La imagen `brujula/proxy` solo cambia en `nginx.conf`.
 - Integrar el PR. Posible conflicto de texto con TKT-OPS-036 en el índice y al final de este documento (ambos añaden líneas): se resuelve conservando las dos.
 - Registrar DEC-AUTO-1360 a 1362, la corrección de RSK-OPS-060, el cierre de RSK-OPS-061 y los nuevos RSK-OPS-065/066.
 - Llevar RSK-OPS-065 a la Puerta Humana de producción y decidir si RSK-OPS-066 merece ticket.
+
+---
+
+## 41. TKT-OPS-038: el SSR compartía un solo cubo de throttling para todos los visitantes (auditoría F9, `ssr-api-throttle-key-collapse`) (F9, HIGH)
+
+### 41.1 Estado
+COMPLETADO. Fallo reproducido y corregido solo con infraestructura (`compose.yaml`); no hizo falta Botón de Pánico.
+
+### 41.2 Objetivo y causa
+Todas las rutas públicas se renderizan en SSR, y el SSR llama al backend directo (`API_INTERNAL_URL=http://backend:8000`). La IP del visitante no llegaba al throttling por **dos** causas encadenadas:
+
+1. **Angular descartaba la cabecera.** `AngularNodeAppEngine` (Angular 22) borra de la petición toda cabecera `x-forwarded-*` que no esté en `trustProxyHeaders`; el frontend registra el aviso «Received "x-forwarded-for" header but "trustProxyHeaders" was not set up to allow it» (402 veces en el log de un stack recién arrancado). `REQUEST.headers` ya no traía `X-Forwarded-For`, así que `reenvio-ssr-interceptor.ts` no tenía nada que reenviar. La hipótesis inicial del ticket no contemplaba esta causa.
+2. **El backend no confiaba en el frontend.** `DJANGO_TRUSTED_PROXIES` solo contenía la IP del proxy (`.10/32`), y el frontend tenía una IP dinámica (`.128/25`).
+
+Resultado: `ip_cliente()` devolvía la IP del frontend y `truncar_ip` la reducía a la red de "app". Todas las páginas SSR de todos los visitantes compartían un solo cubo por ámbito. `/destinos` hace 2 llamadas `publico-lectura` (120/min), así que **60 páginas por minuto en total** dejaban a toda la web pública con el estado de error (HTTP 200, sin datos).
+
+### 41.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Frontend con IP fija `${APP_NET_PREFIX}.11` en "app", fuera del rango dinámico `.128/25` (como el proxy) | `compose.yaml` | DEC-AUTO-1370 |
+| `DJANGO_TRUSTED_PROXIES` = `.10/32,.11/32` y `GUNICORN_FORWARDED_ALLOW_IPS` = `.10,.11` | `compose.yaml` (backend) | DEC-AUTO-1370 |
+| `NG_TRUST_PROXY_HEADERS: x-forwarded-for` en el frontend (variable que lee `@angular/ssr/node` para `trustProxyHeaders`; sin código de aplicación) | `compose.yaml` (frontend) | DEC-AUTO-1371 |
+| Comentario de `DJANGO_TRUSTED_PROXIES` actualizado (sigue sin ser variable del `.env`) | `.env.example` | — |
+| Paso nuevo del smoke en el job `images`: «smoke: IP del visitante en las llamadas del SSR a la API (TKT-OPS-038)» | `.github/workflows/ci.yaml` | DEC-AUTO-1372 |
+
+### 41.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1370**: IP fija `.11` para el frontend y confianza en ella en Django y gunicorn.
+  - Alternativas: (a) confiar en toda la subred "app" (`.0/24`): cualquier contenedor futuro de "app" podría falsificar la IP; (b) que el SSR llame a la API a través del proxy: un salto más y el proxy vería la IP del frontend, así que no resuelve nada; (c) IP fija `.11`, elegida porque replica el patrón del proxy (DEC-AUTO-155) y es la confianza mínima.
+  - Gunicorn: con `.11` aceptaría `X-Forwarded-Proto` del SSR. Hoy el SSR no la reenvía (no cambia nada), pero deja preparado el camino de RSK-OPS-014. Gunicorn no modifica `REMOTE_ADDR`.
+  - Riesgo: si alguien añade otro emisor a "app" con la IP `.11`, heredaría la confianza. Docker no la asigna dinámicamente (fuera de `ip_range`). Reversible: quitar la IP fija y la entrada.
+- **DEC-AUTO-1371**: `NG_TRUST_PROXY_HEADERS=x-forwarded-for` (solo esa cabecera).
+  - No se confía en `x-forwarded-host`/`-proto`/`-prefix`: la validación de host (`NG_ALLOWED_HOSTS`, SSRF) sigue usando solo `Host`.
+  - Por qué es seguro: (1) en la location `/` el proxy SOBRESCRIBE `X-Forwarded-For` con `$remote_addr` (`snippets/proxy-headers.conf`), así que un cliente no puede inyectar la suya; (2) la location de assets no la sobrescribe, pero envía `Host: estaticos.invalid` y no se renderiza (verificado: 0 llamadas a la API con un XFF inyectado); (3) Express sigue con `trust proxy` en false; (4) el frontend solo es accesible desde "app" (red interna).
+  - Alternativa descartada: `new AngularNodeAppEngine({trustProxyHeaders: [...]})` en `server.ts`. Es código de aplicación (Developer) y equivale a la variable de entorno.
+- **DEC-AUTO-1372**: regresión en el smoke de CI, de extremo a extremo. Comprueba:
+  - (a) que el frontend tiene la `.11`;
+  - (b) que `ip_cliente` usa el XFF si `REMOTE_ADDR` es el frontend o el proxy, y lo ignora si es otro peer de "app" (`.200`);
+  - (c) tras vaciar los contadores, un visitante pide `/destinos` con un XFF inyectado: el cubo `publico-lectura` queda a nombre de SU IP, no a nombre de la red del frontend ni de la IP inyectada.
+  - La comprobación (c) detecta ambas causas, también si una actualización de Angular cambia el nombre de la variable.
+
+### 41.5 Validaciones ejecutadas (2026-10-13, local: Windows 11, Docker Engine 29.6.1, Compose 5.2.0)
+**Montaje:**
+- Stack propio `brujulaops038`: `APP_NET_PREFIX=10.231.38`, proxy en `127.0.0.1:18038`, imágenes de `origin/main` (`39b7167`) y semilla real (`cargar_semilla`: creados 98, publicados 68).
+- Override de prueba en el scratchpad: subred `10.238.0.0/16` en "publica" para dar a A (`10.238.1.10`) y B (`10.238.2.20`) redes /24 distintas.
+- Clientes: contenedores efímeros en "publica" que piden `http://proxy:8080/destinos`. Criterio de página correcta: contiene tarjetas de destino (`/destinos/<slug>`, 24 con la semilla; la de error tiene 0 y pesa 30 840 B frente a 187 010 B).
+- No se tocaron `brujulalocal` ni el puerto 8080.
+
+**Experimento:** A pide 130 páginas en 52 s (2,5 r/s, dentro del `limit_req` del borde), seguidas de 3 páginas de B.
+
+| Configuración | A | B | Backend `/api/v1/publico/*` |
+|---|---|---|---|
+| ANTES (`compose.yaml` de `main`) | 60 correctas; error desde la 61 | **3 de 3 con error** (200 sin datos) | 120 × 200, 146 × 429 |
+| Solo IP fija + `DJANGO_TRUSTED_PROXIES` (sin `NG_TRUST_PROXY_HEADERS`) | 60 correctas; error desde la 61 | **3 de 3 con error** | 120 × 200, 146 × 429 |
+| DESPUÉS (cambio completo) | 60 correctas; error desde la 61 (**su propia cuota**) | **3 de 3 correctas** (24 destinos) | 126 × 200, 140 × 429 |
+
+**Peer no confiable directo al backend (DESPUÉS):** un contenedor de "app" con IP dinámica (`10.231.38.130`) hace 130 GET a `backend:8000/api/v1/publico/destinos`, con un XFF distinto en cada uno. Resultado: 120 × 200 y 10 × 429, así que el XFF se ignora y cuenta por su IP.
+
+**Assets con XFF inyectado (DESPUÉS):** `/no-existe-ops038.js` → 404, `/fonts/no-existe.woff2` → 404, `/favicon.ico` → 200. Llamadas a la API en el backend: 0.
+
+**Paso nuevo del smoke de CI, ejecutado en local contra `brujulaops038`:**
+- ANTES: FALLA en (a), «el frontend no tiene la IP fija .11», y, saltando (a), en (b): `REMOTE_ADDR=10.231.38.130 -> 10.231.38.130`.
+- Solo IP fija: (a) y (b) OK; FALLA en (c): `{'visitante': False, 'red del frontend': True, 'XFF inyectado': False}`.
+- DESPUÉS: **PASS**: `{'visitante': True, 'red del frontend': False, 'XFF inyectado': False}`.
+
+**Configuración:** `docker compose config --quiet` (base, `+compose.ci.yaml`, `+compose.debug.yaml`, perfiles `ops` y `restauracion`): rc=0. `ci.yaml` cargado con PyYAML: OK.
+
+### 41.6 Operación: transición en un stack existente (una sola vez)
+nginx resuelve el upstream `frontend` al arrancar. Al aplicar este cambio sobre un stack que ya está levantado (p. ej. `brujulalocal`), `docker compose up -d` recrea el frontend con la nueva IP `.11`, pero no reinicia el proxy, que sigue apuntando a la IP antigua: **todas las páginas dan 503** (observado). Hay que ejecutar también `docker compose restart proxy`, o levantar el stack desde cero. Después la IP es fija y la recreación del frontend ya no la cambia (verificado con `--force-recreate frontend`: el proxy sigue sirviendo sin reiniciarse).
+
+### 41.7 Riesgos / pendientes
+- **OBS-OPS038-01 (LOW, anterior a este ticket):** el backend tampoco tiene IP fija. Si se recrea con otra IP, el proxy (que lo resuelve al arrancar) da 502/503 hasta que se reinicia. Arreglo posible en un ticket aparte: IP fija o `resolver` de Docker en nginx.
+- **OBS-OPS038-02 (LOW, defensa en profundidad):** la location de assets de `infra/proxy/nginx.conf` no sobrescribe `X-Forwarded-For`. Hoy es inocuo porque esa location nunca renderiza (Host inválido; verificado). Sugerencia para el próximo ticket sobre `nginx.conf`: `proxy_set_header X-Forwarded-For $remote_addr;` también ahí. Queda fuera de los `archivos_permitidos` de este ticket.
+- Los avisos de Angular por `x-forwarded-host`/`x-forwarded-proto` en el log del SSR siguen apareciendo (anterior a este ticket; TKT-OPS-019 los quitó de los assets, no de `/`).
+- RSK-OPS-014 sigue ABIERTO: el SSR no reenvía `X-Forwarded-Proto`. La confianza de gunicorn en `.11` ya está preparada.
+- RSK-OPS-012 queda mitigado también para el SSR (lista de emisores de confianza: proxy y frontend).
+
+### 41.8 Archivos modificados
+`compose.yaml` (servicios `backend` y `frontend`, comentarios de la red `app`), `.env.example` (comentario), `.github/workflows/ci.yaml` (job `images`, paso nuevo del smoke), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 41.9 Próximo agente
+**Orquestador:**
+- QA del PR. Sugerencia: repetir el experimento A/B y esperar que B obtenga la página correcta.
+- Registrar DEC-AUTO-1370 a 1372 y OBS-OPS038-01/02.
+- Cerrar el candidato `ssr-api-throttle-key-collapse` de la auditoría F9.
+- Tras integrar en `main`: en `brujulalocal`, `up -d` + `restart proxy` (§41.6).

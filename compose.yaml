@@ -12,7 +12,8 @@
 # Topología (Skill_devops §8):  navegador -> proxy(127.0.0.1:8080) -> frontend SSR / backend -> db
 #   red "publica": solo proxy (única red con puertos publicados)
 #   red "app"   (internal): proxy, frontend, backend. Subred fija ${APP_NET_PREFIX}.0/24: el proxy tiene
-#               la IP fija .10 y es el ÚNICO emisor de X-Forwarded-* en quien confía gunicorn (DEC-AUTO-155)
+#               la IP fija .10 y el frontend SSR la .11: son los ÚNICOS emisores de X-Forwarded-* en quienes
+#               confían gunicorn y Django (DEC-AUTO-155, DEC-AUTO-1370)
 #   red "datos" (internal): backend, migrate, scheduler, backup, db
 # Etiquetas de imagen: APP_VERSION o, si está vacío, 0.0.0-dev-<proyecto compose>, para que los
 # proyectos paralelos (-p brujula-qa001, ...) no se pisen las imágenes (RSK-OPS-010, DEC-AUTO-156).
@@ -243,11 +244,15 @@ services:
       DB_USER: app_rw
       DB_PASSWORD: ${APP_RW_PASSWORD:?definir en .env}
       OTEL_SERVICE_NAME: brujula-backend
-      # Único emisor de X-Forwarded-* de confianza para gunicorn: la IP fija del proxy (DEC-AUTO-155)
-      GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10
-      # Redes de proxy de confianza para la IP del cliente en Django (X-Forwarded-For solo si
-      # REMOTE_ADDR pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224): solo el proxy (.10/32)
-      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32
+      # Emisores de X-Forwarded-* de confianza: las IP fijas del proxy (.10, DEC-AUTO-155) y del
+      # frontend SSR (.11, TKT-OPS-038, DEC-AUTO-1370), que llama directo al backend reenviando el
+      # X-Forwarded-For que el proxy ya sobrescribió con $remote_addr. Sin la .11, Django tomaba la IP
+      # del frontend como la del cliente y TODAS las páginas SSR compartían un solo cubo de throttling.
+      GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10,${APP_NET_PREFIX:-10.231.40}.11
+      # Redes de confianza para la IP del cliente en Django (X-Forwarded-For solo si REMOTE_ADDR
+      # pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224, DEC-AUTO-1370): proxy y frontend.
+      # La verifica el smoke de CI (DEC-AUTO-1372).
+      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32,${APP_NET_PREFIX:-10.231.40}.11/32
     volumes:
       - media:/var/lib/brujula/media
       - ops_libro:/var/lib/brujula/ops
@@ -293,11 +298,20 @@ services:
       PORT: "4000"
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:8000}
       NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # Angular 22 (AngularNodeAppEngine) BORRA de la petición toda cabecera x-forwarded-* que no esté
+      # en trustProxyHeaders (lo lee de esta variable): sin ella el SSR no puede reenviar la IP del
+      # visitante a la API (TKT-OPS-038, DEC-AUTO-1371). Solo X-Forwarded-For, que el proxy SOBRESCRIBE
+      # con $remote_addr en la location "/"; Host/Proto siguen sin ser de confianza (validación de host).
+      NG_TRUST_PROXY_HEADERS: x-forwarded-for
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
       OTEL_SERVICE_NAME: brujula-frontend
       TZ: UTC
     tmpfs: ["/tmp"]
-    networks: [app]
+    networks:
+      app:
+        # IP fija fuera del rango dinámico (.128/25), como el proxy: el backend confía en el
+        # X-Forwarded-For que reenvía el SSR solo si llega desde esta IP (TKT-OPS-038, DEC-AUTO-1370)
+        ipv4_address: ${APP_NET_PREFIX:-10.231.40}.11
     depends_on:
       backend: {condition: service_healthy}
     deploy:
@@ -444,8 +458,8 @@ networks:
   publica: {}
   app:
     internal: true
-    # Subred fija para poder fijar la IP del proxy (DEC-AUTO-155). Fuera de los pools por defecto
-    # de Docker (172.17-31.x, 192.168.x). Los contenedores sin IP fija reciben una de .128-.255.
+    # Subred fija para poder fijar las IP del proxy (.10) y del frontend (.11) (DEC-AUTO-155/1370). Fuera
+    # de los pools por defecto de Docker (172.17-31.x, 192.168.x). Sin IP fija: una de .128-.255.
     ipam:
       config:
         - subnet: ${APP_NET_PREFIX:-10.231.40}.0/24

@@ -672,6 +672,62 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health/ready)" = 200
           test "$(docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' "$(docker compose ps -q proxy)")" = "0 false" \
             || { echo "::error::el proxy se reinició o fue OOMKilled"; exit 1; }
+      # TKT-OPS-038 (DEC-AUTO-1370/1371/1372): el SSR llama directo al backend reenviando el
+      # X-Forwarded-For que el proxy sobrescribió con $remote_addr. Si Angular lo descarta (falta
+      # NG_TRUST_PROXY_HEADERS) o el backend no confía en el frontend, el backend toma la IP del frontend
+      # como la del cliente y TODOS los visitantes comparten un solo cubo de throttling por ámbito (la
+      # web pública entera recibe el estado de límite tras ~60 páginas/min en total). Comprueba:
+      # (a) frontend con IP fija .11 en "app" (misma subred que el proxy .10); (b) Django usa el XFF si
+      # REMOTE_ADDR es el frontend o el proxy, y lo ignora si es otro peer de "app"; (c) de extremo a
+      # extremo: un visitante pide /destinos (SSR) con un XFF inyectado; el cubo publico-lectura queda a
+      # nombre de SU IP, no a nombre de la red del frontend ni de la IP inyectada.
+      - name: "smoke: IP del visitante en las llamadas del SSR a la API (TKT-OPS-038)"
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: |
+          set -euo pipefail
+          fe="$(docker compose ps -q frontend)"; px="$(docker compose ps -q proxy)"
+          redes() { docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$1"; }
+          red_app="$(redes "$px" | grep '_app$')"; red_pub="$(redes "$px" | grep '_publica$')"
+          ip_en() { docker inspect -f "{{(index .NetworkSettings.Networks \"$2\").IPAddress}}" "$1"; }
+          ip_fe="$(ip_en "$fe" "$red_app")"; ip_px="$(ip_en "$px" "$red_app")"
+          echo "app: proxy=$ip_px frontend=$ip_fe"
+          test "$ip_fe" = "${ip_px%.*}.11" || { echo "::error::el frontend no tiene la IP fija .11 en la red app"; exit 1; }
+          img="$(docker inspect -f '{{.Config.Image}}' "$(docker compose ps -q backend)")"
+          docker compose exec -T -e IP_FE="$ip_fe" -e IP_PX="$ip_px" backend python manage.py shell -c '
+          import ipaddress, os, sys
+          from apps.core.throttling import ip_cliente
+          fe, px = os.environ["IP_FE"], os.environ["IP_PX"]
+          otro = str(ipaddress.ip_address(fe) + 189)  # .200: rango dinámico de "app", no confiable
+          casos = [(fe, "203.0.113.7"), (px, "203.0.113.7"), (otro, otro)]
+          for remota, esperada in casos:
+              obtenida = ip_cliente({"REMOTE_ADDR": remota, "HTTP_X_FORWARDED_FOR": "203.0.113.7"})
+              print(f"REMOTE_ADDR={remota} -> {obtenida} (esperada {esperada})")
+              if obtenida != esperada:
+                  sys.exit("FALLO: confianza en X-Forwarded-For incorrecta")'
+          docker compose exec -T backend python manage.py shell -c '
+          from django.db import connection
+          with connection.cursor() as c:
+              c.execute("DELETE FROM cache_limites WHERE cache_key LIKE %s", ["limite:%"])'
+          ip_vis="$(docker run --rm -i --network "$red_pub" --entrypoint python "$img" - <<'PY'
+          import socket, urllib.request
+          s = socket.create_connection(("proxy", 8080)); print(s.getsockname()[0]); s.close()
+          r = urllib.request.Request("http://proxy:8080/destinos", headers={"Host": "localhost", "X-Forwarded-For": "198.51.100.7"})
+          assert urllib.request.urlopen(r, timeout=30).status == 200
+          PY
+          )"
+          echo "visitante: $ip_vis"
+          docker compose exec -T -e IP_FE="$ip_fe" -e IP_VIS="$ip_vis" backend python manage.py shell -c '
+          import os, sys
+          from django.db import connection
+          from apps.core.throttling import huella_hmac, truncar_ip
+          def hay(ip):
+              clave = "limite:publico-lectura:" + huella_hmac("publico-lectura|ip:" + truncar_ip(ip))
+              with connection.cursor() as c:
+                  c.execute("SELECT count(*) FROM cache_limites WHERE cache_key = %s", [clave])
+                  return c.fetchone()[0] > 0
+          r = {"visitante": hay(os.environ["IP_VIS"]), "red del frontend": hay(os.environ["IP_FE"]), "XFF inyectado": hay("198.51.100.7")}
+          print("cubos publico-lectura:", r)
+          sys.exit(0 if r == {"visitante": True, "red del frontend": False, "XFF inyectado": False} else "FALLO: el SSR no cuenta por la IP del visitante")'
       # RSK-OPS-009 / DEC-AUTO-158: gunicorn vuelve en silencio al formato texto si no puede leer
       # --log-config-json. Se para el backend (para capturar también el apagado) y se exige que
       # TODAS las líneas no vacías de su log sean objetos JSON (y que haya al menos una).
