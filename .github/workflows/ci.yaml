@@ -115,6 +115,20 @@ jobs:
           print(f"backend: {w} workers, memoria {mem // 2**20} MiB (mínimo {minimo // 2**20}), memswap {swap // 2**20} MiB")
           sys.exit(0 if mem >= minimo and swap == mem else "FALLO: memoria del backend insuficiente para GUNICORN_WORKERS o con swap")'
           done
+      # TKT-OPS-039 (RSK-OPS-068, DEC-AUTO-1391): CPU del backend acorde a los workers. Cada worker
+      # síncrono es un proceso de un hilo (hasta 1 núcleo); una cuota menor que el número de workers los
+      # frena por throttling CFS en cada ráfaga (F9: p95 de lectura 1111 ms a 20 r/s con 3 workers y 1.5).
+      - name: "CPU del backend >= GUNICORN_WORKERS"
+        run: |
+          for extra in "" compose.ci.yaml compose.debug.yaml; do
+            args=(-f compose.yaml); [ -n "$extra" ] && args+=(-f "$extra")
+            docker compose "${args[@]}" config --format json | python3 -c '
+          import json, sys
+          b = json.load(sys.stdin)["services"]["backend"]
+          cpus = float(b["deploy"]["resources"]["limits"]["cpus"]); w = int(b["environment"]["GUNICORN_WORKERS"])
+          print(f"backend: {w} workers, cpus {cpus}")
+          sys.exit(0 if cpus >= w else "FALLO: BACKEND_CPUS menor que GUNICORN_WORKERS")'
+          done
       # RSK-OPS-025 (TKT-OPS-006, DEC-AUTO-254): todo Dockerfile del repositorio está en el ecosistema
       # "docker" de .github/dependabot.yml y sus FROM de imágenes externas son literales (Dependabot
       # no resuelve ARG en FROM: con "FROM ${X}" la imagen base quedaría sin vigilar).

@@ -200,9 +200,12 @@ services:
       retries: 12
       start_period: 30s
     stop_grace_period: 30s
+    # CPU (TKT-OPS-039, RSK-OPS-068, DEC-AUTO-1390): con 1.0 la BD pasaba el 36 % de los periodos CFS
+    # con throttling a 30 r/s (cada ficha hace 23-27 consultas) y esa espera llegaba a la API. Con 2.0:
+    # 0 periodos con throttling. Es un techo, no una reserva.
     deploy:
       resources:
-        limits: {cpus: "1.0", memory: 1g}
+        limits: {cpus: "${DB_CPUS:-2.0}", memory: 1g}
 
   # ---------------------------------------------------------------------------
   # Job de migración (app_migrator) antes de la web (DB_HANDOFF plan_migraciones, §23.4)
@@ -275,9 +278,15 @@ services:
     # (la verifica CI). 2 GiB cubre los 3 workers por omisión: picos medidos de 1216/1584 MiB sin OOM.
     # memswap_limit = memoria: sin swap, como un Linux de servidor; un exceso se ve aquí y no se esconde.
     memswap_limit: ${BACKEND_MEM_LIMIT:-2g}
+    # CPU (TKT-OPS-039, RSK-OPS-068, DEC-AUTO-1390/1391): cada worker síncrono es un proceso de un solo
+    # hilo, así que con N workers el backend puede usar hasta N núcleos. Con 1.5 para 3 workers, la cuota
+    # CFS los frenaba en cada ráfaga (throttling) y la latencia se disparaba cuando la CPU rendía menos
+    # (con batería, F9: p95 de lectura 1111 ms a 20 r/s). Regla: BACKEND_CPUS >= GUNICORN_WORKERS (la
+    # verifica CI). Docker rechaza un valor mayor que las CPU del host: en un host de 2 CPU, bajar a la
+    # vez GUNICORN_WORKERS y BACKEND_CPUS.
     deploy:
       resources:
-        limits: {cpus: "1.5", memory: "${BACKEND_MEM_LIMIT:-2g}"}
+        limits: {cpus: "${BACKEND_CPUS:-3.0}", memory: "${BACKEND_MEM_LIMIT:-2g}"}
 
   # ---------------------------------------------------------------------------
   # Frontend Angular 22 SSR (Node) — sin acceso a la red de datos
