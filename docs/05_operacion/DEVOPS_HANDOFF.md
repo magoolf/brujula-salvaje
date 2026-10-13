@@ -19,6 +19,7 @@ Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios 
 Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canales implícitos: cualquier `TRIVY_*`, configuración generada, escrituras a `.trivyignore`, gate que no puede dejar de fallar, `sha256sum -c` junto a la instalación, guardia de ejecución; QA-OPS006-04/05, OBS-C3-1..3, 2026-10-11): ver §36. **La lista blanca vigente es §19.14.2 + §36.3.**
 Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
 Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
+Actualizado por **TKT-OPS-037** (F7, MEDIUM, F-035-01 de la QA de TKT-OPS-035: el tope global `limit_conn subidas_total 16` de `/api/v1/panel/medios` lo agotaban 8 IP anónimas en goteo y bloqueaba con 429 todas las subidas del panel; se elimina y se conserva `subidas_ip 2`; cifras de RSK-OPS-060/061 corregidas, O-035-03 documentado, regresión estática en el smoke de CI, 2026-10-12): ver §40 (§39 es TKT-OPS-036).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -3108,7 +3109,7 @@ Conclusión: el **riesgo es REAL** (MEDIUM). Con swap el fallo solo se retrasa: 
 | ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
 |---|---|---|---|---|---|
 | DEC-AUTO-1340 | **Temporales de nginx en disco**: `client_body_temp_path /var/cache/nginx/temporal/cuerpos` en el volumen nuevo `proxy_temporal`, que no es tmpfs. El directorio se crea en la imagen (101:101, 0700) y Docker lo copia al volumen vacío. nginx crea los subdirectorios al arrancar y borra cada archivo nada más abrirlo. La caché de página de esas escrituras es recuperable, así que no provoca OOM | (a) `size=` en el tmpfs: el límite sigue dentro de los 256m y, al llenarse, también falla la subida legítima. (b) Más memoria para el contenedor: no escala. (c) `proxy_request_buffering off`: gunicorn (workers síncronos) quedaría expuesto a clientes lentos | Elimina la causa: el cuerpo deja de ocupar memoria del contenedor. Es la misma solución que RSK-OPS-029 (DEC-AUTO-1201) | LOW (RSK-OPS-060): uso transitorio de disco | Alta |
-| DEC-AUTO-1341 | **`limit_conn` en `/api/v1/panel/medios`**: 2 simultáneas por IP (`subidas_ip`) y 16 en total (`subidas_total`, con clave `$server_name` = `_`). Con `limit_conn_status 429` el rechazo sale por `/_errores_proxy/429` como problem+json `limite_tasa` con `Retry-After: 1`. Actúa en la fase preaccess, **antes de leer el cuerpo** | (a) Comprobar la cookie de sesión en el borde: se elude con cualquier cookie inventada y acopla el proxy al nombre de la cookie de Django. (b) Solo límite por IP: no acota el disco ante muchas IP. (c) 1 por IP: un reintento del panel podría coincidir con el cierre de la petición anterior | Acota el disco que pueden ocupar cuerpos sin autenticar: ≤ 2 × 105 MB por IP y ≤ ~1,7 GB en total. El panel sube **un archivo por petición, en secuencia** (TKT-072) y ya reintenta ante `limite_tasa` | LOW (RSK-OPS-061): 16 subidas anónimas simultáneas desde ≥ 8 IP bloquean con 429 las subidas legítimas mientras duran. La web sigue en pie | Alta |
+| DEC-AUTO-1341 | **`limit_conn` en `/api/v1/panel/medios`**: 2 simultáneas por IP (`subidas_ip`) y 16 en total (`subidas_total`, con clave `$server_name` = `_`). Con `limit_conn_status 429` el rechazo sale por `/_errores_proxy/429` como problem+json `limite_tasa` con `Retry-After: 1`. Actúa en la fase preaccess, **antes de leer el cuerpo** | (a) Comprobar la cookie de sesión en el borde: se elude con cualquier cookie inventada y acopla el proxy al nombre de la cookie de Django. (b) Solo límite por IP: no acota el disco ante muchas IP. (c) 1 por IP: un reintento del panel podría coincidir con el cierre de la petición anterior | Acota el disco que pueden ocupar cuerpos sin autenticar: ≤ 2 × 105 MB por IP y ≤ ~1,7 GB en total. El panel sube **un archivo por petición, en secuencia** (TKT-072) y ya reintenta ante `limite_tasa` | LOW (RSK-OPS-061): 16 subidas anónimas simultáneas desde ≥ 8 IP bloquean con 429 las subidas legítimas mientras duran. La web sigue en pie. **Corregido por TKT-OPS-037 (§40): la cifra era errónea (con goteo el bloqueo es indefinido, F-035-01) y `subidas_total` se elimina (DEC-AUTO-1360)** | Alta |
 | DEC-AUTO-1342 | Las **respuestas del upstream** que no caben en `proxy_buffers` (`proxy_temp_path`) también van al volumen (`/var/cache/nginx/temporal/respuestas`). El tmpfs `/tmp` pasa a `size=16m`, porque ya solo guarda el pid | Dejar `proxy_temp` en el tmpfs con un tope de 64m: al llenarse fallarían respuestas legítimas, como los derivados de 2 MB del panel servidos a clientes lentos | Es el mismo vector con lecturas lentas: muchas respuestas a medio enviar en el tmpfs suman memoria del contenedor. El tope impide que `/tmp` vuelva a ser un almacén sin límite | Ninguno medido: los derivados de hasta 2 MB se sirvieron con 200 | Alta |
 | DEC-AUTO-1343 | **NO se reduce `client_max_body_size 105m`** de medios en este ticket, aunque el Orquestador lo permitía tras confirmar que PR #110 (TKT-072) envía un archivo por petición | Bajarlo a ~12 MB, con la condición de integrar este PR después de #110 | (1) El contrato (`panelSubirMedios`: 1..10 archivos, "Petición >105 MB: 413") y ADR-API-002 §8 fijan los 105 MB. Con 12 MB, una petición válida según el contrato (p. ej. 3 × 10 MB) recibiría 413: es un cambio de contrato, y `contracts/openapi.yaml` no es un artefacto de DevOps (Skill_devops §15, CLAUDE.md §0.3). (2) DEC-AUTO-1340/1341 ya eliminan el OOM con cualquier tamaño, sin depender del orden de integración respecto a #110. (3) En `main`, el panel todavía envía lotes (`this.repo.subir(lote.archivos, …)`) | INFO (RSK-OPS-062): un anónimo puede seguir escribiendo hasta 105 MB por petición en el disco del proxy, acotado por DEC-AUTO-1341 | Alta |
 
@@ -3152,8 +3153,8 @@ Sin cambios de versiones ni de digests. El volumen nuevo `<proyecto>_proxy_tempo
 Los scripts de prueba (`sondeo_subida.py` y `subida_legitima.py`) se quedaron en el scratchpad de la sesión: son evidencia y no forman parte del repositorio.
 
 ### 38.8 Riesgos / pendientes
-- **RSK-OPS-060 (LOW)**: el disco del host aloja temporales transitorios del proxy. En medios ocupan como máximo ~1,7 GB (DEC-AUTO-1341). Los cuerpos ≤ 2 MB del resto de rutas solo los acota `limit_req` por IP (burst 60 ≈ 120 MB por IP). Un ataque distribuido podría ocupar disco que comparte con la BD. Mitigación en producción: un WAF o CDN delante y el volumen en un sistema de archivos con cuota.
-- **RSK-OPS-061 (LOW)**: con `subidas_total 16`, un atacante con ≥ 8 IP puede bloquear temporalmente las subidas del panel (429). No afecta a la web pública, y el panel reintenta ante `limite_tasa`.
+- **RSK-OPS-060 (LOW)** — *cifras corregidas en §40.5 (TKT-OPS-037, O-035-02)*: el disco del host aloja temporales transitorios del proxy. En medios ocupan como máximo ~1,7 GB (DEC-AUTO-1341). Los cuerpos ≤ 2 MB del resto de rutas solo los acota `limit_req` por IP (burst 60 ≈ 120 MB por IP). Un ataque distribuido podría ocupar disco que comparte con la BD. Mitigación en producción: un WAF o CDN delante y el volumen en un sistema de archivos con cuota.
+- **RSK-OPS-061 (LOW)** — *cerrado en §40.5 (TKT-OPS-037): el bloqueo era indefinido (F-035-01) y `subidas_total` ya no existe*: con `subidas_total 16`, un atacante con ≥ 8 IP puede bloquear temporalmente las subidas del panel (429). No afecta a la web pública, y el panel reintenta ante `limite_tasa`.
 - **RSK-OPS-062 (INFO)**: cada petición sin autenticar puede seguir enviando 105 MB (DEC-AUTO-1343). Recomendación: cuando TKT-072 (#110) esté en `main`, el Orquestador puede decidir un cambio de contrato y de ADR (`panelSubirMedios`: 1 archivo y ≤ ~12 MB por petición). Después, un ticket DevOps reduciría `client_max_body_size` de medios.
 
 ### 38.9 Archivos modificados
@@ -3326,6 +3327,75 @@ El enlace del run y el estado de los checks obligatorios están en la descripci�
 - Registrar DEC-AUTO-1350 a 1353, RSK-OPS-063/064 y OBS-OPS036-01.
 - Decidir si se abre el ticket de OBS-OPS036-01 (proxy).
 - Cerrar OBS-QA072-01.
+
+## 40. TKT-OPS-037: el tope global de subidas permitía a un anónimo bloquear el panel (F-035-01) (F7, MEDIUM)
+
+(§39 corresponde a TKT-OPS-036, desarrollado en paralelo e integrado antes; sus RSK-OPS-063/064 obligan a numerar aquí RSK-OPS-065/066.)
+
+### 40.1 Estado
+**COMPLETADO** en la rama `tkt-ops-037-tope-global-subidas`, creada desde `origin/main` (35838b8, con PR #111 de TKT-OPS-035). El bloqueo está **reproducido en `main`** y **desaparece en la rama** (§40.4). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 40.2 Objetivo
+Corregir F-035-01 (QA de TKT-OPS-035, MEDIUM, confirmado). En `/api/v1/panel/medios`, `limit_conn subidas_total 16` (DEC-AUTO-1341) era un cupo **global** que comparten anónimos y editores. Un anónimo con 8 IPv4 (o un /64 IPv6) abre 2 subidas por IP y envía 1 byte cada 20 s. `client_body_timeout` se mide entre dos lecturas y nginx no tiene plazo total de lectura del cuerpo, así que esas 16 conexiones se mantienen sin límite de tiempo y todas las subidas legítimas del panel reciben 429 mientras dure el goteo. También se corrigen las cifras de RSK-OPS-060 (O-035-02) y RSK-OPS-061, y se documenta O-035-03.
+
+### 40.3 Decisiones
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1360 | **Se elimina `subidas_total`** (zona y directiva). Se conserva `limit_conn subidas_ip 2` (clave `$binary_remote_addr`), con `limit_conn_status 429` sin cambios | (a) Subir el tope global (p. ej. 64): solo encarece el ataque (32 IP) y sigue siendo un interruptor de DoS. (b) Clave por /24 o /64: en IPv6 el /64 de la notación de texto es frágil (el mapa `$ip_truncada` del log ya evita derivar prefijos IPv6 por el mismo motivo) y en IPv4 castiga a NAT/CGNAT legítimos. (c) Tope global solo para peticiones sin cookie de sesión: se elude con cualquier cookie inventada (ya descartado en DEC-AUTO-1341 a) | Un tope global que un anónimo puede llenar no protege a nadie: convierte la defensa del disco en una denegación de servicio del panel. El OOM que motivó DEC-AUTO-1341 ya no depende de él, porque los cuerpos van a disco (DEC-AUTO-1340). El disco queda acotado **por IP** (≤ 2 × 105 MB) y, en conjunto, por el número de IP del atacante y su ancho de banda real (el goteo no escribe disco) | LOW (RSK-OPS-060 corregido): sin cifra global de disco para medios | Alta |
+| DEC-AUTO-1361 | **No se cambia `client_body_timeout`** en la location de medios (sigue el valor por defecto, 60 s entre lecturas) | Bajarlo a 10-20 s solo en medios | nginx no tiene plazo **total** de lectura del cuerpo: cualquier valor se elude enviando 1 byte antes de que venza. Bajarlo no frena el goteo y sí corta subidas legítimas de ~10 MB desde redes móviles con pausas de radio de decenas de segundos. Lo que acota al goteo es `subidas_ip` (2 conexiones por IP) | Ninguno nuevo | Alta |
+| DEC-AUTO-1362 | **Regresión estática en el smoke de CI** (paso `smoke: subidas al panel sin agotar la memoria del proxy (TKT-OPS-035/037)`, comprobación e): en la salida de `nginx -T`, la location `= /api/v1/panel/medios` debe tener `limit_conn subidas_ip` y **todas** sus `limit_conn` deben usar zonas con clave `$binary_remote_addr` | Reproducir el goteo en CI con 9 contenedores de la red `publica`: añade ~2 min y contenedores extra al job; la prueba funcional ya se hizo en local (§40.4) | Barato y determinista: falla con la configuración de `main` (control negativo) y con cualquier tope global futuro (`$server_name`, cadena fija, etc.) | Ninguno | Alta |
+
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1360 a 1362).
+
+### 40.4 Validaciones ejecutadas (2026-10-12, stack propio `brujulaops037`, puerto 18370, `APP_NET_PREFIX=10.231.137`)
+Prueba de goteo: 8 contenedores en la red `<proyecto>_publica` (8 IP), cada uno con 2 conexiones a `POST /api/v1/panel/medios` que declaran 104 MB y envían 1 byte cada 20 s durante 90 s (script `goteo.py` de la QA). Con las 16 conexiones abiertas: una sonda anónima desde una 9.ª IP (contenedor), otra desde el host y una subida legítima autenticada (editor; 1 PNG de 9,7 MB y un lote de 3 × 5,8 MB).
+
+| Validación | `main` (35838b8) | Rama |
+|---|---|---|
+| Sonda anónima desde la 9.ª IP (contenedor) | **429** `limite_tasa` | 400 `validacion` de Django (llega al backend) |
+| Sonda anónima desde el host | **429** `limite_tasa` | 403 `csrf_invalido` de Django (llega al backend) |
+| Subida legítima de 9,7 MB durante el goteo | **429** `limite_tasa` | **200**, `ACEPTADO`, 15 derivados servidos con 200 |
+| Lote de 3 archivos (17 MB) durante el goteo | **429** `limite_tasa` | **200**, 3 `ACEPTADO`, derivados 200 |
+| Conexiones en goteo al final (101 s) | abiertas, sin respuesta | abiertas, sin respuesta (cada IP sigue limitada a 2) |
+| `nginx -t` en la imagen nueva | — | VALIDADO |
+| Paso del smoke de CI (TKT-OPS-035/037) ejecutado en local con el puerto adaptado | — | **PASS**: limit_conn en medios `{subidas_ip: $binary_remote_addr}`; `shmem` 0 MB con 2 × 100 MB retenidos; 3.ª subida de la misma IP → 429 problem+json; retenidas → [403, 403] |
+| Comprobación (e) contra el `nginx.conf` de `main` (control negativo) | **FALLA** como debe (`subidas_total: $server_name`) | PASA |
+| Smoke del proxy de TKT-OPS-004/006/034 (ráfaga 429 problem+json, 400/403/404/405 del proxy, zona `salud`, gzip, `/_errores_proxy/*` con `client_max_body_size 0`, 429 sobre subida de 3 MB) | — | **PASS** |
+| Proxy tras todas las pruebas | — | `RestartCount 0`, `OOMKilled false`, `/health/ready` 200 |
+| `ci.yaml` cargado con PyYAML | — | VALIDADO |
+| CI real del PR | — | Ver HANDOFF_ENVELOPE |
+
+Los scripts (`prueba_goteo.sh`, `sonda9.py`, `paso_037.sh`) quedan en el scratchpad de la sesión: son evidencia y no forman parte del repositorio.
+
+### 40.5 Riesgos corregidos y nuevos
+- **RSK-OPS-060 (LOW), cifras corregidas (O-035-02)**:
+  - Medios: ≤ 2 × 105 MB por IP. **Sin tope global** (DEC-AUTO-1360): el total depende del número de IP del atacante y de los bytes que realmente envíe.
+  - Resto de rutas (cuerpo ≤ 2 MB): `limit_req` (20 r/s, burst 60 por IP) acota el **ritmo** de peticiones nuevas, **no la concurrencia**. La cifra anterior ("burst 60 ≈ 120 MB por IP") era errónea: una IP que envía despacio acumula hasta 20 peticiones nuevas por segundo sin plazo total, así que el techo real por IP es el número de conexiones de nginx (`worker_processes auto` × `worker_connections 1024`; en el host de validación, 20 × 1024) × 2 MB, y el atacante tiene que transmitir esos bytes.
+  - Mitigación en producción, sin cambios: WAF o CDN delante y el volumen `proxy_temporal` en un sistema de archivos con cuota (Puerta Humana de producción).
+- **RSK-OPS-061: CERRADO**. La cifra "bloquean temporalmente mientras duran" era errónea: con goteo el bloqueo era indefinido (F-035-01). `subidas_total` ya no existe y una 9.ª IP sube con 200 durante el goteo (§40.4). Residual: un anónimo **detrás de la misma IP** que un editor (NAT compartido) puede ocupar los 2 cupos de esa IP.
+- **RSK-OPS-065 (MEDIUM en prod, needs_validation) — O-035-03**: el proxy no usa `real_ip`. Tras un balanceador o CDN, `$binary_remote_addr` es la IP del balanceador para todos los clientes: `subidas_ip 2` se convierte en un tope **global de 2** y un solo anónimo con 2 subidas en goteo bloquearía todas las subidas del panel (además de lo ya descrito en RSK-OPS-022 para `por_ip`, `salud` y `estaticos`). Es una decisión de topología de producción: `set_real_ip_from` con los rangos del balanceador + `real_ip_header`, tomada en la **Puerta Humana de producción** (CLAUDE.md §0.5). En local y en CI el proxy recibe las conexiones directamente, así que no aplica. NOT_RUN: no hay topología de producción.
+- **RSK-OPS-066 (LOW, needs_validation, NOT_RUN)**: memoria del proxy frente a muchas conexiones lentas en rutas genéricas. Cada petición con cuerpo pendiente reserva `client_body_buffer_size` (16 KB) además de la memoria de la conexión; con ~16.000 conexiones lentas se alcanzarían los 256m del contenedor. Una IP llega a ese número en ~15 min al ritmo de `por_ip`. No se midió: es preexistente, ajeno a medios y fuera del alcance de este ticket. Mitigación propuesta para otro ticket: `limit_conn` por IP a nivel de servidor con un valor holgado para NAT (p. ej. 64) y `worker_processes` fijo acorde a `cpus: 0.5`.
+- RSK-OPS-062 (INFO) sin cambios.
+
+### 40.6 Cambios realizados
+- `infra/proxy/nginx.conf`: se eliminan `limit_conn_zone $server_name zone=subidas_total:1m` y `limit_conn subidas_total 16`. Se actualizan los comentarios de la zona y de la location de medios (DEC-AUTO-1360/1361).
+- `.github/workflows/ci.yaml`, job `images`, solo el paso del smoke de subidas: nombre `… (TKT-OPS-035/037)`, comentario y comprobación estática (e) (DEC-AUTO-1362). El resto del paso no cambia: ya no afirmaba nada sobre `subidas_total`.
+- `docs/05_operacion/DEVOPS_HANDOFF.md`: línea de índice, notas de corrección en §38.4 y §38.8, y esta sección.
+- Sin cambios en `compose.yaml`, `Dockerfile`, `.env.example`, versiones, digests ni lockfiles.
+
+### 40.7 Versiones / infraestructura / variables
+Sin cambios. La imagen `brujula/proxy` solo cambia en `nginx.conf`.
+
+### 40.8 Archivos modificados
+`infra/proxy/nginx.conf`, `.github/workflows/ci.yaml` (solo el smoke del proxy) y `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 40.9 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir el goteo de 8 IP y comprobar que una 9.ª IP sube con 200.
+- Integrar el PR. Posible conflicto de texto con TKT-OPS-036 en el índice y al final de este documento (ambos añaden líneas): se resuelve conservando las dos.
+- Registrar DEC-AUTO-1360 a 1362, la corrección de RSK-OPS-060, el cierre de RSK-OPS-061 y los nuevos RSK-OPS-065/066.
+- Llevar RSK-OPS-065 a la Puerta Humana de producción y decidir si RSK-OPS-066 merece ticket.
 
 ---
 
