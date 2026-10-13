@@ -21,6 +21,7 @@ Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy
 Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
 Actualizado por **TKT-OPS-037** (F7, MEDIUM, F-035-01 de la QA de TKT-OPS-035: el tope global `limit_conn subidas_total 16` de `/api/v1/panel/medios` lo agotaban 8 IP anónimas en goteo y bloqueaba con 429 todas las subidas del panel; se elimina y se conserva `subidas_ip 2`; cifras de RSK-OPS-060/061 corregidas, O-035-03 documentado, regresión estática en el smoke de CI, 2026-10-12): ver §40 (§39 es TKT-OPS-036).
 Actualizado por **F9 [PRE-RELEASE / RELEASE]** (2026-10-12/13, candidata `1.0.0-rc.1` sobre `main` @ 12b4b3e, con build final, trivy y SBOM repetidos sobre `main` @ 45dc49a (TKT-OPS-038): build de las 6 imágenes, trivy + SBOM, arranque completo, smokes del CI, check --deploy, copia + simulacro AC-054, carga y Lighthouse medidos con batería, versión, changelog y rollback; sin tags, sin publicación y sin despliegue): ver §42 (§41 es TKT-OPS-038).
+Actualizado por **TKT-OPS-039** (F9, MEDIUM, RSK-OPS-068: capacidad de la API pública; AC-051/AC-053 con 50 usuarios durante 5 min; cuotas de CPU del backend (4.0) y de la BD (2.0), 4 workers de gunicorn con 2560 MiB, regla `BACKEND_CPUS >= GUNICORN_WORKERS` en CI; diagnóstico de consultas para el Developer, 2026-10-13): ver §43.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -3656,3 +3657,108 @@ Lighthouse 12.6.1, formFactor `mobile`, `--throttling-method=devtools` (Slow 4G,
 - Decidir sobre RSK-OPS-067 (integrar el PR #78) y RSK-OPS-068 (re-medir enchufado o abrir ticket) antes de dar la release por buena.
 - Registrar DEC-AUTO-1380 a 1388 y RSK-OPS-067/068/069. TKT-OPS-038 ya está cubierto en §42.11.
 - Puertas Humanas pendientes: renovación de RSK-OPS-001 antes del 2026-10-26; publicación de imágenes, tag `v1.0.0-rc.1`/`v1.0.0`, firma cosign, plataforma de producción (ADR, §23.5) y despliegue.
+
+## 43. TKT-OPS-039: capacidad de la API pública (AC-051/AC-053, RSK-OPS-068) (F9, MEDIUM)
+
+(§42 es la F9 [PRE-RELEASE / RELEASE], PR #115, ya integrada en `main`. Esta sección parte de su §42.5.)
+
+### 43.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR. Rama `tkt-ops-039-capacidad-api`, creada desde `origin/main` y con merge de `origin/main` @ `8c1de59` (incluye Django 5.2.18, PR #78) antes de la medición final. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+**Resultado: AC-051/AC-053 PASS** con la configuración nueva, con 50 usuarios concurrentes durante 5 min a 20 r/s, **incluso con batería**: p95 de lectura 245 ms, p95 de búsqueda 87 ms y 0 % de errores (§43.4, fila «Final»). La configuración anterior cumplía enchufada (p95 194 ms) pero con batería colapsaba (p95 2765 ms).
+
+### 43.2 Causa (diagnóstico)
+1. **Throttling CFS por cuotas de CPU menores que la concurrencia real.** Los 3 workers síncronos de gunicorn son procesos de un hilo y pueden usar hasta 3 núcleos, pero la cuota del backend era `cpus: 1.5`. La BD (`cpus: 1.0`) ejecuta 23-27 consultas por ficha. En cada ráfaga el kernel congelaba ambos contenedores hasta el siguiente periodo de 100 ms (`cpu.stat`):
+   - A 30 r/s, enchufado: throttling en el 12 % de los periodos del backend y en el **36 %** de los de la BD. p95 de lectura 363 ms.
+   - Con batería, la CPU rinde menos (cada petición consume ~1,8 veces más tiempo de CPU: 367 s de CPU del backend en 5 min frente a 206 s enchufado). A 20 r/s: throttling en el 37 % de los periodos del backend y en el 58 % de los de la BD. La cola crece sin parar (p95 por minuto 619 → 3180 ms). Esto explica el 1111 ms de §42.5.
+2. **Concurrencia de 3 workers con batería.** Ya sin throttling (variante B, 3.0/2.0), la carga con batería deja ocupados de media ~2,6 workers. El p95 se queda en 385 ms porque las peticiones esperan en la cola de gunicorn. Con 4 workers baja a 245-271 ms.
+3. **No es un N+1.** El perfil en proceso (cliente de pruebas de Django dentro del contenedor, 5 repeticiones por ruta, enchufado) da un número de consultas constante por ruta. Las fichas cuestan 58-81 ms (23-27 consultas, ~35-45 ms en BD y ~35 ms en Python), las colecciones ~25 ms (12 consultas) y los listados 2-34 ms. El «0,34-0,40 s en serie» de §42.5 era la latencia con batería y medida a través de la red de Docker, no el coste de la petición. El detalle para el Developer está en §43.6.
+
+### 43.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| CPU de la BD `1.0` → `${DB_CPUS:-2.0}` | `compose.yaml` (servicio `db`) | DEC-AUTO-1390 |
+| CPU del backend `1.5` → `${BACKEND_CPUS:-4.0}` | `compose.yaml` (servicio `backend`) | DEC-AUTO-1390, 1392 |
+| `GUNICORN_WORKERS` por omisión `3` → `4`; `BACKEND_MEM_LIMIT` (y `memswap_limit`) por omisión `2g` → `2560m`, conforme a la regla de 640 MiB por worker de TKT-OPS-036 | `compose.yaml`, `.env.example` | DEC-AUTO-1392 |
+| Variables nuevas `BACKEND_CPUS=4.0` y `DB_CPUS=2.0`, documentadas | `.env.example` | DEC-AUTO-1390 |
+| Paso de CI nuevo en el job `infra`: «CPU del backend >= GUNICORN_WORKERS» (en las 3 variantes de compose, igual que el de memoria) | `.github/workflows/ci.yaml` | DEC-AUTO-1391 |
+
+Sin cambios en el Dockerfile: su `CMD` conserva `${GUNICORN_WORKERS:-3}` como valor de respaldo, pero compose siempre inyecta la variable. Sin cambios en nginx, imágenes base, dependencias, código ni lockfiles. El stack por omisión pasa de 4 CPU de techo (1 + 1,5 + 1 + 0,5) a **7,5** (db 2 + backend 4 + frontend 1 + proxy 0,5) y de 4 GiB a **4,5 GiB** de memoria. Son techos, no reservas: en reposo el consumo no cambia (backend ~250-300 MiB con 4 workers).
+
+Compatibilidad: los runners del CI (`ubuntu-24.04`, repositorio público) tienen 4 vCPU, y `4.0` es el máximo que admiten. Docker **rechaza** un límite de CPU mayor que el número de CPU del host. En un host más pequeño hay que bajar a la vez `GUNICORN_WORKERS`, `BACKEND_MEM_LIMIT` y `BACKEND_CPUS`, como se documenta en `.env.example`.
+
+### 43.4 Validaciones ejecutadas (2026-10-13)
+**Montaje.** Stack propio `brujulaops039`: proxy en `127.0.0.1:18039`, `APP_NET_PREFIX=10.231.139`, `.env` de `init-env.sh` (cookies no `Secure` para HTTP local). Semilla completa (`cargar_semilla`: 98 creados, 68 publicados, 56 documentos de búsqueda). No se tocaron `brujulalocal` ni otros stacks. Se midió solo cuando `docker ps --filter name=brujulaqa073` no mostraba contenedores (el script de carga aborta si los hay). Contenedores ajenos en marcha durante todas las mediciones: los 6 `trading_*` del usuario. Host: 20 CPU lógicas, plan de energía «Equilibrado», VM de Docker con 7,47 GiB.
+
+**Método (DEC-AUTO-1393), derivado de DEC-AUTO-1381:** AC-053 exige 50 usuarios y REQ-051 20 r/s sostenidos durante 5 min. Se usan **50 usuarios virtuales**, cada uno con su conexión keep-alive y una petición cada 2,5 s con planificación absoluta, lo que da 20 r/s agregados durante 300 s (6000 peticiones). 1 de cada 7 peticiones de cada usuario es una búsqueda. Las rutas son las mismas 15 de listado y las fichas de 6 tipos (4 de cada), resueltas al arrancar. Para respetar el throttling real (DRF por /24: 120/min de lectura y 30/min de búsqueda; nginx `por_ip` 20 r/s), los clientes se reparten en **16 redes /24 efímeras** (`10.239.1-16.0/24`, 3-4 usuarios por red: ~82 lecturas/min por /24). Cada red se conecta temporalmente al proxy, y cada cliente corre en un contenedor de solo lectura, sin capacidades y con uid 10001. Las redes se desconectan y se borran al terminar cada ejecución. Se registran: estado de energía y % de batería (antes/después), CPU del host, `docker stats` cada ~2 s y `cpu.stat` (throttling) del cgroup del backend y de la BD. Un error es un 5xx, un 429 o un fallo de red. Los percentiles se calculan por rango más cercano sobre las respuestas 200.
+
+| Ejecución | Configuración (backend workers / CPU / memoria; CPU de la BD) | Energía, batería | Lectura p50 / p95 / p99 / máx. (ms) | Búsqueda p50 / p95 | Errores | Throttling (backend / BD, % de periodos) | Veredicto |
+|---|---|---|---|---|---|---|---|
+| Línea base, 50 usuarios × 5 min (20 r/s) | A: 3 / 1.5 / 2g; 1.0 | enchufado, 75 → 80 % | 61 / **194** / 307 / 1204 | 33 / **51** | 0 % | n/d (contador acumulado) | PASS |
+| Margen, 48 usuarios × 3 min (30 r/s) | A | enchufado, 83 → 86 % | 98 / **363** / 528 / 979 | 34 / 112 | 0 % | 12 % / 36 % | FAIL |
+| Margen, 30 r/s | B: 3 / 3.0 / 2g; 2.0 | enchufado, 86 → 88 % | 64 / **168** / 250 / 375 | 31 / 47 | 0 % | 0 % / 0 % | PASS |
+| Margen, 48 usuarios × 3 min en 24 redes (40 r/s) | B | enchufado, 88 → 90 % | 79 / **258** / 419 / 559 | 33 / 78 | 0 % | 0 % / 0 % | PASS |
+| 50 usuarios × 5 min | B | enchufado, 90 → 93 % | 61 / **149** / 181 / 261 | 34 / 52 | 0 % | 0 % / 0 % | PASS |
+| 50 usuarios × 5 min | B | **batería**, 91 → 86 % | 157 / **385** / 537 / 1315 | 59 / 96 | 0 % | 0,2 % / 0,6 % | FAIL |
+| 50 usuarios × 5 min | A | **batería**, 86 → 81 % | 736 / **2765** / 3200 / 3559 | 468 / **2179** | 0 % | 37 % / 58 % | FAIL |
+| 50 usuarios × 5 min | C: 4 / 4.0 / 2560m; 2.0 | **batería**, 81 → 76 % | 109 / **271** / 346 / 504 | 57 / 96 | 0 % | 0 % / 3 % | PASS |
+| 50 usuarios × 5 min (commit `8b6f16a`) | C | **batería**, 71 → 66 % | 97 / **260** / 341 / 670 | 57 / 91 | 0 % | 0 % / 3 % | PASS |
+| **Final:** 50 usuarios × 5 min, rama con merge de `main` (Django 5.2.18) | C | **batería**, 62 → 57 % | 91 / **245** / 307 / 457 | 54 / **87** | **0 %** | 0 % / 2,4 % | **PASS** |
+
+- El equipo pasó de enchufado a batería (PowerLineStatus `Online` → `Offline`) a mitad de la sesión. Por eso hay pares A/B/C medidos con batería: comparan las variantes en las mismas condiciones. La batería nunca bajó del 57 %.
+- p95 por minuto de la ejecución final: 233, 211, 251, 256 y 250 ms (estable, sin cola creciente). CPU media del backend 1,11 núcleos (máx. 1,96 de 4) y de la BD 0,77 (máx. 1,59 de 2).
+- **C enchufado: NOT_RUN** (el equipo siguió con batería hasta el final). Por construcción no debería ser peor que B enchufado (más workers y más CPU, mismo código), que da p95 149 ms.
+
+**Subidas de 40 MP (TKT-OPS-036, OBS-OPS036-01).** Cada cliente corre en su propia red /24 (el proxy admite 2 subidas simultáneas por IP). Se usan JPEG de 7302×5477 (6,3-7,8 MB, con EXIF/GPS) y 32 bytes aleatorios tras el EOI en cada subida para evitar la deduplicación. Se mide `memory.current`/`anon` del cgroup cada 0,25 s, `oom_kill` y una sonda pública (`GET /api/v1/publico/destinos/camino-inca-machu-picchu` cada 0,5 s) mientras duran las subidas.
+
+| Configuración | Subidas simultáneas × rondas | Resultado | Pico current / anónimos | `oom_kill` | Sonda pública durante las subidas |
+|---|---|---|---|---|---|
+| A (3 workers, 1.5, 2g), enchufado | 3 × 2 | 6/6 ACEPTADO, 8-12 s | 1306 / 1221 MiB | 0 | **bloqueada** toda la subida (1 respuesta de 8,1-11,3 s por ronda) |
+| B (3 workers, 3.0, 2g), enchufado | 3 × 3 | 9/9 ACEPTADO, 4,6-11 s | 1309 / 1224 MiB | 0 | bloqueada (4,5-10,8 s) |
+| C (4 workers, 4.0, 2560m), batería | 3 × 3 | 9/9 ACEPTADO, 5-10 s | 1362 / 1295 MiB | 0 | **responde**: p50 131-246 ms, máx. 471 ms |
+| C, batería | 4 × 2 | 8/8 ACEPTADO, 6-7 s | 1691 / **1621** MiB (límite 2560) | 0 | bloqueada (4 subidas = 4 workers) |
+| C, rama con merge de `main`, batería | 3 × 2 y 4 × 1 | 10/10 ACEPTADO | 1262 / 1227 y 1647 / 1605 MiB | 0 | 3 subidas: p50 137-187 ms; 4 subidas: una respuesta de 6,4 s |
+
+Sin «WORKER TIMEOUT» ni SIGKILL en el log del backend. Límites efectivos en el contenedor: `cpu.max` = `400000 100000`, `memory.max` = 2684354560 y `memory.swap.max` = 0 (BD: `cpu.max` = `200000 100000`). El log muestra 4 «Booting worker».
+
+**CI (local).** Se ejecutaron en Git Bash, con `python` en lugar de `python3` (alias de la Store), el paso nuevo y el de memoria contra un `.env` recién generado con `init-env.sh` desde el `.env.example` nuevo: `4 workers, memoria 2560 MiB (mínimo 2560), memswap 2560, cpus 4.0` en las 3 variantes (rc 0). Casos negativos del paso de CPU: `BACKEND_CPUS=1.5` → rc 1; `GUNICORN_WORKERS=4` con `3.0` → rc 1; `4`/`4.0` → rc 0. `docker compose config --quiet` pasa en las 5 variantes del job `infra`.
+
+### 43.5 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+| ID | Decisión | Alternativas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1390 | Cuotas de CPU parametrizables: BD `2.0` (`DB_CPUS`) y backend ≥ workers (`BACKEND_CPUS`) | Mantener 1.5/1.0 (FAIL con batería); quitar los límites (Skill_devops §10 los exige) | Elimina el throttling CFS, la causa principal (`cpu.stat`): a 30 r/s el p95 pasa de 363 a 168 ms | Más techo de CPU reservable en el host (7,5 de 20) | `BACKEND_CPUS`/`DB_CPUS` en `.env` |
+| DEC-AUTO-1391 | Paso de CI «CPU del backend >= GUNICORN_WORKERS» | Solo documentarlo | Como la regla de memoria de TKT-OPS-036: subir los workers sin subir la CPU reabriría RSK-OPS-068 en silencio | Ninguno | Quitar el paso |
+| DEC-AUTO-1392 | 4 workers síncronos por omisión, con 2560 MiB y 4.0 CPU | 3 workers con 3.0 (p95 385 ms con batería, FAIL); 5 workers (5.0 CPU supera los 4 vCPU de los runners del CI, y 3200 MiB); `gthread` con hilos en el mismo backend (cada hilo puede procesar una subida de 40 MP: rompe la regla de 640 MiB por worker y obligaría a un tope global de subidas, que TKT-OPS-037 retiró); pool de workers dedicado a subidas (arquitectura, ADR-API-002 §8; más cambio del necesario) | PASS con batería (245-271 ms) y deja un worker libre para la web con 3 subidas simultáneas (OBS-OPS036-01 mejora); cumple la regla de 640 MiB por worker sin cambiarla | +512 MiB de techo de memoria; con 4 subidas simultáneas o más, la web vuelve a esperar | `GUNICORN_WORKERS=3`, `BACKEND_MEM_LIMIT=2g`, `BACKEND_CPUS=3.0` |
+| DEC-AUTO-1393 | Método AC-053: 50 usuarios virtuales a 1 petición cada 2,5 s (20 r/s), 5 min, 16 redes /24 efímeras, registro de energía y `cpu.stat` | Bucle abierto sin usuarios (método de §42.5); desactivar el throttling | Cumple a la vez AC-053 (50 concurrentes) y REQ-051 (20 r/s, 5 min) midiendo el sistema real sin 429 | Los clientes comparten la CPU del host (pesimista) | Alta |
+| DEC-AUTO-1394 | Se mide con batería registrando las condiciones (decisión humana transmitida por el Orquestador); la ejecución final es con batería | Esperar a que el equipo esté enchufado | La batería es el caso más desfavorable de este host y es la condición en la que falló §42.5 | C enchufado queda NOT_RUN | Alta |
+| DEC-AUTO-1395 | La duración es de 5 min (ticket y REQ-051), no los 10 min «navegando» de la métrica de REQ-053 | 10 min | El ticket fija 5 min, y la latencia es estable por minuto (sin cola creciente) | Bajo | Repetir con `carga50_run.sh <etiqueta> 50 2.5 600` |
+
+### 43.6 Diagnóstico de código para el Developer (no se toca código; el Orquestador abre el ticket)
+Con la infraestructura ajustada, el requisito se cumple con batería, pero el margen es de ~30-55 ms. El coste restante es de código:
+- **Número de consultas por petición (coste dominante en la BD).** `pg_stat_statements` (2 min de carga, 50 usuarios, 2400 peticiones): **34 339 consultas (14,3 por petición)** y solo **5,4 s de ejecución acumulada**. La BD usa ~0,8 núcleos, pero casi todo es coste fijo por consulta (protocolo, parse, plan), no ejecución. Las fichas hacen 23-27 consultas (destinos 24-27, itinerarios 24, tipos 23-25, guías 23), el inicio 23 y las colecciones 12. El número no depende de los datos (no es N+1). Lo explican los `prefetch_related` encadenados de `_detalle_comun()` (portada, galería con `medio__licencia` y `medio__derivados`, fuentes y términos), más `relacionados()`, `itinerarios_de_destino()` (con un `count()` aparte), `guias_de_destino()`, `resolver_publicado()` (`contenido_por_slug` + `es_visible`: 2 consultas) y el purgado probabilístico de `cache_limites` (`WITH purga AS (DELETE …)`, 2496 llamadas en 2 min: ~1 por petición).
+- **Derivados de imágenes.** `SELECT medio_derivado …` es la consulta con más tiempo total: 2758 llamadas devuelven **234 828 filas (85 por llamada)**. Cada medio de la galería y de las tarjetas trae todos sus derivados (formatos × anchos), y Python los materializa y serializa. Es la mayor parte de los ~35 ms de Python por ficha.
+- **`/api/v1/publico/creditos`** es la ruta más lenta en proceso: 86 ms, de ellos 63 ms en BD con 7 consultas. Un `COUNT(*)` sobre `medio` con `EXISTS` anidados, para la paginación, tarda ~60 ms. En carga dio un p95 de 310 ms enchufado con A.
+- **Búsqueda:** 1,3 ms + 0,8 ms por llamada; sin problema.
+- Sugerencias para el ticket (la decisión es del Developer): reducir las consultas de las fichas (unir `es_visible` con `contenido_por_slug`, combinar el `count()` de `itinerarios_de_destino` con la lista, limitar los derivados precargados a los que usa el contrato), revisar el `COUNT` de créditos y valorar una caché de respuesta pública, ya que el contenido solo cambia al publicar. La caché es una decisión de arquitectura (ADR).
+- Evidencia: tabla por ruta (`perfil0.txt`) y `pgss_top.txt` en el scratchpad de la sesión, fuera del repositorio.
+
+### 43.7 Seguridad
+Sin cambios de superficie: no hay puertos, redes, capacidades ni usuarios nuevos. Las redes de carga eran efímeras y se borraron. El throttling no se desactivó: se midió a través de él. Disponibilidad: mejora frente a picos de tráfico y frente a las subidas de editores (queda un worker libre con 3 subidas). Sin secretos reales: el `.env` es local y aleatorio.
+
+### 43.8 Riesgos / pendientes
+- **RSK-OPS-068: mitigado.** AC-051/AC-053 PASS con batería (p95 245 ms) y, enchufado, margen hasta 40 r/s (B: 258 ms). Se cierra al integrar.
+- **RSK-OPS-070 (LOW-MEDIUM, nuevo): margen estrecho con batería.** Con batería el p95 queda en 245-271 ms frente a un objetivo de 300 ms. Un host de producción más lento o con más contenido podría superarlo. Mitigación: el ticket de código de §43.6 y una plataforma de producción con réplicas ≥ 2 y autoescalado (§23.5, Puerta Humana).
+- **RSK-OPS-071 (LOW, nuevo): hosts con menos de 4 CPU.** Docker no arranca el backend si `BACKEND_CPUS` supera las CPU del host. Hay que bajar a la vez workers, memoria y CPU (documentado en `.env.example`). El CI comprueba la coherencia entre los valores, no el host.
+- **OBS-OPS036-01: mejora, pero no se cierra.** Con 3 subidas simultáneas la web responde (p50 de 131-246 ms). Con 4 o más (p. ej. 2 editores con 2 pestañas cada uno) vuelve a esperar a que termine una subida: ~6-7 s con estas fotos, 25-60 s con las fotos de grano fuerte de §39.7. La solución completa sigue siendo de arquitectura (pool de workers dedicado a subidas o procesado asíncrono).
+- Las fotos de esta prueba se procesan en 5-11 s, menos que las de grano fuerte de la QA de TKT-072. La memoria depende de los píxeles, no de la compresión. Peor caso medido aquí: 1621 MiB con 4 JPEG de 40 MP. Con 4 PNG RGBA (~480 MiB cada una, §39) se estiman ~2,1 GiB < 2,5 GiB: **NOT_RUN**.
+- **NOT_RUN:** C enchufado (§43.4); los 10 min de REQ-053 (DEC-AUTO-1395); 4 PNG RGBA simultáneos; el perfil `ops` (scheduler/backup) bajo carga; y el SSR (`/` y fichas HTML) bajo carga, porque AC-051/AC-053 se refieren a la API.
+
+### 43.9 Archivos modificados
+`compose.yaml` (servicios `db` y `backend`, y `x-backend-env`), `.env.example`, `.github/workflows/ci.yaml` (job `infra`, paso nuevo) y `docs/05_operacion/DEVOPS_HANDOFF.md` (índice y esta sección). Al terminar: `docker compose -p brujulaops039 down -v`. Las redes efímeras `brujulaops039_carga*` y `brujulaops039_subida*` se borraron al final de cada ejecución.
+
+### 43.10 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencias: repetir la carga de §43.4 (50 usuarios × 5 min) y las subidas simultáneas de 3 y 4 fotos de 40 MP sin swap.
+- Registrar DEC-AUTO-1390 a 1395 y RSK-OPS-070/071, y cerrar RSK-OPS-068 al integrar.
+- Abrir el ticket de Developer con el diagnóstico de §43.6 (consultas por ficha, derivados, `COUNT` de créditos).
+- Tras integrar, en `brujulalocal`: `up -d` (recrea `db` y `backend` con los límites nuevos) y después `restart proxy`. Si su `.env` conserva `GUNICORN_WORKERS=3` y `BACKEND_MEM_LIMIT=2g`, actualizarlo a 4/2560m o dejarlo así a propósito: con 3 workers la regla de CPU también se cumple.
