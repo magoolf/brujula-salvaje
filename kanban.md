@@ -686,14 +686,14 @@ tickets:
   - id: TKT-OPS-035
     titulo: "MEDIUM provisional (NV-QA034-03, previo, needs_validation): POST /api/v1/panel/medios admite 105 MB con proxy_request_buffering on antes de autenticar; el cuerpo va a /tmp (tmpfs sin size, cuenta contra 256m del proxy): pocas subidas anónimas concurrentes podrían provocar OOM del proxy. Validar y mitigar"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_devops
     trazabilidad: [TKT-OPS-034, TKT-072]
     depende_de: []
     archivos_permitidos: ["infra/proxy/**", "compose.yaml (servicio proxy)", ".github/workflows/ci.yaml (smoke del proxy)", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1007"]
+    evidencia: ["Riesgo confirmado (OOM del proxy sin swap); PR #111 CI verde; DEC-AUTO-1340..1343", "DEC-AUTO-1007"]
     actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
