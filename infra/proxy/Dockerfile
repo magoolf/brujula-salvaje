@@ -3,7 +3,7 @@
 # nginx 1.30.5 (rama stable) sin privilegios: uid 101, puerto 8080.
 # Imagen base LITERAL en FROM (sin ARG): Dependabot (ecosistema docker) no resuelve ARG en FROM y
 # no vería el digest (TKT-OPS-006, RSK-OPS-025, DEC-AUTO-254). Actualizar tag y digest juntos.
-FROM nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5
+FROM nginxinc/nginx-unprivileged:1.31.6-alpine@sha256:b9241c6e7b8e9a862f129d8d4199ab64b10390949a78bdd5603379b32c844083
 
 LABEL org.opencontainers.image.title="brujula-proxy" \
       org.opencontainers.image.description="Reverse proxy de mismo origen (SSR Angular + API Django)" \
