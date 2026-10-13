@@ -6,7 +6,7 @@
 
 ## 1. Estado en una línea
 
-2026-10-13 (CIERRE): PROYECTO COMPLETADO en local. 23/23 HIGH/MEDIUM DONE (TKT-073 Django 5.2.18 PR #78; TKT-OPS-039 capacidad PR #116; F9 PR #115). brujulalocal reconstruido desde main @ 2189f38. F10 entregado: docs/INFORME_ENTREGA.md. No queda trabajo autónomo: solo Puertas Humanas (producción, 2026-10-26 caducidad de .trivyignore, auditoría standard) y los 16 LOW post-entrega.
+2026-10-13 (CIERRE FINAL): PROYECTO COMPLETADO en local; Dependabot TKT-074/075/076 aplazados a post-entrega por decisión del usuario. 23/23 HIGH/MEDIUM DONE (TKT-073 Django 5.2.18 PR #78; TKT-OPS-039 capacidad PR #116; F9 PR #115). brujulalocal reconstruido desde main @ 2189f38. F10 entregado: docs/INFORME_ENTREGA.md. No queda trabajo autónomo: solo Puertas Humanas (producción, 2026-10-26 caducidad de .trivyignore, auditoría standard) y los 16 LOW post-entrega.
 
 2026-10-13 (reanudación tras apagado): 21/21 HIGH/MEDIUM del plan DONE (TKT-OPS-038 integrado, main al día). F9 pre-release de DevOps terminado: PR #115 (solo docs §42, CI verde; merge denegado al Orquestador por el clasificador -> lo integra el usuario). F9 dejó 2 MEDIUM: TKT-073 (RSK-OPS-067, Django 5.2.18 = PR #78; QA de regresión en curso, stack brujulaqa073; tras PASS: gh pr update-branch 78, CI, merge) y TKT-OPS-039 (RSK-OPS-068, carga AC-053 50 usuarios 5 min; DevOps en rama tkt-ops-039-capacidad-api, stack brujulaops039, mide cuando no corra brujulaqa073). Después: rebuild de brujulalocal desde main (docker compose -p brujulalocal up -d --build + restart proxy) y F10: completar §9 de docs/INFORME_ENTREGA.md (borrador sin commit) y subirlo. Si hay corte: QA -> relanzar desde cero; DevOps -> reanudar desde su último commit.
 

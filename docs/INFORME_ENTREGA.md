@@ -166,3 +166,33 @@ Sobre `main` en el stack aislado `brujularelease`; sin tags, sin publicación ni
 Riesgos nuevos (post-entrega): RSK-OPS-070 LOW-MEDIUM (margen estrecho con batería: optimizar las 23-27 consultas por ficha, los 85 derivados por llamada y el purgado de `cache_limites` por petición; diagnóstico en DEVOPS_HANDOFF §43.6, DEC-AUTO-1012); RSK-OPS-071 LOW (un host con menos de 4 CPU necesita bajar a la vez workers, memoria y CPU, documentado en `.env.example`); con 4 o más subidas grandes simultáneas la web pública espera unos 4 s (OBS-OPS036-01, sigue abierto). OBS-QA039-01..05 INFO.
 
 **Stack local actualizado** (2026-10-13): `brujulalocal` reconstruido desde `main` @ 2189f38 con `GUNICORN_WORKERS=4` en su `.env`; inicio, API y panel responden 200.
+
+## 10. Verificación final y cierre (2026-10-13)
+
+**Verificación del entorno local** (`brujulalocal`, `main` @ 2189f38, Django 5.2.18, 4 workers):
+
+| Ruta | Resultado |
+|---|---|
+| `/`, `/destinos`, `/itinerarios`, `/guias`, `/colecciones`, `/glosario`, `/buscar?q=volcan`, `/acerca-de`, `/creditos`, `/panel` | 200 |
+| `/api/v1/publico/inicio`, `/api/v1/publico/destinos` | 200 |
+| `/health/live`, `/health/ready` | 200 `{"status":"ok"}` |
+| Ruta inexistente | 404 (correcto) |
+| Contenedores db, backend, frontend, proxy | healthy |
+
+El CI de `main` pasó en verde sobre el último cambio de código verificado (8c1de59) y en cada PR integrado (#78, #115, #116). Las ejecuciones de `main` tras commits solo de documentación se cancelan por concurrencia y no afectan al código.
+
+**Resumen de calidad de la última tanda:** pytest 1758/0 (cobertura 97,64 %), schemathesis 3051/3051 y 3161/0, E2E Chromium 243/0 y 33/33, axe 0 serious/critical, SAST (bandit, semgrep), SCA (pip-audit, npm audit), gitleaks y trivy sin hallazgos nuevos; AC-053 cumplido (p95 lectura 139-245 ms); simulacro AC-054 PASS (RTO 332 s).
+
+**Limpieza:** 93 worktrees de agentes ya integrados y 171 ramas locales fusionadas eliminados; stacks de prueba parados. No se borró ningún volumen, base de datos ni código.
+
+### 10.1 Pendientes reales (ninguno bloquea el uso en local)
+
+| Pendiente | Tipo | Qué hacer |
+|---|---|---|
+| Caducidad de `.trivyignore` el **2026-10-26** (RSK-OPS-001) | Decisión humana | Renovar las excepciones o actualizar las imágenes base; si no, el CI fallará |
+| Publicación en producción | Puerta Humana | §8: plataforma y costes, dominio/TLS, secretos reales, responsable del tratamiento (GAP-004), revisión de contenido (GAP-008), auditoría *standard* |
+| PR de Dependabot #54, #55, #56, #57, #73, #74, #107 (TKT-074/075/076) | Mantenimiento post-entrega | QA de regresión e integración; #56 (Angular 22.2.1) ya validado en verde. #21 (Python 3.14) no integrar (conflicto, CI rojo) |
+| 16 tickets LOW/INFO (§6.1) | Mejora post-entrega | Sin urgencia |
+| Optimizar consultas de las fichas (RSK-OPS-070, DEVOPS_HANDOFF §43.6) | Mejora post-entrega | Más margen de rendimiento con batería |
+
+**Veredicto final: PROYECTO COMPLETADO** en entorno local, verificado y documentado. Producción queda a decisión del usuario.
