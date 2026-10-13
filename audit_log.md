@@ -633,3 +633,4 @@
 - 2026-10-13 | REANUDACION | Orquestador | tras apagado del equipo: main @ 81dd383 al día; F9 pre-release de DevOps terminado (PR #115, solo docs, CI verde; merge denegado por el clasificador por falta de revisión -> pendiente del usuario); stack brujulalocal parado (Exited 255 por el apagado). Quedan RSK-OPS-067 y RSK-OPS-068 (MEDIUM) antes de F10
 - 2026-10-13 | DELEGACION | TKT-073 | QA de regresión sobre PR #78 (Django 5.2.18), DEC-AUTO-1011 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible)
 - 2026-10-13 | DELEGACION | TKT-OPS-039 | DevOps: carga AC-051/AC-053 y ajuste de capacidad. DEC-AUTO 1390-1399
+- 2026-10-13 | INTEGRACION | F9 | PR #115 (DEVOPS_HANDOFF §42, pre-release 1.0.0-rc.1) integrado por el usuario
