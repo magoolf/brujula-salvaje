@@ -732,6 +732,30 @@ tickets:
     evidencia: ["Validado en ejecución (A/B); PR #114 CI verde; QA c1/3 PASS; integrado. DONE. OBS-QA038-01 LOW al Informe", "DEC-AUTO-1010 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): se trata como HIGH provisional hasta validarlo en ejecución; informe ~/security-audit-skill/brujula-salvaje/run-1"]
     actualizado: 2026-10-12
   - id: CHG-API-007
+  - id: TKT-073
+    titulo: "MEDIUM (RSK-OPS-067, F9): integrar Django 5.2.18 (PR #78 Dependabot; CVE-2026-84429 DoS de cabeceras, CVE-2026-87975, CVE-2026-87890, CVE-2026-77050) con QA de regresión"
+    fase: F9
+    estado: IN_PROGRESS
+    owner: Skill_QA
+    trazabilidad: [RSK-OPS-067, DEVOPS_HANDOFF §42.10]
+    depende_de: []
+    archivos_permitidos: ["backend/pyproject.toml", "backend/uv.lock"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1011 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): el cambio ya lo escribió Dependabot (lockfile); no requiere Developer, solo QA de regresión y sincronizar la rama con main"]
+    actualizado: 2026-10-13
+  - id: TKT-OPS-039
+    titulo: "MEDIUM (RSK-OPS-068, F9): capacidad de la API pública: p95 lectura 1111 ms a 20 r/s con batería; ejecutar AC-051/AC-053 (50 usuarios concurrentes, 5 min, p95 <= 300 ms lectura / <= 500 ms búsqueda, error < 1 %) y, si no cumple, ajustar gunicorn (gthread/workers/CPU respetando la regla >= 640 MiB por worker); si la causa es de consultas de las fichas, devolver diagnóstico para ticket de Developer"
+    fase: F9
+    estado: IN_PROGRESS
+    owner: Skill_devops
+    trazabilidad: [REQ-051, REQ-053, AC-051, AC-053, RSK-OPS-068]
+    depende_de: []
+    archivos_permitidos: ["compose.yaml", ".env.example", "infra/**", "scripts/ops/**", "docs/05_operacion/DEVOPS_HANDOFF.md", ".github/workflows/ci.yaml"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["Medición con batería permitida por decisión humana registrando condiciones (avisar solo si < 20 %)"]
+    actualizado: 2026-10-13
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
     estado: BLOCKED_HUMAN
