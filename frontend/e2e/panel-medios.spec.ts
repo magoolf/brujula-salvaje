@@ -91,7 +91,14 @@ test.describe('Panel · medios (TKT-022)', () => {
 
     await irA(page, '/panel/medios');
     await page.getByTestId('medios-subir').click();
-    const envio = page.waitForResponse((r) => r.url().endsWith('/api/v1/panel/medios') && r.request().method() === 'POST');
+    // TKT-072: un archivo por petición; se recogen los nombres de los archivos de cada multipart
+    // (de la petición, síncrono: leer el cuerpo de la respuesta tras navegar falla).
+    const enviados: string[] = [];
+    page.on('request', (r) => {
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.method() !== 'POST') return;
+      const cuerpo = r.postDataBuffer()?.toString('latin1') ?? '';
+      enviados.push(...[...cuerpo.matchAll(/name="archivos"; filename="([^"]+)"/g)].map((m) => m[1]));
+    });
     await page.getByTestId('subida-archivos').setInputFiles([
       gif('animada.gif'),
       archivoGrande('enorme.jpg'),
@@ -101,14 +108,10 @@ test.describe('Panel · medios (TKT-022)', () => {
       pngSoloCabecera('rota.png', 1600, 1000),
       { ...repetido, name: 'otra-vez.png' },
     ]);
-    const respuesta = await envio;
-    // La validación previa no envía los dos primeros (formato y tamaño).
-    const enviados = ((await respuesta.json()) as { resultados: { nombre_archivo: string }[] }).resultados;
-    expect(enviados.map((r) => r.nombre_archivo).sort()).toEqual(
-      ['disfrazada.png', 'gigante.png', 'otra-vez.png', 'pequena.png', 'rota.png'].sort(),
-    );
-
     await expect(page.getByTestId('subida-resumen')).toHaveText('0 aceptadas, 6 rechazadas, 1 duplicada');
+    // La validación previa no envía los dos primeros (formato y tamaño); el resto, uno por petición.
+    await expect.poll(() => [...enviados].sort()).toEqual(['disfrazada.png', 'gigante.png', 'otra-vez.png', 'pequena.png', 'rota.png'].sort());
+
     const porNombre = (nombre: string) => page.getByTestId('subida-resultados').locator('li', { hasText: nombre });
     await expect(porNombre('animada.gif')).toHaveAttribute('data-motivo', 'formato_no_permitido');
     await expect(porNombre('enorme.jpg')).toHaveAttribute('data-motivo', 'tamano_excedido');
@@ -123,6 +126,41 @@ test.describe('Panel · medios (TKT-022)', () => {
     await duplicada.getByTestId('subida-usar-existente').click();
     await expect(page).toHaveURL(new RegExp(`/panel/medios/${existente.id}$`));
     await expect(page.getByTestId('pagina-medio')).toBeVisible();
+  });
+
+  test('AC_TKT072_09 lote de 10: una petición por archivo, en secuencia, «Subiendo n de 10» y 10 aceptadas', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    // Cuenta propia: el límite `panel-subida` (20/min) es por cuenta y estas 10 peticiones no deben
+    // agotar el cupo de la cuenta compartida que usan los demás casos.
+    await entrarPorApi(page, crearCuenta());
+    await irA(page, '/panel/medios');
+    await page.getByTestId('medios-subir').click();
+    // Por cada POST: estado, clave y nº de resultados (= archivos enviados). La página no navega,
+    // así que los cuerpos siguen disponibles al final.
+    const respuestas: Promise<{ estado: number; clave: string; archivos: number }>[] = [];
+    page.on('response', (r) => {
+      if (!r.url().endsWith('/api/v1/panel/medios') || r.request().method() !== 'POST') return;
+      respuestas.push(
+        r.json().then((cuerpo: { resultados: unknown[] }) => ({
+          estado: r.status(),
+          clave: r.request().headers()['idempotency-key'],
+          archivos: cuerpo.resultados.length,
+        })),
+      );
+    });
+    const lote = Array.from({ length: 10 }, (_, i) => pngValido(`lote10-${i}-e2e.png`, 2400, 1800));
+    await page.getByTestId('subida-archivos').setInputFiles(lote);
+    await expect(page.getByTestId('subida-progreso-etiqueta')).toContainText(/Subiendo \d+ de 10…/);
+    await expect(page.getByTestId('subida-resumen')).toHaveText('10 aceptadas', { timeout: 200_000 });
+    const peticiones = await Promise.all(respuestas);
+    expect(peticiones.length).toBe(10);
+    expect(peticiones.map((p) => p.archivos)).toEqual(Array(10).fill(1));
+    expect(peticiones.map((p) => p.estado)).toEqual(Array(10).fill(200));
+    expect(new Set(peticiones.map((p) => p.clave)).size).toBe(10);
+    await expect(page.getByTestId('subida-resultados').locator('li[data-resultado="ACEPTADO"]')).toHaveCount(10);
+    await axeSinGraves(page);
   });
 
   test('AC_TKT022_01 más de 10 archivos: se rechaza la selección completa sin subir ninguno', async ({ page }) => {

@@ -111,7 +111,7 @@ function fila(r: ResultadoArchivo): FilaResultado {
 
       @if (store.subiendo()) {
         <div class="progreso" data-testid="subida-progreso">
-          <label [for]="idBase() + '-progreso'">Subiendo… {{ store.porcentaje() }} %</label>
+          <label [for]="idBase() + '-progreso'" data-testid="subida-progreso-etiqueta">{{ etiquetaProgreso() }}</label>
           <progress [id]="idBase() + '-progreso'" max="100" [value]="store.porcentaje()"></progress>
         </div>
       }
@@ -121,6 +121,9 @@ function fila(r: ResultadoArchivo): FilaResultado {
       }
       @if (store.errorEnvio(); as error) {
         <app-banner variante="error" testId="subida-error-envio">
+          @if (store.archivoFallido(); as nombre) {
+            <span data-testid="subida-error-archivo">No se pudo subir «{{ nombre }}».</span>
+          }
           {{ error.mensaje }}
           <button banner-accion type="button" class="boton-enlace" data-testid="subida-reintentar" (click)="reintentar()">
             Reintentar
@@ -249,6 +252,13 @@ export class SubidaMedios {
   protected readonly filas = computed(() => this.store.resultados().map(fila));
   protected readonly arrastrando = signal(false);
   protected readonly bloqueado = computed(() => this.store.subiendo() || !this.enLinea());
+  /** «Subiendo 3 de 10… 40 %» (TKT-072: un archivo por petición); con uno solo, sin la posición. */
+  protected readonly etiquetaProgreso = computed(() => {
+    const posicion = this.store.posicion();
+    const prefijo = posicion !== null && posicion.total > 1 ? `Subiendo ${posicion.actual} de ${posicion.total}…` : 'Subiendo…';
+    const pausa = this.store.esperandoLimite() ? ' En pausa por el límite de subidas por minuto; se reanuda sola.' : '';
+    return `${prefijo} ${this.store.porcentaje()} %${pausa}`;
+  });
 
   protected abrirSelector(): void {
     if (this.bloqueado()) return;
@@ -275,18 +285,22 @@ export class SubidaMedios {
   }
 
   protected async reintentar(): Promise<void> {
-    const error = await this.store.reintentar();
-    this.notificar(error === null);
+    await this.store.reintentar();
+    this.notificar();
   }
 
   private async subir(archivos: readonly File[]): Promise<void> {
     if (this.bloqueado() || archivos.length === 0) return;
-    const error = await this.store.seleccionar(archivos);
-    this.notificar(error === null);
+    await this.store.seleccionar(archivos);
+    this.notificar();
   }
 
-  private notificar(exito: boolean): void {
+  /**
+   * Avisa de los medios aceptados para que quien lo usa recargue su listado. TKT-072: también tras
+   * un fallo a mitad de lote, porque los archivos anteriores ya se subieron (un archivo por petición).
+   */
+  private notificar(): void {
     const aceptados = this.store.aceptados();
-    if (exito && aceptados.length > 0) this.subidos.emit(aceptados);
+    if (aceptados.length > 0) this.subidos.emit(aceptados);
   }
 }
