@@ -3167,3 +3167,162 @@ Los scripts de prueba (`sondeo_subida.py` y `subida_legitima.py`) se quedaron en
 - Decidir sobre la recomendación de RSK-OPS-062.
 
 Este PR no depende del orden de integración respecto a #110, porque no reduce el límite.
+
+## 39. TKT-OPS-036: memoria del backend para subidas simultáneas de fotos de 40 MP (OBS-QA072-01) (F7, MEDIUM)
+
+> §38 es TKT-OPS-035 (PR #111), integrado antes que este ticket: sus cambios del proxy en `compose.yaml` y `ci.yaml` se conservan (merge sin solapes).
+
+### 39.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§39.8). Rama `tkt-ops-036-memoria-backend` desde `origin/main`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 39.2 Objetivo y causa
+Hallazgo de la QA de TKT-072 (OBS-QA072-01): con el código de TKT-072, una foto de 40 MP tiene un pico de ~530 MB en un worker. El backend tenía `GUNICORN_WORKERS=3` y un límite de 1 GiB. En un Linux sin swap, 3 subidas simultáneas de 40 MP (3 pestañas o 3 editores) provocaban el OOM-kill de un worker, y esa subida fallaba.
+
+Objetivo: que `GUNICORN_WORKERS` subidas simultáneas de 40 MP (≤ 10 MB) no provoquen OOM sin swap, sin reducir la capacidad de la web pública.
+
+Reproducción propia con el límite anterior (1 GiB, memswap = memoria, imagen del PR #110):
+- 3 subidas concurrentes de 40 MP: 1 × **503** y 2 × 200.
+- Pico: 1023 MiB `memory.current` (986 MiB anónimos).
+- `memory.events`: `oom_kill 1`.
+
+### 39.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Límite de memoria del backend `1g` → `${BACKEND_MEM_LIMIT:-2g}`, con un comentario que documenta la regla y las mediciones | `compose.yaml` (servicio `backend`) | DEC-AUTO-1350, 1351 |
+| `memswap_limit: ${BACKEND_MEM_LIMIT:-2g}` (sin swap, como un Linux de servidor) | `compose.yaml` (servicio `backend`) | DEC-AUTO-1352 |
+| Variable `BACKEND_MEM_LIMIT=2g`, junto a `GUNICORN_WORKERS`, con la regla `≥ 640 MiB × GUNICORN_WORKERS` | `.env.example` | DEC-AUTO-1351 |
+| Paso de CI nuevo en el job `infra`: "memoria del backend >= 640 MiB x GUNICORN_WORKERS, sin swap" (ver detalle abajo) | `.github/workflows/ci.yaml` | DEC-AUTO-1351 |
+
+El paso de CI resuelve `docker compose config --format json` en tres variantes: base, `compose.ci.yaml` y `compose.debug.yaml`. Falla en dos casos:
+- la memoria del backend es menor que `640 MiB × GUNICORN_WORKERS`;
+- `memswap_limit` es distinto de la memoria.
+
+No cambian `GUNICORN_WORKERS` (sigue en 3), las CPU (1,5) ni ningún otro servicio.
+
+### 39.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1350**: el límite de memoria del backend pasa de 1 GiB a **2 GiB**, con 3 workers.
+  - Alternativas descartadas:
+    1. **2 workers con 1 GiB**: reduce un 33 % la capacidad de la web pública (workers síncronos), justo lo que el ticket prohíbe.
+    2. **1,5 GiB**: con JPEG cabe (pico de 1331 MiB `current` / 1220 MiB anónimos). Pero el peor caso medido, PNG RGBA de 40 MP, llega a 1584 MiB anónimos: OOM seguro.
+    3. **1,75 GiB**: cubre ese peor caso con solo ~200 MiB de margen, y además glibc retiene memoria entre peticiones (§39.7).
+    4. **`MALLOC_ARENA_MAX` / `MALLOC_TRIM_THRESHOLD_`**: reducen la retención, pero no el pico de una subida en curso, que es lo que provoca el OOM.
+    5. **Limitar la concurrencia de subidas en la aplicación** (semáforo): cambia lógica de producto. Sería un ticket al Developer, no infraestructura.
+  - Riesgo: más techo reservado en el host (§39.5). Es un límite, no una reserva: la memoria real en reposo no cambia.
+  - Reversible: `BACKEND_MEM_LIMIT=1g` en `.env` (el CI lo rechaza con 3 workers).
+- **DEC-AUTO-1351**: el límite es parametrizable (`BACKEND_MEM_LIMIT`) con la regla **≥ 640 MiB × `GUNICORN_WORKERS`**, verificada en CI.
+  - Base medida (§39.7): ~150 MiB de base, más ~360 MiB anónimos por subida JPEG RGB o ~480 MiB por subida PNG RGBA.
+  - 640 MiB por worker cubren la parte proporcional de la base, el peor caso medido y el temporal de Django en `/tmp`, que es tmpfs y cuenta contra el límite.
+  - Con 3 workers: mínimo 1920 MiB; valor por omisión, 2 GiB.
+  - Sin este control, subir `GUNICORN_WORKERS` sin subir la memoria reabriría OBS-QA072-01 en silencio.
+  - Reversible: quitar el paso.
+- **DEC-AUTO-1352**: `memswap_limit` igual a la memoria en el backend.
+  - Sin esto, Docker permite por omisión hasta el doble en swap si el host la tiene (Docker Desktop/WSL2 sí la tiene). En local eso esconde un exceso que en un servidor sin swap sería un OOM.
+  - Solo en el backend: es el servicio con picos de memoria por petición.
+  - Reversible: quitar la línea.
+- **DEC-AUTO-1353**: no se toca la concurrencia de subidas en el proxy desde este ticket.
+  - `infra/proxy/nginx.conf` no está en `archivos_permitidos`.
+  - TKT-OPS-035 (PR #111) introduce ahí `limit_conn subidas_total 16`.
+  - Se emite la recomendación OBS-OPS036-01 (§39.9).
+
+### 39.5 Versiones, infraestructura, dependencias y variables
+- Sin cambios de versión, imagen, digest ni dependencias.
+- Variable nueva: `BACKEND_MEM_LIMIT` (por omisión `2g`; no es un secreto).
+- Suma de los límites de memoria de `compose.yaml` (son techos, no reservas):
+
+  | Servicio | Antes | Después |
+  |---|---|---|
+  | db | 1 GiB | 1 GiB |
+  | backend | 1 GiB | **2 GiB** |
+  | frontend | 768 MiB | 768 MiB |
+  | proxy | 256 MiB | 256 MiB |
+  | **Stack por omisión** | **3 GiB** | **4 GiB** |
+  | migrate (one-shot, termina antes de la web) | 512 MiB | 512 MiB |
+  | perfil `ops` (scheduler + backup) | +1 GiB | +1 GiB |
+
+- Equipo local: 16 GB; la VM de Docker Desktop tiene 7,47 GiB (`docker info` MemTotal = 8 015 994 880 B). El stack completo con el perfil `ops` suma 5 GiB de techo.
+- Uso real medido en reposo: backend ~150 MiB, db ~72 MiB, frontend ~64 MiB, proxy ~23 MiB.
+- Tras subidas de 40 MP, glibc retiene en el backend 0,4-0,9 GiB (§39.7).
+- Con dos stacks a la vez (p. ej. `brujulalocal` + uno de QA), los techos suman más que la VM, pero el uso real queda muy por debajo. Solo hay presión si ambos procesan a la vez subidas grandes simultáneas.
+
+### 39.6 Seguridad
+- Sin cambios de superficie: no hay puertos, redes, capacidades ni usuarios nuevos.
+- Disponibilidad (DoS): un editor autenticado ya no puede tumbar por OOM la subida de otro con 3 subidas de 40 MP.
+- El límite sigue acotando el contenedor, así que el host queda protegido.
+
+### 39.7 Validaciones ejecutadas (2026-10-12, local: Windows 11, Docker Engine 29.6.1, Compose 5.2.0)
+**Montaje:**
+- Stack propio `brujulaops036`: proxy en `127.0.0.1:18036` y `APP_NET_PREFIX=10.231.36`.
+- `.env` efímero de `init-env.sh` en el scratchpad, con cookies no `Secure` para HTTP local.
+- Código del PR #110 (TKT-072, `de1568f`), construido con `--build`.
+- Override de medición con `memswap_limit` = memoria, para simular Linux sin swap (`memory.swap.max` = 0, verificado).
+- No se tocaron `brujulalocal`, el puerto 8080 ni `brujulaqaops035*`.
+
+**Script `carga.py`** (derivado de `subir.py` de la QA de TKT-072):
+- Sube por la API del panel a través del proxy, 1 archivo por petición (como el panel).
+- Lanza N peticiones simultáneas, cada una con su sesión.
+- Mide `memory.current` y `anon` del cgroup cada 0,25 s.
+- Cada ronda añade 32 bytes aleatorios tras el EOI del JPEG (mismos píxeles, sha distinto), para que la subida no se deduplique por huella.
+
+**Fotos:**
+- JPEG 7302×5477 (40,0 MP), 9,8-10,3 MB, con EXIF + GPS + XMP + ICC y grano, generadas con `generar.py` de la QA.
+- Peor caso de memoria: PNG RGBA 7302×5477 de 2,2 MB (4 bytes por píxel en lugar de 3).
+
+| Límite (sin swap) | Carga | Resultado | Pico `current` / anónimos | `oom_kill` |
+|---|---|---|---|---|
+| 1 GiB (anterior) | 3 × JPEG 40 MP simultáneas | **1 × 503** + 2 × 200 | 1023 / 986 MiB | **1** |
+| 1,5 GiB | 3 rondas × 3 JPEG 40 MP simultáneas | 9/9 ACEPTADO, 23-27 s por subida | 1331 / 1220 MiB | 0 |
+| 2 GiB | 3 rondas × 3 JPEG 40 MP simultáneas + carga pública (2 hilos) | 9/9 ACEPTADO, 26-28 s | 1311 / 1216 MiB | 0 |
+| 2 GiB | 2 rondas × 3 **PNG RGBA** 40 MP simultáneas | 6/6 ACEPTADO, 37-58 s | **1614 / 1584 MiB** | 0 |
+| 2 GiB, `compose.yaml` final sin override | 2 rondas × 3 JPEG 40 MP simultáneas | 6/6 ACEPTADO, 36-57 s (host más cargado) | 1299 / 1198 MiB | 0 |
+
+- Con 2 GiB, el log del backend no muestra ningún «WORKER TIMEOUT» ni SIGKILL.
+- **Retención:** tras las subidas, el backend queda con 373-450 MiB anónimos (JPEG) o 884 MiB (PNG RGBA), frente a una base de 142.
+  - Es memoria que glibc no devuelve al sistema.
+  - Los workers la reutilizan en la siguiente subida: las rondas 2 y 3 no superan el pico de la 1.
+  - Se libera al reciclar el worker (`--max-requests 2000`).
+- **Capacidad de la web pública:**
+  - Sin subidas, `GET /` y `GET /api/v1/publico/destinos` responden 200 en 0,21-0,25 s.
+  - Con 3 subidas simultáneas, que ocupan los 3 workers síncronos, las peticiones públicas esperan en la cola de gunicorn: p50 24,9 s, 0 errores.
+  - Pasa igual con 1 GiB: depende de los workers, no de la memoria. Este ticket no lo empeora (los workers siguen siendo 3), pero tampoco lo resuelve (ver OBS-OPS036-01).
+- **Paso de CI nuevo**, extraído del `ci.yaml` y ejecutado en local con `bash -eo pipefail`. En local se usó `python` en lugar de `python3`, que en Git Bash es el alias de Microsoft Store.
+
+  | Caso | Resultado |
+  |---|---|
+  | Por omisión (3 workers, 2g) | rc=0 en las 3 variantes |
+  | `GUNICORN_WORKERS=4` | rc=1, «mínimo 2560» |
+  | `BACKEND_MEM_LIMIT=1g` | rc=1 |
+  | `GUNICORN_WORKERS=4 BACKEND_MEM_LIMIT=2560m` | rc=0 |
+
+- **Límites aplicados**: `docker compose config --format json` da `memory` = `memswap_limit` = 2147483648. En el contenedor, `memory.max` = 2147483648 y `memory.swap.max` = 0.
+
+### 39.8 CI del PR
+El enlace del run y el estado de los checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE.
+
+### 39.9 Riesgos / pendientes
+- **OBS-OPS036-01 (MEDIUM, recomendación al Orquestador): la web pública se degrada con subidas simultáneas.**
+  - Con workers síncronos, `GUNICORN_WORKERS` subidas simultáneas ocupan todos los workers durante 25-60 s. Mientras tanto, la web pública (SSR → API y `/api/v1/publico/*`) espera en cola: p50 medido de 24,9 s.
+  - Es anterior a este ticket y no depende de la memoria.
+  - Arreglo de infraestructura sugerido, en un ticket aparte sobre `infra/proxy/nginx.conf` y después de integrar TKT-OPS-035: `limit_conn subidas_total` = `GUNICORN_WORKERS − 1` (2), para dejar siempre un worker libre a la web pública. El panel ya reintenta ante `limite_tasa` (TKT-072).
+  - Alternativa: workers dedicados o un worker asíncrono. Es una decisión de arquitectura (ADR-API-002 §8).
+- **RSK-OPS-063 (LOW): memoria retenida tras subidas grandes.**
+  - Tras subidas de 40 MP, glibc retiene de 0,25 a 0,75 GiB.
+  - No provoca OOM con 2 GiB (medido en rondas sucesivas), pero ocupa memoria del host hasta que se recicla el worker.
+  - Si molesta, se puede probar `MALLOC_TRIM_THRESHOLD_` o bajar `--max-requests` (NOT_RUN).
+- **RSK-OPS-064 (LOW): temporales de los workers matados.**
+  - Un worker matado (por OOM o por WORKER TIMEOUT) deja su temporal de subida de Django en `/tmp` hasta que se reinicia el contenedor. `/tmp` es tmpfs y cuenta contra el límite.
+  - Observado: 10 MB de `shmem` tras el OOM con 1 GiB.
+  - Con 2 GiB el OOM ya no ocurre; el caso del timeout sigue existiendo.
+- **NOT_RUN:**
+  - Una petición con 10 fotos de 40 MP en un solo POST. La API lo admite, pero el panel ya no lo hace, y superaría los 120 s del timeout por tiempo antes que por memoria (TKT-072).
+  - WebP RGBA de 40 MP ≤ 10 MB: libwebp no lo codificó (error 6, partición). El PNG RGBA ya cubre el caso de 4 bytes por píxel.
+- La regla de 640 MiB por worker se midió con Pillow 12.3.0 y el código de TKT-072. Hay que volver a medirla si cambia el procesado de medios.
+
+### 39.10 Archivos modificados
+`compose.yaml` (servicio `backend`), `.env.example`, `.github/workflows/ci.yaml` (job `infra`, paso nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 39.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir OBS-QA072-01 (3 subidas simultáneas de 40 MP sin swap) y esperar 3 × 200 con `oom_kill 0`.
+- Registrar DEC-AUTO-1350 a 1353, RSK-OPS-063/064 y OBS-OPS036-01.
+- Decidir si se abre el ticket de OBS-OPS036-01 (proxy).
+- Cerrar OBS-QA072-01.
