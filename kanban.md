@@ -731,7 +731,6 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Validado en ejecución (A/B); PR #114 CI verde; QA c1/3 PASS; integrado. DONE. OBS-QA038-01 LOW al Informe", "DEC-AUTO-1010 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): se trata como HIGH provisional hasta validarlo en ejecución; informe ~/security-audit-skill/brujula-salvaje/run-1"]
     actualizado: 2026-10-12
-  - id: CHG-API-007
   - id: TKT-073
     titulo: "MEDIUM (RSK-OPS-067, F9): integrar Django 5.2.18 (PR #78 Dependabot; CVE-2026-84429 DoS de cabeceras, CVE-2026-87975, CVE-2026-87890, CVE-2026-77050) con QA de regresión"
     fase: F9
@@ -756,6 +755,7 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["Medición con batería permitida por decisión humana registrando condiciones (avisar solo si < 20 %)"]
     actualizado: 2026-10-13
+  - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
     estado: BLOCKED_HUMAN

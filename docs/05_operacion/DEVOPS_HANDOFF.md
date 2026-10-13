@@ -20,6 +20,7 @@ Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canal
 Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
 Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
 Actualizado por **TKT-OPS-037** (F7, MEDIUM, F-035-01 de la QA de TKT-OPS-035: el tope global `limit_conn subidas_total 16` de `/api/v1/panel/medios` lo agotaban 8 IP anónimas en goteo y bloqueaba con 429 todas las subidas del panel; se elimina y se conserva `subidas_ip 2`; cifras de RSK-OPS-060/061 corregidas, O-035-03 documentado, regresión estática en el smoke de CI, 2026-10-12): ver §40 (§39 es TKT-OPS-036).
+Actualizado por **F9 [PRE-RELEASE / RELEASE]** (2026-10-12/13, candidata `1.0.0-rc.1` sobre `main` @ 12b4b3e, con build final, trivy y SBOM repetidos sobre `main` @ 45dc49a (TKT-OPS-038): build de las 6 imágenes, trivy + SBOM, arranque completo, smokes del CI, check --deploy, copia + simulacro AC-054, carga y Lighthouse medidos con batería, versión, changelog y rollback; sin tags, sin publicación y sin despliegue): ver §42 (§41 es TKT-OPS-038).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -3481,3 +3482,177 @@ nginx resuelve el upstream `frontend` al arrancar. Al aplicar este cambio sobre 
 - Registrar DEC-AUTO-1370 a 1372 y OBS-OPS038-01/02.
 - Cerrar el candidato `ssr-api-throttle-key-collapse` de la auditoría F9.
 - Tras integrar en `main`: en `brujulalocal`, `up -d` + `restart proxy` (§41.6).
+
+## 42. F9 [PRE-RELEASE / RELEASE]: candidata 1.0.0-rc.1 (Skill_devops §14, §23)
+
+(§41 corresponde a TKT-OPS-038, desarrollado en paralelo e integrado durante esta F9: PR #114. El build final y trivy/SBOM sobre `main` con TKT-OPS-038 están en §42.11.)
+
+### 42.1 Estado
+**REQUIERE INTERVENCIÓN** (decisión del Orquestador, sin bloqueo de seguridad). La candidata supera la cadena de suministro (build, trivy, SBOM), el arranque, los smokes del CI, `check --deploy` y el simulacro de restauración AC-054. Quedan dos criterios de rendimiento **medidos con batería** (instrucción del Orquestador: no se exige que el equipo esté enchufado):
+- **Carga de la API (REQ de rendimiento, AC-051): FAIL a 20 r/s** en lectura. A 10 r/s cumple (§42.5).
+- **Lighthouse móvil (LCP ≤ 2,5 s): PASS_CONDICIONADO**. CLS = 0 en las 30 ejecuciones. El LCP supera 2,5 s con benchmarkIndex bajo (§42.6).
+
+Sin despliegue, sin publicación de imágenes, sin tags ni releases en GitHub, sin secretos reales y sin firma keyless (Puertas Humanas, CLAUDE.md §0.5).
+
+### 42.2 Objeto de la release
+| Campo | Valor |
+|---|---|
+| Commit | Validación completa sobre `main` @ `12b4b3e` (Merge PR #113, TKT-OPS-037). **Build final, trivy y SBOM sobre `main` @ `45dc49a`** (Merge PR #114, TKT-OPS-038; §42.11). Los commits posteriores solo tocan `kanban.md`, `audit_log.md` y `docs/PLAN_CONTINUACION.md` |
+| Versión propuesta | **`1.0.0-rc.1`** (DEC-AUTO-1380). Sin tag |
+| Etiqueta local de las imágenes | `brujula/<servicio>:f9-12b4b3e` (`APP_VERSION=f9-12b4b3e`; la etiqueta de release se aplicará en la Puerta Humana de publicación) |
+| Stack de validación | proyecto `brujularelease`, puerto 18090, `APP_NET_PREFIX=10.231.209`, worktree aislado. No se tocaron `brujulalocal` (8080) ni `brujulaops038` |
+| Host | Windows 11, Docker Engine 29.6.1, Compose v5.2.0, buildx v0.35.0, 20 CPU lógicas, plan de energía «Equilibrado», **con batería** (PowerLineStatus=Offline, 98 % → 87 %) |
+| Toolchain | trivy 0.74.0 (BD de vulnerabilidades del 2026-10-13 01:09 UTC), syft 1.51.0, schemathesis 4.28.0, Lighthouse 12.6.1 (el incluido en @lhci/cli 0.15.1), Chrome estable |
+
+### 42.3 Imágenes (build `docker compose --profile ops build`, 2026-10-12)
+Identificador de contenido: la **huella de capas** (sha256 de la lista JSON compacta de diffIDs de `RootFS.Layers`). Es estable y coincide entre el build escaneado (las diffIDs que registró trivy) y las imágenes tras el simulacro. El ID local del índice **no** es estable: cada reconstrucción desde caché (`docker compose run` con `pull_policy: build`) genera una atestación de procedencia nueva (§42.7). No hay `RepoDigest` porque no se publica en ningún registro; el digest de registro se fija al publicar, en la Puerta Humana (DEC-AUTO-1384).
+
+| Imagen | Huella de capas (sha256) | ID local del build inicial | Tamaño | trivy CRITICAL/HIGH (gate con `.trivyignore`) | Suprimidas por RSK-OPS-001 | SBOM CycloneDX (componentes) |
+|---|---|---|---|---|---|---|
+| `brujula/backend` | `fca6a427a976e5f6db7783ecc08a706b9793895161193d1e882a76cbcd131197` | `730baf1a60a61fe04b9e681fc8f64022f4c2bda163d809f687432fd7bb03479a` | 390 MB | 0 | 44 | 628 |
+| `brujula/scheduler` | `8deeb1e1fc3d7c2b278622eb8aa7f6006e9bc64dc8069d3fd1d2e03b5c41e652` | `5c715a4391fc9bf5e97e22b2e015c318e15b9f5b18bcceedd4e11725ee605349` | 412 MB | 0 | 44 | 646 |
+| `brujula/frontend` | `4097a01bd73f2aafc92adb9cc4eb7cd27e397137e8da3b2849433089956a5626` | `da69cff8eaf74cbbc9e00a28dc96b67de08dcefdd8e5a947f17492337c7f3432` | 300 MB | 0 | 43 | 503 |
+| `brujula/proxy` | `ac96d4b5e1be23c71cf4a5bc86155b17aadc1bb4710ec55c0f6069a67c3a24e4` | `bb8724f3793e2a0787e820ad00c62caab35a06d2e27a65e474a9e4c2edfe774f` | 82,9 MB | 0 | 0 | 946 |
+| `brujula/backup` | `2eab2e62ab02ec604d1e5ad5a7bf6b19587329b1e3ad81d4dd11be953adc0618` | `6a6fceab443504ee211752a4b7f733471910047d441faa1a18eea410bc41ca40` | 170 MB | 0 | 43 | 548 |
+| `brujula/db` | `cd06bce81223b7326cf67cb9258b227d999149567c885cd61f70294025388a92` | `fcab998758fe162ca534cce97e69a762f2fd70f7eeb8b10c0502f3ae250db8d9` | 658 MB | 0 | 52 | 711 |
+
+- El build reutilizó la caché de capas: las mismas fuentes producen las mismas capas. Las bases están fijadas por digest en los Dockerfile (sin cambios).
+- **trivy**: `--scanners vuln --severity CRITICAL,HIGH --ignorefile .trivyignore --show-suppressed --exit-code 1`, el mismo comando que el CI. **0 CRITICAL/HIGH fuera de las excepciones** en las 6 imágenes. Todo lo suprimido está en la lista de RSK-OPS-001 (decisión humana del 2026-09-26). Ninguna CVE nueva. Nota: el JSON de evidencia también aplicó `./.trivyignore`, porque trivy lo lee por defecto desde el directorio de trabajo. Los conteos de suprimidas salen del informe del gate.
+- **Caducidad: las 17 excepciones vencen el 2026-10-26 (dentro de 13 días)**. A partir de esa fecha el gate del CI volverá a fallar. Hace falta una nueva decisión humana o eliminar las CVE antes (RSK-OPS-001).
+- Paquetes Python del backend: trivy los analiza (`python-pkg`), con 0 hallazgos en cualquier severidad. `pip-audit` tampoco reporta `django==5.2.17`. Sin embargo, el aviso oficial de Django del 2026-10-06 corrige en **5.2.18** cuatro problemas (CVE-2026-77050 Low, CVE-2026-84429 Moderate, CVE-2026-87890 Moderate (GIS), CVE-2026-87975 Moderate (formsets)) que las bases de datos de los escáneres aún no recogen. El PR #78 de Dependabot (5.2.17 → 5.2.18, CI verde) sigue abierto: **RSK-OPS-067** (§42.9).
+- Evidencia (fuera del repositorio): `trivy-<s>.json`, `trivy-gate-<s>.txt` y `sbom-<s>.cdx.json` en el directorio `rep1/` del scratchpad de la sesión. Los SBOM de referencia del CI de `main` están en el artefacto `supply-chain-<sha>` (30 días).
+
+### 42.4 Arranque, migraciones, datos y smokes (stack `brujularelease`)
+| Validación | Resultado |
+|---|---|
+| `docker compose up -d --no-build --wait` | VALIDADO: db, backend, frontend y proxy *healthy* en 32 s. `init-volumes` y `migrate` con exit 0 |
+| Migraciones | VALIDADO: `migrate` aplicó todas (incluidas `ops.0002_vigilar_cache_limites`). `migrate --check --plan`: «No planned migration operations» |
+| `cargar_semilla` | VALIDADO: 98 creados, 68 publicados, índice de búsqueda con 56 documentos (10 min 20 s, con codificación AVIF) |
+| `regenerar_derivados` | VALIDADO: 129 medios, 1335 derivados actualizados, 0 omitidos (12 min 40 s) |
+| `/health/ready` por el proxy | VALIDADO: 200 `{"status":"ok"}` |
+| `check --deploy --fail-level WARNING` con `DJANGO_SECURE_SSL_REDIRECT=true` y `DJANGO_SECURE_HSTS_SECONDS=31536000` (como el CI) | VALIDADO: «no issues». Con los valores locales (sin TLS) solo aparecen W004/W008, esperados en HTTP local |
+| Smoke del CI: stack + `schemathesis` (superficie pública implementada) | VALIDADO: 27/27 operaciones, 3030/3030 casos (fases coverage, fuzzing y stateful) |
+| Smoke del CI: errores del proxy como Problem Details + gzip + zona `salud` + 413/429 sobre subida > 2 MB | VALIDADO (rc 0) |
+| Smoke del CI: subidas al panel (TKT-OPS-035/037) | VALIDADO: temporales en volumen ext4, `shmem` 0 MB con 2 × 100 MB retenidos, 3.ª subida → 429, retenidas → [403, 403] |
+| Smoke del CI: logs del backend 100 % JSON | VALIDADO: 14 276 líneas, 0 no JSON |
+| `scripts/ops/smoke-anti-evasion.sh` | VALIDADO: 6/6 (C1-C6) |
+
+Los pasos de smoke se extrajeron del `ci.yaml` y se ejecutaron sin modificar su lógica. Solo se adaptó lo que exige el host de validación (DEC-AUTO-1386): el puerto 18090, `python3` apuntando al Python del sistema (en Windows es el alias de la Store), las rutas `/tmp/*` del host y `schemathesis` instalado con pipx en lugar de `pipx run`.
+
+### 42.5 Prueba de carga (REQ de rendimiento: p95 ≤ 300 ms lectura y ≤ 500 ms búsqueda, error < 1 %; AC-051/AC-053) — medida con batería
+**Método (DEC-AUTO-1381).** Bucle abierto a ritmo fijo, con la semilla completa. Rutas de lectura: 15 listados públicos más 18 fichas reales (destinos, itinerarios, guías, colecciones, tipos y categorías). 1 de cada 7 peticiones es una búsqueda (8 términos). El throttling de DRF agrupa por IP truncada a /24 (`publico-lectura` 120/min, `publico-busqueda` 30/min) y nginx limita `por_ip` a 20 r/s. Para no medir 429 se crearon **12 redes Docker /24 efímeras** (`10.232.1-12.0/24`), conectadas temporalmente al proxy de `brujularelease`, con un cliente por red a 20/12 r/s, dentro de la cuota de cada /24. Las redes se desconectaron y se borraron al terminar. El primer intento, contra `backend:8000` con `X-Forwarded-For` distinto por cliente, se descartó: el backend **no** acepta `X-Forwarded-For` de un emisor que no sea el proxy, así que los 50 clientes compartieron un único cubo (resultado correcto desde el punto de vista de seguridad).
+
+| Ejecución | Energía | Lectura p50 / p95 / p99 | Búsqueda p50 / p95 | Errores | Veredicto |
+|---|---|---|---|---|---|
+| 20 r/s × 120 s (2400 peticiones) | batería 98 %, CPU del host 11 % antes | 164 / **1111** / 1586 ms | 58 / **1243** ms | 0 % (todas 200) | **FAIL** (lectura y búsqueda) |
+| 10 r/s × 60 s (600 peticiones) | batería | 69 / **249** / 394 ms | 45 / **78** ms | 0 % | **PASS** |
+| 20 r/s × 40 s (792 peticiones) | batería | 151 / **505** / 650 ms | 52 / **356** ms | 0 % | lectura **FAIL**, búsqueda PASS |
+
+**Diagnóstico.** La latencia crece con la duración: la cola se acumula, así que en este host y con batería la capacidad es menor de 20 r/s. Durante la carga a 20 r/s el backend llegó como máximo al 94 % de su cuota (`cpus: 1.5`) sin quedarse fijo en ella, y la BD al 16-61 %. El límite es la concurrencia de los **3 workers sync de gunicorn** (`GUNICORN_WORKERS=3`): cada petición ocupa un worker también mientras espera a la BD. Además, los 12 clientes comparten la CPU del host. Las fichas son las rutas más lentas incluso en serie y en reposo: 0,34-0,40 s, frente a 0,09-0,15 s de los listados.
+
+**Pendiente (RSK-OPS-068):** repetir con el equipo enchufado y, si sigue sin cumplir, abrir ticket. Las palancas son de infraestructura (`GUNICORN_WORKERS` o workers `gthread`, respetando la regla de memoria de 640 MiB por worker, y la cuota de CPU del backend) o de código (consultas de las fichas, Developer). La prueba sostenida de 5 min del requisito y los 50 usuarios concurrentes de AC-053 quedan **NOT_RUN**: el alcance pedido era una prueba corta y sin estrés.
+
+### 42.6 Lighthouse móvil (LCP ≤ 2,5 s, CLS = 0) — medido con batería
+Lighthouse 12.6.1, formFactor `mobile`, `--throttling-method=devtools` (Slow 4G, CPU ×4), solo la categoría de rendimiento, Chrome headless, n = 3 por ruta y dos rondas. La segunda ronda se lanzó tras más de 2 min de reposo porque la mayoría de las ejecuciones de la primera tenían benchmarkIndex < 2500 (instrucción del Orquestador). En ambas rondas: PowerLineStatus=Offline, batería 88-87 %.
+
+| Ruta | Ronda 1: LCP (ms) / benchmarkIndex | Ronda 2: LCP (ms) / benchmarkIndex | Mediana ronda 2 | CLS máx. |
+|---|---|---|---|---|
+| `/` | 3722, 3443, 2654 / 1501, 2176, 2096 | 4412, 3492, 4003 / 2650, 2440, 2501 | 4004 | 0 |
+| `/destinos` | 3166, 2291, 2861 / 2134, 2842, 2198 | 2898, 2723, 3439 / 2832, 2084, 2175 | 2898 | 0 |
+| `/colecciones` | 3160, 3192, 2386 / 2176, 2027, 2522 | 2505, 2794, 2469 / 2841, 2170, 2011 | 2505 | 0 |
+| `/guias` | 2902, 6510, 4126 / 1941, 2101, 2858 | 2796, 2792, 2414 / 1914, 2203, 2641 | 2792 | 0 |
+| `/destinos/camino-inca-machu-picchu` | 4905, 4465, 10240 / 2123, 1954, 1690 | 2799, 3559, 2959 / 2776, 2993, 2934 | 2959 | 0 |
+
+- **CLS: PASS**, 0 en las 30 ejecuciones.
+- **LCP: PASS_CONDICIONADO.** Ninguna mediana cumple 2,5 s con batería. Sí cumplen ejecuciones sueltas con benchmarkIndex ≥ 2500 (`/destinos` 2291 con 2842, `/colecciones` 2386 con 2522, `/guias` 2414 con 2641). En todas las ejecuciones FCP ≈ LCP, el TBT está entre 0,5 y 11 s y el TTFB entre 72 y 556 ms: el tiempo se va en la CPU del cliente (JS), no en la red ni en el servidor. Referencia: la QA de TKT-021 (2026-10-12), con el equipo enchufado y benchmarkIndex 3295-4366, midió `/` 1964, `/destinos` 1838, `/guias` 2239 y ficha 2162 ms. **Riesgo explícito:** `/` es la ruta más alejada del objetivo (4,0 s de mediana con benchmarkIndex 2440-2650), así que su margen en dispositivos lentos es menor que el del resto (RSK-OPS-069). No se midió `main` de la etapa anterior: la referencia enchufada ya existe y no hay cambios de frontend desde entonces.
+- Evidencia: JSON de Lighthouse en `lh1/` y `lh2/` del scratchpad de la sesión.
+
+### 42.7 Copia de seguridad y simulacro AC-054 (sobre `brujularelease`)
+`COMPOSE_PROJECT_NAME=brujularelease RESTORE_ENV=local bash scripts/ops/simulacro-ac054.sh --confirmar-destruccion brujularelease --evidencia <scratchpad>/simulacro` (el mismo script del runbook §35.6 y del workflow `simulacro-ac054`). Se ejecutó sobre el stack ya sembrado; la semilla se reutilizó en 43 s.
+
+| Paso | Resultado |
+|---|---|
+| [1] Copia nueva con el servicio `backup` (`backup.sh`, rol `app_backup`, clave age efímera) | VALIDADO: copia `20261013`, dump 3 s, medios 15 s, total 18 s |
+| [2] Desastre: se borran `db_data`, `media` y `ops_libro`; BD recreada con INFRA-DB-000 | VALIDADO (25 s) |
+| [3a] Control negativo: un DOMINIO en `app` hace que `restore-local.sh` termine con exit 4 | VALIDADO |
+| [3] `restore-local.sh`: BD en una sola transacción | VALIDADO: **BD idéntica** (322 líneas de instantánea: conteos, md5, privilegios, triggers y secuencias) |
+| [4] `reinstalar-volumenes --medios` | VALIDADO |
+| [5a] Control negativo: `post-restore` sin libro termina con exit 1 `LIBRO_AUSENTE` y no arranca nada | VALIDADO |
+| [5] y [5b] `--libro-copia`; controles sin mezcla ni sobrescritura (exit 3/3/0) | VALIDADO |
+| [6] `post-restore-local.sh`: migrate, 6 comandos ADR-DB-004 §4 y arranque con perfil ops | VALIDADO: `/health/ready` 200 por el proxy |
+| [7] Verificación | VALIDADO: **1464 archivos de medios y el libro idénticos** (propietario, modo y sha256); `/api/v1/publico/inicio` 200; SSR 200; un derivado WebP servido con su sha256. Comprobación adicional tras el simulacro: ficha `/destinos/camino-inca-machu-picchu` 200 y `/api/v1/publico/destinos` con `total: 24` |
+| **RTO medido** (desastre → `/health/ready` 200) | **332 s** (254 s sin los controles negativos); objetivo ≤ 4 h. Simulacro completo: 487 s |
+
+- **Artefacto de la copia: no se conserva.** El simulacro cifra la copia con una clave age **efímera** que destruye al terminar (diseño de TKT-OPS-008: no es un secreto real). Sin la clave, el archivo no se puede restaurar, así que conservarlo no aporta nada como copia; además, el volumen `brujularelease_backups` se borra con `down -v`. La evidencia (registros, instantáneas antes/después y diffs vacíos) queda en el directorio `simulacro/` del scratchpad de la sesión, fuera del repositorio. Una copia conservable de release requiere el destinatario age real de la organización (`BACKUP_AGE_RECIPIENT`), que es Puerta Humana (§0.5).
+- Efecto colateral observado (sin impacto funcional, relevante para la trazabilidad): cada `docker compose run` de un servicio con `pull_policy: build` reconstruye la imagen desde la caché. El índice local cambia de ID porque la atestación de procedencia lleva una marca de tiempo, pero **las capas son idénticas** (§42.3, huella de capas). Por eso el identificador de contenido de esta release es la huella de capas (sha256 de la lista de diffIDs) y, al publicar, el `RepoDigest` (DEC-AUTO-1384).
+
+### 42.8 Versión, changelog, trazabilidad y rollback
+**Versión (DEC-AUTO-1380): `1.0.0-rc.1`.** Es la primera versión funcional completa: el contrato OpenAPI ya declara `1.0.0`. Se marca como *release candidate* porque la promoción a producción es Puerta Humana y quedan RSK-OPS-067/068/069 y la integración de TKT-OPS-038. La versión final `1.0.0` se etiqueta sobre el **mismo digest** una vez aprobada (Skill_devops §23.3: prohibido reconstruir para prod). No se ha creado ningún tag.
+
+**Changelog breve (2026-09-24 → 2026-10-12, `main` @ 12b4b3e).** Fuente: `git log --first-parent` (38 PR integrados por GitHub, más las integraciones locales previas) y `kanban.md` (110 tickets DONE).
+- Sitio público (Angular SSR): inicio, exploración de destinos con filtros en la URL, mapa SVG, «cuándo ir» por mes, «sorpréndeme», fichas de destino, itinerarios, tipos de aventura, guías y categorías, colecciones, glosario, búsqueda, páginas legales, mapa del sitio y guardados. Imágenes AVIF/WebP con respaldo, diferidas fuera del viewport, y LCP optimizado (TKT-018/020/021/048/056/071).
+- Panel editorial: acceso por pasos con MFA TOTP, bloqueo progresivo y rotación de sesión; CRUD de contenidos con vista previa, publicación y retirada, revisiones y restauración; biblioteca de medios con subida de fotos grandes (TKT-072) y auditoría.
+- API REST `/api/v1` (Django 5.2 + DRF) conforme a `contracts/openapi.yaml`: Problem Details RFC 9457, throttling por ámbito atómico, idempotencia en las POST del panel.
+- Operación: PostgreSQL 18.6 con INFRA-DB-000, roles mínimos, scheduler (supercronic compilado con Go corregido), copia cifrada con age y restauración AC-054 reproducible (TKT-OPS-007/008).
+- Seguridad e infraestructura: proxy nginx de mismo origen con limitadores por zona, anti-evasión de assets, errores como Problem Details y subidas grandes sin OOM ni bloqueo global (TKT-OPS-016…037); contenedores sin root, de solo lectura y con `cap_drop ALL`; CI con gates de lint, tipos, cobertura, contrato (oasdiff + schemathesis), SAST, SCA, gitleaks, trivy, SBOM y simulacro mensual.
+
+**Trazabilidad.** Commit `12b4b3e` → build local `APP_VERSION=f9-12b4b3e` → IDs de §42.3 → configuración `compose.yaml` + `.env.example` del mismo commit → versión `1.0.0-rc.1`. En CI, el job `images` de `main` publica `supply-chain-<sha>` (SBOM y trivy). Procedencia y firma (cosign keyless, job opcional) quedan **NOT_RUN**: son Puerta Humana porque publican la identidad del repositorio en Rekor.
+
+**Rollback (DEC-AUTO-1383).**
+1. **Imágenes por digest:** la versión anterior se vuelve a desplegar por su digest de registro, nunca por etiqueta y sin reconstruir. En local, por los IDs de §42.3, guardables con `docker image save` si se necesita conservarlos.
+2. **Esquema:** las migraciones avanzan solo hacia delante y se ejecutan como paso separado (`migrate`) antes de la app (§23.4). Antes de cada release se hace una copia nueva (`backup.sh`). Si la versión N no es compatible con el esquema de N-1, el rollback es **restaurar la copia** con el runbook de §35.6 (`restore-local.sh` → `reinstalar-volumenes` → `post-restore-local.sh`), medido en §42.7. Esta release parte de una instalación vacía, así que no hay N-1 en producción.
+3. **Configuración:** `.env` y los secretos son por entorno y no viajan en la imagen. El rollback restaura también la configuración versionada del mismo commit (`compose.yaml`).
+4. **Medios y libro de anonimizaciones:** se restauran desde la misma copia (AC-054). El libro vivo nunca se sobrescribe sin decisión humana (ADR-DB-004 §4.4).
+5. Rollback probado en staging antes de la primera release a prod (§23.4): **NOT_RUN**, porque no hay staging. El simulacro AC-054 de §42.7 es el ensayo local equivalente de la restauración.
+
+**Métricas DORA (§23.6).** Lead time de la release: 18 días (2026-09-24 → 2026-10-12). Frecuencia de despliegue, tasa de fallo de cambios y MTTR: **NOT_RUN**, porque no hay despliegues.
+
+### 42.9 Decisiones
+| ID | Decisión | Alternativas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1380 | Versión `1.0.0-rc.1` | `0.9.0`; `1.0.0` directa | Producto funcional completo, con contrato en 1.0.0; «rc» mientras falten la Puerta Humana y los riesgos abiertos | Ninguno | Alta |
+| DEC-AUTO-1381 | Carga con 12 redes /24 efímeras conectadas al proxy, bucle abierto de 20 r/s durante 120 s (más 10 r/s × 60 s y 20 r/s × 40 s como diagnóstico) | `X-Forwarded-For` directo al backend (el backend lo ignora, correcto); una sola IP dentro de la cuota (2 r/s, no mide carga); desactivar el throttling (cambia el sistema medido) | Mide el sistema real (proxy + backend + BD) sin 429 y sin tocar el repositorio | Los clientes comparten la CPU del host (pesimista) | Alta |
+| DEC-AUTO-1382 | Lighthouse 12.6.1 de @lhci/cli, devtools, n = 3 × 2 rondas, con batería, registrando benchmarkIndex; LCP como PASS_CONDICIONADO | NOT_RUN por batería (criterio anterior, sustituido por instrucción del Orquestador) | Instrucción del Orquestador (decisión del usuario) | El LCP real en enchufe no se re-mide en F9 (referencia de la QA de TKT-021) | Alta |
+| DEC-AUTO-1383 | Rollback = digest anterior + copia y restauración AC-054 + configuración del mismo commit | Solo imagen anterior | Skill_devops §14 [ROLLBACK]: el esquema y los medios no vuelven con la imagen | Ninguno | Alta |
+| DEC-AUTO-1384 | IDs de imagen locales como «digest» de F9; el `RepoDigest` se fija en la publicación (Puerta Humana) | Publicar en un registro ahora | Publicar es Puerta Humana; el ID local identifica el contenido | Ninguno | Alta |
+| DEC-AUTO-1385 | Django 5.2.18 (PR #78) se eleva al Orquestador como MEDIUM antes de la release, sin modificarlo aquí | Actualizar el lockfile en esta rama | §0.3/§23.1: el lockfile solo se cambia con un ticket asignado; el PR de Dependabot ya tiene el CI verde | MEDIUM mientras no se integre | Alta |
+| DEC-AUTO-1386 | Smokes del CI ejecutados en local con adaptaciones solo del host (puerto, `python3`, `/tmp`, `schemathesis` de pipx) | Ejecutar solo en CI | El objeto F9 se valida en el host de release; la lógica de los pasos no cambia | Ninguno | Alta |
+| DEC-AUTO-1387 | Sección F9 numerada §42 (no §41) | §41 | TKT-OPS-038 (PR #114) ya usa §41 en este documento | Conflicto de texto solo en el índice | Alta |
+| DEC-AUTO-1388 | La imagen de release se construye una sola vez con `APP_VERSION=1.0.0-rc.1` y se promociona por digest; la equivalencia entre builds se demuestra por contenido de ficheros, no por digest | Aceptar como «misma release» imágenes reconstruidas con otra `APP_VERSION` | `ARG APP_VERSION` invalida la caché de la etapa runtime: mismo contenido, otro digest (§42.11) | Ninguno si se respeta | Alta |
+
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1380 a 1388).
+
+### 42.10 Riesgos / pendientes
+- **RSK-OPS-001 (HIGH, aceptado por decisión humana):** las 17 excepciones de `.trivyignore` caducan el **2026-10-26**. Hace falta renovarlas o corregir las CVE antes; si no, el CI de `main` fallará.
+- **RSK-OPS-067 (MEDIUM, nuevo):** Django 5.2.17 en `main`. La 5.2.18 corrige CVE-2026-84429 (DoS por el análisis cuadrático de cabeceras, alcanzable vía `HttpRequest.accepts()`), CVE-2026-87975, CVE-2026-87890 (GIS, no usado) y CVE-2026-77050 (Low). Ni trivy ni pip-audit lo detectan aún. Mitigación: integrar el PR #78 (Dependabot, CI verde) y repetir build y trivy de F9.
+- **RSK-OPS-068 (MEDIUM, nuevo):** con batería, la capacidad de la API está por debajo de 20 r/s (p95 de lectura 1111 ms a 20 r/s durante 120 s). Hay que repetir la medición enchufado y, si no cumple, abrir ticket de capacidad (workers/CPU del backend) o de consultas de las fichas.
+- **RSK-OPS-069 (LOW-MEDIUM, nuevo):** el LCP de `/` es el más alejado del objetivo con batería (mediana 4,0 s; enchufado, 1,96 s según la QA de TKT-021). Es sensible a la CPU del cliente.
+- **TKT-OPS-038 (HIGH): integrado** (PR #114). El build final y trivy/SBOM sobre `main` @ `45dc49a` están hechos: 0 CRITICAL/HIGH nuevos y el contenido de las imágenes es idéntico (§42.11).
+- Siguen vigentes RSK-OPS-065 (`real_ip` tras un balanceador, Puerta Humana de producción) y RSK-OPS-066.
+- NOT_RUN: carga sostenida de 5 min y 50 usuarios (AC-053), firma cosign y procedencia, publicación, despliegue a staging/prod, rollback en staging y métricas DORA operativas.
+
+### 42.11 Repetición tras TKT-OPS-038
+**Build final de la candidata: `main` @ `45dc49a`** (Merge PR #114; `81dd383` solo añade `kanban.md` y `audit_log.md`). Se ejecutó `APP_VERSION=f9-45dc49a docker compose --profile ops build` y se repitieron trivy y el SBOM con el mismo procedimiento de §42.3 (2026-10-13):
+
+| Imagen | Huella de capas @ 45dc49a | ¿Igual que en §42.3? | trivy CRITICAL/HIGH / suprimidas | SBOM (componentes) |
+|---|---|---|---|---|
+| `brujula/backend` | `d46cc677e6d4c72c6524459d9c3ac7d898c6fbfa9c6539ae1aca5a8ebe74772d` | No (ver nota) | 0 / 44 | 628 |
+| `brujula/scheduler` | `7202bd95c4e26791c6a5a4aadaabaafc86ece836b04ffba4d6097410962927fd` | No (ver nota) | 0 / 44 | 646 |
+| `brujula/frontend` | `4097a01bd73f2aafc92adb9cc4eb7cd27e397137e8da3b2849433089956a5626` | Sí | 0 / 43 | 503 |
+| `brujula/proxy` | `ac96d4b5e1be23c71cf4a5bc86155b17aadc1bb4710ec55c0f6069a67c3a24e4` | Sí | 0 / 0 | 946 |
+| `brujula/backup` | `2eab2e62ab02ec604d1e5ad5a7bf6b19587329b1e3ad81d4dd11be953adc0618` | Sí | 0 / 43 | 548 |
+| `brujula/db` | `cd06bce81223b7326cf67cb9258b227d999149567c885cd61f70294025388a92` | Sí | 0 / 52 | 711 |
+
+- **trivy: 0 CRITICAL/HIGH fuera de RSK-OPS-001** en las 6 imágenes y ninguna CVE nueva. SBOM generado para las 6, con los mismos conteos de componentes.
+- **Nota sobre backend y scheduler.** Cambian 3 de sus 7 capas (las de la etapa `runtime`: `RUN groupadd…` y los `COPY` de `/opt/venv` y `/app`). Están justo después de `ARG APP_VERSION`, y un valor distinto de `APP_VERSION` (`f9-12b4b3e` → `f9-45dc49a`) invalida la caché de esa etapa: BuildKit vuelve a ejecutar los pasos con marcas de tiempo nuevas. **El contenido es idéntico.** Se comparó el sha256 de cada fichero de `/opt/venv`, `/app`, `/etc` y `/usr/local` (9018 ficheros) entre `brujula/backend:f9-12b4b3e` y `:f9-45dc49a`. La única diferencia es `/etc/hostname`, que escribe el runtime en cada contenedor. Es coherente con el alcance de TKT-OPS-038, que no toca `backend/` ni ningún Dockerfile. Consecuencia para la release (DEC-AUTO-1388): **la imagen que se publique debe construirse una sola vez con su `APP_VERSION` definitiva (`1.0.0-rc.1`) y promocionarse por digest** (§23.3). Construir con otra etiqueta produce otro digest aunque el contenido sea el mismo.
+- La parte de configuración de TKT-OPS-038 (`compose.yaml`: IP fija del frontend `.11`, `DJANGO_TRUSTED_PROXIES` `.10,.11`, `NG_TRUST_PROXY_HEADERS=x-forwarded-for`) la validaron la QA y el CI de su PR (#114). El stack `brujularelease` no se volvió a levantar sobre `45dc49a`: el alcance pedido para esta repetición era el build y trivy/SBOM. Nota de operación del Orquestador: en un stack ya levantado, después de `up -d` hay que hacer `restart proxy` una vez, porque nginx conserva la IP antigua del frontend.
+- Evidencia: directorio `rep2/` del scratchpad de la sesión (trivy JSON, gate y SBOM).
+
+### 42.12 Archivos modificados
+`docs/05_operacion/DEVOPS_HANDOFF.md` (línea de índice y esta sección). Sin cambios en `compose.yaml`, Dockerfile, CI, `.env.example`, lockfiles ni versiones. Las redes de carga y el stack `brujularelease` se eliminaron al terminar (§42.7).
+
+### 42.13 Próximo agente
+**Orquestador**:
+- Decidir sobre RSK-OPS-067 (integrar el PR #78) y RSK-OPS-068 (re-medir enchufado o abrir ticket) antes de dar la release por buena.
+- Registrar DEC-AUTO-1380 a 1388 y RSK-OPS-067/068/069. TKT-OPS-038 ya está cubierto en §42.11.
+- Puertas Humanas pendientes: renovación de RSK-OPS-001 antes del 2026-10-26; publicación de imágenes, tag `v1.0.0-rc.1`/`v1.0.0`, firma cosign, plataforma de producción (ADR, §23.5) y despliegue.
