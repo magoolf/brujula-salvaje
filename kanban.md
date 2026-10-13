@@ -746,14 +746,14 @@ tickets:
   - id: TKT-OPS-039
     titulo: "MEDIUM (RSK-OPS-068, F9): capacidad de la API pública: p95 lectura 1111 ms a 20 r/s con batería; ejecutar AC-051/AC-053 (50 usuarios concurrentes, 5 min, p95 <= 300 ms lectura / <= 500 ms búsqueda, error < 1 %) y, si no cumple, ajustar gunicorn (gthread/workers/CPU respetando la regla >= 640 MiB por worker); si la causa es de consultas de las fichas, devolver diagnóstico para ticket de Developer"
     fase: F9
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_devops
     trazabilidad: [REQ-051, REQ-053, AC-051, AC-053, RSK-OPS-068]
     depende_de: []
     archivos_permitidos: ["compose.yaml", ".env.example", "infra/**", "scripts/ops/**", "docs/05_operacion/DEVOPS_HANDOFF.md", ".github/workflows/ci.yaml"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["Medición con batería permitida por decisión humana registrando condiciones (avisar solo si < 20 %)"]
+    evidencia: ["QA c1/3 PASS (enchufado p95 139/141 ms; A/B main 197 ms); PR #116 integrado por el usuario @ 2189f38. DONE (RSK-OPS-068 cerrado)", "PR #116 @ a7b3fd9 CI verde; AC-053 p95 lectura 245 ms / búsqueda 87 ms, 0 % error (batería); QA c1/3 en curso", "Medición con batería permitida por decisión humana registrando condiciones (avisar solo si < 20 %)"]
     actualizado: 2026-10-13
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
