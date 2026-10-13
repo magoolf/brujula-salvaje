@@ -18,6 +18,7 @@ Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la dispon
 Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios y libro tras pérdida total (RSK-OPS-027), copia y restauración sin tmpfs (RSK-OPS-029), simulacro AC-054 reproducible en local y en CI, post-restore que no arranca la app si falta un paso (DEC-AUTO-908), runbook con perfil ops y libro v2 (CHG-DB-003), precondición de tipos/dominios (OBS-QAOPS007-03), 2026-10-11): ver §35. **Runbook de restauración vigente: §35.6.**
 Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canales implícitos: cualquier `TRIVY_*`, configuración generada, escrituras a `.trivyignore`, gate que no puede dejar de fallar, `sha256sum -c` junto a la instalación, guardia de ejecución; QA-OPS006-04/05, OBS-C3-1..3, 2026-10-11): ver §36. **La lista blanca vigente es §19.14.2 + §36.3.**
 Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
+Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -3083,9 +3084,93 @@ El enlace del run y el estado de los checks obligatorios están en la descripci�
 - Registrar DEC-AUTO-1330 a 1332 y RSK-OPS-054.
 - Cerrar OBS-QA071-02/03.
 
+## 38. TKT-OPS-035: subidas anónimas grandes a `/api/v1/panel/medios` agotaban la memoria del proxy (NV-QA034-03) (F7, MEDIUM)
+
+### 38.1 Estado
+**COMPLETADO** en la rama `tkt-ops-035-buffer-subida-proxy`, que incorpora `main` con TKT-OPS-034 (PR #109). El riesgo **es real** y está medido (§38.3). Se mitiga sin cambiar el contrato ni la subida legítima del panel. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 38.2 Objetivo
+Validar NV-QA034-03 (QA de TKT-OPS-034, `needs_validation`, preexistente). `POST /api/v1/panel/medios` admite hasta 105 MB con `proxy_request_buffering on`. nginx lee el cuerpo entero **antes** de pasarlo a Django, que es quien autentica, y lo guardaba en `/tmp/client_temp`. Ese directorio estaba en el tmpfs `/tmp`, sin `size=`, que cuenta contra el límite de memoria del contenedor proxy (256m). Ni `limit_req` (20 r/s, burst 60) ni la autenticación frenan unas pocas peticiones simultáneas. Si el riesgo es real, hay que mitigarlo y añadir una regresión al smoke del proxy.
+
+### 38.3 Validación del riesgo (antes del cambio; 2026-10-12, stack propio `brujulaops035`)
+Imagen de `origin/main` (efb652e). Docker Desktop 29.6.1 sobre una VM de 7,6 GB con 2 GB de swap. Puerto 18135, `APP_NET_PREFIX=10.231.135`. Prueba acotada, no de estrés: 3 o 4 conexiones **sin cookie**. Cada una declara un `Content-Length` de 104 MB, envía todo el cuerpo salvo el último KB, lo retiene 15-25 s y termina. Durante la prueba se leyó el cgroup del proxy (`memory.current`, `memory.swap.current`, `memory.events` y `memory.stat`), y una sonda pedía `GET /` cada 2,5 s.
+
+| Caso | Resultado |
+|---|---|
+| A. 3 subidas con el límite de compose (256m de RAM más swap: `MemorySwap` 512m) | RAM del cgroup **al límite** (≈256 MiB), **78 MB en swap** y 5.580 eventos `max`. Las 3 terminan con 403 (Django, sin sesión) |
+| B. 4 subidas con el mismo límite | RAM al límite y **194 MB en swap** (≈450 de 512 MiB), con 14.867 eventos `max`. Sin OOM, pero una 5.ª superaría el tope de RAM más swap |
+| C. 3 subidas **sin swap** (`memswap_limit: 256m`, como un servidor Linux sin swap, lo habitual en producción) | Evento `oom` y **`die 137`** del contenedor proxy en ~1 s. **Toda la web cae** y se cortan todas las conexiones en curso. `restart: unless-stopped` lo relanza, pero repetir las 3 peticiones lo vuelve a tumbar |
+
+Conclusión: el **riesgo es REAL** (MEDIUM). Con swap el fallo solo se retrasa: cada subida retenida inmoviliza 104 MB de RAM o de swap del proxy.
+
+### 38.4 Mitigación (decisiones)
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1340 | **Temporales de nginx en disco**: `client_body_temp_path /var/cache/nginx/temporal/cuerpos` en el volumen nuevo `proxy_temporal`, que no es tmpfs. El directorio se crea en la imagen (101:101, 0700) y Docker lo copia al volumen vacío. nginx crea los subdirectorios al arrancar y borra cada archivo nada más abrirlo. La caché de página de esas escrituras es recuperable, así que no provoca OOM | (a) `size=` en el tmpfs: el límite sigue dentro de los 256m y, al llenarse, también falla la subida legítima. (b) Más memoria para el contenedor: no escala. (c) `proxy_request_buffering off`: gunicorn (workers síncronos) quedaría expuesto a clientes lentos | Elimina la causa: el cuerpo deja de ocupar memoria del contenedor. Es la misma solución que RSK-OPS-029 (DEC-AUTO-1201) | LOW (RSK-OPS-060): uso transitorio de disco | Alta |
+| DEC-AUTO-1341 | **`limit_conn` en `/api/v1/panel/medios`**: 2 simultáneas por IP (`subidas_ip`) y 16 en total (`subidas_total`, con clave `$server_name` = `_`). Con `limit_conn_status 429` el rechazo sale por `/_errores_proxy/429` como problem+json `limite_tasa` con `Retry-After: 1`. Actúa en la fase preaccess, **antes de leer el cuerpo** | (a) Comprobar la cookie de sesión en el borde: se elude con cualquier cookie inventada y acopla el proxy al nombre de la cookie de Django. (b) Solo límite por IP: no acota el disco ante muchas IP. (c) 1 por IP: un reintento del panel podría coincidir con el cierre de la petición anterior | Acota el disco que pueden ocupar cuerpos sin autenticar: ≤ 2 × 105 MB por IP y ≤ ~1,7 GB en total. El panel sube **un archivo por petición, en secuencia** (TKT-072) y ya reintenta ante `limite_tasa` | LOW (RSK-OPS-061): 16 subidas anónimas simultáneas desde ≥ 8 IP bloquean con 429 las subidas legítimas mientras duran. La web sigue en pie | Alta |
+| DEC-AUTO-1342 | Las **respuestas del upstream** que no caben en `proxy_buffers` (`proxy_temp_path`) también van al volumen (`/var/cache/nginx/temporal/respuestas`). El tmpfs `/tmp` pasa a `size=16m`, porque ya solo guarda el pid | Dejar `proxy_temp` en el tmpfs con un tope de 64m: al llenarse fallarían respuestas legítimas, como los derivados de 2 MB del panel servidos a clientes lentos | Es el mismo vector con lecturas lentas: muchas respuestas a medio enviar en el tmpfs suman memoria del contenedor. El tope impide que `/tmp` vuelva a ser un almacén sin límite | Ninguno medido: los derivados de hasta 2 MB se sirvieron con 200 | Alta |
+| DEC-AUTO-1343 | **NO se reduce `client_max_body_size 105m`** de medios en este ticket, aunque el Orquestador lo permitía tras confirmar que PR #110 (TKT-072) envía un archivo por petición | Bajarlo a ~12 MB, con la condición de integrar este PR después de #110 | (1) El contrato (`panelSubirMedios`: 1..10 archivos, "Petición >105 MB: 413") y ADR-API-002 §8 fijan los 105 MB. Con 12 MB, una petición válida según el contrato (p. ej. 3 × 10 MB) recibiría 413: es un cambio de contrato, y `contracts/openapi.yaml` no es un artefacto de DevOps (Skill_devops §15, CLAUDE.md §0.3). (2) DEC-AUTO-1340/1341 ya eliminan el OOM con cualquier tamaño, sin depender del orden de integración respecto a #110. (3) En `main`, el panel todavía envía lotes (`this.repo.subir(lote.archivos, …)`) | INFO (RSK-OPS-062): un anónimo puede seguir escribiendo hasta 105 MB por petición en el disco del proxy, acotado por DEC-AUTO-1341 | Alta |
+
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1340 a 1343).
+
+### 38.5 Cambios realizados
+- `infra/proxy/nginx.conf`:
+  - `client_body_temp_path` y `proxy_temp_path` pasan a `/var/cache/nginx/temporal/{cuerpos,respuestas}`;
+  - nuevas zonas `limit_conn_zone` `subidas_ip` y `subidas_total`;
+  - en la location `= /api/v1/panel/medios`: `limit_conn subidas_ip 2`, `limit_conn subidas_total 16` y `limit_conn_status 429`.
+- `infra/proxy/Dockerfile`: `install -d -o 101 -g 101 -m 0700 /var/cache/nginx/temporal`. La imagen base, el digest y `pcre2` no cambian.
+- `compose.yaml`:
+  - servicio `proxy`: volumen `proxy_temporal:/var/cache/nginx/temporal` y tmpfs `/tmp` con `size=16m`;
+  - nivel superior: declaración `proxy_temporal: {}`, que solo usa el proxy.
+- `.github/workflows/ci.yaml`, job `images`: paso nuevo `smoke: subidas al panel sin agotar la memoria del proxy (TKT-OPS-035)`. Va tras el smoke anti-evasión y antes de parar el backend, y comprueba que:
+  - (a) `nginx -T` contiene las dos rutas en `/var/cache/nginx/temporal`, ese punto de montaje existe y **no es tmpfs**, y `/tmp` tiene `size=`;
+  - (b) con 2 subidas anónimas de 100 MB retenidas a falta de 1 KB, el `shmem` del cgroup del proxy queda en **< 32 MB** (en tmpfs serían ~200 MB);
+  - (c) la 3.ª subida simultánea recibe **429 `limite_tasa` problem+json** sin enviar el cuerpo (si no hay respuesta en 15 s, también es fallo);
+  - (d) las 2 retenidas terminan con el 403 de Django, `/health/ready` responde 200 y el proxy no se ha reiniciado ni lo ha matado el OOM (`OOMKilled`).
+- Sin cambios en `.env.example`, versiones, lockfiles ni otros servicios.
+
+### 38.6 Versiones / infraestructura / variables
+Sin cambios de versiones ni de digests. El volumen nuevo `<proyecto>_proxy_temporal` es desechable: `down -v` lo borra y no guarda datos persistentes. No hay variables nuevas, y los entornos con un `.env` ya existente no necesitan ningún cambio.
+
+### 38.7 Validaciones ejecutadas (2026-10-12, `brujulaops035`)
+
+| Validación | Resultado |
+|---|---|
+| `docker compose config --quiet` (`--profile ops --profile restauracion`; también con `-f compose.ci.yaml`) | VALIDADO |
+| `nginx -t` en la imagen nueva; volumen montado como ext4 (no tmpfs); `cuerpos/` y `respuestas/` creados (101, 0700); `/tmp` en tmpfs con `size=16384k` | VALIDADO |
+| **4 subidas anónimas de 104 MB sin swap** (`memswap_limit: 256m`), con `limit_conn` relajado a 10 por override para probar solo el disco | **Sin OOM**: 0 eventos `oom`, `RestartCount` 0 y `shmem` estable en 0,2 MB. La memoria del cgroup sube por caché de página **recuperable** (`file` ≈ 240 MB) y vuelve a 22 MB al terminar. Las 4 subidas reciben 403 y la sonda `GET /` responde 200 en 50-100 ms |
+| 3 subidas anónimas simultáneas desde una IP, con la configuración real y sin swap | Las 2 primeras quedan retenidas (403 al completarse) y la 3.ª se rechaza antes de leer el cuerpo, sin OOM. Con TKT-OPS-034 integrado, la 3.ª recibe **429 `application/problem+json` `limite_tasa`**. Sin TKT-OPS-034 era 413 `text/html`, justo el defecto que ese ticket corrige |
+| **Subida legítima**: editor autenticado (login por API, CSRF) con 1 PNG de 9.722.608 bytes (1800×1800) | **200 `ACEPTADO`**, `peso_bytes` íntegro y los 15 derivados (hasta 1,99 MB) servidos con 200 |
+| Paso nuevo del smoke de CI, ejecutado en local contra `brujulaops035` (puerto adaptado) | **PASS**: `shmem` en 0 MB con 2 × 100 MB retenidos; la 3.ª recibe 429 problem+json; las retenidas terminan en [403, 403]; el proxy queda `0 false` |
+| Control negativo 1: `client_body_temp_path` de vuelta en `/tmp` (override) | El smoke **FALLA**: `shmem` de 200 MB y el error "los cuerpos ocupan memoria compartida (tmpfs)" |
+| Control negativo 2: `limit_conn subidas_ip 10` (override) | El smoke **FALLA**: la 3.ª no recibe 429 |
+| `politica_trivy.py .` (lista blanca de los `run:` del CI) | OK (3 invocaciones, 1 gate, 16 excepciones) |
+| `ci.yaml` cargado con PyYAML | VALIDADO |
+| CI real del PR | Ver HANDOFF_ENVELOPE |
+
+Los scripts de prueba (`sondeo_subida.py` y `subida_legitima.py`) se quedaron en el scratchpad de la sesión: son evidencia y no forman parte del repositorio.
+
+### 38.8 Riesgos / pendientes
+- **RSK-OPS-060 (LOW)**: el disco del host aloja temporales transitorios del proxy. En medios ocupan como máximo ~1,7 GB (DEC-AUTO-1341). Los cuerpos ≤ 2 MB del resto de rutas solo los acota `limit_req` por IP (burst 60 ≈ 120 MB por IP). Un ataque distribuido podría ocupar disco que comparte con la BD. Mitigación en producción: un WAF o CDN delante y el volumen en un sistema de archivos con cuota.
+- **RSK-OPS-061 (LOW)**: con `subidas_total 16`, un atacante con ≥ 8 IP puede bloquear temporalmente las subidas del panel (429). No afecta a la web pública, y el panel reintenta ante `limite_tasa`.
+- **RSK-OPS-062 (INFO)**: cada petición sin autenticar puede seguir enviando 105 MB (DEC-AUTO-1343). Recomendación: cuando TKT-072 (#110) esté en `main`, el Orquestador puede decidir un cambio de contrato y de ADR (`panelSubirMedios`: 1 archivo y ≤ ~12 MB por petición). Después, un ticket DevOps reduciría `client_max_body_size` de medios.
+
+### 38.9 Archivos modificados
+`infra/proxy/nginx.conf`, `infra/proxy/Dockerfile`, `compose.yaml` (servicio `proxy` y declaración del volumen `proxy_temporal`), `.github/workflows/ci.yaml` (solo el paso nuevo del smoke del proxy) y `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 38.10 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir el caso C de §38.3 en un stack propio con `memswap_limit: 256m`.
+- Integrar el PR.
+- Registrar DEC-AUTO-1340 a 1343 y RSK-OPS-060/061/062.
+- Decidir sobre la recomendación de RSK-OPS-062.
+
+Este PR no depende del orden de integración respecto a #110, porque no reduce el límite.
+
 ## 39. TKT-OPS-036: memoria del backend para subidas simultáneas de fotos de 40 MP (OBS-QA072-01) (F7, MEDIUM)
 
-> Numeración: §38 queda reservada a TKT-OPS-035 (PR #111), que se integra en paralelo.
+> §38 es TKT-OPS-035 (PR #111), integrado antes que este ticket: sus cambios del proxy en `compose.yaml` y `ci.yaml` se conservan (merge sin solapes).
 
 ### 39.1 Estado
 **COMPLETADO** en local, pendiente del CI real del PR (§39.8). Rama `tkt-ops-036-memoria-backend` desde `origin/main`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
