@@ -662,26 +662,38 @@ tickets:
   - id: TKT-072
     titulo: "MEDIUM (OBS-QA071-01, previo): _resanear tarda ~400 s con una foto de 4800x3600 (17 MP) en el contenedor y gunicorn mata el worker a los 120 s; el panel admite fotos ≤ 40 MP/10 MB. Hacer que la subida de fotos de cámara dentro de los límites admitidos termine bien y en tiempo razonable (o rechazarla con error claro antes de procesar)"
     fase: F7
-    estado: IN_PROGRESS
+    estado: READY_FOR_VALIDATION
     owner: Skill_Developer
     trazabilidad: [THREAT-medios, TKT-071, TKT-048]
     depende_de: [TKT-071]
     archivos_permitidos: ["backend/apps/medios/**", "docs/adr/ADR-medios-*.md", "frontend/src/app/features/panel/state/subida-medios.store*.ts", "frontend/src/app/features/panel/data/panel-medios.repositorio*.ts", "frontend/src/app/features/panel/ui/subida-medios*.ts", "frontend/e2e/**/*medios*"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1005: alcance ampliado con OBS-QA071-03 (lote de 10 fotos > 120 s) y OBS-QA071-04", "Código inicial en origin/tkt-072-subida-fotos-grandes (DEC-AUTO-1320..1322: copia en C sin putdata, tope 2560 px, liberar memoria)", "DEC-AUTO-1003: abierto desde QA TKT-071 c1; mismo código que TKT-071, se encadena tras su DONE"]
+    evidencia: ["PR #110 @ e3ce7bf CI verde; DEC-AUTO-1320..1324; QA c1 en curso", "DEC-AUTO-1005: alcance ampliado con OBS-QA071-03 (lote de 10 fotos > 120 s) y OBS-QA071-04", "Código inicial en origin/tkt-072-subida-fotos-grandes (DEC-AUTO-1320..1322: copia en C sin putdata, tope 2560 px, liberar memoria)", "DEC-AUTO-1003: abierto desde QA TKT-071 c1; mismo código que TKT-071, se encadena tras su DONE"]
     actualizado: 2026-10-12
   - id: TKT-OPS-034
     titulo: "MEDIUM (OBS-QA071-02/03): el proxy responde 413 carga_demasiado_grande en vez de 503 servicio_no_disponible cuando el upstream agota el tiempo con un cuerpo > 2 MB (la location /_errores_proxy/503 hereda client_max_body_size 2m)"
     fase: F7
-    estado: READY_FOR_VALIDATION
+    estado: DONE
     owner: Skill_devops
     trazabilidad: [TKT-071, TKT-072]
     depende_de: []
     archivos_permitidos: ["infra/proxy/**", "docs/05_operacion/DEVOPS_HANDOFF.md", "scripts/ops/**"]
+    ciclo_qa: 1/3
+    ciclo_panico: 0/2
+    evidencia: ["QA c1/3 PASS; PR #109 @ ec21f95 integrado. DONE", "PR #109 @ ad97607 CI verde; DEC-AUTO-1330..1332, DEC-AUTO-1006", "DEC-AUTO-1005"]
+    actualizado: 2026-10-12
+  - id: TKT-OPS-035
+    titulo: "MEDIUM provisional (NV-QA034-03, previo, needs_validation): POST /api/v1/panel/medios admite 105 MB con proxy_request_buffering on antes de autenticar; el cuerpo va a /tmp (tmpfs sin size, cuenta contra 256m del proxy): pocas subidas anónimas concurrentes podrían provocar OOM del proxy. Validar y mitigar"
+    fase: F7
+    estado: READY_FOR_VALIDATION
+    owner: Skill_devops
+    trazabilidad: [TKT-OPS-034, TKT-072]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/**", "compose.yaml (servicio proxy)", ".github/workflows/ci.yaml (smoke del proxy)", "docs/05_operacion/DEVOPS_HANDOFF.md"]
     ciclo_qa: 0/3
     ciclo_panico: 0/2
-    evidencia: ["PR #109 @ ad97607 CI verde; DEC-AUTO-1330..1332, DEC-AUTO-1006", "DEC-AUTO-1005"]
+    evidencia: ["Riesgo confirmado (OOM del proxy sin swap); PR #111 CI verde; DEC-AUTO-1340..1343", "DEC-AUTO-1007"]
     actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
