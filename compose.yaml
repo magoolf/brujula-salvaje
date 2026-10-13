@@ -264,9 +264,15 @@ services:
       timeout: 5s
       retries: 6
       start_period: 30s
+    # Memoria (TKT-OPS-036, OBS-QA072-01, DEC-AUTO-1350/1351): cada worker síncrono puede estar
+    # procesando una foto de 40 MP a la vez (pico medido por subida: ~360 MiB anónimos con JPEG RGB,
+    # ~480 MiB con PNG RGBA; base ~150 MiB). Regla: BACKEND_MEM_LIMIT >= 640 MiB x GUNICORN_WORKERS
+    # (la verifica CI). 2 GiB cubre los 3 workers por omisión: picos medidos de 1216/1584 MiB sin OOM.
+    # memswap_limit = memoria: sin swap, como un Linux de servidor; un exceso se ve aquí y no se esconde.
+    memswap_limit: ${BACKEND_MEM_LIMIT:-2g}
     deploy:
       resources:
-        limits: {cpus: "1.5", memory: 1g}
+        limits: {cpus: "1.5", memory: "${BACKEND_MEM_LIMIT:-2g}"}
 
   # ---------------------------------------------------------------------------
   # Frontend Angular 22 SSR (Node) — sin acceso a la red de datos
