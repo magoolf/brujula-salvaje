@@ -20,7 +20,7 @@ Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canal
 Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
 Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
 Actualizado por **TKT-OPS-037** (F7, MEDIUM, F-035-01 de la QA de TKT-OPS-035: el tope global `limit_conn subidas_total 16` de `/api/v1/panel/medios` lo agotaban 8 IP anónimas en goteo y bloqueaba con 429 todas las subidas del panel; se elimina y se conserva `subidas_ip 2`; cifras de RSK-OPS-060/061 corregidas, O-035-03 documentado, regresión estática en el smoke de CI, 2026-10-12): ver §40 (§39 es TKT-OPS-036).
-Actualizado por **F9 [PRE-RELEASE / RELEASE]** (2026-10-12/13, candidata `1.0.0-rc.1` sobre `main` @ 12b4b3e: build de las 6 imágenes, trivy + SBOM, arranque completo, smokes del CI, check --deploy, copia + simulacro AC-054, carga y Lighthouse medidos con batería, versión, changelog y rollback; sin tags, sin publicación y sin despliegue): ver §42 (§41 es TKT-OPS-038).
+Actualizado por **F9 [PRE-RELEASE / RELEASE]** (2026-10-12/13, candidata `1.0.0-rc.1` sobre `main` @ 12b4b3e, con build final, trivy y SBOM repetidos sobre `main` @ 45dc49a (TKT-OPS-038): build de las 6 imágenes, trivy + SBOM, arranque completo, smokes del CI, check --deploy, copia + simulacro AC-054, carga y Lighthouse medidos con batería, versión, changelog y rollback; sin tags, sin publicación y sin despliegue): ver §42 (§41 es TKT-OPS-038).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -3485,7 +3485,7 @@ nginx resuelve el upstream `frontend` al arrancar. Al aplicar este cambio sobre 
 
 ## 42. F9 [PRE-RELEASE / RELEASE]: candidata 1.0.0-rc.1 (Skill_devops §14, §23)
 
-(§41 corresponde a TKT-OPS-038, en curso en paralelo: PR #114, que también escribe en este documento.)
+(§41 corresponde a TKT-OPS-038, desarrollado en paralelo e integrado durante esta F9: PR #114. El build final y trivy/SBOM sobre `main` con TKT-OPS-038 están en §42.11.)
 
 ### 42.1 Estado
 **REQUIERE INTERVENCIÓN** (decisión del Orquestador, sin bloqueo de seguridad). La candidata supera la cadena de suministro (build, trivy, SBOM), el arranque, los smokes del CI, `check --deploy` y el simulacro de restauración AC-054. Quedan dos criterios de rendimiento **medidos con batería** (instrucción del Orquestador: no se exige que el equipo esté enchufado):
@@ -3497,7 +3497,7 @@ Sin despliegue, sin publicación de imágenes, sin tags ni releases en GitHub, s
 ### 42.2 Objeto de la release
 | Campo | Valor |
 |---|---|
-| Commit | `main` @ `12b4b3e` (Merge PR #113, TKT-OPS-037). Código idéntico a `0974585` y `b62096e` (solo `kanban.md`, `audit_log.md` y `docs/PLAN_CONTINUACION.md`) |
+| Commit | Validación completa sobre `main` @ `12b4b3e` (Merge PR #113, TKT-OPS-037). **Build final, trivy y SBOM sobre `main` @ `45dc49a`** (Merge PR #114, TKT-OPS-038; §42.11). Los commits posteriores solo tocan `kanban.md`, `audit_log.md` y `docs/PLAN_CONTINUACION.md` |
 | Versión propuesta | **`1.0.0-rc.1`** (DEC-AUTO-1380). Sin tag |
 | Etiqueta local de las imágenes | `brujula/<servicio>:f9-12b4b3e` (`APP_VERSION=f9-12b4b3e`; la etiqueta de release se aplicará en la Puerta Humana de publicación) |
 | Stack de validación | proyecto `brujularelease`, puerto 18090, `APP_NET_PREFIX=10.231.209`, worktree aislado. No se tocaron `brujulalocal` (8080) ni `brujulaops038` |
@@ -3618,27 +3618,35 @@ Lighthouse 12.6.1, formFactor `mobile`, `--throttling-method=devtools` (Slow 4G,
 | DEC-AUTO-1385 | Django 5.2.18 (PR #78) se eleva al Orquestador como MEDIUM antes de la release, sin modificarlo aquí | Actualizar el lockfile en esta rama | §0.3/§23.1: el lockfile solo se cambia con un ticket asignado; el PR de Dependabot ya tiene el CI verde | MEDIUM mientras no se integre | Alta |
 | DEC-AUTO-1386 | Smokes del CI ejecutados en local con adaptaciones solo del host (puerto, `python3`, `/tmp`, `schemathesis` de pipx) | Ejecutar solo en CI | El objeto F9 se valida en el host de release; la lógica de los pasos no cambia | Ninguno | Alta |
 | DEC-AUTO-1387 | Sección F9 numerada §42 (no §41) | §41 | TKT-OPS-038 (PR #114) ya usa §41 en este documento | Conflicto de texto solo en el índice | Alta |
+| DEC-AUTO-1388 | La imagen de release se construye una sola vez con `APP_VERSION=1.0.0-rc.1` y se promociona por digest; la equivalencia entre builds se demuestra por contenido de ficheros, no por digest | Aceptar como «misma release» imágenes reconstruidas con otra `APP_VERSION` | `ARG APP_VERSION` invalida la caché de la etapa runtime: mismo contenido, otro digest (§42.11) | Ninguno si se respeta | Alta |
 
-**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1380 a 1387).
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1380 a 1388).
 
 ### 42.10 Riesgos / pendientes
 - **RSK-OPS-001 (HIGH, aceptado por decisión humana):** las 17 excepciones de `.trivyignore` caducan el **2026-10-26**. Hace falta renovarlas o corregir las CVE antes; si no, el CI de `main` fallará.
 - **RSK-OPS-067 (MEDIUM, nuevo):** Django 5.2.17 en `main`. La 5.2.18 corrige CVE-2026-84429 (DoS por el análisis cuadrático de cabeceras, alcanzable vía `HttpRequest.accepts()`), CVE-2026-87975, CVE-2026-87890 (GIS, no usado) y CVE-2026-77050 (Low). Ni trivy ni pip-audit lo detectan aún. Mitigación: integrar el PR #78 (Dependabot, CI verde) y repetir build y trivy de F9.
 - **RSK-OPS-068 (MEDIUM, nuevo):** con batería, la capacidad de la API está por debajo de 20 r/s (p95 de lectura 1111 ms a 20 r/s durante 120 s). Hay que repetir la medición enchufado y, si no cumple, abrir ticket de capacidad (workers/CPU del backend) o de consultas de las fichas.
 - **RSK-OPS-069 (LOW-MEDIUM, nuevo):** el LCP de `/` es el más alejado del objetivo con batería (mediana 4,0 s; enchufado, 1,96 s según la QA de TKT-021). Es sensible a la CPU del cliente.
-- **TKT-OPS-038 (HIGH, PR #114 abierto):** solo cambia `compose.yaml`, `.env.example` y `ci.yaml`. Las imágenes no cambian, pero F9 debe repetir el build y trivy/SBOM sobre el nuevo `main` cuando se integre (§42.11).
+- **TKT-OPS-038 (HIGH): integrado** (PR #114). El build final y trivy/SBOM sobre `main` @ `45dc49a` están hechos: 0 CRITICAL/HIGH nuevos y el contenido de las imágenes es idéntico (§42.11).
 - Siguen vigentes RSK-OPS-065 (`real_ip` tras un balanceador, Puerta Humana de producción) y RSK-OPS-066.
 - NOT_RUN: carga sostenida de 5 min y 50 usuarios (AC-053), firma cosign y procedencia, publicación, despliegue a staging/prod, rollback en staging y métricas DORA operativas.
 
 ### 42.11 Repetición tras TKT-OPS-038
-**NOT_RUN a la fecha de esta sección:** el PR #114 seguía abierto y en QA (`origin/main` @ `f321348`, «TKT-OPS-038 a QA»). Su alcance (solo `compose.yaml`, `.env.example` y `ci.yaml`) no cambia ningún Dockerfile ni ningún contexto de build. Por tanto, las huellas de capas de §42.3 deberían repetirse idénticas; aun así hay que comprobarlo. Procedimiento, sin necesidad de levantar el stack:
-```bash
-git switch --detach origin/main            # main con TKT-OPS-038 integrado
-APP_VERSION=f9-<sha> docker compose --profile ops build
-bash <scan.sh> f9-<sha> <dir>              # trivy JSON + gate con .trivyignore + SBOM syft de las 6 imágenes (como §42.3)
-# Comparar la huella de capas (sha256 de la lista de diffIDs) con la tabla de §42.3
-```
-Además, como TKT-OPS-038 toca `compose.yaml` (IP fija del frontend y `DJANGO_TRUSTED_PROXIES`), el arranque con `--wait` y los smokes del CI de su propio PR cubren la parte de configuración. El resultado se reporta en el HANDOFF_ENVELOPE de F9.
+**Build final de la candidata: `main` @ `45dc49a`** (Merge PR #114; `81dd383` solo añade `kanban.md` y `audit_log.md`). Se ejecutó `APP_VERSION=f9-45dc49a docker compose --profile ops build` y se repitieron trivy y el SBOM con el mismo procedimiento de §42.3 (2026-10-13):
+
+| Imagen | Huella de capas @ 45dc49a | ¿Igual que en §42.3? | trivy CRITICAL/HIGH / suprimidas | SBOM (componentes) |
+|---|---|---|---|---|
+| `brujula/backend` | `d46cc677e6d4c72c6524459d9c3ac7d898c6fbfa9c6539ae1aca5a8ebe74772d` | No (ver nota) | 0 / 44 | 628 |
+| `brujula/scheduler` | `7202bd95c4e26791c6a5a4aadaabaafc86ece836b04ffba4d6097410962927fd` | No (ver nota) | 0 / 44 | 646 |
+| `brujula/frontend` | `4097a01bd73f2aafc92adb9cc4eb7cd27e397137e8da3b2849433089956a5626` | Sí | 0 / 43 | 503 |
+| `brujula/proxy` | `ac96d4b5e1be23c71cf4a5bc86155b17aadc1bb4710ec55c0f6069a67c3a24e4` | Sí | 0 / 0 | 946 |
+| `brujula/backup` | `2eab2e62ab02ec604d1e5ad5a7bf6b19587329b1e3ad81d4dd11be953adc0618` | Sí | 0 / 43 | 548 |
+| `brujula/db` | `cd06bce81223b7326cf67cb9258b227d999149567c885cd61f70294025388a92` | Sí | 0 / 52 | 711 |
+
+- **trivy: 0 CRITICAL/HIGH fuera de RSK-OPS-001** en las 6 imágenes y ninguna CVE nueva. SBOM generado para las 6, con los mismos conteos de componentes.
+- **Nota sobre backend y scheduler.** Cambian 3 de sus 7 capas (las de la etapa `runtime`: `RUN groupadd…` y los `COPY` de `/opt/venv` y `/app`). Están justo después de `ARG APP_VERSION`, y un valor distinto de `APP_VERSION` (`f9-12b4b3e` → `f9-45dc49a`) invalida la caché de esa etapa: BuildKit vuelve a ejecutar los pasos con marcas de tiempo nuevas. **El contenido es idéntico.** Se comparó el sha256 de cada fichero de `/opt/venv`, `/app`, `/etc` y `/usr/local` (9018 ficheros) entre `brujula/backend:f9-12b4b3e` y `:f9-45dc49a`. La única diferencia es `/etc/hostname`, que escribe el runtime en cada contenedor. Es coherente con el alcance de TKT-OPS-038, que no toca `backend/` ni ningún Dockerfile. Consecuencia para la release (DEC-AUTO-1388): **la imagen que se publique debe construirse una sola vez con su `APP_VERSION` definitiva (`1.0.0-rc.1`) y promocionarse por digest** (§23.3). Construir con otra etiqueta produce otro digest aunque el contenido sea el mismo.
+- La parte de configuración de TKT-OPS-038 (`compose.yaml`: IP fija del frontend `.11`, `DJANGO_TRUSTED_PROXIES` `.10,.11`, `NG_TRUST_PROXY_HEADERS=x-forwarded-for`) la validaron la QA y el CI de su PR (#114). El stack `brujularelease` no se volvió a levantar sobre `45dc49a`: el alcance pedido para esta repetición era el build y trivy/SBOM. Nota de operación del Orquestador: en un stack ya levantado, después de `up -d` hay que hacer `restart proxy` una vez, porque nginx conserva la IP antigua del frontend.
+- Evidencia: directorio `rep2/` del scratchpad de la sesión (trivy JSON, gate y SBOM).
 
 ### 42.12 Archivos modificados
 `docs/05_operacion/DEVOPS_HANDOFF.md` (línea de índice y esta sección). Sin cambios en `compose.yaml`, Dockerfile, CI, `.env.example`, lockfiles ni versiones. Las redes de carga y el stack `brujularelease` se eliminaron al terminar (§42.7).
@@ -3646,5 +3654,5 @@ Además, como TKT-OPS-038 toca `compose.yaml` (IP fija del frontend y `DJANGO_TR
 ### 42.13 Próximo agente
 **Orquestador**:
 - Decidir sobre RSK-OPS-067 (integrar el PR #78) y RSK-OPS-068 (re-medir enchufado o abrir ticket) antes de dar la release por buena.
-- Integrar TKT-OPS-038 y pedir la repetición de §42.11 si no se completó.
+- Registrar DEC-AUTO-1380 a 1388 y RSK-OPS-067/068/069. TKT-OPS-038 ya está cubierto en §42.11.
 - Puertas Humanas pendientes: renovación de RSK-OPS-001 antes del 2026-10-26; publicación de imágenes, tag `v1.0.0-rc.1`/`v1.0.0`, firma cosign, plataforma de producción (ADR, §23.5) y despliegue.
