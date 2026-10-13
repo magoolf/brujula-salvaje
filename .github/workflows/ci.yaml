@@ -568,6 +568,82 @@ jobs:
       - name: "smoke: anti-evasión del limitador de borde (assets estáticos)"
         env: {APP_VERSION: "ci-${{ github.sha }}"}
         run: bash scripts/ops/smoke-anti-evasion.sh http://127.0.0.1:8080
+      # TKT-OPS-035 (NV-QA034-03, DEC-AUTO-1340/1341/1342): nginx guarda el cuerpo de una subida a
+      # /api/v1/panel/medios (105m) ANTES de que Django autentique. En el tmpfs /tmp contaba contra los
+      # 256m del proxy: 3 subidas anónimas de 104 MB lo mataban por OOM (toda la web caída). Comprueba:
+      # (a) client_body_temp_path y proxy_temp_path en /var/cache/nginx/temporal (volumen, no tmpfs) y
+      # /tmp con tope (size=); (b) 2 subidas anónimas de 100 MB retenidas a falta de 1 KB NO ocupan memoria compartida (shmem
+      # del cgroup del proxy < 32 MB; en tmpfs serían ~200 MB); (c) la 3.ª simultánea desde la misma IP
+      # recibe 429 limite_tasa problem+json sin leer el cuerpo (limit_conn subidas_ip 2); (d) las 2
+      # retenidas terminan con la respuesta de Django (403 sin sesión) y el proxy sigue sano.
+      - name: "smoke: subidas al panel sin agotar la memoria del proxy (TKT-OPS-035)"
+        env: {APP_VERSION: "ci-${{ github.sha }}"}
+        run: |
+          sleep 5
+          docker compose exec -T proxy sh -c 'nginx -T 2>/dev/null' > /tmp/nginx-T.txt
+          for d in "client_body_temp_path /var/cache/nginx/temporal/cuerpos;" "proxy_temp_path       /var/cache/nginx/temporal/respuestas;"; do
+            grep -F "  $d" /tmp/nginx-T.txt || { echo "::error::falta '$d' en nginx.conf"; exit 1; }
+          done
+          montajes="$(docker compose exec -T proxy cat /proc/mounts)"
+          echo "$montajes" | awk '$2=="/var/cache/nginx/temporal"{print "temporal:",$3; f=1} END{exit !f}' \
+            || { echo "::error::/var/cache/nginx/temporal no es un volumen montado"; exit 1; }
+          if echo "$montajes" | awk '$2=="/var/cache/nginx/temporal" && $3=="tmpfs"{f=1} END{exit !f}'; then
+            echo "::error::los temporales de nginx vuelven a estar en tmpfs (memoria del contenedor)"; exit 1
+          fi
+          echo "$montajes" | awk '$2=="/tmp" && $3=="tmpfs" && $4 ~ /size=/{f=1} END{exit !f}' \
+            || { echo "::error::el tmpfs /tmp del proxy no tiene size="; exit 1; }
+          python3 - <<'PY'
+          import json, socket, subprocess, sys, time
+          MB = 100 * 1024 * 1024
+          def shmem():
+              st = subprocess.run(["docker", "compose", "exec", "-T", "proxy", "cat", "/sys/fs/cgroup/memory.stat"],
+                                  capture_output=True, text=True, check=True).stdout
+              return int(next(l.split()[1] for l in st.splitlines() if l.startswith("shmem ")))
+          def abrir(total):
+              s = socket.create_connection(("127.0.0.1", 8080), timeout=60)
+              s.sendall((f"POST /api/v1/panel/medios HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nConnection: close\r\n"
+                         f"Content-Type: multipart/form-data; boundary=x\r\nContent-Length: {total}\r\n\r\n").encode())
+              return s
+          def leer(s):
+              datos = b""
+              while True:
+                  d = s.recv(65536)
+                  if not d: break
+                  datos += d
+              cab, _, cuerpo = datos.partition(b"\r\n\r\n")
+              lineas = cab.decode("latin-1").split("\r\n")
+              h = {k.lower(): v.strip() for k, _, v in (l.partition(":") for l in lineas[1:])}
+              return int(lineas[0].split()[1]), h, cuerpo
+          antes = shmem()
+          retenidas = []
+          for _ in range(2):
+              s = abrir(MB); trozo = b"\0" * (1024 * 1024); enviado = 0
+              while enviado < MB - 1024:
+                  n = min(len(trozo), MB - 1024 - enviado); s.sendall(trozo[:n]); enviado += n
+              retenidas.append(s)
+          time.sleep(2)
+          durante = shmem()
+          print(f"shmem del proxy: antes {antes >> 20} MB, con 2 x 100 MB retenidos {durante >> 20} MB")
+          tercera = abrir(MB); tercera.sendall(b"\0" * 1024); tercera.settimeout(15)
+          try:  # sin limit_conn, nginx esperaría el resto del cuerpo: sin respuesta en 15 s = fallo
+              st, h, cuerpo = leer(tercera)
+          except socket.timeout:
+              st, h, cuerpo = None, {}, b"{}"
+          print("3.a subida simultánea:", st, h.get("content-type"))
+          for s in retenidas: s.sendall(b"\0" * 1024)
+          finales = [leer(s)[0] for s in retenidas]
+          print("subidas retenidas al completarse:", finales)
+          fallos = []
+          if durante - antes > 32 * 1024 * 1024: fallos.append("los cuerpos ocupan memoria compartida (tmpfs)")
+          if st != 429 or h.get("content-type") != "application/problem+json" or json.loads(cuerpo)["code"] != "limite_tasa":
+              fallos.append("la 3.a subida simultánea no recibe 429 limite_tasa (limit_conn subidas_ip)")
+          if finales != [403, 403]: fallos.append(f"las subidas retenidas no llegan a Django: {finales}")
+          for f in fallos: print(f"::error::{f}")
+          sys.exit(1 if fallos else 0)
+          PY
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health/ready)" = 200
+          test "$(docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' "$(docker compose ps -q proxy)")" = "0 false" \
+            || { echo "::error::el proxy se reinició o fue OOMKilled"; exit 1; }
       # RSK-OPS-009 / DEC-AUTO-158: gunicorn vuelve en silencio al formato texto si no puede leer
       # --log-config-json. Se para el backend (para capturar también el apagado) y se exige que
       # TODAS las líneas no vacías de su log sean objetos JSON (y que haya al menos una).
