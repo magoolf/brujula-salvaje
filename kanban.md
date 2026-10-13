@@ -722,14 +722,14 @@ tickets:
   - id: TKT-OPS-038
     titulo: "HIGH provisional (auditoría F9 run-1, needs_validation ssr-api-throttle-key-collapse): las llamadas SSR a la API pública comparten un único cubo de throttling (DJANGO_TRUSTED_PROXIES no incluye al frontend, sin IP fija); ~120 páginas SSR/min en total bastan para servir el estado de límite a todos los visitantes"
     fase: F9
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_devops
     trazabilidad: [ADR-API-002, DEC-AUTO-111, TKT-OPS-014]
     depende_de: []
     archivos_permitidos: ["compose.yaml", ".env.example", "docs/05_operacion/DEVOPS_HANDOFF.md", ".github/workflows/ci.yaml (smoke)"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1010 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): se trata como HIGH provisional hasta validarlo en ejecución; informe ~/security-audit-skill/brujula-salvaje/run-1"]
+    evidencia: ["Validado en ejecución (A/B); PR #114 CI verde; QA c1/3 PASS; integrado. DONE. OBS-QA038-01 LOW al Informe", "DEC-AUTO-1010 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): se trata como HIGH provisional hasta validarlo en ejecución; informe ~/security-audit-skill/brujula-salvaje/run-1"]
     actualizado: 2026-10-12
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
