@@ -13,7 +13,8 @@ import pytest
 from apps.contenido import reglas
 
 HOY = date.today()
-MANANA = HOY + timedelta(days=1)
+# DEC-AUTO-977/978: "futura" = posterior a la fecha actual en UTC+14 (la zona más adelantada).
+MANANA = reglas.fecha_maxima_revision() + timedelta(days=1)
 AYER = HOY - timedelta(days=1)
 
 

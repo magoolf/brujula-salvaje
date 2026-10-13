@@ -36,6 +36,7 @@ from apps.contenido.api.panel_serializers import (
 )
 from apps.contenido.models import ClavePagina, TipoContenido
 from apps.core import idempotencia
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.exceptions import ErrorApi, NoEncontrado
 from apps.core.paginacion import PaginacionNumerada
 from apps.core.parametros import errores_de_parametros, validar_parametros
@@ -144,6 +145,20 @@ class _VistaPanelMixta(_VistaPanelContenido):
 def _autorizar_pagina(request: Request, clave: str) -> None:
     if clave != ClavePagina.ACERCA_DE and not cuenta_de(request).es_administrador:
         raise ErrorApi(codigo="permiso_denegado")
+
+
+def _autorizar_ciclo(request: Request, tipo: str, id: int) -> str:
+    """Tipo interno de la ruta `{tipo}` de las operaciones de ciclo y de revisiones, tras aplicar a
+    las páginas institucionales la misma autorización que su PUT: las páginas legales (todas salvo
+    ACERCA_DE) solo las consulta, publica, retira, reactiva y restaura un Administrador → 403
+    `permiso_denegado` (TKT-050 revisiones, TKT-052 ciclo; AC-033). El 404 del contenido inexistente
+    se mantiene antes que el 403 (igual que el PUT) y el 403 precede a cualquier búsqueda
+    secundaria, a la idempotencia y a cualquier efecto o auditoría."""
+    tipo_interno = services.RUTA_A_TIPO[tipo]
+    if tipo_interno == T.PAGINA:
+        contenido = services.obtener_para_editar(T.PAGINA, _id(id))
+        _autorizar_pagina(request, contenido.pagina.clave)
+    return tipo_interno
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +337,7 @@ class PublicarContenido(_VistaPanelContenido):
         entrada.is_valid(raise_exception=True)
         actor = cuenta_de(request)
         datos = entrada.validated_data
-        tipo_real = services.RUTA_A_TIPO[tipo]
+        tipo_real = _autorizar_ciclo(request, tipo, id)
 
         def efecto() -> idempotencia.Resultado:
             contenido, afectadas = services.publicar(
@@ -387,7 +402,7 @@ class AnalizarPublicacion(_VistaPanelContenido):
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
         resultado = services.analizar_publicacion(
-            services.RUTA_A_TIPO[tipo],
+            _autorizar_ciclo(request, tipo, id),
             _id(id),
             datos["version"],
             list(datos.get("tipos_ids") or []) or None,
@@ -403,7 +418,7 @@ class ImpactoRetiro(_VistaPanelContenido):
         responses={200: ImpactoRetiroSerializer},
     )
     def get(self, request: Request, tipo: str, id: int) -> Response:
-        resultado = services.impacto_retiro(services.RUTA_A_TIPO[tipo], _id(id))
+        resultado = services.impacto_retiro(_autorizar_ciclo(request, tipo, id), _id(id))
         return Response(ImpactoRetiroSerializer(resultado).data)
 
 
@@ -422,7 +437,7 @@ class RetirarContenido(_VistaPanelContenido):
         entrada.is_valid(raise_exception=True)
         actor = cuenta_de(request)
         datos = entrada.validated_data
-        tipo_real = services.RUTA_A_TIPO[tipo]
+        tipo_real = _autorizar_ciclo(request, tipo, id)
 
         def efecto() -> idempotencia.Resultado:
             contenido, afectadas = services.retirar(
@@ -466,7 +481,7 @@ class ReactivarContenido(_VistaPanelContenido):
         entrada = TransicionEntradaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         actor = cuenta_de(request)
-        tipo_real = services.RUTA_A_TIPO[tipo]
+        tipo_real = _autorizar_ciclo(request, tipo, id)
 
         def efecto() -> idempotencia.Resultado:
             contenido = services.reactivar(
@@ -502,7 +517,7 @@ class ListaRevisiones(_VistaPanelContenido):
     )
     def get(self, request: Request, tipo: str, id: int) -> Response:
         validar_parametros(request.query_params, {"pagina"})
-        qs = services.listar_revisiones(services.RUTA_A_TIPO[tipo], _id(id))
+        qs = services.listar_revisiones(_autorizar_ciclo(request, tipo, id), _id(id))
         paginador = PaginacionNumerada()
         pagina = paginador.paginate_queryset(qs, request, view=self)
         return paginador.get_paginated_response(_serializar_revisiones(pagina))
@@ -511,6 +526,8 @@ class ListaRevisiones(_VistaPanelContenido):
 def _serializar_revisiones(pagina: Any) -> list[dict[str, Any]]:
     from apps.contenido.api.panel_serializers import RevisionResumenSerializer
 
+    # `services.listar_revisiones` ya trae la cuenta (select_related): sin consulta por revisión.
+    precargar_actores(pagina, "creado_por")
     datos = []
     for r in pagina:
         datos.append(
@@ -518,10 +535,7 @@ def _serializar_revisiones(pagina: Any) -> list[dict[str, Any]]:
                 "numero_revision": r.numero_revision,
                 "motivo": r.motivo,
                 "creado_en": r.creado_en,
-                "creado_por": {
-                    "id": r.creado_por_id,
-                    "etiqueta": f"#{r.creado_por_id}" if r.creado_por_id else "sistema",
-                },
+                "creado_por": actor_ref(r.creado_por),
             }
         )
     return list(RevisionResumenSerializer(datos, many=True).data)
@@ -534,15 +548,13 @@ class DetalleRevision(_VistaPanelContenido):
         responses={200: RevisionDetalleSerializer},
     )
     def get(self, request: Request, tipo: str, id: int, numero: int) -> Response:
-        r = services.obtener_revision(services.RUTA_A_TIPO[tipo], _id(id), numero)
+        r = services.obtener_revision(_autorizar_ciclo(request, tipo, id), _id(id), numero)
+        precargar_actores([r], "creado_por")
         datos = {
             "numero_revision": r.numero_revision,
             "motivo": r.motivo,
             "creado_en": r.creado_en,
-            "creado_por": {
-                "id": r.creado_por_id,
-                "etiqueta": f"#{r.creado_por_id}" if r.creado_por_id else "sistema",
-            },
+            "creado_por": actor_ref(r.creado_por),
             "instantanea": r.instantanea,
         }
         return Response(RevisionDetalleSerializer(datos).data)
@@ -558,8 +570,9 @@ class RestaurarRevision(_VistaPanelContenido):
         responses={200: RestauracionRevisionSerializer},
     )
     def post(self, request: Request, tipo: str, id: int, numero: int) -> Response:
+        tipo_interno = _autorizar_ciclo(request, tipo, id)
         actor = cuenta_de(request)
         resultado = services.restaurar_revision(
-            services.RUTA_A_TIPO[tipo], _id(id), numero, actor.pk, _ip(request)
+            tipo_interno, _id(id), numero, actor.pk, _ip(request)
         )
         return Response(RestauracionRevisionSerializer(resultado).data)

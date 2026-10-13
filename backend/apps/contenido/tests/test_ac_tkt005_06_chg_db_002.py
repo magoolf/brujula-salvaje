@@ -32,12 +32,7 @@ from apps.contenido.tests.fabricas import (
     crear_contenido,
     crear_medio,
 )
-from apps.ops.tests.test_ac_tkt003_migraciones import (
-    BD_MIGRACIONES,
-    _conectar,
-    _manage,
-    bd_vacia,  # noqa: F401 (fixture reutilizada)
-)
+from apps.ops.tests.test_ac_tkt003_migraciones import BD_MIGRACIONES, _conectar, _manage
 
 pytestmark = pytest.mark.django_db
 
@@ -216,7 +211,9 @@ def _estado(bd: psycopg.Connection) -> tuple:
     return tuple(fila)
 
 
-def test_AC_TKT005_06_migraciones_chg_db_002_reversibles(bd_vacia):  # noqa: F811
+def test_AC_TKT005_06_migraciones_chg_db_002_reversibles(bd_efimera):
+    # BD vacía eliminada al final sin DROP ... WITH (FORCE) (TKT-061, TKT-063).
+    bd_efimera(BD_MIGRACIONES)
     migrar = _manage("migrate")
     assert migrar.returncode == 0, migrar.stderr
     v12 = (1, 7, 2, False, False, False, False, True)

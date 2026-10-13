@@ -6,12 +6,14 @@
 #   docker compose up -d --wait db                # solo PostgreSQL (INFRA-DB-000)
 #   docker compose up -d --build --wait           # stack completo (requiere backend/ y frontend/)
 #   docker compose --profile ops up -d --build    # + scheduler (comandos programados) + backup
+#   docker compose --profile restauracion run --rm reinstalar-volumenes ...   # solo restauración (§35.6)
 #   docker compose -f compose.yaml -f compose.debug.yaml up -d db   # BD en 127.0.0.1:55432
 #
 # Topología (Skill_devops §8):  navegador -> proxy(127.0.0.1:8080) -> frontend SSR / backend -> db
 #   red "publica": solo proxy (única red con puertos publicados)
 #   red "app"   (internal): proxy, frontend, backend. Subred fija ${APP_NET_PREFIX}.0/24: el proxy tiene
-#               la IP fija .10 y es el ÚNICO emisor de X-Forwarded-* en quien confía gunicorn (DEC-AUTO-155)
+#               la IP fija .10 y el frontend SSR la .11: son los ÚNICOS emisores de X-Forwarded-* en quienes
+#               confían gunicorn y Django (DEC-AUTO-155, DEC-AUTO-1370)
 #   red "datos" (internal): backend, migrate, scheduler, backup, db
 # Etiquetas de imagen: APP_VERSION o, si está vacío, 0.0.0-dev-<proyecto compose>, para que los
 # proyectos paralelos (-p brujula-qa001, ...) no se pisen las imágenes (RSK-OPS-010, DEC-AUTO-156).
@@ -242,11 +244,15 @@ services:
       DB_USER: app_rw
       DB_PASSWORD: ${APP_RW_PASSWORD:?definir en .env}
       OTEL_SERVICE_NAME: brujula-backend
-      # Único emisor de X-Forwarded-* de confianza para gunicorn: la IP fija del proxy (DEC-AUTO-155)
-      GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10
-      # Redes de proxy de confianza para la IP del cliente en Django (X-Forwarded-For solo si
-      # REMOTE_ADDR pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224): solo el proxy (.10/32)
-      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32
+      # Emisores de X-Forwarded-* de confianza: las IP fijas del proxy (.10, DEC-AUTO-155) y del
+      # frontend SSR (.11, TKT-OPS-038, DEC-AUTO-1370), que llama directo al backend reenviando el
+      # X-Forwarded-For que el proxy ya sobrescribió con $remote_addr. Sin la .11, Django tomaba la IP
+      # del frontend como la del cliente y TODAS las páginas SSR compartían un solo cubo de throttling.
+      GUNICORN_FORWARDED_ALLOW_IPS: ${APP_NET_PREFIX:-10.231.40}.10,${APP_NET_PREFIX:-10.231.40}.11
+      # Redes de confianza para la IP del cliente en Django (X-Forwarded-For solo si REMOTE_ADDR
+      # pertenece a ellas; RSK-OPS-012, OBS-QA004-03, DEC-AUTO-224, DEC-AUTO-1370): proxy y frontend.
+      # La verifica el smoke de CI (DEC-AUTO-1372).
+      DJANGO_TRUSTED_PROXIES: ${APP_NET_PREFIX:-10.231.40}.10/32,${APP_NET_PREFIX:-10.231.40}.11/32
     volumes:
       - media:/var/lib/brujula/media
       - ops_libro:/var/lib/brujula/ops
@@ -263,9 +269,15 @@ services:
       timeout: 5s
       retries: 6
       start_period: 30s
+    # Memoria (TKT-OPS-036, OBS-QA072-01, DEC-AUTO-1350/1351): cada worker síncrono puede estar
+    # procesando una foto de 40 MP a la vez (pico medido por subida: ~360 MiB anónimos con JPEG RGB,
+    # ~480 MiB con PNG RGBA; base ~150 MiB). Regla: BACKEND_MEM_LIMIT >= 640 MiB x GUNICORN_WORKERS
+    # (la verifica CI). 2 GiB cubre los 3 workers por omisión: picos medidos de 1216/1584 MiB sin OOM.
+    # memswap_limit = memoria: sin swap, como un Linux de servidor; un exceso se ve aquí y no se esconde.
+    memswap_limit: ${BACKEND_MEM_LIMIT:-2g}
     deploy:
       resources:
-        limits: {cpus: "1.5", memory: 1g}
+        limits: {cpus: "1.5", memory: "${BACKEND_MEM_LIMIT:-2g}"}
 
   # ---------------------------------------------------------------------------
   # Frontend Angular 22 SSR (Node) — sin acceso a la red de datos
@@ -286,11 +298,20 @@ services:
       PORT: "4000"
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:8000}
       NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # Angular 22 (AngularNodeAppEngine) BORRA de la petición toda cabecera x-forwarded-* que no esté
+      # en trustProxyHeaders (lo lee de esta variable): sin ella el SSR no puede reenviar la IP del
+      # visitante a la API (TKT-OPS-038, DEC-AUTO-1371). Solo X-Forwarded-For, que el proxy SOBRESCRIBE
+      # con $remote_addr en la location "/"; Host/Proto siguen sin ser de confianza (validación de host).
+      NG_TRUST_PROXY_HEADERS: x-forwarded-for
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
       OTEL_SERVICE_NAME: brujula-frontend
       TZ: UTC
     tmpfs: ["/tmp"]
-    networks: [app]
+    networks:
+      app:
+        # IP fija fuera del rango dinámico (.128/25), como el proxy: el backend confía en el
+        # X-Forwarded-For que reenvía el SSR solo si llega desde esta IP (TKT-OPS-038, DEC-AUTO-1370)
+        ipv4_address: ${APP_NET_PREFIX:-10.231.40}.11
     depends_on:
       backend: {condition: service_healthy}
     deploy:
@@ -311,7 +332,13 @@ services:
       - "127.0.0.1:${PROXY_HOST_PORT:-8080}:8080"
     volumes:
       - media:/srv/media:ro
-    tmpfs: ["/tmp:uid=101,gid=101,mode=0755"]
+      # Temporales de nginx (cuerpos de petición y respuestas del upstream) en disco, no en el tmpfs
+      # (TKT-OPS-035, DEC-AUTO-1340/1342): /tmp cuenta contra los 256m del contenedor y 3 subidas
+      # anónimas de 104 MB lo mataban por OOM.
+      - proxy_temporal:/var/cache/nginx/temporal
+    # size=16m (DEC-AUTO-1342): /tmp ya solo guarda el pid; el tope impide que vuelva a usarse como
+    # almacén sin límite dentro de la memoria del contenedor.
+    tmpfs: ["/tmp:uid=101,gid=101,mode=0755,size=16m"]
     networks:
       publica: {}
       app:
@@ -391,12 +418,48 @@ services:
       resources:
         limits: {cpus: "0.5", memory: 512m}
 
+  # ---------------------------------------------------------------------------
+  # Perfil "restauracion" (TKT-OPS-008, RSK-OPS-027, DEC-AUTO-1200): one-shot que devuelve a sus
+  # volúmenes, con propietario 10001, los medios y (con decisión humana) la copia del libro que
+  # restore-local.sh dejó verificados en el staging del volumen de copias. NUNCA arranca con "up":
+  # solo con "docker compose --profile restauracion run --rm reinstalar-volumenes ...".
+  # Root SIN DAC_OVERRIDE: CHOWN/FOWNER para fijar propietario y modo, y DAC_READ_SEARCH para leer el
+  # staging (uid 999, 0700) y verificar medios privados (0640). Sin red y con el rootfs de solo lectura.
+  # El script se monta desde el repo (no se hornea en la imagen de la BD).
+  # ---------------------------------------------------------------------------
+  reinstalar-volumenes:
+    profiles: ["restauracion"]
+    build: *db-build
+    image: brujula/db:${APP_VERSION:-0.0.0-dev-${COMPOSE_PROJECT_NAME:-brujula}}
+    pull_policy: build                  # nunca se descarga brujula/* de un registro (DEC-AUTO-226)
+    user: "0:0"
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER", "DAC_READ_SEARCH"]
+    network_mode: none
+    restart: "no"
+    entrypoint: ["bash", "/ops/reinstalar-volumenes.sh"]
+    environment:
+      RESTORE_ENV: ${RESTORE_ENV:-}
+      RESTORE_STAGING_DIR: /backups/.restauracion
+      TZ: UTC
+    volumes:
+      - backups:/backups:ro
+      - media:/vol/media
+      - ops_libro:/vol/ops
+      - ./scripts/ops:/ops:ro
+    tmpfs: ["/tmp"]
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256m}
+
 networks:
   publica: {}
   app:
     internal: true
-    # Subred fija para poder fijar la IP del proxy (DEC-AUTO-155). Fuera de los pools por defecto
-    # de Docker (172.17-31.x, 192.168.x). Los contenedores sin IP fija reciben una de .128-.255.
+    # Subred fija para poder fijar las IP del proxy (.10) y del frontend (.11) (DEC-AUTO-155/1370). Fuera
+    # de los pools por defecto de Docker (172.17-31.x, 192.168.x). Sin IP fija: una de .128-.255.
     ipam:
       config:
         - subnet: ${APP_NET_PREFIX:-10.231.40}.0/24
@@ -409,3 +472,4 @@ volumes:
   media: {}
   ops_libro: {}
   backups: {}
+  proxy_temporal: {}                    # temporales de nginx: cuerpos y respuestas (TKT-OPS-035)

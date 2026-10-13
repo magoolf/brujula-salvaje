@@ -32,15 +32,45 @@
 .imagen-principal {
   position: absolute;
   inset: 0;
+  display: block;
+}
+
+.imagen-principal img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.scrim {
+/*
+ * TKT-047 (WCAG 1.4.3, QA TKT-041 F-01): la foto se cambia desde el panel, así que el contraste del
+ * texto no puede depender de ella. Todo el bloque de texto va sobre una franja de ancho completo con
+ * el scrim del sistema (overlay.scrim, #0E1412 al 78 %: peor caso foto blanca ≈ 5,1:1 para el rótulo
+ * ink.300 y ≈ 8,8:1 para sand.50, HANDOFF_UI_UX Contraste_Calculado). Por encima, un degradado al
+ * mismo scrim suaviza el borde sin tapar el resto de la foto. Solo pintura: no cambia el layout.
+ */
+/*
+ * TKT-069 (WCAG 2.4.7 / 1.4.11): los anillos de foco de la franja (CTA, búsqueda grande y su fila con
+ * :focus-within) quedan sobre el scrim oscuro, donde focus.ring (lagoon-600) da ~1,3:1. Se redefine
+ * la variable SOLO dentro de la franja con focus.ring-inverse (sunset-300, tokens.json: «sobre
+ * bg.inverse y sobre fotografías con scrim»): ≈4,6:1 con foto blanca, más con fotos oscuras. Los
+ * componentes la heredan sin cambios propios; fuera del hero el anillo sigue siendo focus.ring.
+ */
+.franja-texto {
+  --bs-color-focus-ring: var(--bs-color-focus-ring-inverse);
+
+  position: relative;
+  background: var(--bs-color-overlay-scrim);
+}
+
+.franja-texto::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgb(0 0 0 / 0.78), rgb(0 0 0 / 0.2) 60%, transparent);
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--bs-space-16);
+  background: linear-gradient(to top, var(--bs-color-overlay-scrim), transparent);
+  pointer-events: none;
 }
 
 .contenido-principal {
@@ -51,8 +81,32 @@
   max-width: 48rem;
 }
 
+/* Refuerzo local (no cuenta en la medición de TKT-047, que la retira): separa los glifos de
+   cualquier detalle claro que asome por el scrim. */
+.overline-marca,
+.titular,
+.subtitulo {
+  text-shadow: 0 1px 2px var(--bs-color-overlay-scrim);
+}
+
 .overline-marca {
-  color: var(--bs-color-text-inverse-muted, rgb(255 255 255 / 0.8));
+  color: var(--bs-color-text-inverse-muted);
+}
+
+/* Quien pide más contraste o menos transparencia recibe un scrim casi opaco y el rótulo en
+   text.inverse (como el resto del texto). */
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  .franja-texto {
+    background: var(--bs-color-overlay-lightbox);
+  }
+
+  .franja-texto::before {
+    background: linear-gradient(to top, var(--bs-color-overlay-lightbox), transparent);
+  }
+
+  .overline-marca {
+    color: var(--bs-color-text-inverse);
+  }
 }
 
 .titular {

@@ -25,6 +25,7 @@
               [titulo]="coleccion.titulo"
               [ruta]="'/colecciones/' + coleccion.slug"
               [imagen]="coleccion.imagen"
+              [prioritaria]="$first"
               testId="tarjeta-coleccion"
             >
               <p>{{ coleccion.resumen }}</p>

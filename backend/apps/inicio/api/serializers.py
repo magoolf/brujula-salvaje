@@ -11,8 +11,10 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.contenido.models import TipoContenido
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField
 from apps.core.esquema import id_contrato, lista_ids, texto_sin_nul
+from apps.core.miniaturas import medio_miniatura
 
 
 def _con_limite(campo: Any, *, max_length: int | None = None) -> Any:
@@ -137,24 +139,37 @@ class ConfigInicioPanelSerializer(ConfigInicioCamposMixin):
     referencias = ReferenciasConfigInicioSerializer()
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
-        from apps.inicio import selectors
+        """Destacados leídos junto a la configuración (`services.destacados_de`; en el PUT, dentro
+        de la transacción que los escribe, OBS-QA057-01)."""
+        from apps.inicio import services
 
         config = instance
+        destacados = services.destacados_de(config)
+        secciones = ("DESTINOS", "ITINERARIOS", "GUIAS")
+        medio = medio_miniatura(config.hero_medio)
         return {
             "hero_titular": config.hero_titular,
             "hero_subtitulo": config.hero_subtitulo,
             "hero_medio_id": config.hero_medio_id,
-            "destinos_ids": selectors.ids_destacados("DESTINOS"),
-            "itinerarios_ids": selectors.ids_destacados("ITINERARIOS"),
-            "guias_ids": selectors.ids_destacados("GUIAS"),
+            "destinos_ids": [c.pk for c in destacados["DESTINOS"]],
+            "itinerarios_ids": [c.pk for c in destacados["ITINERARIOS"]],
+            "guias_ids": [c.pk for c in destacados["GUIAS"]],
             "actualizado_en": config.actualizado_en,
-            "actualizado_por": {
-                "id": config.actualizado_por_id,
-                "etiqueta": f"#{config.actualizado_por_id}"
-                if config.actualizado_por_id
-                else "sistema",
+            "actualizado_por": actor_ref(config.actualizado_por),
+            "referencias": {
+                "medios": [medio] if medio is not None else [],
+                "contenidos": [
+                    {
+                        "tipo": c.tipo,
+                        "id": c.pk,
+                        "titulo": c.titulo,
+                        "slug": c.slug,
+                        "estado_editorial": c.estado_editorial,
+                    }
+                    for seccion in secciones
+                    for c in destacados[seccion]
+                ],
             },
-            "referencias": {"medios": [], "contenidos": []},
         }
 
 
@@ -205,6 +220,8 @@ class ContenidoResumenTableroSerializer(serializers.Serializer[Any]):
         from apps.contenido import services
 
         contenido = instance
+        # `services.tablero` ya trae la cuenta (select_related): sin consulta por reciente.
+        precargar_actores([contenido], "actualizado_por")
         return {
             "id": contenido.pk,
             "tipo": contenido.tipo,
@@ -214,12 +231,7 @@ class ContenidoResumenTableroSerializer(serializers.Serializer[Any]):
             "version": contenido.version,
             "fecha_ultima_revision": contenido.fecha_ultima_revision,
             "actualizado_en": contenido.actualizado_en,
-            "actualizado_por": {
-                "id": contenido.actualizado_por_id,
-                "etiqueta": f"#{contenido.actualizado_por_id}"
-                if contenido.actualizado_por_id
-                else "sistema",
-            },
+            "actualizado_por": actor_ref(contenido.actualizado_por),
             "publicado": contenido.estado_editorial == "PUBLICADO",
             "url_publica": services._url_publica(contenido),
         }

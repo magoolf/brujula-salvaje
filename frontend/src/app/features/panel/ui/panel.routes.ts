@@ -10,6 +10,7 @@ import { PaginaNoEncontradaPanel } from './pagina-no-encontrada-panel';
 import { PaginaTablero } from './pagina-tablero';
 import { PaginaVerificacionMfa } from './pagina-verificacion-mfa';
 import {
+  DATO_ROL_MINIMO,
   accesoGuard,
   conSegmentosMatch,
   cuentaObligatoriaMatch,
@@ -18,6 +19,7 @@ import {
   sesionCompletaGuard,
   sesionSinResolverMatch,
 } from './panel-guard';
+import { cambiosSinGuardarGuard } from './salida-editor.guard';
 import { ShellPanel } from './shell-panel';
 
 /** Global de Angular: objeto en desarrollo y pruebas, `false` (constante) en el build de producción. */
@@ -74,6 +76,14 @@ export const RUTAS_PANEL: Routes = [
       },
     ],
   },
+  // SCR-037 Vista previa (TPL-PANEL-FULL, TKT-023): pantalla completa, sin el armazón del panel;
+  // también del alta (`nuevo`, DEC-AUTO-120). Exige sesión completa como el armazón.
+  {
+    path: 'contenido/:tipo/:id/vista-previa',
+    title: 'Vista previa',
+    canActivate: [sesionCompletaGuard],
+    loadComponent: () => import('./pagina-vista-previa').then((m) => m.PaginaVistaPrevia),
+  },
   {
     path: '',
     component: ShellPanel,
@@ -108,8 +118,61 @@ export const RUTAS_PANEL: Routes = [
             },
           ]
         : []),
-      // TKT-023 (contenidos) y TKT-024 (inicio, taxonomías, configuración, cuentas, auditoría)
-      // añaden sus rutas aquí, antes del comodín.
+      // MOD-010 (TKT-023): SCR-035 Listado por tipo y SCR-036 Editor (alta y edición), en chunks
+      // diferidos. El editor pide confirmación al salir con cambios sin guardar (ALT-026).
+      {
+        path: 'contenido/:tipo',
+        title: 'Contenidos',
+        loadComponent: () => import('./pagina-contenidos').then((m) => m.PaginaContenidos),
+      },
+      {
+        path: 'contenido/:tipo/:id',
+        title: 'Editor de contenido',
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-editor-contenido').then((m) => m.PaginaEditorContenido),
+      },
+      // MOD-012 y MOD-013 (TKT-024), en chunks diferidos. Destacados y Taxonomías: Editor y
+      // Administrador; Configuración, Cuentas y Auditoría: solo Administrador (SCR-048 si no,
+      // conservando la URL, AC-105). Destacados y Configuración piden confirmación al salir con
+      // cambios sin guardar.
+      {
+        path: 'inicio',
+        title: 'Destacados de inicio',
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-destacados').then((m) => m.PaginaDestacados),
+      },
+      {
+        path: 'taxonomias',
+        title: 'Taxonomías y catálogos',
+        loadComponent: () => import('./pagina-taxonomias').then((m) => m.PaginaTaxonomias),
+      },
+      {
+        path: 'configuracion',
+        title: 'Configuración del sitio',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-configuracion').then((m) => m.PaginaConfiguracion),
+      },
+      {
+        path: 'usuarios',
+        title: 'Cuentas del equipo',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        loadComponent: () => import('./pagina-cuentas-equipo').then((m) => m.PaginaCuentasEquipo),
+      },
+      {
+        path: 'usuarios/:id',
+        title: 'Cuenta del equipo',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        // La contraseña temporal (OneTimeSecret) solo se descarta con «Ya la guardé» (AC-106).
+        canDeactivate: [cambiosSinGuardarGuard],
+        loadComponent: () => import('./pagina-formulario-cuenta').then((m) => m.PaginaFormularioCuenta),
+      },
+      {
+        path: 'auditoria',
+        title: 'Registro de auditoría',
+        data: { [DATO_ROL_MINIMO]: 'ADMINISTRADOR' },
+        loadComponent: () => import('./pagina-auditoria').then((m) => m.PaginaAuditoria),
+      },
       { path: '**', title: 'Página no encontrada', component: PaginaNoEncontradaPanel },
     ],
   },

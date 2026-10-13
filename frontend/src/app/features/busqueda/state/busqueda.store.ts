@@ -45,7 +45,13 @@ export class BusquedaStore {
     return validarConsulta(q);
   });
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
+  // En la búsqueda la clave lleva la consulta y todos los filtros de la URL inicial.
   private readonly recursoAgrupada = resource({
+    id: `recurso:busqueda-agrupada:${JSON.stringify(this.filtros())}`,
     params: () => {
       const f = this.filtros();
       const v = this.validacion();
@@ -54,7 +60,9 @@ export class BusquedaStore {
     loader: ({ params }) => this.repo.buscar(params),
   });
 
+  // `id` (TKT-016): ver el comentario de `recursoAgrupada`.
   private readonly recursoGrupo = resource({
+    id: `recurso:busqueda-grupo:${JSON.stringify(this.filtros())}`,
     params: () => {
       const f = this.filtros();
       const v = this.validacion();

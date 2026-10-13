@@ -32,11 +32,15 @@ dl {
   margin: var(--bs-space-3) 0 0;
 }
 
+.grupo,
 .termino {
   scroll-margin-top: var(--bs-size-header-xl);
 }
 
-.termino:target dt {
+/* :target no cambia con la navegación en cliente (history.pushState): el término al que lleva un
+   enlace recibe el foco (FocoRuta, TKT-042) y se resalta igual que con la carga directa. */
+.termino:target dt,
+.termino:focus dt {
   background: var(--bs-color-status-info-bg);
 }
 

@@ -17,7 +17,9 @@ from django.utils.deconstruct import deconstructible
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.contenido.api import panel_selectors
 from apps.contenido.models import ClavePagina, TipoContenido
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.api.serializers import (
     EntradaEstricta,
     IdSerializerField,
@@ -849,9 +851,16 @@ class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):
     referencias = ReferenciasPanelSerializer()
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
+        """Metadatos + campos editables (`{Tipo}Actualizacion`) del contenido. Los campos se leen
+        UNA vez (`services.campos_editables`) y de ellos salen también las `referencias` reales
+        (TKT-062); `creado_por`/`actualizado_por` con el criterio común de ActorRef
+        (`apps.core.actores`: usuario, seudónimo si anonimizada, "sistema" sin actor), ambas
+        cuentas en una sola consulta o ninguna si ya venían cargadas."""
         from apps.contenido import services
 
         contenido = instance
+        precargar_actores([contenido], "creado_por", "actualizado_por")
+        campos = services.campos_editables(contenido)
         return {
             "id": contenido.pk,
             "tipo": contenido.tipo,
@@ -864,19 +873,12 @@ class ContenidoPanelMetaSerializer(serializers.Serializer[Any]):
             "motivo_retiro": contenido.motivo_retiro,
             "creado_en": contenido.creado_en,
             "actualizado_en": contenido.actualizado_en,
-            "creado_por": {
-                "id": contenido.creado_por_id,
-                "etiqueta": f"#{contenido.creado_por_id}" if contenido.creado_por_id else "sistema",
-            },
-            "actualizado_por": {
-                "id": contenido.actualizado_por_id,
-                "etiqueta": f"#{contenido.actualizado_por_id}"
-                if contenido.actualizado_por_id
-                else "sistema",
-            },
+            "creado_por": actor_ref(contenido.creado_por),
+            "actualizado_por": actor_ref(contenido.actualizado_por),
             "url_publica": services._url_publica(contenido),
             "requisitos_publicacion": _requisitos_publicacion(contenido),
-            "referencias": {"medios": [], "contenidos": [], "terminos": [], "taxonomias": []},
+            "referencias": panel_selectors.referencias_panel(campos),
+            **campos,
         }
 
 
@@ -895,28 +897,11 @@ def _requisitos_publicacion(contenido: Any) -> dict[str, Any]:
     return {"cumple": not errores, "pendientes": errores}
 
 
-def _comunes_representacion(contenido: Any) -> dict[str, Any]:
-    return {
-        "titulo": contenido.titulo,
-        "slug": contenido.slug,
-        "fecha_ultima_revision": contenido.fecha_ultima_revision,
-        "seo_titulo": contenido.seo_titulo,
-        "seo_descripcion": contenido.seo_descripcion,
-        "relaciones": [
-            {"tipo": r.relacionado_tipo, "id": r.relacionado_id}
-            for r in contenido.relacionados.order_by("orden", "id")
-        ],
-        "terminos_ids": list(contenido.terminos.values_list("termino_id", flat=True)),
-        "fuentes": [
-            {
-                "titulo": f.titulo,
-                "entidad_editora": f.entidad_editora,
-                "url": f.url,
-                "fecha_consulta": f.fecha_consulta,
-            }
-            for f in contenido.fuentes.order_by("orden", "id")
-        ],
-    }
+# Campos con la forma de `{Tipo}Actualizacion` (TKT-045): `ContenidoPanelMetaSerializer` los
+# añade desde la MISMA fuente que la instantánea de las revisiones y la restauración
+# (`services.campos_editables`), de modo que lo que el panel muestra, lo que una revisión guarda y
+# lo que una restauración devuelve no pueden divergir. Los serializers por tipo solo añaden lo
+# suyo (TKT-062: antes cada uno los volvía a leer).
 
 
 class DestinoPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, DestinoCamposMixin):
@@ -927,36 +912,7 @@ class DestinoPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, Destino
     único responsable de la serialización real; esta herencia es solo para introspección de
     esquema (Skill_Backend Regla 02: sin lógica nueva)."""
 
-    def to_representation(self, instance: Any) -> dict[str, Any]:
-        base = super().to_representation(instance)
-        destino = instance.destino
-        base.update(_comunes_representacion(instance))
-        base.update(
-            {
-                "pais_id": destino.pais_id,
-                "resumen": destino.resumen,
-                "descripcion_experta": destino.descripcion_experta,
-                "tipos_ids": list(destino.tipos_aventura.values_list("contenido_id", flat=True)),
-                "tipo_principal_id": destino.tipo_principal_id,
-                "dificultad": destino.dificultad,
-                "meses_mejor_epoca": list(destino.meses_mejor_epoca or []),
-                "duracion_min_dias": destino.duracion_min_dias,
-                "duracion_max_dias": destino.duracion_max_dias,
-                "nivel_presupuesto": destino.nivel_presupuesto,
-                "clima": destino.clima,
-                "altitud_max_m": destino.altitud_max_m,
-                "como_llegar": destino.como_llegar,
-                "seguridad_riesgos": destino.seguridad_riesgos,
-                "sostenibilidad": destino.sostenibilidad,
-                "latitud": float(destino.latitud) if destino.latitud is not None else None,
-                "longitud": float(destino.longitud) if destino.longitud is not None else None,
-                "portada_id": instance.portada_id,
-                "galeria_ids": list(
-                    instance.galeria.order_by("orden").values_list("medio_id", flat=True)
-                ),
-            }
-        )
-        return base
+    pass
 
 
 class DestinoGuardadoSerializer(DestinoPanelSerializer):
@@ -970,44 +926,7 @@ class DestinoGuardadoSerializer(DestinoPanelSerializer):
 
 
 class ItinerarioPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, ItinerarioCamposMixin):
-    def to_representation(self, instance: Any) -> dict[str, Any]:
-        base = super().to_representation(instance)
-        itinerario = instance.itinerario
-        base.update(_comunes_representacion(instance))
-        base.update(
-            {
-                "destino_id": itinerario.destino_id,
-                "resumen": itinerario.resumen,
-                "duracion_dias": itinerario.duracion_dias,
-                "dificultad": itinerario.dificultad,
-                "tipos_ids": list(itinerario.tipos_aventura.values_list("contenido_id", flat=True)),
-                "distancia_total_km": float(itinerario.distancia_total_km)
-                if itinerario.distancia_total_km is not None
-                else None,
-                "desnivel_acumulado_m": itinerario.desnivel_acumulado_m,
-                "riesgos_seguridad": itinerario.riesgos_seguridad,
-                "portada_id": instance.portada_id,
-                "galeria_ids": list(
-                    instance.galeria.order_by("orden").values_list("medio_id", flat=True)
-                ),
-                "dias": [
-                    {
-                        "numero_dia": d.numero_dia,
-                        "titulo": d.titulo,
-                        "actividades": d.actividades,
-                        "distancia_km": float(d.distancia_km)
-                        if d.distancia_km is not None
-                        else None,
-                        "desnivel_positivo_m": d.desnivel_positivo_m,
-                        "desnivel_negativo_m": d.desnivel_negativo_m,
-                        "alojamiento_orientativo": d.alojamiento_orientativo,
-                        "consejos": d.consejos,
-                    }
-                    for d in itinerario.dias.order_by("numero_dia")
-                ],
-            }
-        )
-        return base
+    pass
 
 
 class GuiaPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, GuiaCamposMixin):
@@ -1015,68 +934,18 @@ class GuiaPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, GuiaCampos
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
-        guia = instance.guia
-        base.update(_comunes_representacion(instance))
-        base.update(
-            {
-                "categoria_id": guia.categoria_id,
-                "resumen": guia.resumen,
-                "cuerpo": guia.cuerpo,
-                "destinos_ids": list(guia.destinos.values_list("contenido_id", flat=True)),
-                "tipos_ids": list(guia.tipos_aventura.values_list("contenido_id", flat=True)),
-                "remite_a_metodologia": guia.remite_a_metodologia,
-                "portada_id": instance.portada_id,
-                "palabras": guia.palabras,
-            }
-        )
+        base["palabras"] = instance.guia.palabras
         return base
 
 
 class TipoAventuraPanelSerializer(
     ContenidoPanelMetaSerializer, ComunesMixin, TipoAventuraCamposMixin
 ):
-    def to_representation(self, instance: Any) -> dict[str, Any]:
-        base = super().to_representation(instance)
-        tipo = instance.tipo_aventura
-        base.update(_comunes_representacion(instance))
-        base.update(
-            {
-                "resumen": tipo.resumen,
-                "descripcion": tipo.descripcion,
-                "nivel_exigencia": tipo.nivel_exigencia,
-                "portada_id": instance.portada_id,
-                "orden": tipo.orden,
-                "checklist": [
-                    {"texto": c.texto, "grupo": c.grupo, "esencial": c.esencial, "orden": c.orden}
-                    for c in tipo.checklist.order_by("orden", "id")
-                ],
-            }
-        )
-        return base
+    pass
 
 
 class ColeccionPanelSerializer(ContenidoPanelMetaSerializer, ComunesMixin, ColeccionCamposMixin):
-    def to_representation(self, instance: Any) -> dict[str, Any]:
-        base = super().to_representation(instance)
-        coleccion = instance.coleccion
-        base.update(_comunes_representacion(instance))
-        base.update(
-            {
-                "resumen": coleccion.resumen,
-                "descripcion": coleccion.descripcion,
-                "portada_id": instance.portada_id,
-                "elementos": [
-                    {
-                        "tipo_contenido": e.tipo_contenido,
-                        "contenido_id": e.contenido_id,
-                        "orden": e.orden,
-                        "nota_editorial": e.nota_editorial,
-                    }
-                    for e in coleccion.elementos.order_by("orden", "id")
-                ],
-            }
-        )
-        return base
+    pass
 
 
 class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer, TerminoGlosarioCamposMixin):
@@ -1086,24 +955,15 @@ class TerminoGlosarioPanelSerializer(ContenidoPanelMetaSerializer, TerminoGlosar
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         base = super().to_representation(instance)
-        termino = instance.termino_glosario
-        base.update(
+        base["vinculado_en"] = [
             {
-                "titulo": instance.titulo,
-                "slug": instance.slug,
-                "definicion": termino.definicion,
-                "fecha_ultima_revision": instance.fecha_ultima_revision,
-                "vinculado_en": [
-                    {
-                        "tipo": u.contenido.tipo,
-                        "id": u.contenido_id,
-                        "titulo": u.contenido.titulo,
-                        "estado_editorial": u.contenido.estado_editorial,
-                    }
-                    for u in termino.usos.select_related("contenido")
-                ],
+                "tipo": u.contenido.tipo,
+                "id": u.contenido_id,
+                "titulo": u.contenido.titulo,
+                "estado_editorial": u.contenido.estado_editorial,
             }
-        )
+            for u in instance.termino_glosario.usos.select_related("contenido")
+        ]
         return base
 
 
@@ -1126,13 +986,6 @@ class PaginaInstitucionalPanelSerializer(
         pagina = instance.pagina
         base.update(
             {
-                "titulo": instance.titulo,
-                "cuerpo": pagina.cuerpo,
-                "version_documento": pagina.version_documento,
-                "vigente_desde": pagina.vigente_desde,
-                "fecha_ultima_revision": instance.fecha_ultima_revision,
-                "seo_titulo": instance.seo_titulo,
-                "seo_descripcion": instance.seo_descripcion,
                 "clave": pagina.clave,
                 "solo_administrador": pagina.clave != ClavePagina.ACERCA_DE,
             }
@@ -1162,6 +1015,8 @@ class ContenidoResumenPanelSerializer(serializers.Serializer[Any]):
         from apps.contenido import services
 
         contenido = instance
+        # El listado ya trae la cuenta (`panel_selectors.listar_por_tipo`): sin consulta extra.
+        precargar_actores([contenido], "actualizado_por")
         return {
             "id": contenido.pk,
             "tipo": contenido.tipo,
@@ -1171,12 +1026,7 @@ class ContenidoResumenPanelSerializer(serializers.Serializer[Any]):
             "version": contenido.version,
             "fecha_ultima_revision": contenido.fecha_ultima_revision,
             "actualizado_en": contenido.actualizado_en,
-            "actualizado_por": {
-                "id": contenido.actualizado_por_id,
-                "etiqueta": f"#{contenido.actualizado_por_id}"
-                if contenido.actualizado_por_id
-                else "sistema",
-            },
+            "actualizado_por": actor_ref(contenido.actualizado_por),
             "publicado": contenido.estado_editorial == "PUBLICADO",
             "url_publica": services._url_publica(contenido),
         }

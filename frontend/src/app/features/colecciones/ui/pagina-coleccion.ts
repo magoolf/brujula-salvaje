@@ -57,7 +57,9 @@ export class PaginaColeccion {
       this.seo.establecer({
         titulo: c.titulo,
         descripcion: c.resumen,
-        imagen: c.portada ? { url: c.portada.src, alt: c.portada.alt } : undefined,
+        imagen: c.portada
+          ? { url: c.portada.src, alt: c.portada.alt, derivados: c.portada.derivados }
+          : undefined,
         tipoOg: 'website',
         datosEstructurados,
       });

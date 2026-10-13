@@ -1,0 +1,93 @@
+# =============================================================================
+# Simulacro AC-054 (REQ-054; ADR-DB-004 §4) — TKT-OPS-008, DEC-AUTO-1202
+# Copia -> pérdida TOTAL (BD, medios y libro) -> restauración sobre BD limpia (INFRA-DB-000)
+# -> reinstalación de medios y libro -> pasos de aplicación -> aplicación arriba y verificada.
+# Ejecuta scripts/ops/simulacro-ac054.sh, el mismo script del runbook local (DEVOPS_HANDOFF §35.6).
+#
+# Workflow SEPARADO y NO obligatorio para la protección de main. Corre en paralelo al ci (~7-9 min) y no
+# alarga los 5 checks obligatorios. Se dispara:
+#   - en PR, solo si cambia algo que puede romper la restauración (path filter: scripts de copia y
+#     restauración, imágenes backup/db, compose.yaml, migraciones, comandos de ops y libro);
+#   - una vez al mes (schedule): ADR-DB-004 §4 exige un simulacro mensual; "un backup no restaurado se
+#     considera no válido" (Skill_Base_datos §2);
+#   - a mano (workflow_dispatch), p. ej. antes de una release (F9).
+# Solo local en el runner: sin registros, sin secretos (clave age EFÍMERA generada en el propio job y
+# .env con valores aleatorios enmascarados), sin despliegue (CLAUDE.md §0.5).
+# =============================================================================
+name: simulacro-ac054
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 3 * *"        # día 3 de cada mes, 04:23 UTC
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/ops/backup.sh
+      - scripts/ops/restore-local.sh
+      - scripts/ops/post-restore-local.sh
+      - scripts/ops/post-restore-local_controles.sh
+      - scripts/ops/reinstalar-volumenes.sh
+      - scripts/ops/simulacro-ac054.sh
+      - infra/backup/**
+      - infra/db/**
+      - compose.yaml
+      - backend/apps/*/migrations/**
+      - backend/apps/ops/**
+      - backend/apps/cuentas/libro.py
+      - backend/apps/cuentas/services.py
+      - .github/workflows/simulacro-ac054.yaml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: simulacro-ac054-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulacro:
+    name: simulacro AC-054 (copia, pérdida total, restauración y app verificada)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      APP_VERSION: "sim-${{ github.sha }}"
+      COMPOSE_PROJECT_NAME: brujulasim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      # Mismo arranque que el job "images" de ci.yaml (TKT-OPS-033): espejo de Docker Hub y builder con
+      # buildkitd.toml; builds con reintentos.
+      - name: espejo de Docker Hub en el Engine (mirror.gcr.io, sin credenciales)
+        timeout-minutes: 3
+        run: bash infra/ci/espejo_registro.sh
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with: {buildkitd-config: infra/ci/buildkitd.toml}
+      - name: "post-restore-local.sh: controles (DEC-AUTO-908, CHG-DB-003)"
+        timeout-minutes: 2
+        run: bash scripts/ops/post-restore-local_controles.sh
+      - name: .env efímero (valores aleatorios por ejecución, enmascarados; no secretos reales)
+        run: |
+          bash scripts/ops/init-env.sh .env
+          bash infra/ci/enmascarar_env.sh .env --plantilla .env.example DJANGO_SECRET_KEY THROTTLE_HMAC_KEY MFA_FERNET_KEY APP_MIGRATOR_PASSWORD
+      - name: build imágenes (sin push)
+        run: bash infra/ci/reintentar.sh 3 20 -- docker compose --profile ops build
+      - name: simulacro AC-054 de extremo a extremo
+        timeout-minutes: 30
+        env: {RESTORE_ENV: local}
+        run: bash scripts/ops/simulacro-ac054.sh --confirmar-destruccion "${COMPOSE_PROJECT_NAME}" --evidencia reports/simulacro
+      - name: logs del stack
+        if: always()
+        run: |
+          mkdir -p reports
+          docker compose --profile ops logs --no-color > reports/compose.log 2>&1 || true
+      - name: parar stack y borrar volúmenes
+        if: always()
+        run: docker compose --profile ops --profile restauracion down -v
+      - name: publicar evidencia del simulacro
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: simulacro-ac054-${{ github.sha }}
+          path: reports/
+          retention-days: 30

@@ -1,7 +1,8 @@
-import { Dialog } from '@angular/cdk/dialog';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Component, Injector, afterNextRender, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { precargadorDe, precargarEnReposo } from '../../../core/arranque/precarga-en-reposo';
 import { Compartir } from '../../../core/layout/compartir';
 import { estaGuardado } from '../../../core/layout/guardados/elemento-guardado.model';
 import { GuardadosStore } from '../../../core/layout/guardados/guardados.store';
@@ -23,7 +24,15 @@ import { TarjetaContenido } from '../../../shared/ui/tarjeta-contenido/tarjeta-c
 import { formatoDuracion, formatoFechaEsCo, nombreMes, tieneItinerariosPropios } from '../domain/destino';
 import { formatoCoordenadas } from '../domain/mapa';
 import { DestinoDetalleStore } from '../state/destino-detalle.store';
-import { VisorGaleria } from './visor-galeria';
+
+/**
+ * `sizes` de la portada de la ficha (imagen LCP, TKT-048): ocupa el ancho del contenedor
+ * `.bs-contenedor` (máx. 1280px = 80rem) menos su margen lateral (16/32/48px según el punto de
+ * corte, `--bs-grid-margin-*`). Antes era `100vw`, que en escritorio pedía un derivado mayor que el
+ * pintado; en móvil (412px a DPR 1,75) el navegador sigue eligiendo el de 800px.
+ */
+export const SIZES_PORTADA =
+  '(min-width: 80rem) 1184px, (min-width: 64rem) calc(100vw - 6rem), (min-width: 48rem) calc(100vw - 4rem), calc(100vw - 2rem)';
 
 /** SCR-004 Ficha de destino (FEAT-006..015). */
 @Component({
@@ -52,10 +61,11 @@ export class PaginaDestino {
   protected readonly store = inject(DestinoDetalleStore);
   protected readonly guardados = inject(GuardadosStore);
   private readonly compartirServicio = inject(Compartir);
-  private readonly dialogo = inject(Dialog);
+  private readonly injector = inject(Injector);
   private readonly seo = inject(Seo);
 
   protected readonly marca = NOMBRE_MARCA;
+  protected readonly sizesPortada = SIZES_PORTADA;
   protected readonly compartiendo = signal(false);
   protected readonly mensajeCompartir = signal<string | null>(null);
 
@@ -91,6 +101,14 @@ export class PaginaDestino {
   });
 
   constructor() {
+    // QA TKT-056 F-02: el visor se precarga en reposo tras hidratar si la ficha tiene galería, y al
+    // tocar o enfocar una miniatura (`precargarVisor`).
+    const ventana = inject(DOCUMENT).defaultView;
+    afterNextRender(() => {
+      if (ventana !== null && (this.store.destino()?.galeria.length ?? 0) > 0) {
+        precargarEnReposo(ventana, this.cargarVisor);
+      }
+    });
     // FEAT-027/CON-007: los metadatos se recalculan cada vez que llega un destino nuevo (incluida
     // la navegación entre fichas vía "Sigue explorando", que reutiliza este mismo componente).
     effect(() => {
@@ -108,7 +126,9 @@ export class PaginaDestino {
       this.seo.establecer({
         titulo: destino.titulo,
         descripcion: destino.resumen,
-        imagen: destino.portada ? { url: destino.portada.src, alt: destino.portada.alt } : undefined,
+        imagen: destino.portada
+          ? { url: destino.portada.src, alt: destino.portada.alt, derivados: destino.portada.derivados }
+          : undefined,
         tipoOg: 'article',
         datosEstructurados,
       });
@@ -154,15 +174,28 @@ export class PaginaDestino {
     }
   }
 
-  protected abrirGaleria(indice: number): void {
+  private abriendoGaleria = false;
+  private readonly cargarVisor = precargadorDe(() => import('./visor-galeria'));
+
+  /** Abre el visor (cargado bajo demanda, TKT-056); un segundo clic durante la carga no abre otro. */
+  protected async abrirGaleria(indice: number): Promise<void> {
     const destino = this.store.destino();
-    if (destino === null || destino.galeria.length === 0) return;
-    this.dialogo.open(VisorGaleria, {
-      data: { imagenes: destino.galeria, indiceInicial: indice, tituloDestino: destino.titulo },
-      backdropClass: 'bs-fondo-dialogo',
-      panelClass: 'bs-panel-dialogo-completo',
-      autoFocus: 'first-tabbable',
-    });
+    if (destino === null || destino.galeria.length === 0 || this.abriendoGaleria) return;
+    this.abriendoGaleria = true;
+    try {
+      const { abrirVisorGaleria } = await this.cargarVisor();
+      abrirVisorGaleria(this.injector, {
+        imagenes: destino.galeria,
+        indiceInicial: indice,
+        tituloDestino: destino.titulo,
+      });
+    } finally {
+      this.abriendoGaleria = false;
+    }
+  }
+
+  protected precargarVisor(): void {
+    this.cargarVisor().catch(() => undefined);
   }
 
   protected esMesRecomendado(mes: number): boolean {

@@ -36,7 +36,12 @@ export class ItinerariosListadoStore {
     filtrosDesdeQueryParams(paramMapARegistro(this.queryParamMap())),
   );
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
   private readonly recursoListado = resource({
+    id: `recurso:itinerarios-listado:${JSON.stringify(this.filtros())}`,
     params: () => this.filtros(),
     loader: ({ params }) => this.repo.listar(params),
   });

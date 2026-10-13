@@ -33,6 +33,7 @@ from unittest import mock
 import pytest
 from django.contrib.sessions.backends.base import UpdateError
 from django.db import OperationalError
+from django.db.backends.utils import CursorWrapper
 from django.http import HttpResponse
 from django.test import Client, RequestFactory
 
@@ -95,6 +96,44 @@ def _actualizacion_de_sesion_falla(sqlstate: str = "55P03", *, en: int = 1) -> I
 
     with mock.patch.object(SesionPanel, "save", autospec=True, side_effect=lado):
         yield cuenta
+
+
+@contextmanager
+def _alta_de_sesion_falla(sqlstate: str = "55P03") -> Iterator[list[int]]:
+    """Toda alta (INSERT, force_insert) de una fila de sesion_panel falla con `sqlstate`
+    (TKT-044: `SessionStore.create` y `crear_con_clave_nueva` se ejecutan de verdad)."""
+    altas = [0]
+
+    def lado(self: SesionPanel, *args: Any, **kwargs: Any) -> None:
+        if kwargs.get("force_insert"):
+            altas[0] += 1
+            raise _error_bd(sqlstate)
+        _GUARDAR(self, *args, **kwargs)
+
+    with mock.patch.object(SesionPanel, "save", autospec=True, side_effect=lado):
+        yield altas
+
+
+_EJECUTAR = CursorWrapper.execute
+
+
+@contextmanager
+def _borrado_de_sesion_falla(sqlstate: str = "55P03") -> Iterator[None]:
+    """El borrado sin espera de una sesión (`invalidar_clave`, TKT-044) falla con `sqlstate`
+    (55P03: su fila la tiene bloqueada otra transacción). El resto de SQL se ejecuta de verdad."""
+
+    def lado(self: CursorWrapper, sql: str, params: Any = None) -> Any:
+        if sql.startswith("DELETE FROM") and "FOR UPDATE NOWAIT" in sql:
+            raise _error_bd(sqlstate)
+        return _EJECUTAR(self, sql, params)
+
+    with mock.patch.object(CursorWrapper, "execute", autospec=True, side_effect=lado):
+        yield
+
+
+def _revocada(clave: str) -> bool:
+    """La clave ya no carga como sesión aunque su fila siga (marca de revocación, TKT-044)."""
+    return SessionStore(clave).load() == {}
 
 
 @contextmanager
@@ -296,10 +335,13 @@ def test_AC_TKT040_03_sesion_expirada_que_no_puede_borrarse_es_401(editora: Staf
             }
         )
     )
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd("55P03")):
+    clave = cliente.cookies["sessionid"].value
+    with _borrado_de_sesion_falla("55P03"):
         respuesta = cliente.get("/api/v1/panel/tablero")
     problema(respuesta, 401, "sesion_expirada")
     assert _cookie_borrada(respuesta)
+    assert SesionPanel.objects.filter(session_key=clave).exists()
+    assert _revocada(clave)  # TKT-044: la fila sobrevive, pero revocada
 
 
 def test_AC_TKT040_03_otro_error_al_borrar_la_sesion_expirada_no_se_oculta(
@@ -308,7 +350,7 @@ def test_AC_TKT040_03_otro_error_al_borrar_la_sesion_expirada_no_se_oculta(
     cliente = _cliente(editora)
     with (
         mock.patch.object(selectors, "cuenta_con_sesion", return_value=None),
-        mock.patch.object(SessionStore, "delete", side_effect=_error_bd("XX000")),
+        _borrado_de_sesion_falla("XX000"),
     ):
         respuesta = cliente.get("/api/v1/panel/tablero")
     problema(respuesta, 500, "error_interno")
@@ -330,7 +372,7 @@ def test_AC_TKT040_04_cambio_de_contrasena_con_borrado_de_la_sesion_anterior_blo
     cliente = _cliente(editora)
     anterior = cliente.cookies["sessionid"].value
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd(sqlstate)):
+    with _borrado_de_sesion_falla(sqlstate):
         respuesta = post(cliente, "/auth/contrasena", datos)
     assert respuesta.status_code == 200, respuesta.content
     nueva = respuesta.cookies["sessionid"].value
@@ -338,7 +380,9 @@ def test_AC_TKT040_04_cambio_de_contrasena_con_borrado_de_la_sesion_anterior_blo
     editora.cuenta.refresh_from_db()
     assert editora.cuenta.check_password(NUEVA)
     assert _eventos(AccionAuditoria.CAMBIO_CREDENCIAL, editora.cuenta) == 1
-    assert _eventos_log(logs_json, "sesion_anterior_no_borrada")
+    evento = _eventos_log(logs_json, "sesion_anterior_revocada")[-1]
+    assert evento["momento"] == "rotacion"
+    assert _revocada(anterior)  # TKT-044: la anterior no sigue valiendo
     assert cliente.get("/api/v1/panel/auth/sesion").status_code == 200
 
 
@@ -349,14 +393,17 @@ def test_AC_TKT040_04_update_tras_el_efecto_con_contencion_es_200_sin_reintento(
     renovación no se aplica, queda en el log y el middleware no lo vuelve a intentar."""
     cliente = _cliente(editora)
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    original = SessionStore.cycle_key
+    original = SessionStore.crear_con_clave_nueva
 
-    def rotar_y_cambiar(self: SessionStore) -> None:
-        original(self)
+    def rotar_y_cambiar(self: SessionStore) -> str | None:
+        anterior = original(self)
         self["cambio"] = True  # fuerza un UPDATE tras la rotación
+        return anterior
 
     with (
-        mock.patch.object(SessionStore, "cycle_key", autospec=True, side_effect=rotar_y_cambiar),
+        mock.patch.object(
+            SessionStore, "crear_con_clave_nueva", autospec=True, side_effect=rotar_y_cambiar
+        ),
         _actualizacion_de_sesion_falla("55P03", en=2) as actualizaciones,
     ):
         respuesta = post(cliente, "/auth/contrasena", datos)
@@ -376,14 +423,17 @@ def test_AC_TKT040_04_rotacion_con_la_fila_nueva_ya_borrada_es_401(
     401 sesion_expirada y cookie borrada; el efecto (contraseña cambiada) queda confirmado."""
     cliente = _cliente(editora)
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    original = SessionStore.cycle_key
+    original = SessionStore.crear_con_clave_nueva
 
-    def rotar_y_perder(self: SessionStore) -> None:
-        original(self)
+    def rotar_y_perder(self: SessionStore) -> str | None:
+        anterior = original(self)
         SesionPanel.objects.filter(session_key=self.session_key).delete()
         self["cambio"] = True  # fuerza un UPDATE posterior, que encuentra 0 filas
+        return anterior
 
-    with mock.patch.object(SessionStore, "cycle_key", autospec=True, side_effect=rotar_y_perder):
+    with mock.patch.object(
+        SessionStore, "crear_con_clave_nueva", autospec=True, side_effect=rotar_y_perder
+    ):
         respuesta = post(cliente, "/auth/contrasena", datos)
     problema(respuesta, 401, "sesion_expirada")
     assert _cookie_borrada(respuesta)
@@ -397,23 +447,29 @@ def test_AC_TKT040_04_rotacion_que_no_llega_a_crear_la_clave_nueva_es_401(
     editora: Staff,
 ) -> None:
     """Sin clave nueva y con el efecto confirmado: ni 409 ni seguir con el identificador
-    anterior (THREAT-002): 401 sesion_expirada y cookie borrada."""
+    anterior (THREAT-002): 401 sesion_expirada, cookie borrada y la anterior invalidada (TKT-044:
+    la INSERT de la rotación falla de verdad, sin simular `create`)."""
     cliente = _cliente(editora)
+    anterior = cliente.cookies["sessionid"].value
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    with mock.patch.object(SessionStore, "create", side_effect=_error_bd("55P03")):
+    with _alta_de_sesion_falla("55P03") as altas:
         respuesta = post(cliente, "/auth/contrasena", datos)
     problema(respuesta, 401, "sesion_expirada")
+    assert altas[0] == 1
     assert _cookie_borrada(respuesta)
     editora.cuenta.refresh_from_db()
     assert editora.cuenta.check_password(NUEVA)
+    assert not SesionPanel.objects.filter(session_key=anterior).exists()
 
 
 def test_AC_TKT040_04_rotacion_con_otro_error_al_crear_no_se_oculta(editora: Staff) -> None:
     cliente = _cliente(editora)
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    with mock.patch.object(SessionStore, "create", side_effect=_error_bd("XX000")):
+    anterior = cliente.cookies["sessionid"].value
+    with _alta_de_sesion_falla("XX000"):
         respuesta = post(cliente, "/auth/contrasena", datos)
     problema(respuesta, 500, "error_interno")
+    assert not SesionPanel.objects.filter(session_key=anterior).exists()  # TKT-044
 
 
 def test_AC_TKT040_04_mfa_verificado_con_borrado_de_la_sesion_anterior_bloqueado_es_200(
@@ -427,11 +483,13 @@ def test_AC_TKT040_04_mfa_verificado_con_borrado_de_la_sesion_anterior_bloqueado
         REMOTE_ADDR=IP,
     )
     assert respuesta.json()["paso_pendiente"] == "MFA"
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd("40P01")):
+    anterior = cliente.cookies["sessionid"].value
+    with _borrado_de_sesion_falla("40P01"):
         respuesta = post(cliente, "/auth/mfa/verificar", {"codigo": admin.codigo()}, REMOTE_ADDR=IP)
     assert respuesta.status_code == 200, respuesta.content
     assert respuesta.json()["paso_pendiente"] == "NINGUNO"
     assert _eventos(AccionAuditoria.LOGIN_OK, admin.cuenta) == 1
+    assert _revocada(anterior)  # TKT-044
 
 
 @pytest.mark.parametrize(
@@ -458,7 +516,7 @@ def test_AC_TKT040_04_login_con_borrado_de_la_sesion_anterior_bloqueado_entra(
 ) -> None:
     cliente = _cliente(editora)
     anterior = cliente.cookies["sessionid"].value
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd("55P03")):
+    with _borrado_de_sesion_falla("55P03"):
         respuesta = post(
             cliente,
             "/auth/login",
@@ -467,12 +525,13 @@ def test_AC_TKT040_04_login_con_borrado_de_la_sesion_anterior_bloqueado_entra(
         )
     assert respuesta.status_code == 200, respuesta.content
     assert respuesta.cookies["sessionid"].value not in ("", anterior)
+    assert _revocada(anterior)  # TKT-044
 
 
 def test_AC_TKT040_04_otro_error_tras_el_efecto_no_se_oculta(editora: Staff) -> None:
     cliente = _cliente(editora)
     datos = {"contrasena_actual": CONTRASENA, "contrasena_nueva": NUEVA}
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd("XX000")):
+    with _borrado_de_sesion_falla("XX000"):
         respuesta = post(cliente, "/auth/contrasena", datos)
     problema(respuesta, 500, "error_interno")
 
@@ -497,10 +556,12 @@ def test_AC_TKT040_04_bloqueo_de_mfa_con_borrado_de_sesion_bloqueado_sigue_429(
     )
     for _ in range(4):
         problema(post(cliente, "/auth/mfa/verificar", {"codigo": "000000"}), 401, "mfa_invalido")
-    with mock.patch.object(SessionStore, "delete", side_effect=_error_bd("55P03")):
+    anterior = cliente.cookies["sessionid"].value
+    with _borrado_de_sesion_falla("55P03"):
         respuesta = post(cliente, "/auth/mfa/verificar", {"codigo": "000000"})
     problema(respuesta, 429, "acceso_bloqueado_temporalmente")
     assert _cookie_borrada(respuesta)
+    assert _revocada(anterior)  # TKT-044
 
 
 # ---------------------------------------------------------------------------

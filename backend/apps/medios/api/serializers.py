@@ -4,15 +4,18 @@ validación de estructura (Skill_Backend Regla 02): el guardado vive en `apps.me
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterable
 from typing import Any
 
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.core.actores import actor_ref, precargar_actores
 from apps.core.api.serializers import EntradaEstricta, IdSerializerField, PaginaMetaSerializer
 from apps.core.esquema import id_contrato, url_http
-from apps.medios.models import EstadoMedio, FormatoDerivado, FormatoOrigen
+from apps.medios import selectors_panel
+from apps.medios.models import EstadoMedio, FormatoDerivado, FormatoOrigen, Medio
 
 
 def _con_limite(campo: Any, *, max_length: int | None = None, min_length: int | None = None) -> Any:
@@ -152,7 +155,44 @@ class ActorRefSerializer(serializers.Serializer[Any]):
         ref_name = "ActorRefMedio"
 
 
+_ATRIBUTO_RESUMEN_USOS = "_resumen_usos_panel"
+
+
+def precargar_usos(medios: Iterable[Medio]) -> None:
+    """Precarga `numero_usos`/`en_uso_publicado` de los `medios` que aún no lo tengan, en un
+    número FIJO de consultas para todo el lote (`selectors_panel.resumen_usos`, TKT-068; mismo
+    patrón que `precargar_actores`). Se guarda en la instancia, que vive lo que dura la
+    petición; tras llamarla, serializar el medio no consulta sus usos."""
+    pendientes = [m for m in medios if not hasattr(m, _ATRIBUTO_RESUMEN_USOS)]
+    if not pendientes:
+        return
+    resumen = selectors_panel.resumen_usos(m.pk for m in pendientes)
+    for medio in pendientes:
+        setattr(medio, _ATRIBUTO_RESUMEN_USOS, resumen.get(medio.pk, selectors_panel.SIN_USOS))
+
+
+def precargar_panel(medios: Iterable[Medio]) -> None:
+    """Todo lo que `MedioPanelSerializer` necesita además del medio con `licencia` y
+    `derivados`: cuentas de `subido_por` (ActorRef, TKT-062) y resumen de usos (TKT-068)."""
+    lote = list(medios)
+    precargar_actores(lote, "subido_por")
+    precargar_usos(lote)
+
+
+class _ListaMedioPanelSerializer(serializers.ListSerializer[Any]):
+    """`MedioPanelSerializer(many=True)`: precarga el lote entero antes de serializar cada medio
+    (sin N+1: el número de consultas no depende del tamaño de la página, TKT-068)."""
+
+    def to_representation(self, data: Any) -> list[Any]:
+        lote = list(data.all() if hasattr(data, "all") else data)
+        precargar_panel(lote)
+        return super().to_representation(lote)
+
+
 class MedioPanelSerializer(serializers.Serializer[Any]):
+    class Meta:
+        list_serializer_class = _ListaMedioPanelSerializer
+
     id = IdSerializerField()
     estado = serializers.ChoiceField(choices=EstadoMedio.choices)
     titulo_interno = serializers.CharField(max_length=150, allow_null=True)
@@ -187,6 +227,10 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
         from apps.medios import services
 
         medio = instance
+        # Criterio común de ActorRef (TKT-062) y resumen de usos (TKT-068). Los listados y la
+        # subida precargan todo el lote (`precargar_panel`); aquí no cuesta nada si ya está.
+        precargar_panel([medio])
+        resumen: selectors_panel.ResumenUsos = getattr(medio, _ATRIBUTO_RESUMEN_USOS)
         return {
             "id": medio.pk,
             "estado": medio.estado,
@@ -221,12 +265,9 @@ class MedioPanelSerializer(serializers.Serializer[Any]):
                 }
                 for d in medio.derivados.all()
             ],
-            "numero_usos": len(services.usos(medio.pk)),
-            "en_uso_publicado": services._en_uso_publicado(medio.pk),
-            "subido_por": {
-                "id": medio.subido_por_id,
-                "etiqueta": f"#{medio.subido_por_id}" if medio.subido_por_id else "sistema",
-            },
+            "numero_usos": resumen.numero_usos,
+            "en_uso_publicado": resumen.en_uso_publicado,
+            "subido_por": actor_ref(medio.subido_por),
             "subido_en": medio.subido_en,
             "actualizado_en": medio.actualizado_en,
             "pendientes_catalogacion": services._pendientes_catalogacion(

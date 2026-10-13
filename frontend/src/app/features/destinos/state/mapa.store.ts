@@ -9,7 +9,11 @@ import { DestinosRepositorio } from '../data/destinos.repositorio';
 export class MapaStore {
   private readonly repo = inject(DestinosRepositorio);
 
-  private readonly recurso = resource({ loader: () => this.repo.mapaCompleto() });
+  // `id` (TKT-016): ver destinos-listado.store.ts (hidratación sin esqueleto ni recreación del DOM).
+  private readonly recurso = resource({
+    id: 'recurso:destinos-mapa',
+    loader: () => this.repo.mapaCompleto(),
+  });
 
   // `hasValue()` evita que `.value()` lance al leerlo mientras el recurso está en error (sin
   // valor previo cargado con éxito).

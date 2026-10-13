@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { DATOS_ZONA_PANEL } from '../../../core/layout/shell-publico/zona';
 import { PanelAuthRepositorio } from '../data/panel-auth.repositorio';
@@ -258,7 +258,11 @@ describe('Panel · medios (TKT-022)', () => {
     };
     const duplicado: ResultadoArchivo = { ...aceptado, nombreArchivo: 'c.png', resultado: 'DUPLICADO', medio: null, medioExistenteId: 5 };
     const rechazado: ResultadoArchivo = { ...aceptado, nombreArchivo: 'd.png', resultado: 'RECHAZADO', medio: null, motivo: 'megapixeles_excedidos' };
-    const m = await montar('/panel/medios', (r) => r.subir.mockReturnValue(of([aceptado, duplicado, rechazado])));
+    // TKT-072: un archivo por petición; el doble responde según el nombre del archivo enviado.
+    const porNombre = new Map([aceptado, duplicado, rechazado].map((r) => [r.nombreArchivo, r]));
+    const m = await montar('/panel/medios', (r) =>
+      r.subir.mockImplementation((archivos: File[]) => of(archivos.map((f) => porNombre.get(f.name) ?? { ...aceptado, nombreArchivo: f.name }))),
+    );
     await vi.waitFor(() => expect(existe('medios-rejilla')).toBe(true));
     await pulsar(m, 'medios-subir');
     expect(el('subida-reglas').textContent).toContain('hasta 10 MB');
@@ -270,7 +274,11 @@ describe('Panel · medios (TKT-022)', () => {
     conArchivos(input, [archivo('a.gif', 'image/gif'), archivo('b.png'), archivo('c.png'), archivo('d.png')]);
     await estable(m.harness);
     await vi.waitFor(() => expect(existe('subida-resultados')).toBe(true));
-    expect(m.repo.subir.mock.calls[0][0].map((f: File) => f.name)).toEqual(['b.png', 'c.png', 'd.png']);
+    expect(m.repo.subir.mock.calls.map((llamada: unknown[]) => (llamada[0] as File[]).map((f) => f.name))).toEqual([
+      ['b.png'],
+      ['c.png'],
+      ['d.png'],
+    ]);
     expect(el('subida-resumen').textContent).toBe('1 aceptada, 2 rechazadas, 1 duplicada');
     expect(el('subida-anuncio').textContent).toBe('1 aceptada, 2 rechazadas, 1 duplicada');
     expect(el('subida-resultado-0').getAttribute('data-motivo')).toBe('formato_no_permitido');
@@ -297,7 +305,7 @@ describe('Panel · medios (TKT-022)', () => {
     Object.defineProperty(soltar, 'dataTransfer', { value: { files: [archivo('e.png')] } });
     zona.dispatchEvent(soltar);
     await estable(m.harness);
-    expect(m.repo.subir).toHaveBeenCalledTimes(2);
+    expect(m.repo.subir).toHaveBeenCalledTimes(4);
   });
 
   it('ALT-017 un fallo al subir se informa y «Reintentar» reenvía', async () => {
@@ -316,6 +324,32 @@ describe('Panel · medios (TKT-022)', () => {
     await pulsar(m, 'subida-reintentar');
     expect(intentos).toBe(2);
     expect(existe('subida-error-envio')).toBe(false);
+  });
+
+  it('AC_TKT072_08 lote: «Subiendo n de m», fallo con el nombre del archivo y recarga de los ya subidos', async () => {
+    const pendientes: Subject<readonly ResultadoArchivo[]>[] = [];
+    const m = await montar('/panel/medios', (r) =>
+      r.subir.mockImplementation((archivos: File[]): Observable<readonly ResultadoArchivo[]> => {
+        if (archivos[0].name === 'b.png') return throwError(() => http(502));
+        const respuesta = new Subject<readonly ResultadoArchivo[]>();
+        pendientes.push(respuesta);
+        return respuesta;
+      }),
+    );
+    await vi.waitFor(() => expect(existe('medios-rejilla')).toBe(true));
+    await pulsar(m, 'medios-subir');
+    const llamadasListado = m.repo.listar.mock.calls.length;
+    conArchivos(el<HTMLInputElement>('subida-archivos'), [archivo('a.png'), archivo('b.png')]);
+    await estable(m.harness);
+    expect(el('subida-progreso-etiqueta').textContent).toContain('Subiendo 1 de 2…');
+    pendientes[0].next([
+      { nombreArchivo: 'a.png', resultado: 'ACEPTADO', medio: medio({ id: 31, estado: 'PENDIENTE_METADATOS' }), medioExistenteId: null, motivo: null, local: false },
+    ]);
+    pendientes[0].complete();
+    await vi.waitFor(() => expect(existe('subida-error-envio')).toBe(true));
+    expect(el('subida-error-archivo').textContent).toContain('«b.png»');
+    expect(el('subida-resultado-0').getAttribute('data-resultado')).toBe('ACEPTADO');
+    await vi.waitFor(() => expect(m.repo.listar.mock.calls.length).toBeGreaterThan(llamadasListado));
   });
 
   it('AC_TKT022_03 detalle: ficha, validación previa con foco, guardado que lo deja DISPONIBLE', async () => {

@@ -65,7 +65,7 @@
           [alto]="portada.alto"
           [derivados]="portada.derivados"
           relacion="16 / 9"
-          sizes="100vw"
+          [sizes]="sizesPortada"
           [prioritaria]="true"
         />
         <figcaption>Foto: {{ portada.autorCredito }} · {{ portada.licenciaNombre }}</figcaption>
@@ -126,6 +126,8 @@
                 class="miniatura"
                 [attr.aria-label]="'Ver foto ' + (indice + 1) + ' en grande'"
                 data-testid="galeria-miniatura"
+                (pointerdown)="precargarVisor()"
+                (focus)="precargarVisor()"
                 (click)="abrirGaleria(indice)"
               >
                 <app-imagen-responsiva

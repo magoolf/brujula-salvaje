@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 MINIMO_RELACIONADOS = 3
 MINIMO_PALABRAS_DESCRIPCION_DESTINO = 600
@@ -46,13 +46,36 @@ def _requerido(valor: object, campo: str, mensaje: str) -> dict[str, object] | N
     return None
 
 
+# RULE-009 con el criterio de DEC-AUTO-977: una fecha es "futura" solo si lo es en TODAS las zonas
+# horarias, es decir, si supera la fecha actual en UTC+14 (la zona más adelantada). Así el servidor
+# (en UTC) no rechaza el "hoy" de un editor que ya está en el día siguiente, ni el cliente (con su
+# fecha local) y el servidor discrepan. Antes se usaba `date.today()` del proceso: dependía de la
+# zona horaria del servidor.
+DESFASE_ZONA_MAS_ADELANTADA = timedelta(hours=14)
+MENSAJE_FECHA_FUTURA = "La fecha de última revisión no puede ser futura."
+
+
+def _ahora_utc() -> datetime:
+    return datetime.now(UTC)
+
+
+def fecha_maxima_revision(ahora: datetime | None = None) -> date:
+    """Mayor `fecha_ultima_revision` admitida ahora: la fecha actual en UTC+14 (DEC-AUTO-977)."""
+    instante = (ahora or _ahora_utc()).astimezone(UTC)
+    return (instante + DESFASE_ZONA_MAS_ADELANTADA).date()
+
+
+def es_fecha_futura(valor: date | None, ahora: datetime | None = None) -> bool:
+    return valor is not None and valor > fecha_maxima_revision(ahora)
+
+
 def _fecha_no_futura(
     valor: date | None, campo: str = "fecha_ultima_revision"
 ) -> dict[str, object] | None:
     if valor is None:
         return _err(campo, "requerido", "La fecha de última revisión es obligatoria.")
-    if valor > date.today():
-        return _err(campo, "fecha_futura", "La fecha de última revisión no puede ser futura.")
+    if es_fecha_futura(valor):
+        return _err(campo, "fecha_futura", MENSAJE_FECHA_FUTURA)
     return None
 
 

@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from types import MappingProxyType
+from typing import Any, ClassVar, cast
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -31,6 +33,7 @@ from apps.medios.api.serializers import (
     ResultadoSubidaSerializer,
     SubidaMediosEntradaSerializer,
     UsoMedioSerializer,
+    precargar_panel,
 )
 from apps.medios.models import EstadoMedio, FormatoDerivado, MedioDerivado
 
@@ -99,16 +102,26 @@ class _VistaMedios(APIView):
 
 
 class _VistaMediosMixta(_VistaMedios):
+    """Vista con lecturas y escrituras: el ámbito de limitación (x-limite-tasa del contrato) se
+    decide por método ANTES de `super().initial()`, que es donde DRF ejecuta `check_throttles`
+    (TKT-065). Asignarlo dentro del handler llega tarde: la cuota ya se consumió en otro ámbito.
+    `ambitos_por_metodo` declara las excepciones a la regla lectura/escritura."""
+
+    ambitos_por_metodo: ClassVar[Mapping[str, str]] = MappingProxyType({})
+
     def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
-        self.throttle_scope = (
-            "panel-lectura" if request.method in SAFE_METHODS else "panel-escritura"
+        metodo = (request.method or "").upper()
+        self.throttle_scope = self.ambitos_por_metodo.get(metodo) or (
+            "panel-lectura" if metodo in SAFE_METHODS else "panel-escritura"
         )
         super().initial(request, *args, **kwargs)
 
 
 class ListaMedios(_VistaMediosMixta):
     tamano_pagina = 48
-    throttle_scope_subida = "panel-subida"
+    # Contrato: `POST /panel/medios` (panelSubirMedios) es `x-limite-tasa: panel-subida`
+    # (20/min por cuenta), no panel-escritura (TKT-065).
+    ambitos_por_metodo: ClassVar[Mapping[str, str]] = MappingProxyType({"POST": "panel-subida"})
     # `POST` (subida) es el único endpoint multipart del panel (contrato: `multipart/form-data`,
     # PARAMETRO_IDEMPOTENCY_KEY + `archivos`); el resto del panel es JSON-only por diseño
     # (`REST_FRAMEWORK["DEFAULT_PARSER_CLASSES"]` en config/settings/base.py, fuera de
@@ -143,6 +156,8 @@ class ListaMedios(_VistaMediosMixta):
         )
         paginador = PaginacionNumerada()
         pagina = paginador.paginate_queryset(qs, request, view=self)
+        # `MedioPanelSerializer(many=True)` precarga la página entera (`subido_por` y usos) en un
+        # número fijo de consultas (TKT-062, TKT-068).
         return paginador.get_paginated_response(
             cast("list[Any]", MedioPanelSerializer(pagina, many=True).data)
         )
@@ -155,14 +170,20 @@ class ListaMedios(_VistaMediosMixta):
         responses={200: ResultadoSubidaSerializer},
     )
     def post(self, request: Request) -> Response:
-        self.throttle_scope = self.throttle_scope_subida
         archivos = request.FILES.getlist("archivos")
         if not archivos or len(archivos) > MAXIMO_ARCHIVOS:
             raise ParametroInvalido(errors={"archivos": ["Sube entre 1 y 10 archivos."]})
         actor = cuenta_de(request)
+        # TKT-071 (DEC-AUTO-1315): validación, resaneado y codificación (segundos de CPU por foto)
+        # ANTES de `idempotencia.ejecutar`, que abre la transacción: dentro, la conexión de app_rw
+        # quedaba ociosa más de `idle_in_transaction_session_timeout` (30 s) con fotos grandes y
+        # detalladas y PostgreSQL la cortaba (500). La preparación no escribe nada: una repetición
+        # con la misma Idempotency-Key solo reproduce la respuesta guardada.
+        preparadas = services.preparar_subida(archivos)
 
         def efecto() -> idempotencia.Resultado:
-            resultados = services.subir_medios(actor.pk, archivos)
+            resultados = services.persistir_subida(actor.pk, preparadas)
+            precargar_panel([r.medio for r in resultados if r.medio is not None])
             cuerpo = ResultadoSubidaSerializer({"resultados": resultados}).data
             return idempotencia.Resultado(codigo_http=status.HTTP_200_OK, cuerpo=cuerpo)
 

@@ -14,6 +14,12 @@ Actualizado por **TKT-OPS-016** (F7, HIGH, condición de F9). El limitador de bo
 Actualizado por **TKT-OPS-017** (F7, URGENTE: CVE-2026-103111 HIGH en `libpcre2-8-0` 10.46-1~deb13u2 de las 5 imágenes Debian; actualización fijada a 10.46-1~deb13u3 de trixie-security, sin tocar `.trivyignore`, 2026-10-01): ver §24 (§23 reservado para TKT-OPS-016, PR #38).
 Actualizado por **TKT-OPS-019** (F7, LOW, hallazgos F-1/F-2 de la QA de TKT-OPS-016: la location de assets envía al SSR solo la ruta, sin query; ancla `\z`; sin `X-Forwarded-Host`/`X-Forwarded-Proto`; RSK-OPS-041 medido: 8 → 4 líneas, 2026-10-01): ver §25 y **ADR-OPS-001** (punto 7).
 Actualizado por **TKT-OPS-024** (F7, HIGH: CVE-2026-103111 en `pcre2` 10.48-r0 de la imagen `brujula/proxy` (alpine 3.24.2); `pcre2=10.49-r0` fijado en el Dockerfile, sin tocar `.trivyignore` ni la base, 2026-10-01): ver §27.
+Actualizado por **TKT-OPS-033** (F6, MEDIUM: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub: espejo `mirror.gcr.io` en el Engine y en BuildKit del runner + reintentos con backoff, sin credenciales nuevas; FROM y digests sin cambios, 2026-10-09): ver §34.
+Actualizado por **TKT-OPS-008** (F7, condición de F9: reinstalación de medios y libro tras pérdida total (RSK-OPS-027), copia y restauración sin tmpfs (RSK-OPS-029), simulacro AC-054 reproducible en local y en CI, post-restore que no arranca la app si falta un paso (DEC-AUTO-908), runbook con perfil ops y libro v2 (CHG-DB-003), precondición de tipos/dominios (OBS-QAOPS007-03), 2026-10-11): ver §35. **Runbook de restauración vigente: §35.6.**
+Actualizado por **TKT-OPS-009** (F7, RSK-OPS-001: política de trivy sobre canales implícitos: cualquier `TRIVY_*`, configuración generada, escrituras a `.trivyignore`, gate que no puede dejar de fallar, `sha256sum -c` junto a la instalación, guardia de ejecución; QA-OPS006-04/05, OBS-C3-1..3, 2026-10-11): ver §36. **La lista blanca vigente es §19.14.2 + §36.3.**
+Actualizado por **TKT-OPS-034** (F7, MEDIUM, OBS-QA071-02/03: un error del proxy (502/503/504 del upstream, 429 del borde) sobre una subida > 2 MB a `/api/v1/panel/medios` salía como 413 text/html; `client_max_body_size 0` en las locations internas `/_errores_proxy/*` + regresión en el smoke de CI, 2026-10-12): ver §37.
+Actualizado por **TKT-OPS-035** (F7, MEDIUM, NV-QA034-03: 3 subidas anónimas de 104 MB a `/api/v1/panel/medios` mataban el proxy por OOM (cuerpo en el tmpfs); temporales de nginx en el volumen `proxy_temporal`, `limit_conn` en medios, `/tmp` con `size=16m` + regresión en el smoke de CI, 2026-10-12): ver §38.
+Actualizado por **TKT-OPS-037** (F7, MEDIUM, F-035-01 de la QA de TKT-OPS-035: el tope global `limit_conn subidas_total 16` de `/api/v1/panel/medios` lo agotaban 8 IP anónimas en goteo y bloqueaba con 429 todas las subidas del panel; se elimina y se conserva `subidas_ip 2`; cifras de RSK-OPS-060/061 corregidas, O-035-03 documentado, regresión estática en el smoke de CI, 2026-10-12): ver §40 (§39 es TKT-OPS-036).
 Entorno: solo local con Docker Compose. Sin despliegue, sin costes y sin secretos reales (CLAUDE.md §0.5, DEC-AUTO-002).
 Host de validación: Windows 11, Docker Engine 29.6.1 (Docker Desktop, linux/amd64), Compose v5.2.0, buildx v0.35.0.
 
@@ -56,7 +62,8 @@ Dejar preparados, antes de F7, la matriz de interoperabilidad, el entorno Compos
 - **Copias**:
   - `scripts/ops/backup.sh`: pg_dump custom `--no-unlogged-table-data` con `app_backup` + manifiesto sha256 generado desde la BD + tar de medios + libro de anonimizaciones; cifrado con age (clave pública); sumas antes y después de cifrar; rotación de 30. Falla si la clave es el placeholder.
   - `scripts/ops/restore-local.sh`: simulacro AC-054, solo en local. Exige `--confirmar-entorno-local` y `RESTORE_ENV=local`.
-  - `scripts/ops/post-restore-local.sh` (TKT-OPS-007): pasos de aplicación posteriores a la restauración (migrate, comandos de ADR-DB-004 §4, arranque y `/health/ready`). Runbook completo en §18.9.
+  - `scripts/ops/post-restore-local.sh` (TKT-OPS-007, TKT-OPS-008): pasos de aplicación posteriores a la restauración (migrate, comandos de ADR-DB-004 §4, arranque y `/health/ready`). Runbook completo en §35.6.
+  - `scripts/ops/reinstalar-volumenes.sh` y servicio `reinstalar-volumenes` (perfil `restauracion`), `scripts/ops/simulacro-ac054.sh` y `.github/workflows/simulacro-ac054.yaml` (TKT-OPS-008): §35.
   - `infra/backup/crontab`: 01:30 UTC.
 - **Entorno**: `.env.example` documentado y `scripts/ops/init-env.sh`, que genera el `.env` local con valores aleatorios y nunca sobrescribe uno existente.
 - **CI**: `.github/workflows/ci.yaml` (§8.3).
@@ -1202,6 +1209,8 @@ Dos simulacros previos durante el desarrollo midieron 46 s y 57 s. El de 46 s to
 - Job de CI que ejecute el simulacro: `.github/workflows/**` está fuera de los `archivos_permitidos` de este ticket (§18.12).
 
 ### 18.9 Runbook de restauración (AC-054, simulacro mensual; ADR-DB-004 §4)
+
+> **SUSTITUIDO por §35.6 (TKT-OPS-008).** Se conserva como registro histórico. `LIBRO_RESTORE_DIR` ya no se admite y `MEDIA_RESTORE_DIR=/tmp/medios` usaba tmpfs (RSK-OPS-029).
 Solo en entornos locales o efímeros. Restaurar sobre datos reales, usar la clave age real o hacerlo en un entorno compartido es **Puerta Humana** (CLAUDE.md §0.5). Se ejecuta en bash desde la raíz del repo (en Windows, Git Bash con `MSYS_NO_PATHCONV=1` en las órdenes con `-v`).
 
 ```bash
@@ -2689,3 +2698,786 @@ Sin cambios en compose, redes, volúmenes ni variables. El build de `scheduler` 
 
 ### 33.9 Próximo agente
 **Orquestador**: QA del PR (regresión de scheduler/backup) e integración sin editar contenido; después, sincronizar los PR abiertos con `main` y relanzar su CI.
+
+## 34. TKT-OPS-033: el CI deja de depender de la disponibilidad y del límite anónimo de Docker Hub (F6, MEDIUM; desbloquea los PR; DEC-AUTO-989)
+
+### 34.1 Estado
+COMPLETADO en la rama `tkt-ops-033-espejo-registro`. Sin despliegue, sin secretos ni credenciales nuevas y sin costes (CLAUDE.md §0.5): no se autentica en Docker Hub (eso exigiría un secreto: Puerta Humana). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 34.2 Objetivo
+Desde la tarde del 2026-10-09 el job `infraestructura (compose + secret scan)` falla en todos los PR al construir la imagen de la BD: `failed to resolve source metadata for docker.io/docker/dockerfile:1: failed to authorize: failed to fetch oauth token: ... POST https://auth.docker.io/token: 504 Gateway Timeout` (antes, 429 por el límite anónimo). Runs 37993167451 (PR #79, 3 intentos) y 37991929668 (PR #75, 4 intentos). `backend`, `frontend` e `images` dependen de él y quedan saltados: el CI no puede ponerse verde.
+
+### 34.3 Diagnóstico y alternativas
+- El fallo ocurre al pedir el **token anónimo** a `auth.docker.io` (desde local responde 200): es la ruta runner de GitHub -> Docker Hub. Todo `FROM` de Docker Hub y el frontend `# syntax=docker/dockerfile:1` pasan por ahí; `ghcr.io/astral-sh/uv` no.
+- `mirror.gcr.io` (espejo público de Docker Hub de Google) sirve **sin token** (HTTP 200 anónimo, comprobado el 2026-10-09) los 7 objetos necesarios: `docker/dockerfile:1` y, **por el mismo digest**, postgres, golang, debian, nginx-unprivileged, python y node.
+- **A. Cambiar los `FROM` a `mirror.gcr.io/...@sha256:`** (descartada): Dependabot consulta la lista de tags del registro de la referencia y la de `mirror.gcr.io` es parcial (caché bajo demanda: `library/postgres` lista 1011 tags y 9292 manifiestos, solo 645 con tag); cambiaría además los nombres de dependencia (grupos `postgres`/`golang`) y la receta supercronic, y ataría el build local a Google.
+- **B. Quitar `# syntax=`** (descartada): los Dockerfile usan `RUN --mount=type=cache` y `COPY --chmod`; sin la directiva dependerían de la versión de BuildKit embebida en cada Engine. Y no resuelve las imágenes base, que también van a Docker Hub.
+- **C. `registry-mirrors` a nivel de Engine y de BuildKit del runner** (ELEGIDA): ningún Dockerfile cambia (mismas referencias `docker.io` literales con el mismo digest; contenido direccionado: el espejo no puede servir otro contenido para un digest fijado); Dependabot, `dependabot_cobertura.sh`, `supercronic_receta.sh` y `politica_trivy.py` siguen exactamente igual. Si el espejo falla, el Engine/BuildKit prueban después `registry-1.docker.io` (degradación al comportamiento anterior).
+- **Caché de capas entre jobs** (no implementada): con espejo + reintentos no hace falta para la disponibilidad; `type=gha` exigiría cambiar el driver de los jobs `infra`/`backend` y exportar caché desde compose. Queda como mejora opcional de tiempo, no de robustez.
+
+### 34.4 Cambios realizados
+- `infra/ci/espejo_registro.sh` (nuevo): fusiona `"registry-mirrors": ["https://mirror.gcr.io"]` en el `/etc/docker/daemon.json` existente del runner (con `jq`; conserva el resto de claves, espejo primero y sin duplicados), reinicia el Engine, espera a que responda y **falla** si `docker info` no informa del espejo. Variable opcional `ESPEJO_REGISTRO` (validada `https://<host>`).
+- `infra/ci/buildkitd.toml` (nuevo): `[registry."docker.io"] mirrors = ["mirror.gcr.io"]` para el builder `docker-container` de `setup-buildx-action` (job `images`, entrada `buildkitd-config`).
+- `infra/ci/reintentar.sh` (nuevo) + `infra/ci/reintentar_controles.sh` (nuevo): reintentos con backoff exponencial (3 intentos; esperas de 20 s y 40 s) que conservan el código de salida del último intento (un Dockerfile roto sigue fallando; nunca convierte un fallo en éxito) y dejan un `::warning::` por reintento. Controles: P1 éxito al primer intento, P2 éxito al tercero, N1 agota intentos y conserva rc=7, N2/N3/N4 argumentos inválidos (rc=2).
+- `.github/workflows/ci.yaml`:
+  - job `infra`: controles de `reintentar.sh` + espejo en el Engine justo tras el checkout; `INFRA-DB-000` construye `db` con `reintentar.sh 3 20 -- docker compose ... build db` antes del `up --wait` (el `up` ya no construye).
+  - job `backend`: espejo en el Engine + el mismo `build db` con reintentos antes del `up`.
+  - job `images`: espejo en el Engine **antes** de `setup-buildx-action` (que descarga `moby/buildkit` de Docker Hub a través del Engine) + `buildkitd-config: infra/ci/buildkitd.toml`; `docker compose --profile ops build --pull` con `reintentar.sh 3 20`.
+- Sin cambios en Dockerfile, compose, `.github/dependabot.yml`, `.trivyignore` ni `politica_trivy.py`.
+
+### 34.5 Versiones aprobadas
+Sin cambios de versiones ni de digests. Referencias `FROM` idénticas (docker.io, tag exacto + `@sha256`). El frontend de sintaxis sigue siendo `docker/dockerfile:1` (comportamiento previo), ahora resuelto a través del espejo.
+
+### 34.6 Infraestructura / dependencias / variables de entorno
+Sin cambios en compose, redes, volúmenes ni `.env.example`. El runner de CI necesita salida a `mirror.gcr.io` (si no la tiene, cae a Docker Hub). Ningún cambio en el entorno local del desarrollador (el espejo solo se configura en el runner).
+
+### 34.7 Validaciones ejecutadas (2026-10-09, local, Docker 29.6.1 / buildx 0.35.0 / BuildKit v0.33.1)
+- `curl` anónimo a `https://mirror.gcr.io/v2/<repo>/manifests/<digest>` de las 6 imágenes base y de `docker/dockerfile:1`: HTTP 200 en los 7.
+- Builder `docker-container` local creado con `infra/ci/buildkitd.toml` (config cargada en el contenedor: `[registry.'docker.io'] mirrors = ['mirror.gcr.io']`): resolución de `docker/dockerfile:1` y de las referencias base sin ninguna línea `[auth]` hacia Docker Hub en los logs de build. Resultado por imagen en el HANDOFF_ENVELOPE (el driver `docker-container` de Docker Desktop local cancela a veces la exportación por tarball al Engine: problema del host, no del CI).
+- `reintentar_controles.sh`: 6/6 OK. `politica_trivy_controles.sh`: 66 controles, 0 fallos; `politica_trivy.sh .`: OK (3 invocaciones, 1 gate, 16 excepciones). `dependabot_cobertura_controles.sh`: 11 controles, 0 fallos; `dependabot_cobertura.sh .`: OK. `supercronic_receta_controles.sh` (P0 + N1..N6) y `supercronic_receta.sh .`: OK (idéntica). `ci.yaml` carga con PyYAML.
+- NOT_RUN en local: `espejo_registro.sh` (reinicia el Engine con `sudo systemctl`; no se ejecuta contra el Docker Desktop del usuario). Se valida en el CI real del PR.
+
+### 34.8 Riesgos / pendientes
+- **RSK-OPS-033-A (LOW)**: dependencia de un tercero (Google) para el espejo. Mitigación: degradación automática a Docker Hub y reintentos; integridad garantizada por los digests.
+- **RSK-OPS-033-B (LOW)**: `mirror.gcr.io` es caché bajo demanda: un digest recién publicado (p. ej. en un PR de Dependabot) puede no estar todavía; entonces se descarga de Docker Hub como antes (mismo riesgo previo, solo en ese PR).
+- **RSK-OPS-033-C (LOW, previo)**: `# syntax=docker/dockerfile:1` es un tag mayor flotante que Dependabot no actualiza. No se cambia en este ticket (cambio mínimo); fijarlo por digest sería un ticket aparte.
+- Docker Hub autenticado (límite mayor) sigue siendo una opción solo con aprobación humana (secreto, CLAUDE.md §0.5).
+
+### 34.9 Archivos modificados
+`.github/workflows/ci.yaml`, `infra/ci/espejo_registro.sh` (nuevo), `infra/ci/buildkitd.toml` (nuevo), `infra/ci/reintentar.sh` (nuevo), `infra/ci/reintentar_controles.sh` (nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 34.10 Próximo agente
+**Orquestador**: revisión/QA del PR e integración sin editar contenido; después, sincronizar con `main` los PR bloqueados (#79, #75 y los de Dependabot) y relanzar su CI.
+
+## 35. TKT-OPS-008: restauración AC-054 reproducible (medios tras pérdida total, sin tmpfs, simulacro en CI, post-restore que no arranca la app si falta un paso, libro v2) (F7, condición de F9)
+
+### 35.1 Estado
+**COMPLETADO** en la rama `tkt-ops-008-restore-medios`. Sin despliegue, sin secretos reales (clave age **efímera** generada en cada simulacro) y sin costes (CLAUDE.md §0.5). El simulacro AC-054 **se superó en local** de extremo a extremo (§35.8). El resultado del job de CI se reporta en el HANDOFF_ENVELOPE.
+
+### 35.2 Objetivo y estado de cada sub-ítem en `main` (antes de este ticket)
+Se revisaron DEVOPS_HANDOFF §18, `audit_log.md`, `kanban.md` y `scripts/ops/` sobre `origin/main` (fb7210d). Ningún ticket posterior a TKT-OPS-007 (PR #16) tocó estos ítems, salvo RSK-OPS-030.
+
+| Sub-ítem | Estado en `main` | Resolución |
+|---|---|---|
+| RSK-OPS-027: reinstalar medios tras pérdida total del volumen | ABIERTO (§18.10) | Resuelto aquí: §35.3 (DEC-AUTO-1200) |
+| RSK-OPS-029: copia y restauración en el tmpfs de un contenedor de 512 MiB | ABIERTO; se había marcado **[INFERIDO]** | **Confirmado y medido** (OOM kill con 1,5 GiB de medios, §35.8) y resuelto aquí (DEC-AUTO-1201) |
+| Job de CI del simulacro AC-054 | ABIERTO (recomendación de §18.12) | Resuelto aquí: workflow `simulacro-ac054` (DEC-AUTO-1202) |
+| DEC-AUTO-908 (NV-QAOPS007-01): post-restore abría la app aunque faltaran pasos | ABIERTO: `post-restore-local.sh` arrancaba con `up -d --wait` y salía con exit 5 | Resuelto aquí: la app no se arranca salvo `--arrancar-incompleto` (DEC-AUTO-1205) |
+| Runbook: perfil ops, LIBRO_AUSENTE y avisos del libro v2 (CHG-DB-003) | ABIERTO: el runbook paraba `--profile ops` y no lo volvía a levantar; ni `--libro-vacio-confirmado` ni los avisos de ADR-DB-004 §4.4 estaban integrados | Resuelto aquí: §35.6 y `post-restore-local.sh` (DEC-AUTO-1203, DEC-AUTO-1206) |
+| OBS-QAOPS007-03: precondición de tipos/dominios | ABIERTO. El texto original de la observación **no se conserva** (ni en `audit_log.md` ni en el PR #16). Se interpreta por el código: la precondición de BD limpia solo contaba relaciones y funciones | Resuelto aquí según esa interpretación (DEC-AUTO-1204) |
+| RSK-OPS-030: los 6 comandos de ADR-DB-004 §4 no existían | **YA RESUELTO** por TKT-005: commits `1018f01` (purgar_ops, purgar_sesiones, reindexar_busqueda, verificar_busqueda) y `1b2cb0c` (anonimizar_cuentas, reaplicar_anonimizaciones, purgar_auditoria), merge `3e042e8` (QA PASS 2/3) | Verificado: los 6 se ejecutan en el simulacro con exit 0 y `post-restore-local.sh` termina con exit 0 |
+
+**Hallazgo nuevo, corregido aquí (DEC-AUTO-1207, MEDIUM)**: desde TKT-017 (`9fc89cf`, 2026-09-30), la BD guarda las rutas de los medios **sin el área física** (`derivados/<hash>-800.avif`). El área se resuelve por el estado: el original siempre en `privado/` y los derivados en `publico/` si el medio está DISPONIBLE, o en `privado/` si no. Pero el manifiesto de `backup.sh` seguía usando la ruta de la BD tal cual, así que con datos reales **`sha256sum -c` no encontraba ningún archivo** (1464 «No such file or directory» en el simulacro) y la verificación de AC-054 fallaba siempre. TKT-OPS-007 no lo detectó porque usó filas insertadas a mano con el prefijo. Las copias hechas con el `backup.sh` anterior tienen un manifiesto inservible para la verificación estricta.
+
+### 35.3 Cambios realizados
+
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| **Reinstalación de medios y libro** (RSK-OPS-027). Nuevo servicio one-shot `reinstalar-volumenes` con perfil `restauracion` (nunca arranca con `up`). Imagen `brujula/db`, root **sin** DAC_OVERRIDE: solo CHOWN y FOWNER (propietario y modo) y DAC_READ_SEARCH (leer el staging del uid 999 y verificar los medios privados 0640). `network_mode: none`, rootfs de solo lectura, 256 MiB. Monta `backups` en solo lectura, `media`, `ops_libro` y `./scripts/ops` en solo lectura. Modos: `--medios` (pérdida total: el volumen debe estar vacío, salvo `publico/` y `privado/` vacíos de init-volumes; si no, exit 3), `--verificar-medios` (volumen superviviente: solo verificación) y `--libro-copia` (instala la COPIA del libro con 0640 y 10001:10001 si **no** hay libro vivo; si lo hay, exit 3). Antes de extraer valida el tar: sha256 contra el staging, solo ficheros regulares y directorios, todo de 10001/10001, sin setuid/setgid/sticky, sin enlaces simbólicos ni duros, sin rutas absolutas ni `..` (si no, exit 5, antes de escribir nada). Extrae conservando propietario, modo y fecha y después ejecuta `sha256sum -c --strict` del manifiesto **en el volumen**. Si falla a mitad, devuelve los directorios raíz a 10001 | `scripts/ops/reinstalar-volumenes.sh` (nuevo), `compose.yaml` | DEC-AUTO-1200 |
+| `restore-local.sh`: nuevo modo `RESTORE_STAGING_DIR` (recomendado). Deja en un directorio vacío del volumen de copias `medios.tar` (en claro, verificado contra SHA256SUMS), `medios.tar.sha256`, el manifiesto, la copia del libro y `COPIA`. `MEDIA_RESTORE_DIR` se mantiene (solo verificación). Hay que definir exactamente una de las dos y debe ser una ruta absoluta. `LIBRO_RESTORE_DIR` **se retira** (exit 2 si se define): copiaba el libro como uid 999 con 0600 y la aplicación (10001) no podía leerlo (LIBRO_ILEGIBLE) | `scripts/ops/restore-local.sh` | DEC-AUTO-1200, DEC-AUTO-1206 |
+| **Sin tmpfs** (RSK-OPS-029). En `backup.sh` y `restore-local.sh`, el directorio de trabajo pasa de `/tmp` (tmpfs = memoria del cgroup) a **disco**, en el volumen de copias (`.trabajo-copia.*` / `.trabajo-restaurar.*`, 0700, uid 999, con limpieza al terminar y de los restos de una ejecución interrumpida). El tar de medios **nunca** existe en claro en la copia: `tar → tee → age`, con el sha256 en claro calculado por un `sha256sum` sobre una FIFO en segundo plano, esperado con `wait` y validado. En la restauración, `age -d → tee → staging` (o `tar -x`), con el mismo sha256 comparado con SHA256SUMS. El dump en claro se borra en cuanto se restaura. **Formato de copia sin cambios** (mismos nombres, mismo SHA256SUMS con la línea del tar): las copias antiguas siguen siendo restaurables | `scripts/ops/backup.sh`, `scripts/ops/restore-local.sh` | DEC-AUTO-1201 |
+| Precondición de BD limpia ampliada (OBS-QAOPS007-03). Además de relaciones y funciones, el esquema `app` debe tener 0 tipos (dominios, enums, rangos, compuestos sueltos; `typrelid = 0`), colaciones, operadores, familias de operadores, configuraciones y diccionarios de búsqueda de texto y conversiones. Si no, exit 4 sin tocar nada | `scripts/ops/restore-local.sh` | DEC-AUTO-1204 |
+| `post-restore-local.sh` (DEC-AUTO-908). (a) Si falta algún comando (`NO_DISPONIBLE`), la app **NO se arranca** (exit 5); `--arrancar-incompleto` la arranca y sigue saliendo con exit 5. (b) Un fallo de un paso: exit 1 sin arrancar nada. Si es LIBRO_AUSENTE, se muestran las dos salidas de ADR-DB-004 §4.4 (decisión humana): `reinstalar-volumenes --libro-copia` o `--libro-vacio-confirmado` (nueva opción, que se pasa a `reaplicar_anonimizaciones`). LIBRO_ILEGIBLE y LIBRO_CORRUPTO tienen su propio mensaje. (c) Avisos del libro v2 (`OMITIDA_ULTIMO_ADMIN`, `INCONSISTENTE`, `REACTIVADA_NO_REPRODUCIDA`, `OMITIDA_REACTIVADA`, `avisos_libro`, `LIBRO_AUSENTE_SOLO_BD`) destacados como AVISO en el resumen, sin cambiar el exit 0 del comando (ADR-DB-004 §4.4). (d) El arranque incluye el **perfil ops** (scheduler + backup) por defecto (`--sin-perfil-ops` para no incluirlo): primero la app con `up --wait` y `/health/ready`, y después `scheduler backup` SIN `--wait` (tienen `HEALTHCHECK NONE` y la versión de compose del runner falla con "has no healthcheck configured"), con la exigencia explícita de que ambos queden en marcha. (e) `up --no-build`: se arrancan las imágenes existentes | `scripts/ops/post-restore-local.sh` | DEC-AUTO-1205, DEC-AUTO-1203 |
+| Controles de `post-restore-local.sh` con un doble de `docker` (sin contenedores, segundos): 13 casos (C1 completo; C2/C3/C12 salvaguardas; C4 app en marcha; C5 falta un comando y no arranca; C6 `--arrancar-incompleto`; C7 LIBRO_AUSENTE se detiene antes de `anonimizar_cuentas`; C8 `--libro-vacio-confirmado`; C9 avisos; C10 `--sin-perfil-ops`; C11 LIBRO_CORRUPTO; C13 el perfil ops no queda en marcha). En el job obligatorio `infra` y en el simulacro | `scripts/ops/post-restore-local_controles.sh` (nuevo), `.github/workflows/ci.yaml` | DEC-AUTO-1205 |
+| **Simulacro AC-054 de extremo a extremo** en un script reutilizable (local y CI): prepara una clave age efímera, el stack, la semilla real (`cargar_semilla`: 98 entidades, 1464 archivos de medios) y una línea de libro; hace la copia y la instantánea de referencia; provoca una **pérdida total** (volúmenes `db_data`, `media` y `ops_libro`) y recrea la BD con INFRA-DB-000. Ejecuta los pasos y controles de §35.6 y compara la BD (conteo + md5 del contenido de cada tabla, privilegios de relaciones/columnas/esquemas/por defecto/funciones/extensiones/BD, triggers y secuencias) y los volúmenes (propietario, modo, tipo y sha256 de cada entrada, más el libro). Termina con `/health/ready`, `/api/v1/publico/inicio`, SSR 200, un medio público servido por el proxy con su sha256, y el RTO. Salvaguardas: `RESTORE_ENV=local`, `COMPOSE_PROJECT_NAME` explícito distinto de `brujula` y `--confirmar-destruccion <proyecto>` | `scripts/ops/simulacro-ac054.sh` (nuevo) | DEC-AUTO-1202 |
+| Workflow **separado y NO obligatorio** `simulacro-ac054`: `pull_request` con filtro de rutas (scripts de copia y restauración, `infra/backup/**`, `infra/db/**`, `compose.yaml`, migraciones, `apps/ops`, libro y servicios de cuentas, el propio workflow), `schedule` mensual (día 3, 04:23 UTC; ADR-DB-004 §4 exige un simulacro mensual) y `workflow_dispatch` (p. ej. antes de F9). Mismo arranque que el job `images` (espejo, buildx con `buildkitd.toml`, reintentos). Publica la evidencia como artefacto (30 días) y termina siempre con `down -v`. En el job `infra` se añade `docker compose --profile ops --profile restauracion config --quiet` | `.github/workflows/simulacro-ac054.yaml` (nuevo), `.github/workflows/ci.yaml` | DEC-AUTO-1202 |
+| Manifiesto de medios con el área física (hallazgo §35.2): `'privado/' \|\| archivo_saneado_ruta` y, para los derivados, `publico/` o `privado/` según `medio.estado = 'DISPONIBLE'` | `scripts/ops/backup.sh` | DEC-AUTO-1207 |
+
+### 35.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA)
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1200 | Reinstalación con un one-shot de compose (`brujula/db`, root con CHOWN/FOWNER/DAC_READ_SEARCH, sin red) a partir de un staging en disco verificado. El tar se extrae conservando propietario y modo de la copia, tras validar su contenido. El libro solo con `--libro-copia` y nunca sobre un libro vivo | (a) Extraer como 999 y hacer `chown -R` después (pierde los modos 0644/0640 por el umask 077 del restore); (b) DAC_OVERRIDE (más privilegio del necesario); (c) instalar el libro automáticamente (ADR-DB-004 §4.4 a exige una decisión humana) | Mínimo privilegio y fidelidad exacta (propietario, modo y sha256 idénticos, comprobado) | LOW: el servicio corre como root con 3 capacidades durante segundos | Alta |
+| DEC-AUTO-1201 | Directorio de trabajo en el volumen de copias (disco) y tar de medios en streaming. Formato de copia sin cambios | (a) Ampliar la memoria del contenedor (no escala con ~5 GB de medios); (b) volumen dedicado de trabajo (más superficie sin beneficio); (c) dump también en streaming (pg_restore con `-L` necesita un archivo con offsets) | El tar es lo que crece. El dump (< 1 GB previsto) pasa por disco de forma transitoria | LOW: el dump en claro toca disco (0700, uid 999, borrado al terminar; antes estaba en RAM) | Alta |
+| DEC-AUTO-1202 | Simulacro en un workflow aparte, no obligatorio, con filtro de rutas, ejecución mensual y manual, y un único script para local y CI | (a) Paso dentro del job `images` (alargaría los 5 checks obligatorios unos 10-15 min); (b) solo manual (no detectaría regresiones en los PR que tocan la restauración) | No alarga el CI obligatorio y se ejecuta justo cuando cambia algo que puede romper la restauración; cumple el simulacro mensual de ADR-DB-004 | LOW: un PR que rompa la restauración sin tocar las rutas filtradas solo se detectaría en la ejecución mensual | Alta |
+| DEC-AUTO-1203 | `post-restore-local.sh` arranca también el perfil ops por defecto, con `up --no-build` | Arrancar solo la app (como antes) | El runbook para el perfil ops con `--profile ops down`; sin scheduler ni backup no había copias tras restaurar (RPO roto en silencio) | LOW: un entorno de desarrollo sin `BACKUP_AGE_RECIPIENT` deja un backup que fallará a las 01:30 (con log de error); se evita con `--sin-perfil-ops` | Alta |
+| DEC-AUTO-1204 | Se interpreta OBS-QAOPS007-03 como "la precondición de BD limpia no cuenta tipos ni dominios". Se amplía a todos los objetos con esquema que una restauración volvería a crear | Esperar al texto original (perdido) | Un dominio o un enum sobrante pasaba la precondición y hacía fallar la restauración a mitad (con rollback, pero sin diagnóstico claro). Comprobado con un dominio: ahora exit 4 | LOW: si la observación original pedía otra cosa, sigue abierta | Alta |
+| DEC-AUTO-1205 | DEC-AUTO-908 se concreta así: sin todos los pasos no hay arranque, salvo `--arrancar-incompleto`, que sigue saliendo con exit 5. Controles con un doble de docker en el job obligatorio `infra` (~1 s) | Solo documentarlo | Abrir el panel sin reaplicar anonimizaciones ni purgar sesiones expone datos (NV-QAOPS007-01) | Ninguno | Alta |
+| DEC-AUTO-1206 | Se retira `LIBRO_RESTORE_DIR` de `restore-local.sh` en favor de `reinstalar-volumenes --libro-copia` | Corregir los permisos dentro del contenedor backup (uid 999 no puede hacer `chown` a 10001) | El libro depositado era ilegible para la app (LIBRO_ILEGIBLE) | Ninguno (uso solo local; el runbook se actualiza) | Alta |
+| DEC-AUTO-1207 | El manifiesto se construye con el área física derivada del estado del medio | Cambiar el backend para guardar el área (fuera de `archivos_permitidos`; contradice TKT-017) | AC-054 era inverificable con datos reales | LOW (RSK-OPS-047): un `catalogar`/`retirar` entre el dump y el tar podría dejar un derivado en el área opuesta a la del manifiesto, y la verificación fallaría en modo fail-closed. La copia es a las 01:30 UTC, con el panel sin uso | Alta |
+
+### 35.5 Versiones, infraestructura, dependencias y variables
+- Sin cambios de versiones, imágenes, digests, lockfiles ni `.env.example`.
+- `compose.yaml`: nuevo servicio `reinstalar-volumenes` (perfil `restauracion`). Sin cambios en redes, puertos ni en el resto de servicios.
+- Variables del runbook (solo en la sesión del operador): `RESTORE_ENV=local`, `RESTORE_PGPASSWORD` (= `APP_MIGRATOR_PASSWORD` del `.env` local, por nombre), `RESTORE_STAGING_DIR=/backups/.restauracion`. Opcionales: `BACKUP_WORK_PARENT` y `RESTORE_WORK_PARENT` (por defecto, el volumen de copias). `LIBRO_RESTORE_DIR` ya no se admite.
+
+### 35.6 Runbook de restauración (AC-054, simulacro mensual; ADR-DB-004 §4) — sustituye a §18.9
+Solo en entornos locales o efímeros. Restaurar sobre datos reales, usar la clave age real o hacerlo en un entorno compartido es **Puerta Humana** (CLAUDE.md §0.5). Se ejecuta en bash desde la raíz del repo. En Windows, con el bash de Git y `MSYS_NO_PATHCONV=1` en las órdenes `docker` que llevan rutas (`-e X=/backups/...`, `-v`); `restore-local.sh` rechaza ahora una ruta no absoluta.
+
+**Simulacro automático (recomendado)**: `COMPOSE_PROJECT_NAME=<proyecto-efímero> RESTORE_ENV=local bash scripts/ops/simulacro-ac054.sh --confirmar-destruccion <proyecto-efímero> --evidencia <dir>`. Requiere las imágenes construidas (`docker compose --profile ops build`) y un `.env`. **Borra** los volúmenes de datos, medios y libro de ese proyecto.
+
+**Manual (incidente real en local)**:
+```bash
+# 0. Contexto
+export COMPOSE_PROJECT_NAME=brujula COMPOSE_ENV_FILES=.env RESTORE_ENV=local
+export RESTORE_PGPASSWORD="$(grep -E '^APP_MIGRATOR_PASSWORD=' .env | cut -d= -f2-)"
+# Copia a restaurar: AAAAMMDD de /backups/diarias en el volumen <proyecto>_backups
+
+# 1. Panel cerrado: parar TODO (incluido el perfil ops) y recrear la BD vacía con INFRA-DB-000
+docker compose --profile ops down                       # SIN -v: conserva copias (y medios/libro si sobrevivieron)
+docker volume rm "${COMPOSE_PROJECT_NAME}_db_data"      # solo si la BD se perdió o en el simulacro
+docker compose run --rm init-volumes                    # recrea media/ops_libro si se perdieron (vacíos, 10001)
+docker compose up -d --wait db                          # NO levantar el stack: migrate crearía el esquema
+
+# 2. BD + staging verificado (clave privada por stdin, solo a un tmpfs del contenedor)
+docker compose --profile ops run --rm --no-deps -T -e RESTORE_ENV -e RESTORE_PGPASSWORD \
+  -e RESTORE_STAGING_DIR=/backups/.restauracion backup \
+  bash -c 'cat > /tmp/age.key; restore-local.sh --confirmar-entorno-local AAAAMMDD /tmp/age.key' < ~/.brujula/age-local.key
+#    exit 0 = BD restaurada en una transacción + staging verificado; 4 = BD no limpia (también tipos/dominios);
+#    3 = staging no vacío; 1 = fallo (la BD queda como la dejó INFRA-DB-000)
+
+# 3. Medios y libro a sus volúmenes
+docker compose --profile restauracion run --rm reinstalar-volumenes --confirmar-entorno-local --medios
+#    (si el volumen de medios SOBREVIVIÓ: --verificar-medios). exit 3 = volumen no vacío; 5 = tar no aceptable
+#    Libro perdido: es una DECISIÓN HUMANA (ADR-DB-004 §4.4): --libro-copia (no conoce los eventos posteriores a la copia)
+#    o, en el paso 4, --libro-vacio-confirmado (instalación sin eventos). Con libro vivo: no hacer nada (es más reciente).
+
+# 4. Pasos de aplicación + arranque (incluye el perfil ops) + /health/ready
+bash scripts/ops/post-restore-local.sh --confirmar-entorno-local [--libro-vacio-confirmado] [--sin-perfil-ops]
+#    exit 0 = restauración completa y app arriba. exit 1 = un paso falló (LIBRO_AUSENTE/ILEGIBLE/CORRUPTO
+#    con instrucciones): NADA arrancado. exit 5 = falta un comando: NADA arrancado (salvo --arrancar-incompleto)
+#    Revisar las líneas "AVISO" del resumen (OMITIDA_ULTIMO_ADMIN, INCONSISTENTE, REACTIVADA_NO_REPRODUCIDA...)
+#    y adjuntarlas a la evidencia: no detienen la restauración, pero exigen una acción del Administrador.
+
+# 5. Limpieza del staging (contiene medios y libro en claro)
+docker compose --profile ops run --rm --no-deps --entrypoint rm backup -rf /backups/.restauracion
+```
+
+### 35.7 Seguridad
+- Mínimo privilegio en la reinstalación: root solo con CHOWN, FOWNER y DAC_READ_SEARCH (sin DAC_OVERRIDE ni SETUID), sin red, rootfs de solo lectura, staging montado en solo lectura. La validación previa del tar impide plantar enlaces (ataques de *path traversal* vía symlink), setuid, propietarios ajenos y rutas `..`.
+- Clave age efímera en el simulacro: la privada viaja por stdin a un tmpfs del contenedor y se borra al terminar. Nunca se escribe en el repo ni en la evidencia.
+- El dump en claro pasa de RAM a disco (volumen de copias, 0700, uid 999) solo durante la copia o la restauración (DEC-AUTO-1201, riesgo LOW). El staging (medios y libro en claro) se borra en el paso 5 del runbook y al final del simulacro.
+- Sin secretos nuevos. El `.env` del CI sigue enmascarado (TKT-OPS-022).
+
+### 35.8 Validaciones ejecutadas (2026-10-11, local: Windows 11, Docker Engine 29.6.1, Compose v5.2.0)
+Proyecto `-p brujulaops008`, `APP_NET_PREFIX=10.231.208`, `PROXY_HOST_PORT=18208`, imágenes `*:0.0.0-dev-brujulaops008` construidas desde esta rama, `.env` generado con `init-env.sh` en el scratchpad (fuera del repo). No se tocaron otros proyectos (`brujulaqa056`, `brujulaqa063`, `brujuladev*`).
+
+**Simulacro AC-054 completo (`simulacro-ac054.sh`, 6.ª ejecución, exit 0, "SIMULACRO AC-054 SUPERADO")**:
+
+| Paso (T0 = desastre, 2026-10-11T16:52:56Z) | Resultado |
+|---|---|
+| [0] Preparación + semilla real | 98 entidades, 1464 archivos de medios (1335 derivados en `publico/`, 129 originales en `privado/`), 1 línea de libro |
+| [1] `backup.sh` | exit 0, `dump=0s medios=2s cifrado=0s total=2s`. Instantánea: 38 tablas, 322 líneas de BD, 2935 de volúmenes |
+| [2] Pérdida total (`db_data`, `media`, `ops_libro`) + INFRA-DB-000 | BD sana en 9 s |
+| [3a] Control: dominio en `app` | `restore-local.sh` exit 4 ("0 relaciones, 0 funciones, 2 tipos/dominios/otros objetos") |
+| [3] `restore-local.sh` (staging) | exit 0: TOC 463 entradas, 458 restauradas y 5 excluidas, en una transacción; privilegios por defecto 2 = copia; tar sha256 OK. **BD idéntica**: conteos, md5 del contenido de las 38 tablas, privilegios, triggers y secuencias (diff vacío, 322 líneas) |
+| [4] `reinstalar-volumenes --medios` | 1464 extraídos, propietario 10001:10001 y modos de la copia; manifiesto: 1464 verificados con `sha256sum -c --strict` en el volumen |
+| [5a] Control: post-restore SIN libro | exit 1 `LIBRO_AUSENTE`; `anonimizar_cuentas` no se ejecutó; ningún servicio arrancado |
+| [5] `--libro-copia` | libro instalado (0640 10001:10001, sha256 = copia) |
+| [5b] Controles de `reinstalar-volumenes` sobre volúmenes ya restaurados | `--medios` exit 3; `--libro-copia` exit 3; `--verificar-medios` exit 0 |
+| [6] `post-restore-local.sh` | exit 0: migrate "No migrations to apply" (3 s); los 6 comandos OK (`reaplicar_anonimizaciones` `inexistentes=1[900000001]`; `reindexar_busqueda` 56; `verificar_busqueda` `publicados=56 indexados=56 faltan=0 sobran=0`); arranque con el perfil ops + `/health/ready` 200 (28 s); "Sin avisos de la relectura del libro" |
+| [7] Verificación | **Volúmenes idénticos** (propietario, modo, tipo y sha256 de las 1464 entradas + libro; diff vacío); `/health/ready`, `/api/v1/publico/inicio` y SSR `/` 200 por el proxy; `/media/publico/derivados/003ee4d4…-1200.avif` servido con su sha256 |
+| **RTO medido** (desastre → `/health/ready` 200 por el proxy) | **118 s** (91 s sin los controles negativos). Objetivo ≤ 4 h. Simulacro completo: 850 s (la semilla tarda unos 12 min en este equipo) |
+
+**CI (job `simulacro-ac054`, 1.ª ejecución, run 38158113461)**: pasos [0] a [5b] OK en el runner (semilla 9,5 min, BD idéntica, LIBRO_AUSENTE, controles de reinstalación). Falló en [6], en el arranque con `up --wait` del perfil ops: "container brujulasim-scheduler-1 has no healthcheck configured" (la versión de compose del runner no acepta `--wait` con `HEALTHCHECK NONE`; Compose v5.2.0 local sí). Corregido en el mismo PR (§35.3 d, control C13).
+
+**CI, ejecución con la corrección (run 38159215100 @ 585500a, ubuntu-24.04)**: **SIMULACRO AC-054 SUPERADO**, con todos los OK de [3a] a [7] (BD idéntica, 322 líneas; 1464 medios + libro idénticos; LIBRO_AUSENTE; reinstalar 3/3/0; `/health/ready`, API, SSR y medio público con su sha256). BD recreada en 8 s; **RTO 99 s (76 s sin los controles negativos)**; simulacro completo 941 s; job de 17 min 37 s. Los 5 checks obligatorios del mismo SHA, en verde.
+
+**Local con el código final (585500a, 7.ª ejecución)**: SIMULACRO AC-054 SUPERADO. BD recreada en 10 s; RTO 123 s (95 s sin los controles negativos); post-restore 6/6 comandos OK y arranque (+ perfil ops) 32 s; simulacro completo 669 s.
+
+Las ejecuciones locales 1.ª a 5.ª fallaron por defectos que se corrigieron antes de la 6.ª: cast `"char"` en la instantánea; reescritura de rutas del bash de Git en Windows (`-e X=/backups/...`), que ahora `restore-local.sh` rechaza con exit 2; **el manifiesto sin área física (hallazgo §35.2)**; `MSYS_NO_PATHCONV` global, que rompía `curl -o /dev/null`; y la salida del build implícito de `docker compose run` mezclada con la instantánea.
+
+**RSK-OPS-029, prueba de carga** (1,5 GiB incompresibles añadidos a `privado/`; límite del contenedor 512 MiB):
+
+| Prueba | Resultado |
+|---|---|
+| `backup.sh` de `origin/main` (tmpfs) | **exit 137 (OOM kill)** a los 11 s. Confirma el riesgo, antes [INFERIDO] |
+| `backup.sh` nuevo (disco + streaming) | exit 0 en 40 s (`medios=33s cifrado=7s`), `medios-….tar.age` de 1,78 GB. `memory.events`: `oom 0`, `oom_kill 0`. `memory.peak` = 512 MiB, que es caché de página de las escrituras a disco, reclaimable (`max` 9997 eventos de reclamación, sin OOM) |
+| `restore-local.sh` nuevo (staging) sobre BD limpia | exit 0 en 41 s (`descifrado=10s pg_restore=1s medios=30s`), `medios.tar` de 1,78 GB en el staging con su sha256 OK; `oom_kill 0` |
+
+**Validación del tar en `reinstalar-volumenes --medios`** (staging fabricado y volumen vacío): T1 enlace simbólico → exit 5; T2 propietario 999 → exit 5; T3 setuid → exit 5; T4 ruta `../escape/…` → exit 5; T5 enlace duro → exit 5; T6 válido → exit 0 (1 archivo, 10001:10001, manifiesto verificado). En los casos de exit 5 el script termina antes de tomar la propiedad o extraer nada.
+
+**Otras**:
+- `post-restore-local_controles.sh`: 13/13 OK. Prueba de mutación: con la regla DEC-AUTO-908 desactivada, C5 FALLA (los controles detectan la regresión).
+- shellcheck v0.10.0 (`koalaman/shellcheck:v0.10.0@sha256:2097951f…`) sobre `backup.sh`, `restore-local.sh`, `post-restore-local.sh`, `reinstalar-volumenes.sh`, `simulacro-ac054.sh` y `post-restore-local_controles.sh`: 0 hallazgos.
+- `docker compose --profile ops --profile restauracion config --quiet`: OK.
+
+**NOT_RUN**:
+- RTO con el volumen objetivo completo (~5 GB de medios y < 1 GB de BD). Se midió con la semilla real (24 MB) y la copia y restauración con 1,5 GiB; el escalado es lineal en E/S de disco, no en memoria.
+- Simulacro de una copia hecha con el `backup.sh` ANTERIOR: su manifiesto no tiene área física (§35.2) y su verificación estricta fallaría por diseño.
+- El escenario de libro v2 con cuentas reales (desactivar → reactivar → copia → restaurar → +31 días) es responsabilidad de QA y BD (CHG-DB-003, DB_HANDOFF `pruebas_obligatorias`). Aquí solo se integra en el runbook y en los controles de `post-restore-local.sh`.
+
+### 35.9 Riesgos / pendientes
+
+| ID | Riesgo | Sev. | Estado |
+|---|---|---|---|
+| RSK-OPS-027 | Pérdida total del volumen de medios sin reinstalación | MEDIUM | **CERRADO** (DEC-AUTO-1200; §35.8) |
+| RSK-OPS-029 | OOM de la copia o la restauración por el tmpfs de 512 MiB | MEDIUM | **CERRADO** (confirmado con exit 137 y corregido; §35.8) |
+| RSK-OPS-030 | Los 6 comandos de ADR-DB-004 §4 no existían | MEDIUM | **CERRADO** por TKT-005 (`1018f01`, `1b2cb0c`, merge `3e042e8`); verificado en el simulacro |
+| RSK-OPS-047 | (DEC-AUTO-1207) Un `catalogar`/`retirar` concurrente con la copia puede dejar un derivado en el área opuesta a la del manifiesto: la verificación falla en modo fail-closed (no hay pérdida de datos, el tar contiene el archivo) | LOW | ABIERTO (aceptable: copia a las 01:30 UTC) |
+| RSK-OPS-048 | `docker compose run` reconstruye la imagen (`pull_policy: build`) en cada paso de restauración. Con caché es inmediato, pero restaurar usa el árbol de trabajo actual, no necesariamente el de la copia | LOW | ABIERTO (para producción: imágenes por digest, Skill_devops §23.3) |
+| RSK-OPS-049 | Las copias hechas con el `backup.sh` anterior tienen un manifiesto sin área física | LOW | ABIERTO (solo local; hacer una copia nueva tras integrar este PR) |
+| RSK-OPS-050 | OBS-QAOPS007-03 interpretada sin su texto original (DEC-AUTO-1204) | LOW | Confirmar con QA |
+
+### 35.10 Archivos modificados
+`scripts/ops/backup.sh`, `scripts/ops/restore-local.sh`, `scripts/ops/post-restore-local.sh`, `scripts/ops/reinstalar-volumenes.sh` (nuevo), `scripts/ops/simulacro-ac054.sh` (nuevo), `scripts/ops/post-restore-local_controles.sh` (nuevo), `compose.yaml`, `.github/workflows/ci.yaml`, `.github/workflows/simulacro-ac054.yaml` (nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 35.11 Próximo agente
+**Orquestador**: QA del PR (sugerido: ejecutar `simulacro-ac054.sh` en un proyecto efímero, revisar el artefacto del job `simulacro-ac054` y confirmar la interpretación de OBS-QAOPS007-03), registrar DEC-AUTO-1200 a 1207 y RSK-OPS-047 a 050, y cerrar RSK-OPS-027/029/030. Con QA PASS, AC-054 puede darse por cubierto para F9.
+
+## 36. TKT-OPS-009: política de trivy sobre canales implícitos (QA-OPS006-04/05, OBS-C3-1..3; RSK-OPS-001) (F7, soporte)
+
+### 36.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§36.8). Rama `tkt-ops-009-politica-trivy` desde `origin/main` (incluye TKT-OPS-008). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). **No se toca `.trivyignore`** ni sus 16 excepciones vigentes (decisión humana RSK-OPS-001, caducan el 2026-10-26).
+
+### 36.2 Objetivo y estado de cada sub-ítem en `main` (antes de este ticket)
+Objetivo: que nadie pueda relajar en silencio el escaneo de trivy por canales que trivy lee por su cuenta ni con un gate que no falla. El usuario aceptó el riesgo el 2026-09-28 hasta este ticket (`audit_log.md`, GATE_HUMANO TKT-OPS-006).
+
+| Sub-ítem | Estado en `main` (comprobado ejecutando la política anterior contra los controles nuevos) | Resolución |
+|---|---|---|
+| QA-OPS006-04 (MEDIUM): `TRIVY_*` en env/run/`*.sh` y `trivy.yaml`/`.trivyignore.yaml` generados | **ABIERTO**. `VAR_TRIVY` era una lista cerrada, así que pasaban `TRIVY_SERVER`, `TRIVY_OFFLINE_SCAN`, `TRIVY_LIST_ALL_PKGS`, `TRIVY_INSECURE` y `vars.TRIVY_*`. También pasaban `printf … > trivy.yaml` y un heredoc a `.trivyignore.yaml`, porque solo se miraban los ficheros del repositorio. Además, el propio `ci.yaml` exportaba `TRIVY_VERSION`/`TRIVY_SHA256` al entorno de trivy | DEC-AUTO-1260 + DEC-AUTO-1261 |
+| QA-OPS006-05 (LOW): excepción del control negativo analizada como shell y sin otras escrituras al fichero | **ABIERTO**. El generador y el `exit 1` se buscaban como subcadenas, así que valían también en un comentario, dentro de un `echo` o después del `if`. Pasaban `>>` y `: >` sobre `/tmp/trivyignore-caducado` | DEC-AUTO-1263 |
+| OBS-C3-1: sin escrituras a `.trivyignore` en ejecución | **ABIERTO**. Pasaban `>> .trivyignore`, `cp`, `git checkout -- .trivyignore`, `sed -i` en un `*.sh`, `--output .trivyignore` y `with: {path: .trivyignore}` | DEC-AUTO-1264 + guardia |
+| OBS-C3-2: gate sin `\|\| true`, `&` ni `continue-on-error` | **ABIERTO**. Pasaban `\|\| true`, `&`, `&&`, `\| tee`, `; true`, `set +e`, `trap 'exit 0'`, el gate dentro de `if false` o de una función, `!`, `continue-on-error` (paso o job), `if:` en el paso y `shell: bash {0}` | DEC-AUTO-1262 |
+| OBS-C3-3: `sha256sum -c` junto a la instalación | **ABIERTO**. La línea `tar … trivy` era una excepción literal sin contexto. Pasaba sin `sha256sum -c`, con él después de extraer, con `\|\| true` o sustituyendo el `.tgz` entre ambas líneas | DEC-AUTO-1265 |
+
+Evidencia "antes": se ejecutaron los 57 controles nuevos (53 negativos y 4 positivos) contra el `politica_trivy.py` de `origin/main` (54a1f0d). **51 de los 53 negativos pasaban sin detectarse.** Solo C08 (`TRIVY_SKIP_*` estaba en la lista antigua) y D08 (sin generador en el run) fallaban.
+
+### 36.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Se prohíbe el prefijo `TRIVY_` como palabra (`(?<![A-Za-z0-9_])TRIVY_`) en todo el código de los workflows y de los `*.sh`. Cubre claves de cualquier nivel, valores, `run:` sin comentarios y `$GITHUB_ENV`. Se prohíbe mencionar `trivy.yaml/.yml` o `.trivyignore.yaml/.yml` en `run:`/`*.sh` y en valores de `with:`/`env:`. Se prohíben el instalador `contrib/install.sh` y `get.trivy.dev` | `infra/ci/politica_trivy.py` | DEC-AUTO-1260 |
+| `TRIVY_VERSION`/`TRIVY_SHA256` pasan a `TRIVYCLI_VERSION`/`TRIVYCLI_SHA256`, y trivy deja de recibirlos. Solo pueden estar en el `env` del workflow, con valor literal `\d+.\d+.\d+` o de 64 hex. Asignarlos en un `run:` o redefinirlos en un paso es error | `.github/workflows/ci.yaml`, `politica_trivy.py` | DEC-AUTO-1260 |
+| **Guardia de ejecución** `/usr/bin/python3 infra/ci/trivy_guardia.py`. Es la primera línea de los runs del gate y del control negativo. Falla si: hay `TRIVY_*` en el entorno real; el directorio no es `$GITHUB_WORKSPACE`; existe `./trivy.yaml`, `.yml`, `.trivyignore.yaml` o `.yml` (también como enlace roto); `.trivyignore` no es un fichero normal, no está seguido o difiere de `$GITHUB_SHA`; `trivy` no resuelve a `/usr/local/bin/trivy`; o hay `BASH_ENV`, `ENV`, `BASH_FUNC_*`, `SHELLOPTS`, `BASHOPTS` o `LD_PRELOAD`. El intérprete va con ruta absoluta para que un `$GITHUB_PATH` manipulado no lo sustituya. Tiene controles propios en el job `infra` | `infra/ci/trivy_guardia.py`, `infra/ci/trivy_guardia_controles.py` (nuevos), `ci.yaml` | DEC-AUTO-1261 |
+| **Gate como esqueleto cerrado.** Un run/`*.sh` con gate o control negativo solo admite estas líneas lógicas: guardia, `mkdir -p reports`, `rc=0`, `for s in <palabras>; do`, `done`, `fi`, `echo "<texto>"`, `exit $rc` (como última línea) e invocaciones. La línea del gate no lleva nada delante y detrás solo admite `\|\| rc=1`, que exige un único `rc=0` antes y `exit $rc` al final. El resto de invocaciones tampoco admite nada delante ni detrás. Ni el paso ni el job del gate/control pueden tener `continue-on-error` (salvo `false`), el paso no puede tener `if:` y el shell (del paso, del job o del workflow) solo puede ser `bash` | `politica_trivy.py` | DEC-AUTO-1262 |
+| **Control negativo** analizado por líneas lógicas exactas, sin comentarios. El generador `sed` exacto aparece una sola vez y ANTES del `if trivy …; then`. La línea siguiente termina en `exit 1` (`echo "…"; exit 1`) y la siguiente es `fi`. `trivyignore-caducado` solo puede aparecer en el generador, en la comprobación `grep` exacta y en la invocación del control | `politica_trivy.py` | DEC-AUTO-1263 |
+| En un `run:`/`*.sh`, `.trivyignore` solo puede aparecer en el gate o en el generador, que solo lo lee. `--output`/`-o` queda restringido a `reports/…` o `/tmp/…` con extensión `.json`/`.txt` y sin `..` | `politica_trivy.py` | DEC-AUTO-1264 |
+| La extracción `tar -xzf /tmp/trivy.tgz -C /usr/local/bin trivy` solo es válida si las dos líneas lógicas anteriores son exactamente la descarga y `echo "${TRIVYCLI_SHA256}  /tmp/trivy.tgz" \| sha256sum -c -`. `/tmp/trivy.tgz` no puede aparecer en ninguna otra línea, y el workflow que instala debe definir `TRIVYCLI_*` en su `env` | `politica_trivy.py`, `ci.yaml` | DEC-AUTO-1265 |
+| Controles: B13 y B14 llevan ahora la guardia. Se añaden 53 negativos y 4 positivos: C01-C12, D01-D09, E01-E07, F01-F21 y H01-H08 | `infra/ci/politica_trivy_controles.sh` | — |
+
+La política se aplica a **todos** los workflows y a todos los `*.sh` del repositorio. `simulacro-ac054.yaml` no invoca trivy y pasa sin cambios.
+
+### 36.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1260**: prohibir todo el prefijo `TRIVY_` en lugar de ampliar la lista.
+  - Alternativa descartada: una lista más larga. Siempre quedaría incompleta, porque trivy vincula cada flag a `TRIVY_<FLAG>`.
+  - Riesgo: un nombre legítimo futuro con ese prefijo habrá que renombrarlo, como se hizo con `TRIVYCLI_*`.
+  - Reversible.
+- **DEC-AUTO-1261**: añadir una guardia de ejecución a la política estática.
+  - Alternativas descartadas: solo la política estática, que no ve nombres construidos en ejecución ni escrituras ofuscadas en `$GITHUB_ENV`; o `env -i` alrededor de trivy, que no es una invocación de la lista blanca y no protege `./trivy.yaml` ni `.trivyignore`.
+  - Riesgo: si el runner trajera alguna de las variables vigiladas, el gate fallaría de forma visible. El control G00 lo detecta antes, en el job `infra`.
+  - Reversible.
+- **DEC-AUTO-1262**: esqueleto cerrado (lista blanca de líneas) en vez de una lista negra de construcciones de shell, coherente con DEC-AUTO-915.
+  - Riesgo: cambiar el run del gate obliga a tocar la política, y eso queda en el diff.
+  - Reversible.
+- **DEC-AUTO-1263**: control negativo por líneas lógicas exactas y nombre del fichero confinado. Reversible.
+- **DEC-AUTO-1264**: `.trivyignore` confinado a dos líneas y `--output` a `reports/` y `/tmp/`. Reversible.
+- **DEC-AUTO-1265**: la instalación verificada es una tripleta de líneas contigua y exacta, con nombres `TRIVYCLI_*`. Reversible.
+
+### 36.5 Versiones, infraestructura, dependencias y variables
+- No cambia ninguna versión: trivy 0.74.0 (mismo sha256) y PyYAML 6.0.3 (venv efímero del job `infra`). La guardia usa el `/usr/bin/python3` del runner (solo biblioteca estándar) y `git`.
+- Variables del workflow renombradas: `TRIVY_VERSION` → `TRIVYCLI_VERSION` y `TRIVY_SHA256` → `TRIVYCLI_SHA256`, con los mismos valores. `.env.example` no cambia.
+
+### 36.6 Seguridad
+- No hay excepciones nuevas y `.trivyignore` no cambia (16 entradas, `exp:2026-10-26`).
+- gitleaks 8.30.1 sobre la rama: ver la evidencia del PR.
+
+### 36.7 Validaciones ejecutadas (2026-10-11, local: Windows 11, Git Bash, Python 3.11.9 + PyYAML 6.0.3)
+- `politica_trivy.sh .` sobre la rama: **OK** ("invocaciones: 3; gates: 1; excepciones: 16").
+- La política nueva sobre el `ci.yaml` de `main` sin cambios **falla** con 8 errores: `TRIVY_VERSION`/`TRIVY_SHA256` en `env` y en el `run:` de instalación, falta la guardia en los 2 runs y falta `TRIVYCLI_*`.
+- `politica_trivy_controles.sh`: **123/123** (los 66 anteriores, con B13 y B14 actualizados, más los 57 nuevos). Cada negativo falla por la regla que le toca (`::error::` comprobado).
+- `trivy_guardia_controles.py`: **16/16** en local. G07 y G08 usan enlaces simbólicos y solo se ejecutan en Linux, es decir, en el CI.
+- La política anterior (`origin/main`) frente a los controles nuevos deja sin detectar 51 negativos (§36.2).
+- `ruff check` y `ruff format --check` en `infra/ci/` (config de `backend/pyproject.toml`): OK.
+- `shellcheck 0.10.0` (contenedor `koalaman/shellcheck:v0.10.0`) en `politica_trivy_controles.sh` y `politica_trivy.sh`: 0 avisos.
+- `actionlint 1.7.7` (contenedor `rhysd/actionlint:1.7.7`) sobre `.github/workflows/`: 0 errores.
+
+### 36.8 CI del PR
+El enlace del run y el estado de los 5 checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE. El job `images` ejecuta la guardia de verdad delante del gate y del control negativo.
+
+### 36.9 Riesgos / pendientes
+- **RSK-OPS-051 (LOW, residual)**: el modelo de amenaza no cambia. Quien edita `ci.yaml` también puede editar la política o quitar el job. La barrera real es la protección de `main` (PR + 5 checks strict) y la revisión del diff. Tampoco se cubre un `if:` a nivel de job que omita `images` (hoy depende de `detect`).
+- **RSK-OPS-052 (LOW)**: la guardia confía en el `/usr/bin/python3` y el `git` del runner, y en que `/usr/local/bin/trivy` no se sustituya en otro paso. Esto último lo cubre la política estática: cualquier mención de `…/trivy` como argumento cuenta como invocación fuera de la lista blanca.
+- RSK-OPS-033 sigue igual: trivy invocado desde otro lenguaje fuera de `run:`/`*.sh` (Makefile, `.py`). La guardia mitiga los canales de entorno y de fichero, pero no un escaneo alternativo.
+
+### 36.10 Archivos modificados
+`infra/ci/politica_trivy.py`, `infra/ci/politica_trivy_controles.sh`, `infra/ci/trivy_guardia.py` (nuevo), `infra/ci/trivy_guardia_controles.py` (nuevo), `.github/workflows/ci.yaml`, `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 36.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencias: reejecutar `politica_trivy_controles.sh` y `trivy_guardia_controles.py`, comprobar en el log del job `images` que aparece "guardia de trivy OK" delante del gate y del control negativo, e intentar evasiones nuevas.
+- Registrar DEC-AUTO-1260 a 1265 y RSK-OPS-051/052.
+- Cerrar QA-OPS006-04 y QA-OPS006-05 (riesgo aceptado hasta este ticket).
+
+## 37. TKT-OPS-034: errores del proxy sobre subidas > 2 MB a `/api/v1/panel/medios` (OBS-QA071-02/03) (F7, MEDIUM)
+
+### 37.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§37.8). Rama `tkt-ops-034-error-proxy-subida` desde `origin/main` (74b6d91). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 37.2 Objetivo y causa
+Síntoma (QA de TKT-071): un `POST /api/v1/panel/medios` con un cuerpo > 2 MB cuyo upstream expira (WORKER TIMEOUT de gunicorn, 120 s) llega al cliente como **413** en lugar de **503 `servicio_no_disponible`**; el log del proxy muestra `"ruta":"/_errores_proxy/503","estado":413`.
+
+Causa: `error_page 502 503 504 =503 /_errores_proxy/503` hace una **redirección interna**. En ella nginx vuelve a ejecutar la fase de búsqueda de location y compara el `Content-Length` de la petición (ya leída entera, `proxy_request_buffering on`) con el `client_max_body_size` de la location de DESTINO. Las locations `/_errores_proxy/*` heredaban los `2m` del servidor (`client_max_body_size 2m`), así que la petición de 3 MB se rechazaba con 413 dentro de la propia página de error. Como `recursive_error_pages` está desactivado, ese 413 sale con la **página HTML por defecto de nginx** (`text/html`, sin Problem Details), y además con el `Retry-After: 5` de la location 503.
+
+Alcance comprobado (antes del cambio, imagen de `origin/main`):
+
+| Caso | Antes |
+|---|---|
+| medios, multipart 3 MB, upstream cierra la conexión (= WORKER TIMEOUT de gunicorn, 502) | **413 text/html** (log: `/_errores_proxy/503` → 413) |
+| medios, `Transfer-Encoding: chunked` 3 MB, upstream cierra (502) | **413 text/html** (nginx fija `Content-Length` tras leer un cuerpo chunked) |
+| medios, multipart 3 MB, upstream colgado → `proxy_read_timeout` 120 s (504) | **413 text/html** tras 120,06 s |
+| medios, 3 MB, **429 del limitador de borde** (`por_ip` saturada) | **413 text/html** (log: `/_errores_proxy/429` → 413) |
+| medios, cuerpo pequeño, upstream cierra | 503 problem+json (correcto) |
+| medios, `Content-Length` > 105 MB | 413 problem+json (correcto: nginx descarta el cuerpo y no vuelve a comprobarlo) |
+| cualquier otra ruta con cuerpo > 2 MB | 413 problem+json (correcto: se rechaza antes de leer el cuerpo) |
+
+Solo `location = /api/v1/panel/medios` admite cuerpos > 2 MB, así que es la única ruta afectada. Dentro de ella, los errores que el proxy redirige después de leer el cuerpo son 502/503/504 → 503 y 429. 400/403/404/405/413 no se dan ahí con un cuerpo ya leído, pero se corrigen igual por homogeneidad.
+
+### 37.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| `client_max_body_size 0;` en las **7** locations internas `/_errores_proxy/{429,400,403,404,405,413,503}`. Comentario junto a los `error_page` del servidor que lo explica y exige lo mismo en toda location nueva de `/_errores_proxy/*` | `infra/proxy/nginx.conf` | DEC-AUTO-1330 |
+| Comentario en `location = /api/v1/panel/medios` sobre la relación `proxy_read_timeout`/`proxy_send_timeout` 120s ↔ `GUNICORN_TIMEOUT` 120 (sin cambiar valores) | `infra/proxy/nginx.conf` | DEC-AUTO-1331 |
+| Regresión en el paso de CI existente "smoke: errores del proxy como Problem Details": (a) chequeo estático de que todas las locations `/_errores_proxy/*` (≥ 7) llevan `client_max_body_size 0`; (b) ráfaga de 200 `POST /` por keep-alive para saturar `por_ip` y subida de 3 MB a medios → exige **429 `limite_tasa` application/problem+json** con `X-Content-Type-Options`, `Content-Security-Policy`, `X-Trace-Id`, `Cache-Control` y `Retry-After`; después `sleep 5` para que el paso siguiente no herede la zona saturada | `.github/workflows/ci.yaml` | DEC-AUTO-1332 |
+
+Por qué no se relaja el límite de 2 MB: las locations `/_errores_proxy/*` son `internal`. nginx comprueba `internal` ANTES que `client_max_body_size`, así que una petición externa a esas rutas recibe 404 sin llegar a leer el cuerpo (verificado: `POST` de 3 MB a `/_errores_proxy/{503,413,429,400}` → 404 problem+json). Además solo hacen `return`, sin leer cuerpo. El límite de 2 MB del servidor y los 105 MB de medios no cambian.
+
+### 37.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1330**: `client_max_body_size 0` en las locations internas de error, en las 7 y no solo en la 503.
+  - Alternativas descartadas: (1) `105m` (igual al de medios): acopla dos valores que habría que mantener a la par sin ninguna ventaja, porque estas locations no leen cuerpo; (2) solo en `/_errores_proxy/503`: el 429 también estaba afectado y una location nueva repetiría el fallo; (3) `error_page` propio en la location de medios: sigue siendo una redirección interna a una location con 2m; (4) `recursive_error_pages on`: el 413 de la página de error saldría como 413 Problem Details, que sigue siendo el estado equivocado.
+  - Riesgo: nulo para el límite público (locations `internal`).
+  - Reversible (quitar la línea).
+- **DEC-AUTO-1331**: no cambiar `proxy_read_timeout 120s` / `proxy_send_timeout 120s` de medios. Están bien: igualan `--timeout ${GUNICORN_TIMEOUT:-120}` (`infra/docker/backend.Dockerfile`). El reloj de gunicorn empieza al aceptar la conexión, antes de recibir el cuerpo; el de `proxy_read_timeout`, después de enviarlo. Así que normalmente gunicorn mata antes al worker (502) y, si nginx expira primero, 504. Ambos salen como 503. Subir el de nginx no aporta nada (el worker ya habría muerto). Bajarlo cortaría subidas legítimas que gunicorn aún procesa. Queda documentado que deben moverse juntos (RSK-OPS-054).
+- **DEC-AUTO-1332**: la regresión del CI usa el 429 del borde, no un 503 real. Provocar el 503 en CI exige parar el backend (sin IP fija: al volver podría cambiar de IP, y nginx resuelve `backend` solo al arrancar, lo que rompería los pasos siguientes) o esperar 120 s. El 429 recorre el MISMO mecanismo: redirección interna con un cuerpo > 2 MB hacia `/_errores_proxy/*`. Antes daba 413 text/html. El 503 real se verificó en local con un upstream de prueba (§37.7). El chequeo estático cubre todas las locations, incluidas las futuras. Reversible.
+
+### 37.5 Versiones, infraestructura, dependencias y variables
+Sin cambios de versión, imagen base, digest, dependencias ni variables (`.env.example` no cambia). `pcre2=10.49-r0` sigue fijado.
+
+### 37.6 Seguridad
+- El límite de cuerpo público no cambia (2 MB servidor, 105 MB medios).
+- Las respuestas corregidas vuelven a llevar las cabeceras de `snippets/security-headers-error.conf`.
+- Desaparece una respuesta `text/html` por defecto de nginx que no cumplía el contrato (`components.responses`, Problem Details).
+
+### 37.7 Validaciones ejecutadas (2026-10-12, local: Windows 11, Docker Desktop)
+Montaje: red `ops034net` + upstream de prueba (`python` de la imagen `brujula/backend` ya local; script en el scratchpad, alias `backend` y `frontend`) que lee la petición completa y, según la cabecera `X-Prueba`, cierra la conexión sin responder (= WORKER TIMEOUT de gunicorn → 502), no responde nunca (→ `proxy_read_timeout` → 504) o responde 200. Proxy publicado en `127.0.0.1:18034`. No se tocó `brujulalocal` ni el puerto 8080. No se levantó el stack completo, por austeridad de memoria: había otro stack de Developer activo.
+
+| Caso | Antes (`brujula/proxy:ops034-antes`, `origin/main`) | Después (`brujula/proxy:ops034-despues`) |
+|---|---|---|
+| medios multipart 3 MB, upstream cierra (502) | 413 text/html | **503 application/problem+json** `servicio_no_disponible`, `Retry-After: 5`, `X-Trace-Id`, `Cache-Control: no-store`, `X-Content-Type-Options`, CSP, `Referrer-Policy`, `X-Frame-Options` |
+| medios chunked 3 MB, upstream cierra | 413 text/html | **503 problem+json** (mismas cabeceras) |
+| medios multipart 3 MB, upstream colgado (504 a los 120 s) | 413 text/html, 120,06 s | **503 problem+json** `servicio_no_disponible` a los 120,12 s, `Retry-After: 5`, `X-Trace-Id`, `Cache-Control: no-store` |
+| medios 3 MB con `por_ip` saturada (429) | 413 text/html | **429 problem+json** `limite_tasa`, `Retry-After: 1` |
+| medios cuerpo pequeño, upstream cierra | 503 problem+json | 503 problem+json |
+| medios 3 MB, upstream OK | — | 200 (la subida sigue funcionando) |
+| `/api/v1/panel/x` 3 MB (Content-Length y chunked) | 413 problem+json | 413 problem+json (límite de 2 MB intacto) |
+| medios `Content-Length: 120000000` | 413 problem+json | 413 problem+json (límite de 105 MB intacto) |
+| `POST` externo de 3 MB a `/_errores_proxy/{503,413,429,400}` | — | 404 problem+json (`internal`, inalcanzables) |
+
+- `nginx -t` en la imagen nueva: **OK**.
+- Réplica local del smoke de CI de errores del proxy (404 ×2, 403, 400 por URI larga y 405 ×3 con `Allow`), con las 6 cabeceras de seguridad: **0 fallos**.
+- Paso de CI nuevo, extraído tal cual del `ci.yaml` y ejecutado en local: **OK** con la configuración nueva ("rafaga {403: 63, 429: 137} -> subida 3 MB: 429 application/problem+json"). Con el `nginx.conf` de `origin/main`, el chequeo estático **falla** y lista las 7 locations. La parte dinámica contra la imagen antigua da 413 text/html (caso 429 de la tabla).
+- `docker compose config --quiet` (proyecto `brujulaops034`, `.env` efímero de `init-env.sh` en el scratchpad): base, `--profile ops`, `--profile ops --profile restauracion` y `-f compose.yaml -f compose.ci.yaml`: **OK**.
+- `actionlint 1.7.7` (contenedor) sobre `.github/workflows/`: 0 errores.
+- `politica_trivy.sh`: NOT_RUN en local (el `python3` de Git Bash es el alias de Microsoft Store). Lo ejecuta el job `infra` del CI. El cambio no toca trivy.
+
+### 37.8 CI del PR
+El enlace del run y el estado de los checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE.
+
+### 37.9 Riesgos / pendientes
+- **RSK-OPS-054 (LOW)**: `proxy_read_timeout`/`proxy_send_timeout` de medios (120s) y `GUNICORN_TIMEOUT` (120) son valores acoplados en dos archivos. Si solo se sube `GUNICORN_TIMEOUT`, el proxy dará 503 mientras el worker sigue procesando, y la subida podría completarse sin que el cliente lo sepa. Documentado en el comentario de `nginx.conf`. No hay control automático.
+- No se reprodujo con el stack completo y el gunicorn real (NOT_RUN, por austeridad de memoria). El upstream de prueba reproduce las dos formas de fallo que ve nginx: conexión cerrada sin respuesta (= worker matado por gunicorn) y ninguna respuesta hasta `proxy_read_timeout`.
+
+### 37.10 Archivos modificados
+`infra/proxy/nginx.conf`, `.github/workflows/ci.yaml` (paso de smoke existente del proxy), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 37.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir la reproducción de OBS-QA071-02/03 con el stack completo (subida > 2 MB con `GUNICORN_TIMEOUT` bajo o backend parado) y esperar 503 problem+json.
+- Registrar DEC-AUTO-1330 a 1332 y RSK-OPS-054.
+- Cerrar OBS-QA071-02/03.
+
+## 38. TKT-OPS-035: subidas anónimas grandes a `/api/v1/panel/medios` agotaban la memoria del proxy (NV-QA034-03) (F7, MEDIUM)
+
+### 38.1 Estado
+**COMPLETADO** en la rama `tkt-ops-035-buffer-subida-proxy`, que incorpora `main` con TKT-OPS-034 (PR #109). El riesgo **es real** y está medido (§38.3). Se mitiga sin cambiar el contrato ni la subida legítima del panel. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 38.2 Objetivo
+Validar NV-QA034-03 (QA de TKT-OPS-034, `needs_validation`, preexistente). `POST /api/v1/panel/medios` admite hasta 105 MB con `proxy_request_buffering on`. nginx lee el cuerpo entero **antes** de pasarlo a Django, que es quien autentica, y lo guardaba en `/tmp/client_temp`. Ese directorio estaba en el tmpfs `/tmp`, sin `size=`, que cuenta contra el límite de memoria del contenedor proxy (256m). Ni `limit_req` (20 r/s, burst 60) ni la autenticación frenan unas pocas peticiones simultáneas. Si el riesgo es real, hay que mitigarlo y añadir una regresión al smoke del proxy.
+
+### 38.3 Validación del riesgo (antes del cambio; 2026-10-12, stack propio `brujulaops035`)
+Imagen de `origin/main` (efb652e). Docker Desktop 29.6.1 sobre una VM de 7,6 GB con 2 GB de swap. Puerto 18135, `APP_NET_PREFIX=10.231.135`. Prueba acotada, no de estrés: 3 o 4 conexiones **sin cookie**. Cada una declara un `Content-Length` de 104 MB, envía todo el cuerpo salvo el último KB, lo retiene 15-25 s y termina. Durante la prueba se leyó el cgroup del proxy (`memory.current`, `memory.swap.current`, `memory.events` y `memory.stat`), y una sonda pedía `GET /` cada 2,5 s.
+
+| Caso | Resultado |
+|---|---|
+| A. 3 subidas con el límite de compose (256m de RAM más swap: `MemorySwap` 512m) | RAM del cgroup **al límite** (≈256 MiB), **78 MB en swap** y 5.580 eventos `max`. Las 3 terminan con 403 (Django, sin sesión) |
+| B. 4 subidas con el mismo límite | RAM al límite y **194 MB en swap** (≈450 de 512 MiB), con 14.867 eventos `max`. Sin OOM, pero una 5.ª superaría el tope de RAM más swap |
+| C. 3 subidas **sin swap** (`memswap_limit: 256m`, como un servidor Linux sin swap, lo habitual en producción) | Evento `oom` y **`die 137`** del contenedor proxy en ~1 s. **Toda la web cae** y se cortan todas las conexiones en curso. `restart: unless-stopped` lo relanza, pero repetir las 3 peticiones lo vuelve a tumbar |
+
+Conclusión: el **riesgo es REAL** (MEDIUM). Con swap el fallo solo se retrasa: cada subida retenida inmoviliza 104 MB de RAM o de swap del proxy.
+
+### 38.4 Mitigación (decisiones)
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1340 | **Temporales de nginx en disco**: `client_body_temp_path /var/cache/nginx/temporal/cuerpos` en el volumen nuevo `proxy_temporal`, que no es tmpfs. El directorio se crea en la imagen (101:101, 0700) y Docker lo copia al volumen vacío. nginx crea los subdirectorios al arrancar y borra cada archivo nada más abrirlo. La caché de página de esas escrituras es recuperable, así que no provoca OOM | (a) `size=` en el tmpfs: el límite sigue dentro de los 256m y, al llenarse, también falla la subida legítima. (b) Más memoria para el contenedor: no escala. (c) `proxy_request_buffering off`: gunicorn (workers síncronos) quedaría expuesto a clientes lentos | Elimina la causa: el cuerpo deja de ocupar memoria del contenedor. Es la misma solución que RSK-OPS-029 (DEC-AUTO-1201) | LOW (RSK-OPS-060): uso transitorio de disco | Alta |
+| DEC-AUTO-1341 | **`limit_conn` en `/api/v1/panel/medios`**: 2 simultáneas por IP (`subidas_ip`) y 16 en total (`subidas_total`, con clave `$server_name` = `_`). Con `limit_conn_status 429` el rechazo sale por `/_errores_proxy/429` como problem+json `limite_tasa` con `Retry-After: 1`. Actúa en la fase preaccess, **antes de leer el cuerpo** | (a) Comprobar la cookie de sesión en el borde: se elude con cualquier cookie inventada y acopla el proxy al nombre de la cookie de Django. (b) Solo límite por IP: no acota el disco ante muchas IP. (c) 1 por IP: un reintento del panel podría coincidir con el cierre de la petición anterior | Acota el disco que pueden ocupar cuerpos sin autenticar: ≤ 2 × 105 MB por IP y ≤ ~1,7 GB en total. El panel sube **un archivo por petición, en secuencia** (TKT-072) y ya reintenta ante `limite_tasa` | LOW (RSK-OPS-061): 16 subidas anónimas simultáneas desde ≥ 8 IP bloquean con 429 las subidas legítimas mientras duran. La web sigue en pie. **Corregido por TKT-OPS-037 (§40): la cifra era errónea (con goteo el bloqueo es indefinido, F-035-01) y `subidas_total` se elimina (DEC-AUTO-1360)** | Alta |
+| DEC-AUTO-1342 | Las **respuestas del upstream** que no caben en `proxy_buffers` (`proxy_temp_path`) también van al volumen (`/var/cache/nginx/temporal/respuestas`). El tmpfs `/tmp` pasa a `size=16m`, porque ya solo guarda el pid | Dejar `proxy_temp` en el tmpfs con un tope de 64m: al llenarse fallarían respuestas legítimas, como los derivados de 2 MB del panel servidos a clientes lentos | Es el mismo vector con lecturas lentas: muchas respuestas a medio enviar en el tmpfs suman memoria del contenedor. El tope impide que `/tmp` vuelva a ser un almacén sin límite | Ninguno medido: los derivados de hasta 2 MB se sirvieron con 200 | Alta |
+| DEC-AUTO-1343 | **NO se reduce `client_max_body_size 105m`** de medios en este ticket, aunque el Orquestador lo permitía tras confirmar que PR #110 (TKT-072) envía un archivo por petición | Bajarlo a ~12 MB, con la condición de integrar este PR después de #110 | (1) El contrato (`panelSubirMedios`: 1..10 archivos, "Petición >105 MB: 413") y ADR-API-002 §8 fijan los 105 MB. Con 12 MB, una petición válida según el contrato (p. ej. 3 × 10 MB) recibiría 413: es un cambio de contrato, y `contracts/openapi.yaml` no es un artefacto de DevOps (Skill_devops §15, CLAUDE.md §0.3). (2) DEC-AUTO-1340/1341 ya eliminan el OOM con cualquier tamaño, sin depender del orden de integración respecto a #110. (3) En `main`, el panel todavía envía lotes (`this.repo.subir(lote.archivos, …)`) | INFO (RSK-OPS-062): un anónimo puede seguir escribiendo hasta 105 MB por petición en el disco del proxy, acotado por DEC-AUTO-1341 | Alta |
+
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1340 a 1343).
+
+### 38.5 Cambios realizados
+- `infra/proxy/nginx.conf`:
+  - `client_body_temp_path` y `proxy_temp_path` pasan a `/var/cache/nginx/temporal/{cuerpos,respuestas}`;
+  - nuevas zonas `limit_conn_zone` `subidas_ip` y `subidas_total`;
+  - en la location `= /api/v1/panel/medios`: `limit_conn subidas_ip 2`, `limit_conn subidas_total 16` y `limit_conn_status 429`.
+- `infra/proxy/Dockerfile`: `install -d -o 101 -g 101 -m 0700 /var/cache/nginx/temporal`. La imagen base, el digest y `pcre2` no cambian.
+- `compose.yaml`:
+  - servicio `proxy`: volumen `proxy_temporal:/var/cache/nginx/temporal` y tmpfs `/tmp` con `size=16m`;
+  - nivel superior: declaración `proxy_temporal: {}`, que solo usa el proxy.
+- `.github/workflows/ci.yaml`, job `images`: paso nuevo `smoke: subidas al panel sin agotar la memoria del proxy (TKT-OPS-035)`. Va tras el smoke anti-evasión y antes de parar el backend, y comprueba que:
+  - (a) `nginx -T` contiene las dos rutas en `/var/cache/nginx/temporal`, ese punto de montaje existe y **no es tmpfs**, y `/tmp` tiene `size=`;
+  - (b) con 2 subidas anónimas de 100 MB retenidas a falta de 1 KB, el `shmem` del cgroup del proxy queda en **< 32 MB** (en tmpfs serían ~200 MB);
+  - (c) la 3.ª subida simultánea recibe **429 `limite_tasa` problem+json** sin enviar el cuerpo (si no hay respuesta en 15 s, también es fallo);
+  - (d) las 2 retenidas terminan con el 403 de Django, `/health/ready` responde 200 y el proxy no se ha reiniciado ni lo ha matado el OOM (`OOMKilled`).
+- Sin cambios en `.env.example`, versiones, lockfiles ni otros servicios.
+
+### 38.6 Versiones / infraestructura / variables
+Sin cambios de versiones ni de digests. El volumen nuevo `<proyecto>_proxy_temporal` es desechable: `down -v` lo borra y no guarda datos persistentes. No hay variables nuevas, y los entornos con un `.env` ya existente no necesitan ningún cambio.
+
+### 38.7 Validaciones ejecutadas (2026-10-12, `brujulaops035`)
+
+| Validación | Resultado |
+|---|---|
+| `docker compose config --quiet` (`--profile ops --profile restauracion`; también con `-f compose.ci.yaml`) | VALIDADO |
+| `nginx -t` en la imagen nueva; volumen montado como ext4 (no tmpfs); `cuerpos/` y `respuestas/` creados (101, 0700); `/tmp` en tmpfs con `size=16384k` | VALIDADO |
+| **4 subidas anónimas de 104 MB sin swap** (`memswap_limit: 256m`), con `limit_conn` relajado a 10 por override para probar solo el disco | **Sin OOM**: 0 eventos `oom`, `RestartCount` 0 y `shmem` estable en 0,2 MB. La memoria del cgroup sube por caché de página **recuperable** (`file` ≈ 240 MB) y vuelve a 22 MB al terminar. Las 4 subidas reciben 403 y la sonda `GET /` responde 200 en 50-100 ms |
+| 3 subidas anónimas simultáneas desde una IP, con la configuración real y sin swap | Las 2 primeras quedan retenidas (403 al completarse) y la 3.ª se rechaza antes de leer el cuerpo, sin OOM. Con TKT-OPS-034 integrado, la 3.ª recibe **429 `application/problem+json` `limite_tasa`**. Sin TKT-OPS-034 era 413 `text/html`, justo el defecto que ese ticket corrige |
+| **Subida legítima**: editor autenticado (login por API, CSRF) con 1 PNG de 9.722.608 bytes (1800×1800) | **200 `ACEPTADO`**, `peso_bytes` íntegro y los 15 derivados (hasta 1,99 MB) servidos con 200 |
+| Paso nuevo del smoke de CI, ejecutado en local contra `brujulaops035` (puerto adaptado) | **PASS**: `shmem` en 0 MB con 2 × 100 MB retenidos; la 3.ª recibe 429 problem+json; las retenidas terminan en [403, 403]; el proxy queda `0 false` |
+| Control negativo 1: `client_body_temp_path` de vuelta en `/tmp` (override) | El smoke **FALLA**: `shmem` de 200 MB y el error "los cuerpos ocupan memoria compartida (tmpfs)" |
+| Control negativo 2: `limit_conn subidas_ip 10` (override) | El smoke **FALLA**: la 3.ª no recibe 429 |
+| `politica_trivy.py .` (lista blanca de los `run:` del CI) | OK (3 invocaciones, 1 gate, 16 excepciones) |
+| `ci.yaml` cargado con PyYAML | VALIDADO |
+| CI real del PR | Ver HANDOFF_ENVELOPE |
+
+Los scripts de prueba (`sondeo_subida.py` y `subida_legitima.py`) se quedaron en el scratchpad de la sesión: son evidencia y no forman parte del repositorio.
+
+### 38.8 Riesgos / pendientes
+- **RSK-OPS-060 (LOW)** — *cifras corregidas en §40.5 (TKT-OPS-037, O-035-02)*: el disco del host aloja temporales transitorios del proxy. En medios ocupan como máximo ~1,7 GB (DEC-AUTO-1341). Los cuerpos ≤ 2 MB del resto de rutas solo los acota `limit_req` por IP (burst 60 ≈ 120 MB por IP). Un ataque distribuido podría ocupar disco que comparte con la BD. Mitigación en producción: un WAF o CDN delante y el volumen en un sistema de archivos con cuota.
+- **RSK-OPS-061 (LOW)** — *cerrado en §40.5 (TKT-OPS-037): el bloqueo era indefinido (F-035-01) y `subidas_total` ya no existe*: con `subidas_total 16`, un atacante con ≥ 8 IP puede bloquear temporalmente las subidas del panel (429). No afecta a la web pública, y el panel reintenta ante `limite_tasa`.
+- **RSK-OPS-062 (INFO)**: cada petición sin autenticar puede seguir enviando 105 MB (DEC-AUTO-1343). Recomendación: cuando TKT-072 (#110) esté en `main`, el Orquestador puede decidir un cambio de contrato y de ADR (`panelSubirMedios`: 1 archivo y ≤ ~12 MB por petición). Después, un ticket DevOps reduciría `client_max_body_size` de medios.
+
+### 38.9 Archivos modificados
+`infra/proxy/nginx.conf`, `infra/proxy/Dockerfile`, `compose.yaml` (servicio `proxy` y declaración del volumen `proxy_temporal`), `.github/workflows/ci.yaml` (solo el paso nuevo del smoke del proxy) y `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 38.10 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir el caso C de §38.3 en un stack propio con `memswap_limit: 256m`.
+- Integrar el PR.
+- Registrar DEC-AUTO-1340 a 1343 y RSK-OPS-060/061/062.
+- Decidir sobre la recomendación de RSK-OPS-062.
+
+Este PR no depende del orden de integración respecto a #110, porque no reduce el límite.
+
+## 39. TKT-OPS-036: memoria del backend para subidas simultáneas de fotos de 40 MP (OBS-QA072-01) (F7, MEDIUM)
+
+> §38 es TKT-OPS-035 (PR #111), integrado antes que este ticket: sus cambios del proxy en `compose.yaml` y `ci.yaml` se conservan (merge sin solapes).
+
+### 39.1 Estado
+**COMPLETADO** en local, pendiente del CI real del PR (§39.8). Rama `tkt-ops-036-memoria-backend` desde `origin/main`. Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5).
+
+### 39.2 Objetivo y causa
+Hallazgo de la QA de TKT-072 (OBS-QA072-01): con el código de TKT-072, una foto de 40 MP tiene un pico de ~530 MB en un worker. El backend tenía `GUNICORN_WORKERS=3` y un límite de 1 GiB. En un Linux sin swap, 3 subidas simultáneas de 40 MP (3 pestañas o 3 editores) provocaban el OOM-kill de un worker, y esa subida fallaba.
+
+Objetivo: que `GUNICORN_WORKERS` subidas simultáneas de 40 MP (≤ 10 MB) no provoquen OOM sin swap, sin reducir la capacidad de la web pública.
+
+Reproducción propia con el límite anterior (1 GiB, memswap = memoria, imagen del PR #110):
+- 3 subidas concurrentes de 40 MP: 1 × **503** y 2 × 200.
+- Pico: 1023 MiB `memory.current` (986 MiB anónimos).
+- `memory.events`: `oom_kill 1`.
+
+### 39.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Límite de memoria del backend `1g` → `${BACKEND_MEM_LIMIT:-2g}`, con un comentario que documenta la regla y las mediciones | `compose.yaml` (servicio `backend`) | DEC-AUTO-1350, 1351 |
+| `memswap_limit: ${BACKEND_MEM_LIMIT:-2g}` (sin swap, como un Linux de servidor) | `compose.yaml` (servicio `backend`) | DEC-AUTO-1352 |
+| Variable `BACKEND_MEM_LIMIT=2g`, junto a `GUNICORN_WORKERS`, con la regla `≥ 640 MiB × GUNICORN_WORKERS` | `.env.example` | DEC-AUTO-1351 |
+| Paso de CI nuevo en el job `infra`: "memoria del backend >= 640 MiB x GUNICORN_WORKERS, sin swap" (ver detalle abajo) | `.github/workflows/ci.yaml` | DEC-AUTO-1351 |
+
+El paso de CI resuelve `docker compose config --format json` en tres variantes: base, `compose.ci.yaml` y `compose.debug.yaml`. Falla en dos casos:
+- la memoria del backend es menor que `640 MiB × GUNICORN_WORKERS`;
+- `memswap_limit` es distinto de la memoria.
+
+No cambian `GUNICORN_WORKERS` (sigue en 3), las CPU (1,5) ni ningún otro servicio.
+
+### 39.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1350**: el límite de memoria del backend pasa de 1 GiB a **2 GiB**, con 3 workers.
+  - Alternativas descartadas:
+    1. **2 workers con 1 GiB**: reduce un 33 % la capacidad de la web pública (workers síncronos), justo lo que el ticket prohíbe.
+    2. **1,5 GiB**: con JPEG cabe (pico de 1331 MiB `current` / 1220 MiB anónimos). Pero el peor caso medido, PNG RGBA de 40 MP, llega a 1584 MiB anónimos: OOM seguro.
+    3. **1,75 GiB**: cubre ese peor caso con solo ~200 MiB de margen, y además glibc retiene memoria entre peticiones (§39.7).
+    4. **`MALLOC_ARENA_MAX` / `MALLOC_TRIM_THRESHOLD_`**: reducen la retención, pero no el pico de una subida en curso, que es lo que provoca el OOM.
+    5. **Limitar la concurrencia de subidas en la aplicación** (semáforo): cambia lógica de producto. Sería un ticket al Developer, no infraestructura.
+  - Riesgo: más techo reservado en el host (§39.5). Es un límite, no una reserva: la memoria real en reposo no cambia.
+  - Reversible: `BACKEND_MEM_LIMIT=1g` en `.env` (el CI lo rechaza con 3 workers).
+- **DEC-AUTO-1351**: el límite es parametrizable (`BACKEND_MEM_LIMIT`) con la regla **≥ 640 MiB × `GUNICORN_WORKERS`**, verificada en CI.
+  - Base medida (§39.7): ~150 MiB de base, más ~360 MiB anónimos por subida JPEG RGB o ~480 MiB por subida PNG RGBA.
+  - 640 MiB por worker cubren la parte proporcional de la base, el peor caso medido y el temporal de Django en `/tmp`, que es tmpfs y cuenta contra el límite.
+  - Con 3 workers: mínimo 1920 MiB; valor por omisión, 2 GiB.
+  - Sin este control, subir `GUNICORN_WORKERS` sin subir la memoria reabriría OBS-QA072-01 en silencio.
+  - Reversible: quitar el paso.
+- **DEC-AUTO-1352**: `memswap_limit` igual a la memoria en el backend.
+  - Sin esto, Docker permite por omisión hasta el doble en swap si el host la tiene (Docker Desktop/WSL2 sí la tiene). En local eso esconde un exceso que en un servidor sin swap sería un OOM.
+  - Solo en el backend: es el servicio con picos de memoria por petición.
+  - Reversible: quitar la línea.
+- **DEC-AUTO-1353**: no se toca la concurrencia de subidas en el proxy desde este ticket.
+  - `infra/proxy/nginx.conf` no está en `archivos_permitidos`.
+  - TKT-OPS-035 (PR #111) introduce ahí `limit_conn subidas_total 16`.
+  - Se emite la recomendación OBS-OPS036-01 (§39.9).
+
+### 39.5 Versiones, infraestructura, dependencias y variables
+- Sin cambios de versión, imagen, digest ni dependencias.
+- Variable nueva: `BACKEND_MEM_LIMIT` (por omisión `2g`; no es un secreto).
+- Suma de los límites de memoria de `compose.yaml` (son techos, no reservas):
+
+  | Servicio | Antes | Después |
+  |---|---|---|
+  | db | 1 GiB | 1 GiB |
+  | backend | 1 GiB | **2 GiB** |
+  | frontend | 768 MiB | 768 MiB |
+  | proxy | 256 MiB | 256 MiB |
+  | **Stack por omisión** | **3 GiB** | **4 GiB** |
+  | migrate (one-shot, termina antes de la web) | 512 MiB | 512 MiB |
+  | perfil `ops` (scheduler + backup) | +1 GiB | +1 GiB |
+
+- Equipo local: 16 GB; la VM de Docker Desktop tiene 7,47 GiB (`docker info` MemTotal = 8 015 994 880 B). El stack completo con el perfil `ops` suma 5 GiB de techo.
+- Uso real medido en reposo: backend ~150 MiB, db ~72 MiB, frontend ~64 MiB, proxy ~23 MiB.
+- Tras subidas de 40 MP, glibc retiene en el backend 0,4-0,9 GiB (§39.7).
+- Con dos stacks a la vez (p. ej. `brujulalocal` + uno de QA), los techos suman más que la VM, pero el uso real queda muy por debajo. Solo hay presión si ambos procesan a la vez subidas grandes simultáneas.
+
+### 39.6 Seguridad
+- Sin cambios de superficie: no hay puertos, redes, capacidades ni usuarios nuevos.
+- Disponibilidad (DoS): un editor autenticado ya no puede tumbar por OOM la subida de otro con 3 subidas de 40 MP.
+- El límite sigue acotando el contenedor, así que el host queda protegido.
+
+### 39.7 Validaciones ejecutadas (2026-10-12, local: Windows 11, Docker Engine 29.6.1, Compose 5.2.0)
+**Montaje:**
+- Stack propio `brujulaops036`: proxy en `127.0.0.1:18036` y `APP_NET_PREFIX=10.231.36`.
+- `.env` efímero de `init-env.sh` en el scratchpad, con cookies no `Secure` para HTTP local.
+- Código del PR #110 (TKT-072, `de1568f`), construido con `--build`.
+- Override de medición con `memswap_limit` = memoria, para simular Linux sin swap (`memory.swap.max` = 0, verificado).
+- No se tocaron `brujulalocal`, el puerto 8080 ni `brujulaqaops035*`.
+
+**Script `carga.py`** (derivado de `subir.py` de la QA de TKT-072):
+- Sube por la API del panel a través del proxy, 1 archivo por petición (como el panel).
+- Lanza N peticiones simultáneas, cada una con su sesión.
+- Mide `memory.current` y `anon` del cgroup cada 0,25 s.
+- Cada ronda añade 32 bytes aleatorios tras el EOI del JPEG (mismos píxeles, sha distinto), para que la subida no se deduplique por huella.
+
+**Fotos:**
+- JPEG 7302×5477 (40,0 MP), 9,8-10,3 MB, con EXIF + GPS + XMP + ICC y grano, generadas con `generar.py` de la QA.
+- Peor caso de memoria: PNG RGBA 7302×5477 de 2,2 MB (4 bytes por píxel en lugar de 3).
+
+| Límite (sin swap) | Carga | Resultado | Pico `current` / anónimos | `oom_kill` |
+|---|---|---|---|---|
+| 1 GiB (anterior) | 3 × JPEG 40 MP simultáneas | **1 × 503** + 2 × 200 | 1023 / 986 MiB | **1** |
+| 1,5 GiB | 3 rondas × 3 JPEG 40 MP simultáneas | 9/9 ACEPTADO, 23-27 s por subida | 1331 / 1220 MiB | 0 |
+| 2 GiB | 3 rondas × 3 JPEG 40 MP simultáneas + carga pública (2 hilos) | 9/9 ACEPTADO, 26-28 s | 1311 / 1216 MiB | 0 |
+| 2 GiB | 2 rondas × 3 **PNG RGBA** 40 MP simultáneas | 6/6 ACEPTADO, 37-58 s | **1614 / 1584 MiB** | 0 |
+| 2 GiB, `compose.yaml` final sin override | 2 rondas × 3 JPEG 40 MP simultáneas | 6/6 ACEPTADO, 36-57 s (host más cargado) | 1299 / 1198 MiB | 0 |
+
+- Con 2 GiB, el log del backend no muestra ningún «WORKER TIMEOUT» ni SIGKILL.
+- **Retención:** tras las subidas, el backend queda con 373-450 MiB anónimos (JPEG) o 884 MiB (PNG RGBA), frente a una base de 142.
+  - Es memoria que glibc no devuelve al sistema.
+  - Los workers la reutilizan en la siguiente subida: las rondas 2 y 3 no superan el pico de la 1.
+  - Se libera al reciclar el worker (`--max-requests 2000`).
+- **Capacidad de la web pública:**
+  - Sin subidas, `GET /` y `GET /api/v1/publico/destinos` responden 200 en 0,21-0,25 s.
+  - Con 3 subidas simultáneas, que ocupan los 3 workers síncronos, las peticiones públicas esperan en la cola de gunicorn: p50 24,9 s, 0 errores.
+  - Pasa igual con 1 GiB: depende de los workers, no de la memoria. Este ticket no lo empeora (los workers siguen siendo 3), pero tampoco lo resuelve (ver OBS-OPS036-01).
+- **Paso de CI nuevo**, extraído del `ci.yaml` y ejecutado en local con `bash -eo pipefail`. En local se usó `python` en lugar de `python3`, que en Git Bash es el alias de Microsoft Store.
+
+  | Caso | Resultado |
+  |---|---|
+  | Por omisión (3 workers, 2g) | rc=0 en las 3 variantes |
+  | `GUNICORN_WORKERS=4` | rc=1, «mínimo 2560» |
+  | `BACKEND_MEM_LIMIT=1g` | rc=1 |
+  | `GUNICORN_WORKERS=4 BACKEND_MEM_LIMIT=2560m` | rc=0 |
+
+- **Límites aplicados**: `docker compose config --format json` da `memory` = `memswap_limit` = 2147483648. En el contenedor, `memory.max` = 2147483648 y `memory.swap.max` = 0.
+
+### 39.8 CI del PR
+El enlace del run y el estado de los checks obligatorios están en la descripción del PR y en el HANDOFF_ENVELOPE.
+
+### 39.9 Riesgos / pendientes
+- **OBS-OPS036-01 (MEDIUM, recomendación al Orquestador): la web pública se degrada con subidas simultáneas.**
+  - Con workers síncronos, `GUNICORN_WORKERS` subidas simultáneas ocupan todos los workers durante 25-60 s. Mientras tanto, la web pública (SSR → API y `/api/v1/publico/*`) espera en cola: p50 medido de 24,9 s.
+  - Es anterior a este ticket y no depende de la memoria.
+  - Arreglo de infraestructura sugerido, en un ticket aparte sobre `infra/proxy/nginx.conf` y después de integrar TKT-OPS-035: `limit_conn subidas_total` = `GUNICORN_WORKERS − 1` (2), para dejar siempre un worker libre a la web pública. El panel ya reintenta ante `limite_tasa` (TKT-072).
+  - Alternativa: workers dedicados o un worker asíncrono. Es una decisión de arquitectura (ADR-API-002 §8).
+- **RSK-OPS-063 (LOW): memoria retenida tras subidas grandes.**
+  - Tras subidas de 40 MP, glibc retiene de 0,25 a 0,75 GiB.
+  - No provoca OOM con 2 GiB (medido en rondas sucesivas), pero ocupa memoria del host hasta que se recicla el worker.
+  - Si molesta, se puede probar `MALLOC_TRIM_THRESHOLD_` o bajar `--max-requests` (NOT_RUN).
+- **RSK-OPS-064 (LOW): temporales de los workers matados.**
+  - Un worker matado (por OOM o por WORKER TIMEOUT) deja su temporal de subida de Django en `/tmp` hasta que se reinicia el contenedor. `/tmp` es tmpfs y cuenta contra el límite.
+  - Observado: 10 MB de `shmem` tras el OOM con 1 GiB.
+  - Con 2 GiB el OOM ya no ocurre; el caso del timeout sigue existiendo.
+- **NOT_RUN:**
+  - Una petición con 10 fotos de 40 MP en un solo POST. La API lo admite, pero el panel ya no lo hace, y superaría los 120 s del timeout por tiempo antes que por memoria (TKT-072).
+  - WebP RGBA de 40 MP ≤ 10 MB: libwebp no lo codificó (error 6, partición). El PNG RGBA ya cubre el caso de 4 bytes por píxel.
+- La regla de 640 MiB por worker se midió con Pillow 12.3.0 y el código de TKT-072. Hay que volver a medirla si cambia el procesado de medios.
+
+### 39.10 Archivos modificados
+`compose.yaml` (servicio `backend`), `.env.example`, `.github/workflows/ci.yaml` (job `infra`, paso nuevo), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 39.11 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir OBS-QA072-01 (3 subidas simultáneas de 40 MP sin swap) y esperar 3 × 200 con `oom_kill 0`.
+- Registrar DEC-AUTO-1350 a 1353, RSK-OPS-063/064 y OBS-OPS036-01.
+- Decidir si se abre el ticket de OBS-OPS036-01 (proxy).
+- Cerrar OBS-QA072-01.
+
+## 40. TKT-OPS-037: el tope global de subidas permitía a un anónimo bloquear el panel (F-035-01) (F7, MEDIUM)
+
+(§39 corresponde a TKT-OPS-036, desarrollado en paralelo e integrado antes; sus RSK-OPS-063/064 obligan a numerar aquí RSK-OPS-065/066.)
+
+### 40.1 Estado
+**COMPLETADO** en la rama `tkt-ops-037-tope-global-subidas`, creada desde `origin/main` (35838b8, con PR #111 de TKT-OPS-035). El bloqueo está **reproducido en `main`** y **desaparece en la rama** (§40.4). Sin despliegue, sin secretos reales y sin costes (CLAUDE.md §0.5). El resultado del CI real del PR se reporta en el HANDOFF_ENVELOPE.
+
+### 40.2 Objetivo
+Corregir F-035-01 (QA de TKT-OPS-035, MEDIUM, confirmado). En `/api/v1/panel/medios`, `limit_conn subidas_total 16` (DEC-AUTO-1341) era un cupo **global** que comparten anónimos y editores. Un anónimo con 8 IPv4 (o un /64 IPv6) abre 2 subidas por IP y envía 1 byte cada 20 s. `client_body_timeout` se mide entre dos lecturas y nginx no tiene plazo total de lectura del cuerpo, así que esas 16 conexiones se mantienen sin límite de tiempo y todas las subidas legítimas del panel reciben 429 mientras dure el goteo. También se corrigen las cifras de RSK-OPS-060 (O-035-02) y RSK-OPS-061, y se documenta O-035-03.
+
+### 40.3 Decisiones
+
+| ID | Decisión | Alternativas descartadas | Motivo | Riesgo | Reversibilidad |
+|---|---|---|---|---|---|
+| DEC-AUTO-1360 | **Se elimina `subidas_total`** (zona y directiva). Se conserva `limit_conn subidas_ip 2` (clave `$binary_remote_addr`), con `limit_conn_status 429` sin cambios | (a) Subir el tope global (p. ej. 64): solo encarece el ataque (32 IP) y sigue siendo un interruptor de DoS. (b) Clave por /24 o /64: en IPv6 el /64 de la notación de texto es frágil (el mapa `$ip_truncada` del log ya evita derivar prefijos IPv6 por el mismo motivo) y en IPv4 castiga a NAT/CGNAT legítimos. (c) Tope global solo para peticiones sin cookie de sesión: se elude con cualquier cookie inventada (ya descartado en DEC-AUTO-1341 a) | Un tope global que un anónimo puede llenar no protege a nadie: convierte la defensa del disco en una denegación de servicio del panel. El OOM que motivó DEC-AUTO-1341 ya no depende de él, porque los cuerpos van a disco (DEC-AUTO-1340). El disco queda acotado **por IP** (≤ 2 × 105 MB) y, en conjunto, por el número de IP del atacante y su ancho de banda real (el goteo no escribe disco) | LOW (RSK-OPS-060 corregido): sin cifra global de disco para medios | Alta |
+| DEC-AUTO-1361 | **No se cambia `client_body_timeout`** en la location de medios (sigue el valor por defecto, 60 s entre lecturas) | Bajarlo a 10-20 s solo en medios | nginx no tiene plazo **total** de lectura del cuerpo: cualquier valor se elude enviando 1 byte antes de que venza. Bajarlo no frena el goteo y sí corta subidas legítimas de ~10 MB desde redes móviles con pausas de radio de decenas de segundos. Lo que acota al goteo es `subidas_ip` (2 conexiones por IP) | Ninguno nuevo | Alta |
+| DEC-AUTO-1362 | **Regresión estática en el smoke de CI** (paso `smoke: subidas al panel sin agotar la memoria del proxy (TKT-OPS-035/037)`, comprobación e): en la salida de `nginx -T`, la location `= /api/v1/panel/medios` debe tener `limit_conn subidas_ip` y **todas** sus `limit_conn` deben usar zonas con clave `$binary_remote_addr` | Reproducir el goteo en CI con 9 contenedores de la red `publica`: añade ~2 min y contenedores extra al job; la prueba funcional ya se hizo en local (§40.4) | Barato y determinista: falla con la configuración de `main` (control negativo) y con cualquier tope global futuro (`$server_name`, cadena fija, etc.) | Ninguno | Alta |
+
+**ORIGEN: EXPANSIÓN_AUTÓNOMA** (DEC-AUTO-1360 a 1362).
+
+### 40.4 Validaciones ejecutadas (2026-10-12, stack propio `brujulaops037`, puerto 18370, `APP_NET_PREFIX=10.231.137`)
+Prueba de goteo: 8 contenedores en la red `<proyecto>_publica` (8 IP), cada uno con 2 conexiones a `POST /api/v1/panel/medios` que declaran 104 MB y envían 1 byte cada 20 s durante 90 s (script `goteo.py` de la QA). Con las 16 conexiones abiertas: una sonda anónima desde una 9.ª IP (contenedor), otra desde el host y una subida legítima autenticada (editor; 1 PNG de 9,7 MB y un lote de 3 × 5,8 MB).
+
+| Validación | `main` (35838b8) | Rama |
+|---|---|---|
+| Sonda anónima desde la 9.ª IP (contenedor) | **429** `limite_tasa` | 400 `validacion` de Django (llega al backend) |
+| Sonda anónima desde el host | **429** `limite_tasa` | 403 `csrf_invalido` de Django (llega al backend) |
+| Subida legítima de 9,7 MB durante el goteo | **429** `limite_tasa` | **200**, `ACEPTADO`, 15 derivados servidos con 200 |
+| Lote de 3 archivos (17 MB) durante el goteo | **429** `limite_tasa` | **200**, 3 `ACEPTADO`, derivados 200 |
+| Conexiones en goteo al final (101 s) | abiertas, sin respuesta | abiertas, sin respuesta (cada IP sigue limitada a 2) |
+| `nginx -t` en la imagen nueva | — | VALIDADO |
+| Paso del smoke de CI (TKT-OPS-035/037) ejecutado en local con el puerto adaptado | — | **PASS**: limit_conn en medios `{subidas_ip: $binary_remote_addr}`; `shmem` 0 MB con 2 × 100 MB retenidos; 3.ª subida de la misma IP → 429 problem+json; retenidas → [403, 403] |
+| Comprobación (e) contra el `nginx.conf` de `main` (control negativo) | **FALLA** como debe (`subidas_total: $server_name`) | PASA |
+| Smoke del proxy de TKT-OPS-004/006/034 (ráfaga 429 problem+json, 400/403/404/405 del proxy, zona `salud`, gzip, `/_errores_proxy/*` con `client_max_body_size 0`, 429 sobre subida de 3 MB) | — | **PASS** |
+| Proxy tras todas las pruebas | — | `RestartCount 0`, `OOMKilled false`, `/health/ready` 200 |
+| `ci.yaml` cargado con PyYAML | — | VALIDADO |
+| CI real del PR | — | Ver HANDOFF_ENVELOPE |
+
+Los scripts (`prueba_goteo.sh`, `sonda9.py`, `paso_037.sh`) quedan en el scratchpad de la sesión: son evidencia y no forman parte del repositorio.
+
+### 40.5 Riesgos corregidos y nuevos
+- **RSK-OPS-060 (LOW), cifras corregidas (O-035-02)**:
+  - Medios: ≤ 2 × 105 MB por IP. **Sin tope global** (DEC-AUTO-1360): el total depende del número de IP del atacante y de los bytes que realmente envíe.
+  - Resto de rutas (cuerpo ≤ 2 MB): `limit_req` (20 r/s, burst 60 por IP) acota el **ritmo** de peticiones nuevas, **no la concurrencia**. La cifra anterior ("burst 60 ≈ 120 MB por IP") era errónea: una IP que envía despacio acumula hasta 20 peticiones nuevas por segundo sin plazo total, así que el techo real por IP es el número de conexiones de nginx (`worker_processes auto` × `worker_connections 1024`; en el host de validación, 20 × 1024) × 2 MB, y el atacante tiene que transmitir esos bytes.
+  - Mitigación en producción, sin cambios: WAF o CDN delante y el volumen `proxy_temporal` en un sistema de archivos con cuota (Puerta Humana de producción).
+- **RSK-OPS-061: CERRADO**. La cifra "bloquean temporalmente mientras duran" era errónea: con goteo el bloqueo era indefinido (F-035-01). `subidas_total` ya no existe y una 9.ª IP sube con 200 durante el goteo (§40.4). Residual: un anónimo **detrás de la misma IP** que un editor (NAT compartido) puede ocupar los 2 cupos de esa IP.
+- **RSK-OPS-065 (MEDIUM en prod, needs_validation) — O-035-03**: el proxy no usa `real_ip`. Tras un balanceador o CDN, `$binary_remote_addr` es la IP del balanceador para todos los clientes: `subidas_ip 2` se convierte en un tope **global de 2** y un solo anónimo con 2 subidas en goteo bloquearía todas las subidas del panel (además de lo ya descrito en RSK-OPS-022 para `por_ip`, `salud` y `estaticos`). Es una decisión de topología de producción: `set_real_ip_from` con los rangos del balanceador + `real_ip_header`, tomada en la **Puerta Humana de producción** (CLAUDE.md §0.5). En local y en CI el proxy recibe las conexiones directamente, así que no aplica. NOT_RUN: no hay topología de producción.
+- **RSK-OPS-066 (LOW, needs_validation, NOT_RUN)**: memoria del proxy frente a muchas conexiones lentas en rutas genéricas. Cada petición con cuerpo pendiente reserva `client_body_buffer_size` (16 KB) además de la memoria de la conexión; con ~16.000 conexiones lentas se alcanzarían los 256m del contenedor. Una IP llega a ese número en ~15 min al ritmo de `por_ip`. No se midió: es preexistente, ajeno a medios y fuera del alcance de este ticket. Mitigación propuesta para otro ticket: `limit_conn` por IP a nivel de servidor con un valor holgado para NAT (p. ej. 64) y `worker_processes` fijo acorde a `cpus: 0.5`.
+- RSK-OPS-062 (INFO) sin cambios.
+
+### 40.6 Cambios realizados
+- `infra/proxy/nginx.conf`: se eliminan `limit_conn_zone $server_name zone=subidas_total:1m` y `limit_conn subidas_total 16`. Se actualizan los comentarios de la zona y de la location de medios (DEC-AUTO-1360/1361).
+- `.github/workflows/ci.yaml`, job `images`, solo el paso del smoke de subidas: nombre `… (TKT-OPS-035/037)`, comentario y comprobación estática (e) (DEC-AUTO-1362). El resto del paso no cambia: ya no afirmaba nada sobre `subidas_total`.
+- `docs/05_operacion/DEVOPS_HANDOFF.md`: línea de índice, notas de corrección en §38.4 y §38.8, y esta sección.
+- Sin cambios en `compose.yaml`, `Dockerfile`, `.env.example`, versiones, digests ni lockfiles.
+
+### 40.7 Versiones / infraestructura / variables
+Sin cambios. La imagen `brujula/proxy` solo cambia en `nginx.conf`.
+
+### 40.8 Archivos modificados
+`infra/proxy/nginx.conf`, `.github/workflows/ci.yaml` (solo el smoke del proxy) y `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 40.9 Próximo agente
+**Orquestador**:
+- Lanzar la QA del PR. Sugerencia: repetir el goteo de 8 IP y comprobar que una 9.ª IP sube con 200.
+- Integrar el PR. Posible conflicto de texto con TKT-OPS-036 en el índice y al final de este documento (ambos añaden líneas): se resuelve conservando las dos.
+- Registrar DEC-AUTO-1360 a 1362, la corrección de RSK-OPS-060, el cierre de RSK-OPS-061 y los nuevos RSK-OPS-065/066.
+- Llevar RSK-OPS-065 a la Puerta Humana de producción y decidir si RSK-OPS-066 merece ticket.
+
+---
+
+## 41. TKT-OPS-038: el SSR compartía un solo cubo de throttling para todos los visitantes (auditoría F9, `ssr-api-throttle-key-collapse`) (F9, HIGH)
+
+### 41.1 Estado
+COMPLETADO. Fallo reproducido y corregido solo con infraestructura (`compose.yaml`); no hizo falta Botón de Pánico.
+
+### 41.2 Objetivo y causa
+Todas las rutas públicas se renderizan en SSR, y el SSR llama al backend directo (`API_INTERNAL_URL=http://backend:8000`). La IP del visitante no llegaba al throttling por **dos** causas encadenadas:
+
+1. **Angular descartaba la cabecera.** `AngularNodeAppEngine` (Angular 22) borra de la petición toda cabecera `x-forwarded-*` que no esté en `trustProxyHeaders`; el frontend registra el aviso «Received "x-forwarded-for" header but "trustProxyHeaders" was not set up to allow it» (402 veces en el log de un stack recién arrancado). `REQUEST.headers` ya no traía `X-Forwarded-For`, así que `reenvio-ssr-interceptor.ts` no tenía nada que reenviar. La hipótesis inicial del ticket no contemplaba esta causa.
+2. **El backend no confiaba en el frontend.** `DJANGO_TRUSTED_PROXIES` solo contenía la IP del proxy (`.10/32`), y el frontend tenía una IP dinámica (`.128/25`).
+
+Resultado: `ip_cliente()` devolvía la IP del frontend y `truncar_ip` la reducía a la red de "app". Todas las páginas SSR de todos los visitantes compartían un solo cubo por ámbito. `/destinos` hace 2 llamadas `publico-lectura` (120/min), así que **60 páginas por minuto en total** dejaban a toda la web pública con el estado de error (HTTP 200, sin datos).
+
+### 41.3 Cambios realizados
+| Cambio | Archivo | Decisión |
+|---|---|---|
+| Frontend con IP fija `${APP_NET_PREFIX}.11` en "app", fuera del rango dinámico `.128/25` (como el proxy) | `compose.yaml` | DEC-AUTO-1370 |
+| `DJANGO_TRUSTED_PROXIES` = `.10/32,.11/32` y `GUNICORN_FORWARDED_ALLOW_IPS` = `.10,.11` | `compose.yaml` (backend) | DEC-AUTO-1370 |
+| `NG_TRUST_PROXY_HEADERS: x-forwarded-for` en el frontend (variable que lee `@angular/ssr/node` para `trustProxyHeaders`; sin código de aplicación) | `compose.yaml` (frontend) | DEC-AUTO-1371 |
+| Comentario de `DJANGO_TRUSTED_PROXIES` actualizado (sigue sin ser variable del `.env`) | `.env.example` | — |
+| Paso nuevo del smoke en el job `images`: «smoke: IP del visitante en las llamadas del SSR a la API (TKT-OPS-038)» | `.github/workflows/ci.yaml` | DEC-AUTO-1372 |
+
+### 41.4 Decisiones autónomas (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversibles)
+- **DEC-AUTO-1370**: IP fija `.11` para el frontend y confianza en ella en Django y gunicorn.
+  - Alternativas: (a) confiar en toda la subred "app" (`.0/24`): cualquier contenedor futuro de "app" podría falsificar la IP; (b) que el SSR llame a la API a través del proxy: un salto más y el proxy vería la IP del frontend, así que no resuelve nada; (c) IP fija `.11`, elegida porque replica el patrón del proxy (DEC-AUTO-155) y es la confianza mínima.
+  - Gunicorn: con `.11` aceptaría `X-Forwarded-Proto` del SSR. Hoy el SSR no la reenvía (no cambia nada), pero deja preparado el camino de RSK-OPS-014. Gunicorn no modifica `REMOTE_ADDR`.
+  - Riesgo: si alguien añade otro emisor a "app" con la IP `.11`, heredaría la confianza. Docker no la asigna dinámicamente (fuera de `ip_range`). Reversible: quitar la IP fija y la entrada.
+- **DEC-AUTO-1371**: `NG_TRUST_PROXY_HEADERS=x-forwarded-for` (solo esa cabecera).
+  - No se confía en `x-forwarded-host`/`-proto`/`-prefix`: la validación de host (`NG_ALLOWED_HOSTS`, SSRF) sigue usando solo `Host`.
+  - Por qué es seguro: (1) en la location `/` el proxy SOBRESCRIBE `X-Forwarded-For` con `$remote_addr` (`snippets/proxy-headers.conf`), así que un cliente no puede inyectar la suya; (2) la location de assets no la sobrescribe, pero envía `Host: estaticos.invalid` y no se renderiza (verificado: 0 llamadas a la API con un XFF inyectado); (3) Express sigue con `trust proxy` en false; (4) el frontend solo es accesible desde "app" (red interna).
+  - Alternativa descartada: `new AngularNodeAppEngine({trustProxyHeaders: [...]})` en `server.ts`. Es código de aplicación (Developer) y equivale a la variable de entorno.
+- **DEC-AUTO-1372**: regresión en el smoke de CI, de extremo a extremo. Comprueba:
+  - (a) que el frontend tiene la `.11`;
+  - (b) que `ip_cliente` usa el XFF si `REMOTE_ADDR` es el frontend o el proxy, y lo ignora si es otro peer de "app" (`.200`);
+  - (c) tras vaciar los contadores, un visitante pide `/destinos` con un XFF inyectado: el cubo `publico-lectura` queda a nombre de SU IP, no a nombre de la red del frontend ni de la IP inyectada.
+  - La comprobación (c) detecta ambas causas, también si una actualización de Angular cambia el nombre de la variable.
+
+### 41.5 Validaciones ejecutadas (2026-10-13, local: Windows 11, Docker Engine 29.6.1, Compose 5.2.0)
+**Montaje:**
+- Stack propio `brujulaops038`: `APP_NET_PREFIX=10.231.38`, proxy en `127.0.0.1:18038`, imágenes de `origin/main` (`39b7167`) y semilla real (`cargar_semilla`: creados 98, publicados 68).
+- Override de prueba en el scratchpad: subred `10.238.0.0/16` en "publica" para dar a A (`10.238.1.10`) y B (`10.238.2.20`) redes /24 distintas.
+- Clientes: contenedores efímeros en "publica" que piden `http://proxy:8080/destinos`. Criterio de página correcta: contiene tarjetas de destino (`/destinos/<slug>`, 24 con la semilla; la de error tiene 0 y pesa 30 840 B frente a 187 010 B).
+- No se tocaron `brujulalocal` ni el puerto 8080.
+
+**Experimento:** A pide 130 páginas en 52 s (2,5 r/s, dentro del `limit_req` del borde), seguidas de 3 páginas de B.
+
+| Configuración | A | B | Backend `/api/v1/publico/*` |
+|---|---|---|---|
+| ANTES (`compose.yaml` de `main`) | 60 correctas; error desde la 61 | **3 de 3 con error** (200 sin datos) | 120 × 200, 146 × 429 |
+| Solo IP fija + `DJANGO_TRUSTED_PROXIES` (sin `NG_TRUST_PROXY_HEADERS`) | 60 correctas; error desde la 61 | **3 de 3 con error** | 120 × 200, 146 × 429 |
+| DESPUÉS (cambio completo) | 60 correctas; error desde la 61 (**su propia cuota**) | **3 de 3 correctas** (24 destinos) | 126 × 200, 140 × 429 |
+
+**Peer no confiable directo al backend (DESPUÉS):** un contenedor de "app" con IP dinámica (`10.231.38.130`) hace 130 GET a `backend:8000/api/v1/publico/destinos`, con un XFF distinto en cada uno. Resultado: 120 × 200 y 10 × 429, así que el XFF se ignora y cuenta por su IP.
+
+**Assets con XFF inyectado (DESPUÉS):** `/no-existe-ops038.js` → 404, `/fonts/no-existe.woff2` → 404, `/favicon.ico` → 200. Llamadas a la API en el backend: 0.
+
+**Paso nuevo del smoke de CI, ejecutado en local contra `brujulaops038`:**
+- ANTES: FALLA en (a), «el frontend no tiene la IP fija .11», y, saltando (a), en (b): `REMOTE_ADDR=10.231.38.130 -> 10.231.38.130`.
+- Solo IP fija: (a) y (b) OK; FALLA en (c): `{'visitante': False, 'red del frontend': True, 'XFF inyectado': False}`.
+- DESPUÉS: **PASS**: `{'visitante': True, 'red del frontend': False, 'XFF inyectado': False}`.
+
+**Configuración:** `docker compose config --quiet` (base, `+compose.ci.yaml`, `+compose.debug.yaml`, perfiles `ops` y `restauracion`): rc=0. `ci.yaml` cargado con PyYAML: OK.
+
+### 41.6 Operación: transición en un stack existente (una sola vez)
+nginx resuelve el upstream `frontend` al arrancar. Al aplicar este cambio sobre un stack que ya está levantado (p. ej. `brujulalocal`), `docker compose up -d` recrea el frontend con la nueva IP `.11`, pero no reinicia el proxy, que sigue apuntando a la IP antigua: **todas las páginas dan 503** (observado). Hay que ejecutar también `docker compose restart proxy`, o levantar el stack desde cero. Después la IP es fija y la recreación del frontend ya no la cambia (verificado con `--force-recreate frontend`: el proxy sigue sirviendo sin reiniciarse).
+
+### 41.7 Riesgos / pendientes
+- **OBS-OPS038-01 (LOW, anterior a este ticket):** el backend tampoco tiene IP fija. Si se recrea con otra IP, el proxy (que lo resuelve al arrancar) da 502/503 hasta que se reinicia. Arreglo posible en un ticket aparte: IP fija o `resolver` de Docker en nginx.
+- **OBS-OPS038-02 (LOW, defensa en profundidad):** la location de assets de `infra/proxy/nginx.conf` no sobrescribe `X-Forwarded-For`. Hoy es inocuo porque esa location nunca renderiza (Host inválido; verificado). Sugerencia para el próximo ticket sobre `nginx.conf`: `proxy_set_header X-Forwarded-For $remote_addr;` también ahí. Queda fuera de los `archivos_permitidos` de este ticket.
+- Los avisos de Angular por `x-forwarded-host`/`x-forwarded-proto` en el log del SSR siguen apareciendo (anterior a este ticket; TKT-OPS-019 los quitó de los assets, no de `/`).
+- RSK-OPS-014 sigue ABIERTO: el SSR no reenvía `X-Forwarded-Proto`. La confianza de gunicorn en `.11` ya está preparada.
+- RSK-OPS-012 queda mitigado también para el SSR (lista de emisores de confianza: proxy y frontend).
+
+### 41.8 Archivos modificados
+`compose.yaml` (servicios `backend` y `frontend`, comentarios de la red `app`), `.env.example` (comentario), `.github/workflows/ci.yaml` (job `images`, paso nuevo del smoke), `docs/05_operacion/DEVOPS_HANDOFF.md`.
+
+### 41.9 Próximo agente
+**Orquestador:**
+- QA del PR. Sugerencia: repetir el experimento A/B y esperar que B obtenga la página correcta.
+- Registrar DEC-AUTO-1370 a 1372 y OBS-OPS038-01/02.
+- Cerrar el candidato `ssr-api-throttle-key-collapse` de la auditoría F9.
+- Tras integrar en `main`: en `brujulalocal`, `up -d` + `restart proxy` (§41.6).

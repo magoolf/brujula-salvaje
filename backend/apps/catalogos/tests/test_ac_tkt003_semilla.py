@@ -23,6 +23,10 @@ def _falla(excepcion=IntegrityError):
         yield
 
 
+# TKT-041: catalogos.0004 añade 6 licencias CC BY/BY-SA 2.0-3.0 que 0002 no siembra ni retira.
+LICENCIAS_0004 = 6
+
+
 def _recuentos() -> dict[str, int]:
     return {
         "regiones": Region.objects.count(),
@@ -33,7 +37,12 @@ def _recuentos() -> dict[str, int]:
 
 
 def test_AC_TKT003_06_la_migracion_siembra_los_catalogos():
-    assert _recuentos() == {"regiones": 7, "categorias": 8, "licencias": 5, "niveles": 9}
+    assert _recuentos() == {
+        "regiones": 7,
+        "categorias": 8,
+        "licencias": 5 + LICENCIAS_0004,
+        "niveles": 9,
+    }
     assert set(Region.objects.values_list("continente", flat=True)) == {
         "AMERICA",
         "EUROPA",
@@ -43,7 +52,7 @@ def test_AC_TKT003_06_la_migracion_siembra_los_catalogos():
     }
     assert NivelEscala.objects.filter(escala="DIFICULTAD").count() == 5
     assert NivelEscala.objects.filter(escala="PRESUPUESTO").count() == 4
-    assert Licencia.objects.filter(compatible_publicacion=True).count() == 5
+    assert Licencia.objects.filter(compatible_publicacion=True).count() == 5 + LICENCIAS_0004
     assert Pais.objects.count() == 0  # los países llegan con la carga semilla (TKT-007)
 
 
@@ -65,10 +74,22 @@ def test_AC_TKT003_06_semilla_reversible_por_clave_natural():
         codigo="OTRA-1.0", nombre="Otra", requiere_atribucion=False, compatible_publicacion=False
     )
     semilla.retirar_semilla(apps, None)
-    assert _recuentos() == {"regiones": 0, "categorias": 0, "licencias": 1, "niveles": 0}
-    assert Licencia.objects.get() == extra  # solo borra lo que sembró
+    assert _recuentos() == {
+        "regiones": 0,
+        "categorias": 0,
+        "licencias": 1 + LICENCIAS_0004,
+        "niveles": 0,
+    }
+    # solo borra lo que sembró (ni la licencia del administrador ni las de catalogos.0004)
+    assert Licencia.objects.filter(codigo__in=[lic[0] for lic in semilla.LICENCIAS]).count() == 0
+    assert Licencia.objects.filter(pk=extra.pk).exists()
     semilla.sembrar(apps, None)
-    assert _recuentos() == {"regiones": 7, "categorias": 8, "licencias": 6, "niveles": 9}
+    assert _recuentos() == {
+        "regiones": 7,
+        "categorias": 8,
+        "licencias": 6 + LICENCIAS_0004,
+        "niveles": 9,
+    }
 
 
 def test_AC_TKT003_04_catalogos_rechazan_valores_fuera_de_dominio():

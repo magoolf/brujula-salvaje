@@ -28,13 +28,25 @@ export class PaginaInstitucionalStore {
     { requireSync: true },
   );
 
+  // `id` (TKT-016): el valor del SSR viaja en TransferState y el recurso nace resuelto al hidratar
+  // (sin esqueleto ni recreación del DOM del servidor). La clave incluye los parámetros iniciales de
+  // la URL, así que nunca se sirve un valor transferido de otra URL; y Angular solo la consulta en el
+  // primer cálculo del recurso mientras dura la hidratación, nunca al navegar después en el cliente.
   private readonly recurso = resource({
+    id: `recurso:pagina-institucional:${this.slug()}`,
     params: () => this.slug(),
     loader: ({ params }) => this.repo.pagina(params),
   });
 
-  private readonly recursoEscalas = resource({ loader: () => this.repo.escalas() });
-  private readonly recursoConfiguracion = resource({ loader: () => this.repo.configuracion() });
+  // `id` (TKT-016): ver el comentario de `recurso`.
+  private readonly recursoEscalas = resource({
+    id: 'recurso:institucional-escalas',
+    loader: () => this.repo.escalas(),
+  });
+  private readonly recursoConfiguracion = resource({
+    id: 'recurso:institucional-configuracion',
+    loader: () => this.repo.configuracion(),
+  });
 
   readonly pagina = computed(() => (this.recurso.hasValue() ? this.recurso.value() : null));
   readonly escalas = computed(() => (this.recursoEscalas.hasValue() ? this.recursoEscalas.value() : null));
