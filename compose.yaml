@@ -70,7 +70,7 @@ x-backend-env: &backend-env
   DB_HOST: db
   DB_PORT: "5432"
   DB_NAME: ${DB_NAME:-brujula}
-  GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+  GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
   GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
   OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-true}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
@@ -200,9 +200,12 @@ services:
       retries: 12
       start_period: 30s
     stop_grace_period: 30s
+    # CPU (TKT-OPS-039, RSK-OPS-068, DEC-AUTO-1390): con 1.0 la BD pasaba el 36 % de los periodos CFS
+    # con throttling a 30 r/s (cada ficha hace 23-27 consultas) y esa espera llegaba a la API. Con 2.0:
+    # 0 periodos con throttling. Es un techo, no una reserva.
     deploy:
       resources:
-        limits: {cpus: "1.0", memory: 1g}
+        limits: {cpus: "${DB_CPUS:-2.0}", memory: 1g}
 
   # ---------------------------------------------------------------------------
   # Job de migración (app_migrator) antes de la web (DB_HANDOFF plan_migraciones, §23.4)
@@ -272,12 +275,21 @@ services:
     # Memoria (TKT-OPS-036, OBS-QA072-01, DEC-AUTO-1350/1351): cada worker síncrono puede estar
     # procesando una foto de 40 MP a la vez (pico medido por subida: ~360 MiB anónimos con JPEG RGB,
     # ~480 MiB con PNG RGBA; base ~150 MiB). Regla: BACKEND_MEM_LIMIT >= 640 MiB x GUNICORN_WORKERS
-    # (la verifica CI). 2 GiB cubre los 3 workers por omisión: picos medidos de 1216/1584 MiB sin OOM.
+    # (la verifica CI). Con 4 workers por omisión (TKT-OPS-039, DEC-AUTO-1392): 2560 MiB. Medido: 4 JPEG de
+    # 40 MP simultáneas, pico de 1621 MiB anónimos sin OOM (con 3 workers y 2 GiB: 1216/1584 MiB, TKT-OPS-036).
     # memswap_limit = memoria: sin swap, como un Linux de servidor; un exceso se ve aquí y no se esconde.
-    memswap_limit: ${BACKEND_MEM_LIMIT:-2g}
+    memswap_limit: ${BACKEND_MEM_LIMIT:-2560m}
+    # CPU (TKT-OPS-039, RSK-OPS-068, DEC-AUTO-1390/1391): cada worker síncrono es un proceso de un solo
+    # hilo, así que con N workers el backend puede usar hasta N núcleos. Con 1.5 para 3 workers, la cuota
+    # CFS los frenaba en cada ráfaga (throttling) y la latencia se disparaba cuando la CPU rendía menos
+    # (con batería, F9: p95 de lectura 1111 ms a 20 r/s). Regla: BACKEND_CPUS >= GUNICORN_WORKERS (la
+    # verifica CI). 4 workers y 4.0 (DEC-AUTO-1392): 50 usuarios a 20 r/s durante 5 min con batería dan
+    # p95 de 271 ms (3 workers: 385 ms), y con 3 subidas simultáneas queda un worker libre para la web
+    # pública (OBS-OPS036-01). 4.0 es el máximo de los runners de CI (4 vCPU). Docker rechaza un valor
+    # mayor que las CPU del host: en un host más pequeño, bajar a la vez GUNICORN_WORKERS y BACKEND_CPUS.
     deploy:
       resources:
-        limits: {cpus: "1.5", memory: "${BACKEND_MEM_LIMIT:-2g}"}
+        limits: {cpus: "${BACKEND_CPUS:-4.0}", memory: "${BACKEND_MEM_LIMIT:-2560m}"}
 
   # ---------------------------------------------------------------------------
   # Frontend Angular 22 SSR (Node) — sin acceso a la red de datos
