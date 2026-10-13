@@ -734,14 +734,14 @@ tickets:
   - id: TKT-073
     titulo: "MEDIUM (RSK-OPS-067, F9): integrar Django 5.2.18 (PR #78 Dependabot; CVE-2026-84429 DoS de cabeceras, CVE-2026-87975, CVE-2026-87890, CVE-2026-77050) con QA de regresión"
     fase: F9
-    estado: IN_PROGRESS
+    estado: DONE
     owner: Skill_QA
     trazabilidad: [RSK-OPS-067, DEVOPS_HANDOFF §42.10]
     depende_de: []
     archivos_permitidos: ["backend/pyproject.toml", "backend/uv.lock"]
-    ciclo_qa: 0/3
+    ciclo_qa: 1/3
     ciclo_panico: 0/2
-    evidencia: ["DEC-AUTO-1011 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): el cambio ya lo escribió Dependabot (lockfile); no requiere Developer, solo QA de regresión y sincronizar la rama con main"]
+    evidencia: ["QA c1/3 PASS @ b3a61ba (pytest 1758/0, schemathesis 3051/3051, E2E Chromium 243/0, SAST/SCA/trivy 0); CI verde; PR #78 integrado por el usuario. DONE (RSK-OPS-067 cerrado)", "DEC-AUTO-1011 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): el cambio ya lo escribió Dependabot (lockfile); no requiere Developer, solo QA de regresión y sincronizar la rama con main"]
     actualizado: 2026-10-13
   - id: TKT-OPS-039
     titulo: "MEDIUM (RSK-OPS-068, F9): capacidad de la API pública: p95 lectura 1111 ms a 20 r/s con batería; ejecutar AC-051/AC-053 (50 usuarios concurrentes, 5 min, p95 <= 300 ms lectura / <= 500 ms búsqueda, error < 1 %) y, si no cumple, ajustar gunicorn (gthread/workers/CPU respetando la regla >= 640 MiB por worker); si la causa es de consultas de las fichas, devolver diagnóstico para ticket de Developer"
