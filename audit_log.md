@@ -641,3 +641,4 @@
 - 2026-10-13 | INTEGRACION | TKT-OPS-039 | PR #116 integrado por el usuario @ 2189f38. DONE (23 de 23 HIGH/MEDIUM). RSK-OPS-068 cerrado
 - 2026-10-13 | OPERACION | Orquestador | brujulalocal reconstruido desde main @ 2189f38 (up -d --build --wait + restart proxy); .env local GUNICORN_WORKERS 3 -> 4 según TKT-OPS-039 (DEC-AUTO-1013, ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible; archivo no versionado, sin secretos tocados). Smoke: /, API pública y /panel 200; django 5.2.18
 - 2026-10-13 | VEREDICTO_FINAL | F10 | PROYECTO COMPLETADO en entorno local; producción pendiente de Puerta Humana. Informe en docs/INFORME_ENTREGA.md
+- 2026-10-13 | DELEGACION | TKT-074/075/076 | el usuario pide continuar con los PR de Dependabot y la limpieza; DEC-AUTO-1014 (QA por ecosistema, @dependabot rebase y merge secuencial). #21 fuera de alcance. QA TKT-074 y TKT-075 despachadas

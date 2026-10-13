@@ -755,6 +755,42 @@ tickets:
     ciclo_panico: 0/2
     evidencia: ["QA c1/3 PASS (enchufado p95 139/141 ms; A/B main 197 ms); PR #116 integrado por el usuario @ 2189f38. DONE (RSK-OPS-068 cerrado)", "PR #116 @ a7b3fd9 CI verde; AC-053 p95 lectura 245 ms / búsqueda 87 ms, 0 % error (batería); QA c1/3 en curso", "Medición con batería permitida por decisión humana registrando condiciones (avisar solo si < 20 %)"]
     actualizado: 2026-10-13
+  - id: TKT-074
+    titulo: "Post-entrega (petición del usuario 2026-10-13): QA de regresión e integración de Dependabot backend #55 (cryptography 50.0.2) y #54 (ruff 0.16.10)"
+    fase: F9
+    estado: IN_PROGRESS
+    owner: Skill_QA
+    trazabilidad: [Dependabot]
+    depende_de: []
+    archivos_permitidos: ["backend/pyproject.toml", "backend/uv.lock"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1014 (ORIGEN: EXPANSIÓN_AUTÓNOMA, reversible): una QA por ecosistema valida cada PR sobre main y el conjunto; luego '@dependabot rebase' y merge secuencial para no romper lockfiles"]
+    actualizado: 2026-10-13
+  - id: TKT-075
+    titulo: "Post-entrega: QA de regresión e integración de Dependabot frontend #56 (Angular 22.2.0 -> 22.2.1, 12 paquetes), #73 (vitest) y #57 (@types/node 24.19.1)"
+    fase: F9
+    estado: IN_PROGRESS
+    owner: Skill_QA
+    trazabilidad: [Dependabot]
+    depende_de: []
+    archivos_permitidos: ["frontend/package.json", "frontend/package-lock.json"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1014"]
+    actualizado: 2026-10-13
+  - id: TKT-076
+    titulo: "Post-entrega: QA de regresión e integración de Dependabot infraestructura #74 (nginx-unprivileged 1.31.6-alpine) y #107 (acciones del CI); #21 (Python 3.14) fuera de alcance (conflicto y CI rojo)"
+    fase: F9
+    estado: TODO
+    owner: Skill_QA
+    trazabilidad: [Dependabot]
+    depende_de: []
+    archivos_permitidos: ["infra/proxy/Dockerfile", ".github/workflows/**"]
+    ciclo_qa: 0/3
+    ciclo_panico: 0/2
+    evidencia: ["DEC-AUTO-1014; se lanza al terminar TKT-074 o TKT-075 (memoria del equipo)"]
+    actualizado: 2026-10-13
   - id: CHG-API-007
     titulo: "LOW (tras TKT-040): ajustar ADR-API-002 §22 a la implementación de TKT-040: fila de panelRenovarSesion (la renovación la guarda AutenticacionSesionPanel.authenticate, OBS-02 QA CHG-API-006 c2) y viñeta de deuda (resuelta): contención antes del efecto -> 409 sin efectos; tras el efecto -> éxito sin renovar o 401 sesion_expirada, nunca 409; GET y vistas previas -> 401; login con contención -> 401 credenciales_invalidas (NV-01), 409 solo por sesión previa bloqueada"
     fase: F4
