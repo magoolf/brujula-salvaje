@@ -268,3 +268,25 @@ El DEVOPS HANDOFF de §20 se escribe en `docs/05_operacion/DEVOPS_HANDOFF.md` (C
 
 ### 23.8 Toolchain local
 Las herramientas de seguridad y supply chain (gitleaks, trivy, syft, cosign, semgrep, bandit, pip-audit, schemathesis, lhci) están instaladas localmente con las versiones registradas en `.agent/skills/VERSIONS.md`. En CI se instalan con las mismas versiones fijadas (REGLA 1 y 3: cero latest, cero versiones ambiguas).
+
+### 23.9 Lighthouse CI desde F6 (ecosistema v6.0)
+- El pipeline base que entregas en F6 ya incluye Lighthouse CI (`lhci`) sobre el build SSR levantado en el CI: perfil móvil con throttling, 3 ejecuciones por ruta y mediana.
+- Las aserciones son los umbrales de Skill_UI_UX §47.2 (LCP, CLS, TBT como proxy de INP y peso JS por ruta) con nivel `error`. Las rutas medidas salen de `docs/00_proyecto/PERFIL_PROYECTO.yaml` (`rendimiento.rutas`).
+- El informe se adjunta como artefacto del job; QA lo usa como evidencia y no repite la medición salvo que dude de ella.
+
+### 23.10 CI rápido (ecosistema v6.0)
+- Objetivo: mediana ≤ 10 min por PR y ≤ 15 min en `main`. Se mide y se registra en DEVOPS_HANDOFF en cada fase.
+- Cachés obligatorias: dependencias (npm, uv/pip), capas Docker (buildx con caché del CI), navegadores de Playwright y herramientas de seguridad fijadas.
+- Trabajos en paralelo: backend, frontend, contrato, seguridad y E2E (con *shards*); el *fail-fast* de §23.2 se mantiene dentro de cada trabajo.
+- Ejecución por impacto: un trabajo inicial detecta las rutas cambiadas; los trabajos que no aplican terminan en éxito sin ejecutar (los checks obligatorios nunca quedan pendientes). Un cambio solo de documentación no ejecuta build, E2E ni escaneo de imágenes.
+- `concurrency` con cancelación en las ramas de PR; en `main` nunca se cancela una ejecución que valida código.
+
+### 23.11 Cola de merges y documentación (ecosistema v6.0)
+- Los workflows obligatorios escuchan también el evento `merge_group`, para usar la cola de merges de GitHub en lugar de actualizar cada rama a mano antes de integrar.
+- Activar la cola de merges en la protección de `main` es un cambio de configuración compartida: el Orquestador lo pide al usuario (CLAUDE.md §0.5) y queda registrado.
+- Los cambios de documentación del Orquestador (`kanban.md`, `audit_log.md`, planes) se agrupan: como máximo un commit de documentación por integración o por hora, nunca uno por cada movimiento del tablero.
+
+### 23.12 Dependabot (ecosistema v6.0)
+- `.github/dependabot.yml` agrupa las actualizaciones por ecosistema (npm, uv/pip, Docker, GitHub Actions) con frecuencia **mensual**; las de seguridad siguen llegando en cuanto se publican.
+- Las actualizaciones *patch* y *minor* agrupadas pasan QA de nivel C (Skill_QA §3.1); las *major* son un ticket normal con su nivel.
+- Un PR de Dependabot que no se pueda integrar en 30 días se cierra con un comentario que explica el motivo.

@@ -383,3 +383,18 @@ Añadir a `GATES`: `APPSEC`, `OBSERVABILITY`, `CONTRACT_TESTS`. `BACKEND_GATE = 
 
 ### 12.7 Formato de salida en el ecosistema
 El YAML de §11 va como `payload` del `HANDOFF_ENVELOPE` de CLAUDE.md §0.9, que también es YAML: la regla "solo YAML, sin texto" de §11 se mantiene. En modo contrato (F4) el payload resume `contracts/openapi.yaml` y los ADR-API producidos; los GATES de implementación que no apliquen se reportan `NOT_RUN` con motivo, nunca PASS.
+
+### 12.8 Presupuesto de consultas y caché HTTP (ecosistema v6.0)
+- Cada endpoint declara su presupuesto de consultas y un test lo fija con `assertNumQueries` (§N+1 Check Formal):
+  - detalle: ≤ 10 consultas;
+  - listado: ≤ 8 consultas y **constante** respecto al tamaño de página (un test con 1 y con N elementos devuelve el mismo número).
+- Superar el presupuesto exige ADR con el motivo y la medición.
+- Las lecturas públicas devuelven `ETag` o `Last-Modified` y `Cache-Control` explícito, y responden `304` a peticiones condicionales.
+- Toda caché de aplicación documenta su invalidación (por evento de publicación o por TTL) en un ADR; nunca caché sin estrategia de invalidación.
+- Los costes por petición que no dependen del usuario (purgas, mantenimiento, recálculos) no se ejecutan en el camino de la petición: van a tareas periódicas.
+
+### 12.9 Trabajo pesado fuera de la petición web (ecosistema v6.0)
+- Toda operación que pueda superar 500 ms o sea intensiva en CPU o memoria (procesamiento de imágenes y vídeo, exportaciones, importaciones, envíos masivos, recálculos) se ejecuta en un worker de cola (broker de §12.4), nunca en un worker web.
+- La API responde `202 Accepted` con un recurso de estado consultable (`pendiente | procesando | listo | error`) y la tarea es idempotente, con reintentos y backoff.
+- Los workers de cola tienen límites de CPU y memoria propios, separados de los workers web, para que una carga pesada nunca degrade la web pública.
+- Las pruebas cubren: encolado, éxito, error, reintento y la consulta de estado.
