@@ -525,3 +525,13 @@ Donde este documento dice "QA", "Security" o "Verifier", entiéndase Skill_QA.md
 
 16.8 Formato de salida
 El reporte YAML de §14 se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
+
+16.9 Paquete de contexto
+Antes de leer los estándares completos, lee el paquete de contexto del ticket (`docs/00_proyecto/contexto/<TKT>.md`, CLAUDE.md §0.15). Contiene las reglas aplicables con su sección de origen. Consulta las secciones completas que cite el paquete y cualquier otra que necesites; si el paquete contradice a un estándar, prevalece el estándar y lo reportas en `warnings`.
+
+16.10 Autoverificación visual y de rendimiento (ecosistema v6.0)
+En tickets que cambian UI, antes de pasar a READY_FOR_VALIDATION ejecuta sobre las rutas afectadas:
+- la prueba de layout de Skill_Frontend §28.3 en los seis anchos (360 a 2560 px);
+- Lighthouse con los presupuestos de Skill_UI_UX §47.2;
+- capturas a 360, 1440 y 2560 px, adjuntas como evidencia en el reporte (`visual_evidence`).
+Si algún umbral falla, el ticket no está listo: corrígelo o, si el diseño lo hace imposible, activa el Botón de Pánico. Esta autoverificación no sustituye a Skill_QA ni te permite aprobar tu propio trabajo.

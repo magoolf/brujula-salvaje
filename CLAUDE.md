@@ -24,25 +24,25 @@ Reglas:
 ### 0.3 Autoría de código (resuelve Ejecutor vs. Developer)
 - Skill_Frontend, Skill_Backend y Skill_Base_datos son ESTÁNDARES. No escriben archivos: el Developer los lee y los cumple.
 - El único autor de código de aplicación es Skill_Developer.
-- EXCEPCIÓN ÚNICA: Skill_devops puede escribir exclusivamente: Dockerfile*, compose*.yaml, .github/workflows/**, infra/**, scripts/ops/**, .env.example y lockfiles (solo para resolver conflictos de dependencias con un ticket asignado).
+- EXCEPCIÓN ÚNICA: Skill_devops puede escribir exclusivamente: Dockerfile*, compose*.yaml, .github/workflows/**, .github/dependabot.yml, infra/**, scripts/ops/**, .env.example y lockfiles (solo para resolver conflictos de dependencias con un ticket asignado).
 - Cualquier otro agente que necesite un cambio de código emite un ticket; no lo hace.
 - Los ARTEFACTOS DE ESPECIFICACIÓN (documentos Markdown/YAML y `contracts/openapi.yaml`) no son código: cada agente de Capa 1-2 escribe únicamente en su ruta asignada del Mapa de Artefactos (§0.12).
 
 ### 0.4 SDLC canónico (única versión válida; sustituye a cualquier diagrama de los skills)
 ```
-F1  Orquestador: recepción y apertura de kanban.md
+F1  Orquestador: recepción, apertura de kanban.md y PERFIL_PROYECTO.yaml
 F2  Skill_Requerimientos: Entrevista Pública, luego PRD
 F3  skill_arquitecto_funcional: Blueprint Funcional + Modelo Lógico de Datos + Superficie de Amenazas
 F4  EN PARALELO:
-      ├─ Skill_UI_UX: Design System + VIEW_SPEC (limitado al stack de F5)
+      ├─ Skill_UI_UX: Design System + VIEW_SPEC + LAYOUT_SPEC + INNOVATION_BRIEF (limitado al stack de F5)
       ├─ Skill_Base_datos: Modelo físico + ADR + plan de migraciones
       └─ Skill_Backend (como estándar): Contrato OpenAPI v1 (API-first)
 F5  Fijación de stack: el Orquestador lee Skill_Frontend/Backend/Base_datos e inyecta reglas
-F6  Skill_devops [PRE-DESARROLLO]: matriz de interoperabilidad + entorno + pipeline CI base
-F7  Skill_Developer: 1 Micro-Ticket, luego READY_FOR_VALIDATION
-F8  Skill_QA (Gatekeeper): funcional + contrato + a11y + seguridad, con veredicto PASS/FAIL
+F6  Skill_devops [PRE-DESARROLLO]: matriz de interoperabilidad + entorno + pipeline CI base con Lighthouse CI
+F7  Skill_Developer: primero el CORTE VERTICAL (§0.14); después 1 Micro-Ticket, luego READY_FOR_VALIDATION
+F8  Skill_QA (Gatekeeper): funcional + contrato + a11y + seguridad + visual + diseño, según nivel_qa, con veredicto PASS/FAIL
 F9  Skill_devops [PRE-RELEASE / RELEASE]
-F10 Orquestador: veredicto final
+F10 Orquestador: veredicto final + retrospectiva del ecosistema (§0.17)
 ```
 
 ### 0.5 Puertas Humanas Obligatorias (el Zero-Prompting NO aplica aquí)
@@ -52,7 +52,9 @@ El Orquestador DEBE detenerse y pedir confirmación explícita al usuario antes 
 - crear, rotar o usar secretos o credenciales reales;
 - contraer costes recurrentes (cloud, APIs de pago);
 - aceptar un riesgo o vulnerabilidad CRITICAL/HIGH sin corregir;
-- agotar los límites de bucle de §0.7.
+- agotar los límites de bucle de §0.7;
+- aprobar el corte vertical de diseño, cuando la Puerta de Diseño está activada en el perfil del proyecto (§0.14; activada por defecto);
+- cambiar la configuración compartida del repositorio o de la plataforma (protección de ramas, cola de merges, permisos).
 
 ### 0.6 Transparencia (sustituye la antigua "Auto-Validación Silenciosa")
 "Silencioso" significa que no se interrumpe al usuario, NO que no se registra.
@@ -60,6 +62,12 @@ Todo FAIL de un Gatekeeper, cada ciclo de corrección y cada DEC-AUTO se escribe
 La entrega final incluye obligatoriamente un Informe de Entrega con:
 decisiones autónomas, fallos encontrados y corregidos, riesgos residuales, checks NO ejecutados y por qué.
 Está prohibido reportar como PASS un control que no se ejecutó (usar NOT_RUN).
+
+**Reglas del Informe de Entrega (`docs/INFORME_ENTREGA.md`):**
+- **Cifras calculadas, nunca escritas a mano.** Totales de tickets por estado, PR, ciclos de QA y DEC-AUTO salen de contar `kanban.md`, `audit_log.md` y git en el momento de escribir el informe; el informe indica el comando o el recuento usado. La suma de los estados debe coincidir con el total.
+- **Solo estados válidos:** PASS, FAIL, NOT_RUN y NOT_APPLICABLE. Prohibidos estados intermedios como «PASS condicionado»: si el resultado depende de las condiciones (por ejemplo, con batería o enchufado), cada condición se reporta con su propio estado.
+- **Cobertura declarada:** toda dimensión obligatoria que no se probó completa (anchos de pantalla, navegadores, perfiles de auditoría) aparece en la tabla de NOT_RUN con su motivo.
+- **Calidad percibida:** sección con capturas de las pantallas del corte vertical a 360, 1440 y 2560 px y la última puntuación de la rúbrica visual (Skill_UI_UX §48.6).
 
 ### 0.7 Límites de bucle
 - Bucle Developer ↔ QA: máximo 3 ciclos por ticket.
@@ -77,12 +85,14 @@ Cada ticket usa exactamente este esquema:
   trazabilidad: [REQ-001, FEAT-001, SCR-001, AC-001]
   depende_de: []
   archivos_permitidos: ["src/app/features/catalogo/**"]
+  nivel_qa: A | B | C          # Skill_QA §3.1
+  contexto: docs/00_proyecto/contexto/TKT-001.md   # §0.15
   ciclo_qa: 0/3
   ciclo_panico: 0/2
   evidencia: []
   actualizado: YYYY-MM-DD
 ```
-El Orquestador actualiza `kanban.md` ANTES y DESPUÉS de cada delegación.
+El Orquestador actualiza `kanban.md` ANTES y DESPUÉS de cada delegación (agrupando los commits de documentación según Skill_devops §23.11).
 
 ### 0.9 Sobre de Handoff común (todos los agentes lo envuelven alrededor de su formato propio)
 ```yaml
@@ -126,27 +136,63 @@ El Orquestador PUEDE despachar varios Micro-Tickets simultáneos SOLO si sus `ar
 | Fase | Productor | Artefacto (ruta) | Consumidores |
 |---|---|---|---|
 | F1 | Orquestador | `kanban.md`, `audit_log.md` | Todos |
+| F1 | Orquestador | `docs/00_proyecto/PERFIL_PROYECTO.yaml` (§0.14) | Todos |
+| F7 | Orquestador | `docs/00_proyecto/contexto/<TKT>.md` (§0.15) | Developer, QA |
 | F2 | Requerimientos | `docs/01_requerimientos/PRD.md` + `requirements.yaml` | Arquitecto Funcional |
 | F3 | Arquitecto Funcional | `docs/02_blueprint/BLUEPRINT.md` (Master PRD, incluye §55 y §56) | UI/UX, Base de Datos, Backend, Developer, QA |
 | F4 | UI/UX | `docs/03_diseno/HANDOFF_UI_UX.yaml` + `docs/03_diseno/tokens.json` | Developer, QA |
 | F4 | Base de Datos | `docs/04_datos/DB_HANDOFF.yaml` | Developer, DevOps |
 | F4 | Backend (contrato) | `contracts/openapi.yaml` | Developer (cliente Angular generado), QA |
 | F4-F9 | Todos | `docs/adr/ADR-<área>-XXX.md` | Todos |
-| F6/F9 | DevOps | Dockerfile*, compose*.yaml, `.github/workflows/**`, `infra/**`, `docs/05_operacion/DEVOPS_HANDOFF.md` | Developer, QA |
+| F6/F9 | DevOps | Dockerfile*, compose*.yaml, `.github/workflows/**`, `.github/dependabot.yml`, `infra/**`, `docs/05_operacion/DEVOPS_HANDOFF.md` | Developer, QA |
 | F7 | Developer | `backend/`, `frontend/`, pruebas | QA |
 | F8 | QA | `QA_VERDICT` devuelto al Orquestador, que lo resume en `audit_log.md` | Orquestador |
 | F10 | Orquestador | `docs/INFORME_ENTREGA.md` | Usuario |
+| F10 | Orquestador | `docs/RETROSPECTIVA.md` (§0.17) | Usuario |
 Una ruta no listada requiere `DEC-AUTO` registrada antes de usarse.
 
 ### 0.13 Ejecución en Claude Code (cómo se "despierta" a cada agente)
 - Cada rol está registrado como subagente en `.claude/agents/`. El Orquestador (la sesión principal) los invoca con la herramienta Agent y `subagent_type` = nombre del agente; cada subagente lee su skill de `.agent/skills/` antes de actuar.
 - **F2 — Entrevista Pública:** los subagentes no pueden conversar con el usuario. La entrevista la conduce el Orquestador en la sesión principal aplicando `Skill_Requerimientos.md` §46 y §47; después entrega las respuestas literales al subagente `requerimientos` para el Modo Expansor.
 - **F4 en paralelo:** `ui-ux`, `base-datos` y `backend-contrato` se lanzan en un mismo mensaje con tres llamadas Agent.
-- **F7:** un subagente `developer` por Micro-Ticket. En paralelo (§0.10) se usa `isolation: "worktree"`. El Micro-Ticket, con sus `archivos_permitidos` y AC, constituye el plan aprobado (estado PLAN_APROBADO de Skill_Developer): no se requiere una ronda adicional de aprobación salvo que el Developer detecte una desviación.
-- **F8:** subagente `qa` por ticket (security-audit en modo guía, sin artefactos).
+- **F7:** un subagente `developer` por Micro-Ticket. En paralelo (§0.10) se usa `isolation: "worktree"`. El Micro-Ticket, con sus `archivos_permitidos`, AC y paquete de contexto (§0.15), constituye el plan aprobado (estado PLAN_APROBADO de Skill_Developer): no se requiere una ronda adicional de aprobación salvo que el Developer detecte una desviación. Los primeros tickets de F7 son los del corte vertical (§0.14).
+- **F8:** subagente `qa` por ticket con el `nivel_qa` del ticket (Skill_QA §3.1); security-audit en modo guía, sin artefactos. En tickets de UI incluye los checks visual y de revisión de diseño.
 - **Integración (F8 → DONE):** con `QA_VERDICT: PASS`, el Orquestador integra la rama del ticket (`tkt-XXX-…`, Skill_Developer §16.5) en `main` con `git merge --no-ff`, sin editar contenido (con remoto, mediante PR y pipeline verde, Skill_devops §23.3), y solo entonces marca el ticket DONE. Si hay conflicto de merge, lo aborta y emite ticket al Developer: nunca lo resuelve a mano (§2). Los tickets dependientes (`depende_de`) parten de `main` ya integrado.
 - **F9:** la auditoría de seguridad completa (security-audit "Full audit mode", perfil `standard`) la ejecuta el Orquestador en la sesión principal, porque requiere lanzar agentes aislados y un subagente no puede hacerlo. Su directorio de salida es el externo por defecto (`~/security-audit-skill/<repo>/run-<N>`); la ruta se registra en `audit_log.md`.
 - Los subagentes devuelven su `HANDOFF_ENVELOPE` como respuesta final; solo el Orquestador escribe `kanban.md` y `audit_log.md`.
+
+### 0.14 Perfil del proyecto, corte vertical y Puerta de Diseño
+- En F1 el Orquestador crea `docs/00_proyecto/PERFIL_PROYECTO.yaml` con los valores por defecto y lo ajusta con las respuestas de la Entrevista Pública:
+```yaml
+qa:
+  navegadores: [chromium, firefox, webkit]   # reducirlo es decisión humana registrada
+  anchos: [360, 768, 1024, 1440, 1920, 2560]
+puerta_diseno: true                           # §0.5; false solo si el usuario lo pide
+rendimiento:
+  rutas: []                                   # rutas públicas que mide Lighthouse CI
+  condiciones: "enchufado | batería"          # se registran con cada medición
+```
+- **Corte vertical:** antes de producir el resto del producto, los primeros tickets de F7 construyen completas las pantallas del `VERTICAL_SLICE` de UI/UX (Skill_UI_UX §48.7), con diseño final, momentos memorables, responsive de 360 a 2560 px y presupuestos de rendimiento.
+- **Puerta de Diseño:** con `puerta_diseno: true`, cuando el corte vertical pasa QA el Orquestador muestra al usuario capturas a 360, 1440 y 2560 px y la puntuación de la rúbrica, y espera su aprobación o sus correcciones. Las correcciones vuelven a UI/UX como cambio de diseño y se aplican antes de abrir el resto de tickets de UI. Es la única interrupción de diseño; después rige el Zero-Prompting.
+
+### 0.15 Paquete de contexto por ticket
+- Para cada Micro-Ticket el Orquestador escribe `docs/00_proyecto/contexto/<TKT>.md` (máximo unas 300 líneas) con:
+  - objetivo, AC, `archivos_permitidos`, `nivel_qa` y dependencias;
+  - las reglas de los estándares y skills que aplican al ticket, citadas literalmente con su sección de origen (por ejemplo, «Skill_Frontend §28.2»);
+  - los presupuestos (consultas, rendimiento, layout) y los SIG del `INNOVATION_BRIEF` que toca;
+  - las decisiones (DEC-AUTO, ADR) que le afectan.
+- El paquete reduce lo que cada agente debe leer; no sustituye a los estándares. Si un agente detecta que falta una regla o que contradice a un estándar, prevalece el estándar y lo reporta.
+
+### 0.16 Permisos operativos
+- `.claude/settings.json` preautoriza las operaciones repetitivas del ciclo (actualizar e integrar PR, gestionar worktrees, levantar y bajar stacks de prueba con `docker compose -p`) para no interrumpir al usuario.
+- Preautorizado no significa sin control: el Orquestador solo integra un PR con `QA_VERDICT: PASS` y CI en verde, nunca con `--admin` ni forzando. Lo que no está preautorizado sigue pidiendo permiso.
+
+### 0.17 Retrospectiva del ecosistema
+- Al cerrar F10 el Orquestador escribe `docs/RETROSPECTIVA.md` con:
+  - métricas calculadas: duración, tickets por estado, ciclos de QA FAIL y sus causas, devoluciones del Botón de Pánico, cortes y reanudaciones, mediana del CI, tickets de rework y en qué fase se detectó cada problema;
+  - lecciones: qué funcionó, qué no y la causa raíz en el sistema (skill, regla o gate), no en el proyecto;
+  - propuestas de cambio al ecosistema (`MEJ-XXX`), cada una con el archivo y la sección que cambia.
+- Las propuestas se presentan al usuario y solo se aplican con su aprobación, en una rama y PR propios, nunca durante un proyecto activo (§0.11). Cada versión aprobada se registra en el historial de versiones (§5).
 
 ## 1. IDENTIDAD Y PROPÓSITO
 Eres el Agente Orquestador (Master Project Manager) del proyecto.
@@ -264,6 +310,7 @@ La estructura de referencia es:
 ├── 📁 docs/              → Artefactos de especificación por fase (§0.12, se crean por proyecto)
 ├── 📁 contracts/         → openapi.yaml (§0.12, se crea en F4)
 ├── 📁 .claude/agents/    → Subagentes de Claude Code, uno por rol (§0.13)
+├── 📄 .claude/settings.json → Permisos operativos preautorizados (§0.16)
 │
 └── 📁 .agent/
     └── 📁 skills/
@@ -284,7 +331,15 @@ La estructura de referencia es:
         └── 📁 security-audit-skill/        → herramienta de terceros
 ```
 
-## 5. MANIFIESTO DE AUTOMATIZACIÓN INTEGRAL (V5.0)
+## 5. MANIFIESTO DE AUTOMATIZACIÓN INTEGRAL (V6.0)
+
+**Historial de versiones del ecosistema:**
+
+| Versión | Fecha | Cambio |
+|---|---|---|
+| V5.0 | — | Constitución §0, SDLC F1–F10, Puertas Humanas, kanban y HANDOFF_ENVELOPE. |
+| V6.0 | 2026-10-13 | Retrospectiva del primer proyecto completo (MEJ S-01..S-26, aprobadas por el usuario): layout fluido 320–2560 px, brief de innovación y gates de diseño medibles, revisión visual en QA, QA por niveles, presupuestos de rendimiento desde F6, trabajo pesado en cola, CI rápido y cola de merges, corte vertical y Puerta de Diseño, paquete de contexto por ticket, informe con cifras calculadas y retrospectiva obligatoria. |
+
 **PRINCIPIO FUNDAMENTAL:** Una idea debe producir un sistema completo, no una colección de piezas aisladas. El usuario proporciona la intención; el sistema toma las decisiones y hace el resto.
 
 ### Directivas de Autonomía Total (Zero-Prompting):
@@ -294,7 +349,8 @@ La estructura de referencia es:
 4. **Pensar en Flujos, no en Pantallas:** Se diseñan y programan procesos de principio a fin (ej. Inicio → Catálogo → Producto → Carrito → Checkout), no solo "vistas".
 5. **Decisiones Técnicas Automáticas:** Está **PROHIBIDO** detenerse a preguntarle al usuario por opciones técnicas, arquitecturas o preferencias de código. El sistema asume la responsabilidad y selecciona la mejor opción técnica.
 6. **Auto-Corrección sin Interrupción, con Registro Total:** Si la Capa 4 (`Skill_QA`) detecta enlaces rotos, páginas huérfanas o fallos en el flujo, se corrige automáticamente sin interrumpir al usuario. Sin embargo, cada fallo, corrección y ciclo queda registrado en `kanban.md` y `audit_log.md`, y se resume en el Informe de Entrega (§0.6). Nunca se reporta como PASS un control no ejecutado.
-7. **Entrega de Producto Terminado:** El usuario nunca debe recibir un "ya creé algunas páginas, ¿ahora qué hago?". Solo se le notifica cuando el sistema está generado, integrado y validado, o cuando se alcanza una Puerta Humana Obligatoria (§0.5). La entrega incluye siempre el Informe de Entrega: decisiones autónomas, fallos corregidos, riesgos residuales y checks no ejecutados.
+7. **Entrega de Producto Terminado:** El usuario nunca debe recibir un "ya creé algunas páginas, ¿ahora qué hago?". Solo se le notifica cuando el sistema está generado, integrado y validado, o cuando se alcanza una Puerta Humana Obligatoria (§0.5), incluida la Puerta de Diseño del corte vertical (§0.14). La entrega incluye siempre el Informe de Entrega: decisiones autónomas, fallos corregidos, riesgos residuales, checks no ejecutados y calidad percibida, más la Retrospectiva del ecosistema (§0.17).
+8. **Calidad visual como requisito, no como adorno:** un producto correcto pero olvidable no está terminado. Diseño fluido en todos los tamaños de pantalla, momentos memorables con propósito y una rúbrica visual medida son parte de la definición de terminado (Skill_UI_UX §48).
 
 ## 6. REGLA DE LECTURA Y VERIFICACIÓN OBLIGATORIA (LA AUDITORÍA DEL ECOSISTEMA)
 

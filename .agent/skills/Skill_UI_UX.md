@@ -284,9 +284,9 @@ No presentes una inferencia como requisito oficial.
 
 ## 3.3 Innovación con propósito
 
-Tu objetivo es elevar el estándar visual, pero **no añadir efectos arbitrariamente**.
+Tu objetivo es elevar el estándar visual: un producto correcto pero olvidable **no cumple** este skill. Cada producto DEBE tener entre 3 y 5 momentos memorables (`SIG-XXX`) definidos en el `INNOVATION_BRIEF` (§48.3), y ninguno se añade de forma arbitraria.
 
-Cada propuesta visual avanzada debe justificar al menos una función:
+Cada momento memorable y cada propuesta visual avanzada debe justificar al menos una función:
 
 - mejorar jerarquía;
 - reducir fricción;
@@ -299,7 +299,7 @@ Cada propuesta visual avanzada debe justificar al menos una función:
 - aportar comprensión emocional;
 - diferenciar un momento importante del journey.
 
-No añadas glassmorphism, gradients, 3D, parallax, glow, blur, partículas o animaciones simplemente porque son visualmente llamativos.
+Glassmorphism, gradients, 3D, parallax, glow, blur, partículas o animaciones están permitidos cuando cumplen una de esas funciones, respetan `prefers-reduced-motion` y caben en su presupuesto de rendimiento (§48.3); están prohibidos cuando solo son llamativos. La ausencia total de momentos memorables es un fallo del Gate B (§48.5), igual que el exceso decorativo.
 
 ## 3.4 Un solo lenguaje visual
 
@@ -2162,4 +2162,78 @@ Este documento es el **SKILL MAESTRO de UX/UI Design Intelligence Agent** y cons
 - Estos valores son criterios de aceptación que Skill_QA verifica; no son opcionales.
 
 ## 47.3 Formato de salida
-HANDOFF_UI_UX se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9.
+HANDOFF_UI_UX se envuelve en el `HANDOFF_ENVELOPE` de CLAUDE.md §0.9. Desde la versión 6.0 del ecosistema incluye además las claves de §48.7.
+
+---
+
+# 48. LAYOUT FLUIDO, INNOVACIÓN Y GATES MEDIBLES (PRECEDENCIA SOBRE §3.3, §15, §34 Y §37)
+
+Esta sección nace de la retrospectiva del primer proyecto completo del ecosistema: el producto era técnicamente sólido, pero en pantallas grandes el contenido quedaba encajonado en un contenedor estrecho con márgenes vacíos, el diseño no tenía momentos memorables y ningún gate medía la calidad visual. Sus reglas son vinculantes.
+
+## 48.1 Layout fluido (`LAYOUT_SPEC`)
+- **Prohibido** fijar el área de contenido a un ancho máximo pequeño en pantallas grandes. En ≥ 1536 px el contenido no puede quedar centrado en un contenedor de ≤ 1280 px con márgenes vacíos.
+- El contenedor de página es fluido: `width: min(100% - 2 × margen, container-max)`, con `container-max` ≥ 1760 px y márgenes por breakpoint definidos como tokens.
+- **Uso de ancho** (vistas que no son texto corrido: inicio, listados, fichas, mapas, paneles): el bloque de contenido ocupa ≥ 85 % del viewport a 1920 px y ≥ 80 % a 2560 px. A 2560 px se puede limitar a un `container-max` mayor solo si el espacio se aprovecha con más columnas, no con márgenes.
+- **Texto corrido**: cada línea mide entre 45 y 75 caracteres. La medida se respeta con composición, no con vacío: en ≥ 1280 px el texto va acompañado de columnas útiles (índice, datos clave, mapa, imágenes, navegación relacionada).
+- Rejillas: el `LAYOUT_SPEC` define columnas por breakpoint para cada plantilla (por ejemplo, tarjetas 1 → 2 → 3 → 4 → 5 → 6 de 320 a 2560 px) y qué paneles laterales aparecen en cada tramo.
+- Container queries en los componentes que cambian de forma según su espacio, no según el viewport.
+
+## 48.2 Breakpoints y escala fluida
+- Breakpoints obligatorios (mobile-first, `min-width`): `xs 320`, `sm 480`, `md 768`, `lg 1024`, `xl 1280`, `2xl 1536`, `3xl 1920`, `4xl 2560`.
+- Tipografía y espaciado fluidos con `clamp()` interpolados de 320 a 2560 px. El cuerpo de texto va de 16 a 20 px; los títulos escalan de forma proporcional; ningún texto de metadatos baja de 12 px.
+- Los tokens incluyen `container-max`, los márgenes y gutters de cada breakpoint y la escala fluida (`font.size.*` con su expresión `clamp()`).
+- Las imágenes a sangre y los `srcset` cubren hasta 2560 px de ancho.
+
+## 48.3 Brief de innovación (`INNOVATION_BRIEF`)
+Entregable obligatorio de F4. Entre 3 y 5 momentos memorables, cada uno con:
+
+```yaml
+- id: SIG-001
+  pantalla_o_flujo: SCR-XXX | FLOW-XXX
+  funcion: "una de las funciones de §3.3"
+  tecnica: ""
+  descripcion: ""
+  fallback: "comportamiento con prefers-reduced-motion, sin JS y en conexiones lentas"
+  presupuesto: {js_kb_gzip: 0, inp_ms_max: 200, cls: 0, lcp_no_empeora: true}
+  criterio_aceptacion: "verificable por Skill_QA"
+```
+
+Catálogo de técnicas compatibles con el stack (Angular, sin librerías React):
+- View Transitions API para transiciones entre páginas y entre lista y detalle;
+- animaciones CSS ligadas al scroll (`animation-timeline`) para narrativa y progreso;
+- Angular Animations y microinteracciones con estados visibles;
+- visualizaciones de datos en SVG o Canvas (perfiles, calendarios, comparadores);
+- mapas interactivos con capas y rutas;
+- modo oscuro completo desde tokens;
+- imágenes con placeholder de baja resolución o color dominante mientras cargan;
+- tipografía variable y composición editorial;
+- 3D, WebGL o vídeo de fondo solo con ADR, presupuesto propio y fallback estático.
+
+## 48.4 Referencias (`REFERENCES`)
+Tres referencias reales del sector (URL), con lo que se toma de cada una, lo que se evita y el diferenciador propio del producto. Nunca se copian marcas, textos ni recursos de terceros.
+
+## 48.5 Gates medibles (sustituyen las definiciones cualitativas de §37)
+| Gate | Criterio PASS | Lo verifica |
+|---|---|---|
+| A — UX | Todos los FLOW críticos se completan en E2E sin callejones sin salida | Skill_QA: E2E |
+| B — UI | Rúbrica visual (§48.6) con media ≥ 8/10 y ningún criterio < 6; todos los SIG del brief presentes | Skill_QA: revisión de diseño |
+| C — States | Cada SCR tiene loading, empty, error y success especificados e implementados | Skill_QA: E2E |
+| D — Responsive | 0 scroll horizontal de 320 a 2560 px; uso de ancho de §48.1; medida de texto 45–75 caracteres; ningún texto por debajo de los mínimos de §48.2 | Skill_QA: check visual/responsive |
+| E — Accessibility | §47.2 | Skill_QA: axe |
+| F — Motion | Todo SIG con movimiento respeta `prefers-reduced-motion` y su fallback funciona | Skill_QA: E2E con reduced motion |
+| G — System | 0 colores, tamaños o espaciados fuera de tokens en el código nuevo | Skill_QA: lint de estilos |
+| H — QA | 0 regresiones visuales no aprobadas | Skill_QA: capturas |
+| I — Performance | §47.2 en cada ruta pública | Skill_QA: Lighthouse CI |
+
+## 48.6 Rúbrica visual (`VISUAL_RUBRIC`)
+Cinco criterios de 0 a 10, evaluados sobre capturas de 360, 768, 1024, 1440, 1920 y 2560 px:
+1. **Jerarquía:** se entiende en 3 segundos qué es la página y cuál es la acción principal.
+2. **Uso del espacio:** sin zonas muertas ni texto arrinconado; densidad adecuada a cada ancho.
+3. **Ritmo y espaciado:** escala vertical coherente; alineaciones limpias.
+4. **Consistencia:** tokens, componentes y lenguaje visual únicos en todo el producto.
+5. **Carácter:** el producto es reconocible y memorable; los SIG aportan su función.
+Cada puntuación < 8 lleva un motivo concreto y una corrección propuesta.
+
+## 48.7 Corte vertical y claves nuevas del handoff
+- `VERTICAL_SLICE`: las 1–2 pantallas que mejor representan el producto (normalmente la entrada principal y la ficha o vista de detalle). Se construyen primero, con diseño final (CLAUDE.md §0.14).
+- HANDOFF_UI_UX añade: `LAYOUT_SPEC`, `INNOVATION_BRIEF`, `REFERENCES`, `VISUAL_RUBRIC` (criterios y umbrales) y `VERTICAL_SLICE`.

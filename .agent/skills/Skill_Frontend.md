@@ -790,3 +790,36 @@ Si no existe Nexus, `npm ci` usa el registro público con lockfile obligatorio; 
 
 ### 27.7 Formato de salida en el ecosistema
 El YAML de §25 (o el HANDOFF de §22) va como `payload` del `HANDOFF_ENVELOPE` de CLAUDE.md §0.9, que también es YAML: la regla "solo YAML, sin texto" se mantiene.
+
+## 28. RESPONSIVE (OBLIGATORIO, ECOSISTEMA v6.0)
+
+### 28.1 Fuente de verdad
+El comportamiento por ancho lo define el `LAYOUT_SPEC` de Skill_UI_UX §48. Este estándar fija cómo se implementa; no lo rediseña.
+
+### 28.2 Reglas de implementación
+- Contenedor de página fluido con tokens: `width: min(100% - 2 * var(--margin), var(--container-max))`. Prohibido un `max-width` de layout que no salga de un token del `LAYOUT_SPEC`.
+- Media queries solo con los breakpoints de Skill_UI_UX §48.2 (`xs` a `4xl`, hasta 2560 px), expuestos como mixins o variables desde los tokens.
+- Componentes que cambian de forma según su espacio: container queries (`@container`), no media queries.
+- Tipografía y espaciado con las expresiones `clamp()` de los tokens; prohibidos los tamaños fijos en px para texto de contenido.
+- Rejillas con CSS Grid y las columnas por breakpoint del `LAYOUT_SPEC`; los paneles laterales aparecen en el tramo que el spec indique.
+- Imágenes con `NgOptimizedImage`, `srcset` hasta 2560 px y `sizes` coherente con la rejilla de cada breakpoint.
+- Texto corrido con medida 45–75 caracteres (`max-inline-size` en `ch`) y columnas complementarias en ≥ 1280 px según el spec.
+
+### 28.3 Prueba automática de layout
+- El proyecto tiene un helper E2E compartido (`e2e/support/layout-metrics.ts`) que, para una ruta y un ancho, devuelve: scroll horizontal, porcentaje de uso de ancho del contenido, medida máxima de las líneas de texto y tamaño mínimo de fuente.
+- Cada ruta pública tiene una prueba que recorre 360, 768, 1024, 1440, 1920 y 2560 px y aplica los umbrales de Skill_UI_UX §48.5 (Gate D).
+
+## 29. RENDIMIENTO (OBLIGATORIO DESDE EL PRIMER TICKET, ECOSISTEMA v6.0)
+
+### 29.1 Presupuestos
+- Los umbrales de Skill_UI_UX §47.2 son criterios de aceptación de cada ticket de UI, no de la release.
+- `angular.json` declara `budgets` de tipo `initial` y `anyComponentStyle` con error (no warning) al superar el presupuesto JS por ruta.
+- Lighthouse CI se ejecuta en cada PR (Skill_devops §23.9); un ticket que empeora una ruta por encima del umbral no está terminado.
+
+### 29.2 Técnicas obligatorias
+- Rutas cargadas de forma diferida y `@defer` para todo lo que está por debajo del primer pliegue.
+- La imagen candidata a LCP de cada plantilla se sirve desde el SSR con `priority` (`fetchpriority="high"`) y dimensiones explícitas; nunca depende de JS en el cliente.
+- Hidratación incremental o con *event replay* cuando el stack lo soporte; sin parpadeos ni sustitución del contenido SSR por esqueletos al hidratar (CLS = 0).
+- Páginas públicas de contenido editorial: prerender (SSG) con estrategia de revalidación registrada en ADR; SSR dinámico solo cuando el contenido dependa de la petición.
+- Fuentes: solo la crítica se precarga, con `font-display: swap` y subset.
+- Prohibido añadir scripts de terceros sin presupuesto y ADR.
